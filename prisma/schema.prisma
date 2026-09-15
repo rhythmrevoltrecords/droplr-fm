@@ -1,0 +1,196 @@
+// droplr.fm — Prisma schema
+// Runtime uses the pooled Netlify DB URL; migrations use the unpooled (direct) URL.
+
+generator client {
+  provider      = "prisma-client-js"
+  engineType    = "client"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("NETLIFY_DATABASE_URL")
+  directUrl = env("NETLIFY_DATABASE_URL_UNPOOLED")
+}
+
+model Organization {
+  id            String   @id @default(cuid())
+  name          String
+  slug          String   @unique
+  logoUrl       String?
+  customDomain  String?  @unique
+  metaPixelId   String?
+  tiktokPixelId String?
+  ga4Id         String?
+  plan          String   @default("free") // free | pro | label | enterprise
+
+  // BYO Spotify app (encrypted with ENCRYPTION_KEY)
+  spotifyClientIdEncrypted     String?
+  spotifyClientSecretEncrypted String?
+  spotifyAppStatus             String  @default("none") // none | pending | active
+
+  // Deezer (gated by DEEZER_ENABLED env + this flag)
+  deezerEnabled Boolean @default(false)
+
+  // Release-day email
+  emailFromName String?
+  emailReplyTo  String?
+
+  createdAt DateTime  @default(now())
+  users     User[]
+  releases  Release[]
+  invites   Invite[]
+}
+
+model User {
+  id             String       @id @default(cuid())
+  email          String       @unique
+  passwordHash   String
+  role           String       @default("artist") // owner | admin | artist
+  artistName     String?
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime     @default(now())
+  releases       Release[]    @relation("ArtistReleases")
+}
+
+model Invite {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  artistName     String?
+  role           String       @default("artist")
+  tokenHash      String       @unique
+  expiresAt      DateTime
+  acceptedAt     DateTime?
+  createdAt      DateTime     @default(now())
+}
+
+model Release {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  artistId       String?
+  artist         User?        @relation("ArtistReleases", fields: [artistId], references: [id], onDelete: SetNull)
+  slug           String       @unique
+  title          String
+  artistName     String
+  coverUrl       String
+  accentColor    String?
+  spotifyUrl     String?
+  spotifyAlbumId String?
+  spotifyTrackId String?
+  spotifyArtistId String?
+  releaseDate    DateTime
+  status         String       @default("upcoming") // upcoming | live
+  isPublic       Boolean      @default(true)
+  autoReResolve  Boolean      @default(true)
+  resolvedAt     DateTime?
+  emailsSentAt   DateTime?
+  createdAt      DateTime     @default(now())
+
+  platformLinks PlatformLink[]
+  linkVariants  LinkVariant[]
+  clickEvents   ClickEvent[]
+  pageViews     PageView[]
+  preSaves      PreSave[]
+
+  @@index([organizationId])
+  @@index([artistId])
+  @@index([releaseDate])
+}
+
+model PlatformLink {
+  id        String  @id @default(cuid())
+  releaseId String
+  release   Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  platform  String // spotify, appleMusic, itunes, youtubeMusic, youtube, amazonMusic, deezer, tidal, pandora, soundcloud, tiktokSound, beatport, traxsource, bandcamp, audius, juno, napster, custom
+  label     String? // display label for custom links
+  url       String
+  isCustom  Boolean @default(false)
+  isActive  Boolean @default(true)
+  order     Int     @default(0)
+
+  @@index([releaseId])
+}
+
+model LinkVariant {
+  id           String   @id @default(cuid())
+  releaseId    String
+  release      Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  slug         String
+  source       String
+  utm_campaign String?
+  isActive     Boolean  @default(true)
+  clicks       Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  @@unique([releaseId, slug])
+}
+
+model PageView {
+  id           String   @id @default(cuid())
+  releaseId    String
+  release      Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  variantId    String?
+  source       String?
+  utm_source   String?
+  utm_medium   String?
+  utm_campaign String?
+  referrer     String?
+  country      String?
+  deviceType   String?
+  anonId       String?
+  ipHash       String?
+  createdAt    DateTime @default(now())
+
+  @@index([releaseId, createdAt])
+}
+
+model ClickEvent {
+  id                 String   @id @default(cuid())
+  releaseId          String
+  release            Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  variantId          String?
+  platform           String
+  source             String?
+  utm_source         String?
+  utm_medium         String?
+  utm_campaign       String?
+  referrer           String?
+  country            String?
+  deviceType         String?
+  ipHash             String?
+  anonId             String?
+  convertedToPreSave Boolean  @default(false)
+  createdAt          DateTime @default(now())
+
+  @@index([releaseId, createdAt])
+}
+
+model PreSave {
+  id                    String    @id @default(cuid())
+  releaseId             String
+  release               Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  platform              String // email | spotify | deezer
+  email                 String?
+  emailConsent          Boolean   @default(false)
+  spotifyUserId         String?
+  deezerUserId          String?
+  refreshTokenEncrypted String?
+  // pending | emailed | emailed_and_clicked | completed | failed | unsubscribed
+  status                String    @default("pending")
+  sourceVariantId       String?
+  source                String?
+  anonId                String?
+  country               String?
+  attempts              Int       @default(0)
+  lastError             String?
+  emailSentAt           DateTime?
+  clickedAt             DateTime?
+  completedAt           DateTime?
+  createdAt             DateTime  @default(now())
+
+  @@index([releaseId, status])
+  @@index([email])
+}

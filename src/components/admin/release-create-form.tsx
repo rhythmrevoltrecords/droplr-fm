@@ -1,0 +1,186 @@
+"use client";
+import { Loader2, Upload, Wand2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input, Label, Select } from "@/components/ui/input";
+import { platformMeta } from "@/lib/platforms";
+import { slugify } from "@/lib/utils";
+import { PlatformIcon } from "@/components/public/platform-icon";
+
+type Resolved = {
+  found: boolean;
+  odesliStatus: number;
+  title: string;
+  artistName: string;
+  coverUrl: string;
+  accentColor: string | null;
+  spotifyUrl: string;
+  spotifyAlbumId: string | null;
+  spotifyTrackId: string | null;
+  spotifyArtistId: string | null;
+  suggestedSlug: string;
+  links: { platform: string; url: string }[];
+};
+
+export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: string; name: string }[]; defaultDate: string }) {
+  const router = useRouter();
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [r, setR] = useState<Resolved | null>(null);
+  const [form, setForm] = useState({ title: "", artistName: "", coverUrl: "", accentColor: "", slug: "", releaseDateLocal: defaultDate, artistId: "", spotifyAlbumId: "", spotifyTrackId: "", spotifyArtistId: "", autoReResolve: true });
+  const [links, setLinks] = useState<{ platform: string; url: string; isActive: boolean }[]>([]);
+  const [slugTouched, setSlugTouched] = useState(false);
+  const set = (k: keyof typeof form, v: string | boolean) =>
+    setForm((f) => {
+      const next = { ...f, [k]: v };
+      if (!slugTouched && (k === "title" || k === "artistName")) next.slug = slugify(`${next.artistName} ${next.title}`.trim());
+      return next;
+    });
+
+  async function resolve() {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+      const j = await res.json();
+      if (!res.ok) throw new Error(j.error);
+      setR(j);
+      setForm((f) => ({
+        ...f,
+        title: j.title, artistName: j.artistName, coverUrl: j.coverUrl, accentColor: j.accentColor ?? "", slug: j.suggestedSlug,
+        spotifyAlbumId: j.spotifyAlbumId ?? "", spotifyTrackId: j.spotifyTrackId ?? "", spotifyArtistId: j.spotifyArtistId ?? "",
+        autoReResolve: true,
+      }));
+      setLinks(j.links.map((l: { platform: string; url: string }) => ({ ...l, isActive: true })));
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function upload(file: File) {
+    setBusy(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/admin/upload-cover", { method: "POST", body: fd });
+    const j = await res.json();
+    setBusy(false);
+    if (!res.ok) return setError(j.error);
+    setForm((f) => ({ ...f, coverUrl: j.url, accentColor: j.accentColor ?? f.accentColor }));
+  }
+
+  async function create() {
+    setBusy(true);
+    setError(null);
+    const res = await fetch("/api/admin/releases", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, accentColor: form.accentColor || null, artistId: form.artistId || null, spotifyUrl: r?.spotifyUrl, links }),
+    });
+    const j = await res.json();
+    setBusy(false);
+    if (!res.ok) return setError(j.error);
+    router.push(`/admin/releases/${j.id}?tab=links&created=1`);
+  }
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+      <div className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>1. Paste Spotify link</CardTitle>
+            <CardDescription>Album or track URL, or a URI from Spotify for Artists → Music → Upcoming → Share → Copy URI.</CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-2 sm:flex-row">
+            <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://open.spotify.com/album/… or spotify:album:…" />
+            <Button onClick={resolve} disabled={busy || !url}>{busy ? <Loader2 className="animate-spin" /> : <Wand2 />} Resolve</Button>
+          </CardContent>
+        </Card>
+
+        {r && !r.found && (
+          <Card className="border-amber-500/40 bg-amber-500/10">
+            <CardContent className="p-4 text-sm text-amber-100">
+              <strong>Odesli couldn&apos;t find this yet</strong> (status {r.odesliStatus || "network"}). That&apos;s normal for unreleased music. Fill in the details below. Only the Spotify link is created now. With <em>Auto re-resolve on release day</em> on, the hourly job fetches every other platform once it&apos;s out.
+            </CardContent>
+          </Card>
+        )}
+
+        {r && (
+          <Card>
+            <CardHeader><CardTitle>2. Details</CardTitle></CardHeader>
+            <CardContent className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2"><Label>Title</Label><Input value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Artist name</Label><Input value={form.artistName} onChange={(e) => set("artistName", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} /></div>
+              <div className="space-y-2"><Label>Release date &amp; time (Brisbane)</Label><Input type="datetime-local" value={form.releaseDateLocal} onChange={(e) => set("releaseDateLocal", e.target.value)} /></div>
+              <div className="space-y-2">
+                <Label>Assign to artist login</Label>
+                <Select value={form.artistId} onChange={(e) => set("artistId", e.target.value)}>
+                  <option value="">— Label only —</option>
+                  {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </Select>
+              </div>
+              <div className="space-y-2"><Label>Accent colour</Label><Input value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#8B5CF6" /></div>
+              <div className="space-y-2 sm:col-span-2">
+                <Label>Cover image</Label>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Input value={form.coverUrl} onChange={(e) => set("coverUrl", e.target.value)} placeholder="https://…" />
+                  <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm hover:bg-accent">
+                    <Upload className="h-4 w-4" /> Upload
+                    <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
+                  </label>
+                </div>
+              </div>
+              <div className="space-y-2"><Label>Spotify album ID</Label><Input value={form.spotifyAlbumId} onChange={(e) => set("spotifyAlbumId", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Spotify artist ID (for follow)</Label><Input value={form.spotifyArtistId} onChange={(e) => set("spotifyArtistId", e.target.value)} placeholder="optional" /></div>
+              <label className="flex items-center gap-2 text-sm sm:col-span-2">
+                <input type="checkbox" checked={form.autoReResolve} onChange={(e) => set("autoReResolve", e.target.checked)} className="h-4 w-4" />
+                Auto re-resolve links on release day
+              </label>
+            </CardContent>
+          </Card>
+        )}
+
+        {r && (
+          <Card>
+            <CardHeader><CardTitle>3. Platforms found</CardTitle><CardDescription>Add Beatport, Traxsource, Bandcamp, Juno and custom links on the next screen, and drag to reorder.</CardDescription></CardHeader>
+            <CardContent className="space-y-2">
+              {links.map((l, i) => (
+                <label key={l.platform + i} className="flex items-center gap-3 rounded-lg border p-2">
+                  <input type="checkbox" checked={l.isActive} onChange={(e) => setLinks((ls) => ls.map((x, j) => (j === i ? { ...x, isActive: e.target.checked } : x)))} className="h-4 w-4" />
+                  <PlatformIcon platform={l.platform} />
+                  <span className="w-32 text-sm font-medium">{platformMeta(l.platform).name}</span>
+                  <span className="truncate text-xs text-muted-foreground">{l.url}</span>
+                </label>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
+        {error && <p className="text-sm text-red-400">{error}</p>}
+        {r && <Button size="lg" onClick={create} disabled={busy || !form.title || !form.coverUrl || !form.slug}>{busy && <Loader2 className="animate-spin" />} Create release</Button>}
+      </div>
+
+      {r && (
+        <div className="lg:sticky lg:top-20 lg:self-start">
+          <div className="overflow-hidden rounded-2xl border bg-black p-5" style={{ background: `radial-gradient(100% 60% at 50% 0%, ${form.accentColor || "#8B5CF6"}55, #000 70%)` }}>
+            {form.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.coverUrl} alt="" className="aspect-square w-full rounded-xl object-cover" />
+            ) : (
+              <div className="grid aspect-square w-full place-items-center rounded-xl border border-dashed text-sm text-muted-foreground">No cover yet</div>
+            )}
+            <div className="mt-4 text-center">
+              <div className="font-semibold">{form.title || "Title"}</div>
+              <div className="text-sm text-white/70">{form.artistName || "Artist"}</div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}

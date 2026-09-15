@@ -1,0 +1,75 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { z } from "zod";
+import { apiUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { isPlatformKey, PLATFORMS } from "@/lib/platforms";
+import { planOf } from "@/lib/plans";
+import { brisbaneLocalToDate, isReleased } from "@/lib/time";
+import { RESERVED_SLUGS, slugify } from "@/lib/utils";
+
+const schema = z.object({
+  title: z.string().min(1).max(200),
+  artistName: z.string().min(1).max(200),
+  coverUrl: z.string().url(),
+  accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
+  slug: z.string().min(1).max(60),
+  releaseDateLocal: z.string().min(10), // Brisbane wall-clock
+  artistId: z.string().nullable().optional(),
+  spotifyUrl: z.string().nullable().optional(),
+  spotifyAlbumId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
+  spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
+  spotifyArtistId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
+  autoReResolve: z.boolean().default(true),
+  links: z.array(z.object({ platform: z.string(), url: z.string().url(), label: z.string().nullable().optional(), isActive: z.boolean().default(true) })).default([]),
+});
+
+export async function POST(req: NextRequest) {
+  const user = await apiUser("label");
+  if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const parsed = schema.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
+  const d = parsed.data;
+
+  const plan = planOf(user.organization.plan);
+  const count = await prisma.release.count({ where: { organizationId: user.organizationId } });
+  if (count >= plan.releases) return NextResponse.json({ error: `${plan.name} plan allows ${plan.releases} releases. Upgrade to add more.` }, { status: 402 });
+
+  const slug = slugify(d.slug);
+  if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "That slug is reserved" }, { status: 400 });
+  if (await prisma.release.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug already taken — try adding the artist name" }, { status: 409 });
+  if (await prisma.organization.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug clashes with a label name" }, { status: 409 });
+
+  if (d.artistId) {
+    const a = await prisma.user.findFirst({ where: { id: d.artistId, organizationId: user.organizationId } });
+    if (!a) return NextResponse.json({ error: "Artist not in your roster" }, { status: 400 });
+  }
+  const releaseDate = brisbaneLocalToDate(d.releaseDateLocal);
+
+  const release = await prisma.release.create({
+    data: {
+      organizationId: user.organizationId,
+      artistId: d.artistId || null,
+      slug,
+      title: d.title,
+      artistName: d.artistName,
+      coverUrl: d.coverUrl,
+      accentColor: d.accentColor ?? null,
+      spotifyUrl: d.spotifyUrl || null,
+      spotifyAlbumId: d.spotifyAlbumId || null,
+      spotifyTrackId: d.spotifyTrackId || null,
+      spotifyArtistId: d.spotifyArtistId || null,
+      releaseDate,
+      status: isReleased(releaseDate) ? "live" : "upcoming",
+      autoReResolve: d.autoReResolve,
+      resolvedAt: d.links.length > 1 ? new Date() : null,
+      platformLinks: {
+        create: d.links
+          .filter((l) => isPlatformKey(l.platform))
+          .sort((a, b) => PLATFORMS[a.platform as keyof typeof PLATFORMS].weight - PLATFORMS[b.platform as keyof typeof PLATFORMS].weight)
+          .map((l, i) => ({ platform: l.platform, url: l.url, label: l.label ?? null, isActive: l.isActive, isCustom: l.platform === "custom", order: i })),
+      },
+      linkVariants: { create: [{ slug: "ig", source: "instagram" }, { slug: "tiktok", source: "tiktok" }, { slug: "bio", source: "bio" }] },
+    },
+  });
+  return NextResponse.json({ id: release.id });
+}

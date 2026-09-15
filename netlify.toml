@@ -1,0 +1,21 @@
+[build]
+  command = "npx prisma migrate deploy && npm run build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"
+
+[dev]
+  command = "npm run dev"
+  targetPort = 3000
+  port = 8888
+  framework = "#custom"
+
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["@prisma/client", ".prisma/client"]
+  included_files = ["node_modules/.prisma/client/**", "node_modules/@prisma/client/**"]
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"

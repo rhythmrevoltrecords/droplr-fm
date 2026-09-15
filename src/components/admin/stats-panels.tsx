@@ -1,0 +1,101 @@
+import Link from "next/link";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
+import type { Stats } from "@/lib/analytics";
+import { fmtNum, pct } from "@/lib/utils";
+import { DailyChart, PlatformBars } from "./charts";
+
+export function StatCards({ stats }: { stats: Stats }) {
+  const items = [
+    { label: "Views", value: fmtNum(stats.views) },
+    { label: "Clicks", value: fmtNum(stats.clicks) },
+    { label: "CTR", value: pct(stats.clicks, stats.views) },
+    { label: "Pre-saves", value: fmtNum(stats.presaves) },
+    { label: "Conv. rate", value: pct(stats.presaves, stats.views) },
+  ];
+  return (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      {items.map((i) => (
+        <Card key={i.label} className="p-4">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">{i.label}</div>
+          <div className="mt-1 text-2xl font-semibold tabular-nums">{i.value}</div>
+        </Card>
+      ))}
+    </div>
+  );
+}
+
+export function RangeTabs({ base, days }: { base: string; days: number }) {
+  const sep = base.includes("?") ? "&" : "?";
+  return (
+    <div className="inline-flex rounded-lg border p-0.5 text-sm">
+      {[14, 30, 90].map((d) => (
+        <Link key={d} href={`${base}${sep}days=${d}`} className={`rounded-md px-3 py-1 ${d === days ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+          {d}d
+        </Link>
+      ))}
+    </div>
+  );
+}
+
+export function AnalyticsPanels({ stats, showArtists = false }: { stats: Stats; showArtists?: boolean }) {
+  return (
+    <div className="space-y-4">
+      <StatCards stats={stats} />
+      <Card>
+        <CardHeader><CardTitle>Traffic</CardTitle></CardHeader>
+        <CardContent><DailyChart data={stats.daily} /></CardContent>
+      </Card>
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader><CardTitle>Clicks by platform</CardTitle><CardDescription>Stores and streaming, side by side</CardDescription></CardHeader>
+          <CardContent><PlatformBars data={stats.byPlatform} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Performance by source</CardTitle></CardHeader>
+          <CardContent className="px-2">
+            <Table>
+              <THead><TR><TH>Source</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="text-right">CTR</TH><TH className="text-right">Pre-saves</TH></TR></THead>
+              <TBody>
+                {stats.bySource.map((s) => (
+                  <TR key={s.source}><TD className="font-medium">{s.source}</TD><TD className="text-right tabular-nums">{fmtNum(s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.clicks)}</TD><TD className="text-right tabular-nums">{pct(s.clicks, s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.presaves)}</TD></TR>
+                ))}
+                {!stats.bySource.length && <TR><TD colSpan={5} className="py-8 text-center text-muted-foreground">No traffic yet</TD></TR>}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Countries</CardTitle></CardHeader>
+          <CardContent className="px-2">
+            <Table>
+              <THead><TR><TH>Country</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH></TR></THead>
+              <TBody>
+                {stats.byCountry.map((c) => (
+                  <TR key={c.country}><TD>{c.country}</TD><TD className="text-right tabular-nums">{fmtNum(c.views)}</TD><TD className="text-right tabular-nums">{fmtNum(c.clicks)}</TD></TR>
+                ))}
+                {!stats.byCountry.length && <TR><TD colSpan={3} className="py-8 text-center text-muted-foreground">No data</TD></TR>}
+              </TBody>
+            </Table>
+          </CardContent>
+        </Card>
+        {showArtists && (
+          <Card>
+            <CardHeader><CardTitle>Clicks by artist</CardTitle><CardDescription>Which artist is driving the roster</CardDescription></CardHeader>
+            <CardContent className="px-2">
+              <Table>
+                <THead><TR><TH>Artist</TH><TH className="text-right">Clicks</TH><TH className="text-right">Share</TH></TR></THead>
+                <TBody>
+                  {stats.byArtist.map((a) => (
+                    <TR key={a.artist}><TD className="font-medium">{a.artist}</TD><TD className="text-right tabular-nums">{fmtNum(a.clicks)}</TD><TD className="text-right tabular-nums">{pct(a.clicks, stats.clicks)}</TD></TR>
+                  ))}
+                  {!stats.byArtist.length && <TR><TD colSpan={3} className="py-8 text-center text-muted-foreground">No clicks yet</TD></TR>}
+                </TBody>
+              </Table>
+            </CardContent>
+          </Card>
+        )}
+      </div>
+    </div>
+  );
+}
