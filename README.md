@@ -152,6 +152,20 @@ Middleware rewrites any non-platform host to `/host/{host}/…`, and the page re
 
 ---
 
+## Link types (Admin → Create link)
+
+| Type | Status | Route |
+|---|---|---|
+| Pre-Save Link | Live | `/{org}/{release}` (flips to smart link on release date) |
+| Music Smart Link | Live | same release page, created with a past release date |
+| Bio Link | Live | `/b/{slug}` (also `presave.label.com/b/{slug}`) |
+| Future Save, Short Link, Tour, Action Page, Contest, Podcast, Scheduled Release | Coming soon | "Notify Me" → `waitlist_features (email, feature_name)` |
+
+Every public page renders through `src/components/public/artwork-shell.tsx`:
+`ArtworkPageShell` (blurred artwork + dark gradient + accent glow), `ArtworkHero` and `GlassLink`.
+The accent colour is extracted from the uploaded image or cover with node-vibrant (`src/lib/color.ts`) and stored on the record.
+Bio links count views and clicks (`/api/b/{linkId}` counts, then redirects).
+
 ## How tracking works
 
 - `middleware.ts` gives every visitor a `dfm_anon` cookie (1 year) and forwards it as `x-anon-id`.

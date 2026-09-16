@@ -1,0 +1,140 @@
+import Image from "next/image";
+import { platformMeta } from "@/lib/platforms";
+import { cn } from "@/lib/utils";
+import { Pixels } from "./pixels";
+import { PlatformIcon } from "./platform-icon";
+
+/**
+ * The artwork-driven page system shared by every public droplr.fm page
+ * (pre-save, smart link, bio link, and the coming-soon previews).
+ *
+ * accentColor is extracted from the artwork with node-vibrant at upload/resolve time
+ * (src/lib/color.ts) and stored on the record — pages never render a flat colour.
+ */
+export const DEFAULT_ACCENT = "#8B5CF6";
+
+export type ShellPixels = { meta: string | null; tiktok: string | null; ga4: string | null; contentName: string };
+
+export function ArtworkPageShell({
+  imageUrl,
+  accentColor,
+  children,
+  footer,
+  pixels,
+  preview = false,
+}: {
+  imageUrl: string;
+  accentColor: string | null | undefined;
+  children: React.ReactNode;
+  footer?: React.ReactNode;
+  pixels?: ShellPixels | null;
+  /** Renders inside a fixed-size box (admin previews) instead of the full viewport. */
+  preview?: boolean;
+}) {
+  const accent = accentColor || DEFAULT_ACCENT;
+  return (
+    <main className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh")}>
+      {/* Artwork-driven background: blurred artwork + dark gradient + vibrant accent glow */}
+      <div aria-hidden className="absolute inset-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imageUrl} alt="" className="h-full w-full scale-125 object-cover opacity-50 blur-3xl saturate-150" />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` }} />
+      </div>
+      <div className="grain absolute inset-0" aria-hidden />
+
+      <div className={cn("relative mx-auto flex w-full max-w-md flex-col px-5 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))]", preview ? "h-full" : "min-h-dvh")}>
+        {children}
+        {footer !== undefined && <div className="mt-auto pt-10 text-center text-xs text-white/40">{footer}</div>}
+      </div>
+
+      {pixels && !preview && <Pixels meta={pixels.meta} tiktok={pixels.tiktok} ga4={pixels.ga4} contentName={pixels.contentName} />}
+    </main>
+  );
+}
+
+/** Artwork + title block. Square for releases, circle for bio/artist pages. */
+export function ArtworkHero({
+  imageUrl,
+  accentColor,
+  alt,
+  shape = "square",
+  compact = false,
+  eyebrow,
+  title,
+  subtitle,
+  children,
+}: {
+  imageUrl: string;
+  accentColor: string | null | undefined;
+  alt: string;
+  shape?: "square" | "circle";
+  /** Smaller artwork, used only by the admin mini-previews. */
+  compact?: boolean;
+  eyebrow?: React.ReactNode;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  children?: React.ReactNode;
+}) {
+  const accent = accentColor || DEFAULT_ACCENT;
+  return (
+    <>
+      <div className={cn("mx-auto w-full", shape === "circle" ? (compact ? "max-w-[128px]" : "max-w-[168px]") : compact ? "max-w-[210px]" : "max-w-[320px]")}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={imageUrl}
+          alt={alt}
+          className={cn("aspect-square w-full object-cover shadow-2xl ring-1 ring-white/10", shape === "circle" ? "rounded-full" : "rounded-2xl")}
+          style={{ boxShadow: `0 30px 80px -20px ${accent}99` }}
+        />
+      </div>
+      <div className="mt-6 text-center">
+        {eyebrow && <p className="text-[11px] font-medium uppercase tracking-[0.22em] text-white/60">{eyebrow}</p>}
+        <h1 className={cn("text-balance text-3xl font-bold tracking-tight", eyebrow && "mt-2")}>{title}</h1>
+        {subtitle && <p className="mt-1 text-lg text-white/75">{subtitle}</p>}
+        {children}
+      </div>
+    </>
+  );
+}
+
+/** Glassmorphism link card — the same button used on smart links and pre-save pages. */
+export function GlassLink({
+  href,
+  platform,
+  label,
+  action,
+  track = true,
+  kind,
+}: {
+  href: string;
+  platform: string;
+  label?: string | null;
+  action?: string;
+  track?: boolean;
+  kind?: "presave";
+}) {
+  const m = platformMeta(platform);
+  return (
+    <a
+      href={href}
+      data-track={track ? platform : undefined}
+      data-kind={kind}
+      className="glass group flex items-center gap-3 rounded-2xl p-2.5 pr-3 transition hover:bg-white/[0.12] active:scale-[0.99]"
+    >
+      <PlatformIcon platform={platform} />
+      <span className="flex-1 truncate font-medium">{label || m.name}</span>
+      <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black transition group-hover:bg-white/90">{action ?? m.action}</span>
+    </a>
+  );
+}
+
+export function ShellFooter({ showBranding, orgName }: { showBranding: boolean; orgName: string }) {
+  return showBranding ? (
+    <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/70">
+      <Image src="/logo/icon.png" alt="" width={16} height={16} className="h-4 w-4 opacity-60 brightness-0 invert" />
+      Powered by droplr.fm
+    </a>
+  ) : (
+    <span>{orgName}</span>
+  );
+}

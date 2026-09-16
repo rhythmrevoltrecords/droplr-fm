@@ -12,15 +12,15 @@ import { guessPlatformFromUrl, MANUAL_PLATFORMS, PLATFORM_KEYS, platformMeta } f
 
 type L = { key: string; platform: string; url: string; label: string | null; isActive: boolean };
 
-function Row({ link, onChange, onRemove }: { link: L; onChange: (l: L) => void; onRemove: () => void }) {
+function Row({ link, onChange, onRemove, labelsForAll }: { link: L; onChange: (l: L) => void; onRemove: () => void; labelsForAll: boolean }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.key });
   return (
     <div ref={setNodeRef} style={{ transform: CSS.Transform.toString(transform), transition }} className={`flex flex-wrap items-center gap-2 rounded-xl border bg-card p-2 sm:flex-nowrap ${isDragging ? "z-10 ring-2 ring-primary" : ""}`}>
       <button type="button" className="cursor-grab touch-none p-1 text-muted-foreground" aria-label="Drag to reorder" {...attributes} {...listeners}><GripVertical className="h-4 w-4" /></button>
       <PlatformIcon platform={link.platform} />
-      <div className="w-28 shrink-0 text-sm font-medium">
-        {link.platform === "custom" ? (
-          <Input value={link.label ?? ""} onChange={(e) => onChange({ ...link, label: e.target.value })} placeholder="Label" className="h-8" />
+      <div className={labelsForAll ? "w-full shrink-0 text-sm font-medium sm:w-56" : "w-28 shrink-0 text-sm font-medium"}>
+        {link.platform === "custom" || labelsForAll ? (
+          <Input value={link.label ?? ""} onChange={(e) => onChange({ ...link, label: e.target.value })} placeholder={link.platform === "custom" ? "Label" : platformMeta(link.platform).name} className="h-8" />
         ) : (
           platformMeta(link.platform).name
         )}
@@ -34,7 +34,7 @@ function Row({ link, onChange, onRemove }: { link: L; onChange: (l: L) => void; 
   );
 }
 
-export function LinkEditor({ releaseId, initial }: { releaseId: string; initial: Omit<L, "key">[] }) {
+export function LinkEditor({ saveUrl, reresolveUrl, initial, labelsForAll = false }: { saveUrl: string; reresolveUrl?: string; initial: Omit<L, "key">[]; labelsForAll?: boolean }) {
   const router = useRouter();
   const [links, setLinks] = useState<L[]>(initial.map((l, i) => ({ ...l, key: `${l.platform}-${i}-${Math.random()}` })));
   const [newPlatform, setNewPlatform] = useState("beatport");
@@ -51,7 +51,7 @@ export function LinkEditor({ releaseId, initial }: { releaseId: string; initial:
   async function save() {
     setBusy("save");
     setMsg(null);
-    const res = await fetch(`/api/admin/releases/${releaseId}/links`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ links: links.map(({ key: _k, ...l }) => l) }) });
+    const res = await fetch(saveUrl, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ links: links.map(({ key: _k, ...l }) => l) }) });
     const j = await res.json();
     setBusy(null);
     setMsg(res.ok ? "Saved" : j.error);
@@ -60,7 +60,7 @@ export function LinkEditor({ releaseId, initial }: { releaseId: string; initial:
 
   async function reresolve() {
     setBusy("resolve");
-    const res = await fetch(`/api/admin/releases/${releaseId}/reresolve`, { method: "POST" });
+    const res = await fetch(reresolveUrl!, { method: "POST" });
     const j = await res.json();
     setBusy(null);
     setMsg(res.ok ? (j.added ? `Added ${j.added} platform${j.added === 1 ? "" : "s"}` : j.note) : j.error);
@@ -80,7 +80,7 @@ export function LinkEditor({ releaseId, initial }: { releaseId: string; initial:
         <SortableContext items={links.map((l) => l.key)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {links.map((l, i) => (
-              <Row key={l.key} link={l} onChange={(n) => setLinks((ls) => ls.map((x, j) => (j === i ? n : x)))} onRemove={() => setLinks((ls) => ls.filter((_, j) => j !== i))} />
+              <Row key={l.key} link={l} labelsForAll={labelsForAll} onChange={(n) => setLinks((ls) => ls.map((x, j) => (j === i ? n : x)))} onRemove={() => setLinks((ls) => ls.filter((_, j) => j !== i))} />
             ))}
             {!links.length && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No links yet.</p>}
           </div>
@@ -103,7 +103,7 @@ export function LinkEditor({ releaseId, initial }: { releaseId: string; initial:
 
       <div className="flex flex-wrap items-center gap-2">
         <Button onClick={save} disabled={!!busy}>{busy === "save" && <Loader2 className="animate-spin" />} Save links</Button>
-        <Button variant="outline" onClick={reresolve} disabled={!!busy}>{busy === "resolve" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Re-resolve with Odesli</Button>
+        {reresolveUrl && <Button variant="outline" onClick={reresolve} disabled={!!busy}>{busy === "resolve" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Re-resolve with Odesli</Button>}
         {msg && <span className="text-sm text-muted-foreground">{msg}</span>}
       </div>
     </div>

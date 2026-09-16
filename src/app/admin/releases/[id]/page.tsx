@@ -81,7 +81,7 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
             <CardDescription>Drag to reorder. DJ stores sit alongside the streaming majors. {release.autoReResolve && !release.resolvedAt && "Missing platforms fill in automatically on release day."}</CardDescription>
           </CardHeader>
           <CardContent>
-            <LinkEditor releaseId={release.id} initial={release.platformLinks.map((l) => ({ platform: l.platform, url: l.url, label: l.label, isActive: l.isActive }))} />
+            <LinkEditor saveUrl={`/api/admin/releases/${release.id}/links`} reresolveUrl={`/api/admin/releases/${release.id}/reresolve`} initial={release.platformLinks.map((l) => ({ platform: l.platform, url: l.url, label: l.label, isActive: l.isActive }))} />
           </CardContent>
         </Card>
       )}

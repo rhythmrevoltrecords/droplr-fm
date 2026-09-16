@@ -39,6 +39,7 @@ model Organization {
   users     User[]
   releases  Release[]
   invites   Invite[]
+  bioPages  BioPage[]
 }
 
 model User {
@@ -193,4 +194,49 @@ model PreSave {
 
   @@index([releaseId, status])
   @@index([email])
+}
+
+// Bio link page (/b/{slug}). Uses the same artwork system as releases:
+// avatar/cover → node-vibrant accentColor → blurred background + glow.
+model BioPage {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  slug           String       @unique
+  title          String
+  bio            String?
+  imageUrl       String
+  accentColor    String?
+  isPublic       Boolean      @default(true)
+  views          Int          @default(0)
+  createdAt      DateTime     @default(now())
+  links          BioLink[]
+
+  @@index([organizationId])
+}
+
+model BioLink {
+  id        String  @id @default(cuid())
+  bioPageId String
+  bioPage   BioPage @relation(fields: [bioPageId], references: [id], onDelete: Cascade)
+  platform  String
+  label     String?
+  url       String
+  isActive  Boolean @default(true)
+  order     Int     @default(0)
+  clicks    Int     @default(0)
+
+  @@index([bioPageId])
+}
+
+// "Notify me" sign-ups for coming-soon link types
+model WaitlistFeature {
+  id             String   @id @default(cuid())
+  email          String
+  featureName    String   @map("feature_name")
+  organizationId String?  @map("organization_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  @@unique([email, featureName])
+  @@map("waitlist_features")
 }

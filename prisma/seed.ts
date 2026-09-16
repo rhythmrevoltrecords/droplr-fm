@@ -100,6 +100,29 @@ async function main() {
     include: { linkVariants: true },
   });
 
+  // Bio link page — same artwork system (image → vibrant accent → blurred glow)
+  await prisma.bioPage.upsert({
+    where: { slug: "ototo" },
+    update: {},
+    create: {
+      organizationId: rrr.id,
+      slug: "ototo",
+      title: "OTOTO",
+      bio: "UK garage, speed garage & stutter house from Brisbane.",
+      imageUrl: cover("OTOTO", "#F59E0B", "#DB2777"),
+      accentColor: "#F59E0B",
+      links: {
+        create: [
+          { platform: "spotify", label: "New single: Two Step Theory", url: "https://open.spotify.com/album/1111111111111111111111", order: 0 },
+          { platform: "custom", label: "Pre-save Night Bus Dubplate", url: `${SITE}/rhythm-revolt/demo-presave`, order: 1 },
+          { platform: "bandcamp", label: "Merch & vinyl", url: "https://rhythmrevoltrecords.bandcamp.com", order: 2 },
+          { platform: "soundcloud", label: "Mixes", url: "https://soundcloud.com/ototo", order: 3 },
+          { platform: "custom", label: "Rhythm Revolt Records", url: "https://rhythmrevoltrecords.com", order: 4 },
+        ],
+      },
+    },
+  });
+
   // Sample analytics for the live release (only when empty)
   if ((await prisma.pageView.count({ where: { releaseId: live.id } })) === 0) {
     const variants = await prisma.linkVariant.findMany({ where: { releaseId: live.id } });
@@ -141,6 +164,7 @@ async function main() {
   console.log(`  owner    ${owner.email} / admin123`);
   console.log(`  artist   ${artist.email} / demo123`);
   console.log(`  releases /rhythm-revolt/${upcoming.slug} (pre-save), /rhythm-revolt/${live.slug} (smart link)`);
+  console.log("  bio      /b/ototo");
   console.log("  ⚠ Change both passwords before this goes anywhere public.");
 }
 

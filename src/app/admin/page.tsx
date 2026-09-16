@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Plus } from "lucide-react";
+import { CreateLinkModal } from "@/components/admin/create-link-modal";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,11 +37,7 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
           <h1 className="text-2xl font-semibold">Releases</h1>
           <p className="text-sm text-muted-foreground">{user.organization.name} · {releases.length} release{releases.length === 1 ? "" : "s"}{Number.isFinite(plan.releases) ? ` of ${plan.releases}` : ""}</p>
         </div>
-        {atLimit ? (
-          <Button asChild variant="outline"><Link href="/pricing">Upgrade for more releases</Link></Button>
-        ) : (
-          <Button asChild><Link href="/admin/releases/new"><Plus /> New release</Link></Button>
-        )}
+        <CreateLinkModal releaseLimitReached={atLimit} />
       </div>
 
       <Card className="p-0">
