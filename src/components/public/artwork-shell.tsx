@@ -25,7 +25,6 @@ export function publicTheme(org: { themePublic?: boolean | null; themePreference
 export type ShellPixels = { meta: string | null; tiktok: string | null; ga4: string | null; contentName: string };
 
 export function ArtworkPageShell({
-  imageUrl,
   accentColor,
   children,
   footer,
@@ -33,7 +32,8 @@ export function ArtworkPageShell({
   preview = false,
   theme = "dark",
 }: {
-  imageUrl: string;
+  /** Kept for callers; the background is now painted from accentColor only (no blurred artwork copy). */
+  imageUrl?: string;
   accentColor: string | null | undefined;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -47,10 +47,9 @@ export function ArtworkPageShell({
   const themed = theme === "light" || theme === "system";
   return (
     <main className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`)}>
-      {/* Artwork-driven background: blurred artwork + dark gradient + vibrant accent glow */}
+      {/* Artwork-driven background: accent-colour wash (no blurred image, no filter: that full-screen blur was the main LCP cost) + dark gradient + accent glow */}
       <div aria-hidden className="absolute inset-0">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imageUrl} alt="" className="h-full w-full scale-125 object-cover opacity-50 blur-3xl saturate-150" />
+        <div className="absolute inset-0" style={{ background: `radial-gradient(140% 90% at 50% 0%, ${accent}59 0%, ${accent}24 45%, transparent 80%), radial-gradient(90% 55% at 100% 100%, ${accent}1a 0%, transparent 70%)` }} />
         <div className="absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` }} />
         {themed && (
           <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
@@ -75,6 +74,7 @@ export function ArtworkHero({
   alt,
   shape = "square",
   compact = false,
+  priority = !compact,
   eyebrow,
   title,
   subtitle,
@@ -86,6 +86,8 @@ export function ArtworkHero({
   shape?: "square" | "circle";
   /** Smaller artwork, used only by the admin mini-previews. */
   compact?: boolean;
+  /** The cover is the LCP element on public pages: fetch it first. Off for admin mini-previews. */
+  priority?: boolean;
   eyebrow?: React.ReactNode;
   title: React.ReactNode;
   subtitle?: React.ReactNode;
@@ -99,6 +101,9 @@ export function ArtworkHero({
         <img
           src={imageUrl}
           alt={alt}
+          fetchPriority={priority ? "high" : undefined}
+          loading={priority ? "eager" : "lazy"}
+          decoding="async"
           className={cn("aspect-square w-full object-cover shadow-2xl ring-1 ring-white/10", shape === "circle" ? "rounded-full" : "rounded-2xl")}
           style={{ boxShadow: `0 30px 80px -20px ${accent}99` }}
         />

@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
-import { unpackState, withParam } from "@/lib/oauth";
+import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
 import { exchangeCode, getMe, getSpotifyCreds, saveToLibrary } from "@/lib/spotify";
 import { isReleased } from "@/lib/time";
 import { requestMeta } from "@/lib/tracking";
@@ -12,6 +12,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const state = unpackState(sp.get("state"));
   if (!state) return NextResponse.json({ error: "Invalid or expired state. Go back and try again." }, { status: 400 });
+  // state.ret was built from the request's Host header at login time: only ever send fans back to our own hosts.
+  state.ret = await safeReturnUrl(state.ret);
   if (sp.get("error") || !sp.get("code")) return NextResponse.redirect(withParam(state.ret, "notice", "spotify-denied"));
 
   // Multi-tenant: state carries the org → decrypt THAT org's client secret.

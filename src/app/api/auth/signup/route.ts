@@ -3,6 +3,9 @@ import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, passwordProblem } from "@/lib/auth";
 import { canSignUp } from "@/lib/launch";
 import { LEGAL } from "@/lib/legal";
+import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
+import { allow, ipKey } from "@/lib/throttle";
+import { clientIp } from "@/lib/tracking";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 export async function POST(req: NextRequest) {
@@ -20,11 +23,17 @@ export async function POST(req: NextRequest) {
   const problem = passwordProblem(password, email);
   if (problem) return fail(problem);
   if (form.get("terms") !== "yes") return fail("Please agree to the Terms of Service and Privacy Policy");
+  // 5 attempts per IP per hour, counted after simple form mistakes but before the account lookup (enumeration).
+  if (!(await allow(ipKey("signup", clientIp(req.headers)), 5, 60 * 60 * 1000))) return fail("Too many sign-ups from this network. Try again in an hour.");
   if (await prisma.user.findUnique({ where: { email } })) return fail("That email already has an account");
+  // Platform admin addresses can never be registered fresh (email isn't verified at signup).
+  if (isPlatformAdminEmail(email)) return fail(RESERVED_EMAIL_ERROR);
 
   let slug = slugify(name) || "label";
   if (RESERVED_SLUGS.has(slug)) slug = `${slug}-label`;
-  for (let i = 2; await prisma.organization.findUnique({ where: { slug } }); i++) slug = `${slugify(name)}-${i}`;
+  // Also skip slugs another label used before a rename: those still redirect to that label.
+  const taken = async (s: string) => !!(await prisma.organization.findFirst({ where: { OR: [{ slug: s }, { previousSlugs: { has: s } }] }, select: { id: true } }));
+  for (let i = 2; await taken(slug); i++) slug = `${slugify(name) || "label"}-${i}`;
 
   const org = await prisma.organization.create({
     data: { name, slug, emailFromName: name, users: { create: { email, passwordHash: await hashPassword(password), role: "owner", termsAcceptedAt: new Date(), termsVersion: LEGAL.version } } },

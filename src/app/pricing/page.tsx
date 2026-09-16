@@ -2,54 +2,84 @@ import Link from "next/link";
 import { Check } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
-import { signupsOpen } from "@/lib/launch";
+import { ctaCopy } from "@/lib/launch";
+import { CONTACT } from "@/lib/legal";
+import { artistsLine, clicksLine, planPrice, releasesLine } from "@/lib/plan-copy";
+import { PLAN_LIMITS, type PlanKey } from "@/lib/plans";
 
 export const metadata = { title: "Pricing" };
 
-const TIERS = [
+// Limits (price, releases, clicks, artists) come from PLAN_LIMITS; the rest describes what each plan unlocks in the product.
+const TIERS: { key: PlanKey; highlight: boolean; features: string[] }[] = [
   {
-    name: "Free", price: 0, cta: "Start free", highlight: false,
-    features: ["3 releases", "1k clicks / month", "1 artist", "yourlabel.droplr.fm subdomain", "Basic analytics", "Email pre-save + release-day email"],
+    key: "free",
+    highlight: false,
+    features: [releasesLine("free"), clicksLine("free"), artistsLine("free"), "yourlabel.droplr.fm subdomain", "Basic analytics", "Email pre-save + release-day email"],
   },
   {
-    name: "Pro", price: 29, cta: "Start Pro", highlight: true,
-    features: ["Unlimited releases", "50k clicks / month", "5 artists", "Custom domain (presave.yourlabel.com)", "Custom pixels: Meta, TikTok, GA4", "BYO Spotify app for true auto-saves*", "Email capture + CSV export", "QR codes", "Remove droplr.fm branding"],
+    key: "pro",
+    highlight: true,
+    features: [
+      releasesLine("pro"),
+      clicksLine("pro"),
+      artistsLine("pro"),
+      "Custom domain (presave.yourlabel.com), connected for you",
+      "Custom pixels: Meta, TikTok, GA4",
+      "BYO Spotify app for true auto-saves*",
+      "Email capture + CSV export",
+      "QR codes",
+      "Remove droplr.fm branding",
+    ],
   },
   {
-    name: "Label", price: 79, cta: "Start Label", highlight: false,
-    features: ["Everything in Pro", "250k clicks / month", "Unlimited artists", "White-label", "Team roles (admins)", "BYO Spotify app*", "Label analytics across the roster", "API + webhooks (coming soon)"],
+    key: "label",
+    highlight: false,
+    // PLAN_LIMITS.whiteLabel only gates team roles (admin invites), so it's listed as that, not as a separate "White-label" feature.
+    features: ["Everything in Pro", clicksLine("label"), artistsLine("label"), "Team roles (admins)", "Label analytics across the roster", "API + webhooks (coming soon)"],
   },
   {
-    name: "Enterprise", price: 199, cta: "Contact us", highlight: false,
-    features: ["Everything in Label", "Uncapped clicks", "SLA", "SSO (coming soon)", "Priority onboarding"],
+    key: "enterprise",
+    highlight: false,
+    features: ["Everything in Label", clicksLine("enterprise"), "Priority support and onboarding", "SSO (coming soon)"],
   },
 ];
 
 export default function PricingPage() {
+  const cta = ctaCopy();
+  const tierCta = (k: PlanKey) =>
+    k === "enterprise" ? { label: "Contact us", href: `mailto:${CONTACT.hello}?subject=droplr.fm%20Enterprise` } : cta.plans[k];
   return (
     <MarketingShell>
       <section className="container py-16 md:py-24">
         <div className="mx-auto max-w-2xl text-center">
+          {cta.hint && (
+            <p className="mx-auto mb-5 w-fit max-w-full rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">
+              {cta.hint.text} <Link href={cta.hint.link.href} className="underline">{cta.hint.link.label}</Link>
+            </p>
+          )}
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">Priced for labels, not per release</h1>
-          {!signupsOpen() && <p className="mx-auto mb-4 w-fit rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">Invite-only while we onboard our first labels. <Link href="/signup" className="underline">Join the waitlist</Link></p>}
           <p className="mt-4 text-muted-foreground">Every plan includes email pre-saves with a release-day email. No per-release fees. Prices in Australian dollars (AUD), including any tax, billed monthly or yearly.</p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {TIERS.map((t) => (
-            <div key={t.name} className={`relative flex flex-col rounded-2xl border p-6 ${t.highlight ? "border-violet-500 bg-violet-500/[0.08] shadow-[0_0_80px_-20px_rgba(124,58,237,0.6)]" : "border-white/10 bg-white/[0.03]"}`}>
-              {t.highlight && <span className="absolute -top-3 left-6 rounded-full bg-violet-500 px-3 py-0.5 text-xs font-semibold text-white">Most Popular</span>}
-              <h2 className="text-lg font-semibold">{t.name}</h2>
-              <p className="mt-3"><span className="text-4xl font-bold">${t.price}</span><span className="text-muted-foreground">/mo</span></p>
-              <ul className="mt-6 flex-1 space-y-2.5 text-sm">
-                {t.features.map((f) => (
-                  <li key={f} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /><span>{f}</span></li>
-                ))}
-              </ul>
-              <Button asChild className="mt-8" variant={t.highlight ? "white" : "outline"}>
-                <Link href={t.name === "Enterprise" ? "mailto:hello@droplr.fm?subject=droplr.fm%20Enterprise" : t.price === 0 ? "/signup" : `/signup?plan=${t.name.toLowerCase()}`}>{t.cta}</Link>
-              </Button>
-            </div>
-          ))}
+          {TIERS.map((t) => {
+            const p = PLAN_LIMITS[t.key];
+            const action = tierCta(t.key);
+            return (
+              <div key={t.key} className={`relative flex flex-col rounded-2xl border p-6 ${t.highlight ? "border-violet-500 bg-violet-500/[0.08] shadow-[0_0_80px_-20px_rgba(124,58,237,0.6)]" : "border-white/10 bg-white/[0.03]"}`}>
+                {t.highlight && <span className="absolute -top-3 left-6 rounded-full bg-violet-500 px-3 py-0.5 text-xs font-semibold text-white">Most Popular</span>}
+                <h2 className="text-lg font-semibold">{p.name}</h2>
+                <p className="mt-3"><span className="text-4xl font-bold">{planPrice(t.key)}</span><span className="text-muted-foreground">/mo</span></p>
+                <ul className="mt-6 flex-1 space-y-2.5 text-sm">
+                  {t.features.map((f) => (
+                    <li key={f} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /><span>{f}</span></li>
+                  ))}
+                </ul>
+                <Button asChild className="mt-8" variant={t.highlight ? "white" : "outline"}>
+                  <Link href={action.href}>{action.label}</Link>
+                </Button>
+              </div>
+            );
+          })}
         </div>
         <div className="mx-auto mt-10 max-w-3xl space-y-2 text-center text-sm text-muted-foreground">
           <p>All plans include email pre-saves and a release-day email to every fan who opted in. No per-release fees.</p>

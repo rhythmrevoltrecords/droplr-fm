@@ -26,7 +26,7 @@ export const sessionCutoffNow = () => new Date(Math.floor(Date.now() / 1000) * 1
 export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, hash);
 
 export async function createSessionCookie(user: { id: string; organizationId: string; role: string }) {
-  const token = await signToken({ sub: user.id, org: user.organizationId, role: user.role }, "30d");
+  const token = await signToken({ sub: user.id, org: user.organizationId, role: user.role }, "30d", "session");
   cookies().set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -41,7 +41,7 @@ export function clearSession() {
 }
 
 export async function getSession() {
-  return verifyToken<SessionPayload>(cookies().get(SESSION_COOKIE)?.value);
+  return verifyToken<SessionPayload>(cookies().get(SESSION_COOKIE)?.value, "session");
 }
 
 /**

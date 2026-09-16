@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { prisma } from "./db";
 
 const include = {
@@ -40,7 +41,7 @@ const path = (...segs: (string | null | undefined)[]) => "/" + segs.filter(Boole
  * droplr.fm paths. Canonical form is /{orgSlug}/{releaseSlug}[/{variant}].
  * Legacy /{releaseSlug}[/{variant}] and old org slugs return a redirect to the canonical URL.
  */
-export async function resolvePlatformPath(parts: string[], variantQuery?: string | null): Promise<Resolution> {
+async function resolvePlatformPathUncached(parts: string[], variantQuery?: string | null): Promise<Resolution> {
   const [a, b, c] = parts.map((p) => decodeURIComponent(p).toLowerCase());
   if (parts.length === 1) {
     const found = await findOrgBySlug(a);
@@ -80,7 +81,7 @@ export async function resolvePlatformPath(parts: string[], variantQuery?: string
  * The domain already identifies the label, so the canonical form stays short.
  * /{orgSlug}/{slug}[/{variant}] on a custom domain redirects to /{slug}[/{variant}].
  */
-export async function resolveTenantPath(host: string, parts: string[], variantQuery?: string | null): Promise<Resolution> {
+async function resolveTenantPathUncached(host: string, parts: string[], variantQuery?: string | null): Promise<Resolution> {
   const h = host.toLowerCase().split(":")[0];
   const sub = h.match(/^([a-z0-9-]+)\.droplr\.fm$/)?.[1];
   const org = sub ? (await findOrgBySlug(sub))?.org ?? null : await prisma.organization.findUnique({ where: { customDomain: h } });
@@ -101,6 +102,19 @@ export async function resolveTenantPath(host: string, parts: string[], variantQu
   const v = pickVariant(r, segs[1]);
   if (segs[1] && !v) return null;
   return { kind: "release", release: r, variant: v };
+}
+
+// generateMetadata and the page both resolve the same path in one request. React cache() dedupes per request,
+// keyed by argument identity, so the path parts are joined into a string key (a fresh array would never hit).
+const cachedPlatformPath = cache((key: string, variantQuery: string | null) => resolvePlatformPathUncached(JSON.parse(key) as string[], variantQuery));
+const cachedTenantPath = cache((host: string, key: string, variantQuery: string | null) => resolveTenantPathUncached(host, JSON.parse(key) as string[], variantQuery));
+
+export function resolvePlatformPath(parts: string[], variantQuery?: string | null): Promise<Resolution> {
+  return cachedPlatformPath(JSON.stringify(parts), variantQuery ?? null);
+}
+
+export function resolveTenantPath(host: string, parts: string[], variantQuery?: string | null): Promise<Resolution> {
+  return cachedTenantPath(host, JSON.stringify(parts), variantQuery ?? null);
 }
 
 export function publicReleaseUrl(org: { slug: string; customDomain: string | null }, slug: string, siteUrl: string, variant?: string) {

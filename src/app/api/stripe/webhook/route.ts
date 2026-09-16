@@ -37,7 +37,13 @@ export async function POST(req: NextRequest) {
       case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
+        const eventSub = event.data.object as Stripe.Subscription;
+        // Stripe doesn't guarantee delivery order: apply the subscription as it is now, not as it was
+        // when this (possibly stale or retried) event was created. Deleted subs may be gone: use the event copy.
+        const sub = await getStripe().subscriptions.retrieve(eventSub.id).catch((err: { code?: string }) => {
+          if (err?.code === "resource_missing") return eventSub;
+          throw err;
+        });
         const orgId = await orgIdForSubscription(sub);
         if (orgId) await applySubscription(orgId, sub);
         break;

@@ -38,7 +38,8 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
 
   if (!meta.bot && h.get("purpose") !== "prefetch" && h.get("next-router-prefetch") !== "1" && query.preview !== "1") {
     const host = h.get("x-host") ?? "";
-    await prisma.pageView
+    // Not awaited: the view log shouldn't hold up the page. The write starts immediately; errors are logged, never thrown.
+    void prisma.pageView
       .create({
         data: {
           releaseId: release.id,
@@ -84,7 +85,11 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
 
 export async function releaseMetadata(resolution: Resolution) {
   if (!resolution || resolution.kind === "redirect") return {};
-  if (resolution.kind === "org") return { title: resolution.org.name };
+  if (resolution.kind === "org") {
+    // Set images explicitly so label pages (often on the label's own domain) don't inherit droplr.fm's homepage social card.
+    const images = resolution.org.logoUrl ? [resolution.org.logoUrl] : [];
+    return { title: resolution.org.name, openGraph: { title: resolution.org.name, images }, twitter: { card: "summary" as const, title: resolution.org.name, images } };
+  }
   const r = resolution.release;
   const live = isReleased(r.releaseDate);
   const title = `${r.title} — ${r.artistName}`;

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requestOrigin } from "@/lib/oauth";
+import { SITE_URL } from "@/lib/env";
+import { isAllowedReturnUrl, requestOrigin } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,9 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!release || !release.isPublic) return NextResponse.json({ error: "Not found" }, { status: 404 });
   // On a label's custom domain the short form is canonical: presave.label.com/{releaseSlug}
   const { origin, tenant } = requestOrigin(req);
-  const url = new URL(tenant ? `/${release.slug}` : `/${release.organization.slug}/${release.slug}`, origin);
+  // origin comes from the Host header and this 301 gets cached: never redirect to a host that isn't ours.
+  const ours = await isAllowedReturnUrl(origin);
+  const url = new URL(ours && tenant ? `/${release.slug}` : `/${release.organization.slug}/${release.slug}`, ours ? origin : SITE_URL);
   req.nextUrl.searchParams.forEach((v, k) => url.searchParams.set(k, v));
   return NextResponse.redirect(url, 301);
 }

@@ -3,17 +3,18 @@ import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { signupsOpen } from "@/lib/launch";
 
+const TITLE = "droplr.fm — Run your label's releases from one place";
+const DESCRIPTION = "Smart links, email pre-saves with a release-day email, and a label roster with artist logins. Built for independent labels.";
+
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8888"),
-  title: { default: "droplr.fm — Pre-saves & smart links for labels", template: "%s · droplr.fm" },
-  description: "Smart links, email pre-saves with release-day emails, and bring-your-own-app Spotify saves. Built for independent labels.",
+  title: { default: TITLE, template: "%s · droplr.fm" },
+  description: DESCRIPTION,
+  // Images come from app/opengraph-image.tsx and app/twitter-image.tsx; favicons from app/icon.png and app/apple-icon.png.
+  openGraph: { type: "website", siteName: "droplr.fm", title: TITLE, description: DESCRIPTION },
+  twitter: { card: "summary_large_image", title: TITLE, description: DESCRIPTION },
   // Pre-launch: keep search engines out until SIGNUPS_OPEN=true.
   ...(signupsOpen() ? {} : { robots: { index: false, follow: false } }),
-  icons: {
-    icon: [{ url: "/logo/icon.png", type: "image/png" }],
-    shortcut: "/logo/icon.png",
-    apple: [{ url: "/logo/icon.png", type: "image/png" }],
-  },
 };
 
 export const viewport: Viewport = { themeColor: "#09090b", width: "device-width", initialScale: 1, viewportFit: "cover" };

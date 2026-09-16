@@ -16,9 +16,10 @@ export async function POST() {
     const portal = await getStripe().billingPortal.sessions.create({ customer, return_url: `${SITE_URL}/admin/settings/billing` });
     return NextResponse.json({ url: portal.url });
   } catch (err) {
-    console.error("[stripe portal]", err);
     const msg = err instanceof Error ? err.message : "Stripe error";
     const hint = /configuration/i.test(msg) ? " Turn on the customer portal in Stripe → Settings → Billing → Customer portal." : "";
-    return NextResponse.json({ error: msg + hint }, { status: 502 });
+    // The real reason (and the setup hint) is for us, not for the label.
+    console.error("[stripe portal]", err, hint);
+    return NextResponse.json({ error: "Billing is temporarily unavailable. Try again, or email billing@droplr.fm." }, { status: 502 });
   }
 }

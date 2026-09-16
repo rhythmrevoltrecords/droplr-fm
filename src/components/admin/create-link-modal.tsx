@@ -13,7 +13,7 @@ const PREVIEW_H = 560;
 const SCALE = 0.52;
 
 /**
- * Mini preview: the card backdrop is the real artwork shell (blurred art + accent glow),
+ * Mini preview: the card backdrop is the real artwork shell (accent-colour glow),
  * with the actual page rendered at phone width inside a small device frame.
  * Coming-soon types are dimmed 60%.
  */

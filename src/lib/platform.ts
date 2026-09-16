@@ -10,9 +10,15 @@ export function platformAdminEmails() {
   return (process.env.PLATFORM_ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
 }
 
+export const isPlatformAdminEmail = (email: string) => platformAdminEmails().includes(email.trim().toLowerCase());
+
+/** Shown when someone tries to register (sign up / invite) a platform admin address. */
+export const RESERVED_EMAIL_ERROR = "That email can't be used here. Contact support@droplr.fm.";
+
 export async function platformAdmin() {
   const user = await getCurrentUser();
-  if (!user || !platformAdminEmails().includes(user.email.toLowerCase())) return null;
+  // Email alone isn't proof (addresses aren't verified at signup): must also be the label owner account.
+  if (!user || user.role !== "owner" || !isPlatformAdminEmail(user.email)) return null;
   return user;
 }
 

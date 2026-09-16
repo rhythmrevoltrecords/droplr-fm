@@ -1,8 +1,11 @@
 import { FAN_EMAIL_CONSENT_VERSION } from "@/lib/legal";
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { releasePageUrl, requestOrigin, withParam } from "@/lib/oauth";
-import { requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
+import { SITE_URL } from "@/lib/env";
+import { releasePageUrl, requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
+import { allow, emailKey, ipKey } from "@/lib/throttle";
+import { isReleased } from "@/lib/time";
+import { clientIp, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -16,20 +19,31 @@ export async function POST(req: NextRequest) {
 
   const variantId = String(form.get("variantId") ?? "") || req.cookies.get(SRC_COOKIE)?.value || null;
   const variant = variantId ? await prisma.linkVariant.findFirst({ where: { id: variantId, releaseId } }) : null;
-  const pageUrl = releasePageUrl(req, release.organization, release.slug, variant?.slug);
+  // Built from the Host header: fall back to the platform URL if that isn't one of our hosts.
+  const pageUrl = await safeReturnUrl(releasePageUrl(req, release.organization, release.slug, variant?.slug), `${SITE_URL}/${release.organization.slug}/${release.slug}${variant?.slug ? `/${variant.slug}` : ""}`);
 
   if (form.get("website")) return NextResponse.redirect(withParam(pageUrl, "done", "email"), 303); // honeypot
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const consent = form.get("consent") === "yes";
   if (!EMAIL_RE.test(email) || email.length > 254 || !consent) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
+  // Hidden or already-out releases don't take pre-saves (stops this being an open mailing-list signup).
+  if (!release.isPublic || isReleased(release.releaseDate)) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
+  // 10 per IP per hour, 5 per address per day. Same generic error as bad input: don't reveal the limit.
+  const okIp = await allow(ipKey("presave-email", clientIp(req.headers)), 10, 60 * 60 * 1000);
+  if (!okIp || !(await allow(emailKey("presave-email", email), 5, 24 * 60 * 60 * 1000))) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
 
   const meta = requestMeta(req.headers);
   const { host } = requestOrigin(req);
   const source = resolveSource({ variantSource: variant?.source, utmSource: String(form.get("utm_source") ?? "") || null, referrer: meta.referrer, selfHosts: [host] });
 
+  // Someone who unsubscribed from this label can't be re-subscribed by a form post (anyone can type their
+  // address). Silently show the normal success page so this doesn't reveal who unsubscribed.
+  const unsubscribed = await prisma.preSave.findFirst({ where: { email, status: "unsubscribed", release: { organizationId: release.organizationId } }, select: { id: true } });
+  if (unsubscribed) return NextResponse.redirect(withParam(pageUrl, "done", "email"), 303);
+
   const existing = await prisma.preSave.findFirst({ where: { releaseId, email, platform: "email" } });
   if (existing) {
-    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, status: existing.status === "unsubscribed" ? "pending" : existing.status } });
+    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION } });
   } else {
     await prisma.preSave.create({
       data: {

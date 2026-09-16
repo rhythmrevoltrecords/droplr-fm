@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
+import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
 import { SignJWT, jwtVerify, type JWTPayload } from "jose";
 
 function key() {
@@ -46,16 +46,42 @@ function jwtKey() {
   return new TextEncoder().encode(s);
 }
 
-export async function signToken(payload: JWTPayload, expiresIn: string) {
-  return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setIssuedAt().setExpirationTime(expiresIn).sign(jwtKey());
+/**
+ * Every token says what it's for. Without an audience, a release-email click token (sent to fans, lives 60 days)
+ * would also verify as a session cookie.
+ */
+export type TokenAudience = "session" | "unsub" | "pst";
+
+export async function signToken(payload: JWTPayload, expiresIn: string, aud: TokenAudience) {
+  return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setAudience(aud).setIssuedAt().setExpirationTime(expiresIn).sign(jwtKey());
 }
 
-export async function verifyToken<T extends JWTPayload>(token: string | undefined | null): Promise<T | null> {
+export async function verifyToken<T extends JWTPayload>(token: string | undefined | null, aud: TokenAudience): Promise<T | null> {
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, jwtKey());
+    const { payload } = await jwtVerify(token, jwtKey(), { algorithms: ["HS256"], audience: aud });
     return payload as T;
   } catch {
     return null;
   }
+}
+
+/**
+ * Tokens signed before audiences existed, i.e. links in release emails already sent (unsubscribe links live
+ * a year). Only accepts tokens with no aud claim at all; callers must also check the payload shape.
+ * Safe to delete after 2027-09 when the last pre-audience unsubscribe token has expired.
+ */
+export async function verifyLegacyToken<T extends JWTPayload>(token: string | undefined | null): Promise<T | null> {
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify(token, jwtKey(), { algorithms: ["HS256"] });
+    return payload.aud === undefined ? (payload as T) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Constant-time string compare (hashing first makes the lengths equal, so length isn't leaked either). */
+export function safeEqual(a: string, b: string) {
+  return timingSafeEqual(createHash("sha256").update(a).digest(), createHash("sha256").update(b).digest());
 }

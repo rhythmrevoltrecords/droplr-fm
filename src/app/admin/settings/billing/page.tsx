@@ -19,8 +19,8 @@ export const metadata = { title: "Billing" };
 const FEATURES: Record<PlanKey, string[]> = {
   free: ["3 releases", "1k clicks / month", "1 artist", "yourlabel.droplr.fm subdomain", "Email pre-save + release-day email"],
   pro: ["Unlimited releases", "50k clicks / month", "5 artists", "Custom domain", "Meta, TikTok & GA4 pixels", "BYO Spotify app", "CSV export + QR codes", "Remove droplr.fm branding"],
-  label: ["Everything in Pro", "250k clicks / month", "Unlimited artists", "White-label", "Team roles (admins)", "Label analytics across the roster"],
-  enterprise: ["Everything in Label", "Uncapped clicks", "SLA", "Priority onboarding", "SSO (coming soon)"],
+  label: ["Everything in Pro", "250k clicks / month", "Unlimited artists", "Team roles (admins)", "Label analytics across the roster"],
+  enterprise: ["Everything in Label", "Uncapped clicks", "Priority support and onboarding", "SSO (coming soon)"],
 };
 const BLURB: Record<PlanKey, string> = {
   free: "Try it on a few releases.",

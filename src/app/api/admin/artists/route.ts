@@ -3,6 +3,7 @@ import { apiUser } from "@/lib/auth";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
+import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
 import { planOf } from "@/lib/plans";
 
 /** Invite an artist (or admin). Returns a link to share; no email provider required. */
@@ -21,6 +22,7 @@ export async function POST(req: NextRequest) {
     if (artists + pending >= plan.artists) return NextResponse.json({ error: `${plan.name} plan includes ${plan.artists} artist${plan.artists === 1 ? "" : "s"}. Upgrade for more.` }, { status: 402 });
   }
   if (await prisma.user.findUnique({ where: { email } })) return NextResponse.json({ error: "That email already has a droplr.fm account" }, { status: 409 });
+  if (isPlatformAdminEmail(email)) return NextResponse.json({ error: RESERVED_EMAIL_ERROR }, { status: 400 });
 
   const token = randomToken(24);
   await prisma.invite.create({

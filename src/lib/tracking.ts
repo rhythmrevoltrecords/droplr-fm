@@ -5,6 +5,9 @@ export const SRC_COOKIE = "dfm_src";
 
 const BOT_RE = /bot|crawl|spider|slurp|facebookexternalhit|embedly|preview|whatsapp|telegram|discord|linkedin|skype|curl|wget|python|headless|lighthouse/i;
 
+/** Fan-supplied strings (utm_*, referrer, source) are stored and exported: keep them short. */
+export const capText = (v: string | null | undefined, max = 200) => (v ? v.slice(0, max) : v ?? null);
+
 export function isBot(ua: string | null) {
   return !ua || BOT_RE.test(ua);
 }
@@ -50,7 +53,7 @@ export function referrerHost(ref: string | null) {
 /** Source attribution priority: variant.source > utm_source > referrer host > "direct" */
 export function resolveSource(opts: { variantSource?: string | null; utmSource?: string | null; referrer?: string | null; selfHosts?: string[] }) {
   if (opts.variantSource) return opts.variantSource;
-  if (opts.utmSource) return opts.utmSource;
+  if (opts.utmSource) return capText(opts.utmSource)!;
   const host = referrerHost(opts.referrer ?? null);
   if (host && !(opts.selfHosts ?? []).some((h) => host === h)) {
     if (/instagram/.test(host)) return "instagram";
@@ -72,6 +75,6 @@ export function requestMeta(headers: Headers) {
     deviceType: deviceType(ua),
     country: countryFrom(headers),
     ipHash: hashIp(clientIp(headers)),
-    referrer: headers.get("referer"),
+    referrer: capText(headers.get("referer")),
   };
 }

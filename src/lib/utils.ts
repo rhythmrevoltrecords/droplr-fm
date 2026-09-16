@@ -29,4 +29,6 @@ export const RESERVED_SLUGS = new Set([
   "host", "invite", "settings", "b", "r", "_next", "favicon.ico", "robots.txt", "sitemap.xml",
   "legal", "terms", "privacy", "refunds", "cookies", "billing",
   "forgot-password", "reset-password", "platform", "account", "support", "copyright",
+  // Look like official droplr.fm pages / subdomains: phishing bait if a label could claim them.
+  "www", "mail", "email", "accounts", "app", "status", "help", "blog", "cdn", "static", "assets",
 ]);

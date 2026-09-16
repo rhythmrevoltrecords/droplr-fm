@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { COMING_SOON_KEYS, LINK_TYPES } from "@/lib/link-types";
+import { allow, ipKey } from "@/lib/throttle";
+import { clientIp } from "@/lib/tracking";
 
 /** "Notify me" for coming-soon link types → waitlist_features (email, feature_name). */
 export async function POST(req: NextRequest) {
@@ -12,7 +14,9 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown feature" }, { status: 400 });
   }
   const email = (user?.email ?? body.email ?? "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+  // Anyone can post here (no login needed): 10 per IP per hour.
+  if (!(await allow(ipKey("waitlist", clientIp(req.headers)), 10, 60 * 60 * 1000))) return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
 
   await prisma.waitlistFeature.upsert({
     where: { email_featureName: { email, featureName: feature } },

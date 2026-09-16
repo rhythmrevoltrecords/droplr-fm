@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { safeEqual } from "@/lib/crypto";
 import { findDueReleases, processRelease } from "@/lib/presave-processor";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export const maxDuration = 60;
  * Runs inline with a short deadline — production uses the 15-minute background function.
  */
 export async function POST(req: NextRequest) {
-  if (!process.env.CRON_SECRET || req.headers.get("x-cron-secret") !== process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET || !safeEqual(req.headers.get("x-cron-secret") ?? "", process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
   const due = await findDueReleases();

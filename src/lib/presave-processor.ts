@@ -207,12 +207,30 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
 
     for (;;) {
       if (Date.now() > deadlineMs) break;
-      const rows = await prisma.preSave.findMany({
+      let rows = await prisma.preSave.findMany({
         where: { releaseId, email: { not: null }, emailConsent: true, emailSentAt: null, status: { not: "unsubscribed" } },
         take: 100,
         orderBy: { createdAt: "asc" },
       });
       if (!rows.length) break;
+
+      // Unsubscribing from any release of this label covers all of its releases, including rows that
+      // were (re)consented later, e.g. via a Spotify pre-save. Mark those so they never loop again.
+      const optedOut = await prisma.preSave.findMany({
+        where: { email: { in: [...new Set(rows.map((r) => r.email!))] }, status: "unsubscribed", release: { organizationId: release.organizationId } },
+        select: { email: true },
+        distinct: ["email"],
+      });
+      const optedOutSet = new Set(optedOut.map((r) => r.email!.toLowerCase()));
+      const blocked = rows.filter((r) => optedOutSet.has(r.email!.toLowerCase()));
+      if (blocked.length) {
+        const ids = blocked.map((r) => r.id);
+        const stamp = new Date();
+        await prisma.preSave.updateMany({ where: { id: { in: ids } }, data: { emailConsent: false, emailSentAt: stamp } });
+        await prisma.preSave.updateMany({ where: { id: { in: ids }, platform: "email" }, data: { status: "unsubscribed" } });
+        rows = rows.filter((r) => !optedOutSet.has(r.email!.toLowerCase()));
+        if (!rows.length) continue;
+      }
 
       // One email per address per release, even if they pre-saved on two platforms.
       const seen = new Set<string>();

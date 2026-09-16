@@ -27,7 +27,7 @@ export default function CookiePolicyPage() {
             <thead><tr><th>Cookie</th><th>Purpose</th><th>Type</th><th>Lasts</th></tr></thead>
             <tbody>
               <tr><td><code>dfm_session</code></td><td>Keeps customers logged in to the dashboard. Only set when you log in.</td><td>Strictly necessary</td><td>30 days</td></tr>
-              <tr><td><code>dfm_anon</code></td><td>A random ID set on your first visit to any droplr.fm page. On label pages it connects a page view to a later click or pre-save, so the label can see which visits turned into pre-saves. It doesn&apos;t contain your name, email or IP address, and isn&apos;t shared with other sites.</td><td>Analytics (first-party)</td><td>1 year</td></tr>
+              <tr><td><code>dfm_anon</code></td><td>A random ID set when you first open a label&apos;s release, bio or link page (not on droplr.fm&apos;s own marketing or account pages). It connects a page view to a later click or pre-save, so the label can see which visits turned into pre-saves. It doesn&apos;t contain your name, email or IP address, and isn&apos;t shared with other sites.</td><td>Analytics (first-party)</td><td>1 year</td></tr>
               <tr><td><code>dfm_src</code></td><td>Remembers which campaign link (for example an Instagram-specific link) brought you to a release, so the label can see which campaign worked.</td><td>Analytics (first-party)</td><td>30 days</td></tr>
             </tbody>
           </table>

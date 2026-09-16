@@ -47,7 +47,8 @@ export async function POST(req: NextRequest) {
     });
     return NextResponse.json({ url: session.url });
   } catch (err) {
+    // Stripe error text can include ids and account config: log it, don't show it.
     console.error("[stripe checkout]", err);
-    return NextResponse.json({ error: err instanceof Error ? err.message : "Stripe error" }, { status: 502 });
+    return NextResponse.json({ error: "Billing is temporarily unavailable. Try again, or email billing@droplr.fm." }, { status: 502 });
   }
 }

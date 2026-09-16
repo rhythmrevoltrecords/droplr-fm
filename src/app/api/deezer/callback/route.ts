@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { deezerGloballyEnabled } from "@/lib/env";
 import { deezerExchange, deezerMe } from "@/lib/deezer";
-import { unpackState, withParam } from "@/lib/oauth";
+import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
 
 export const dynamic = "force-dynamic";
 
@@ -11,6 +11,8 @@ export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
   const state = unpackState(sp.get("state"));
   if (!state) return NextResponse.json({ error: "Invalid or expired state" }, { status: 400 });
+  // state.ret was built from the request's Host header at login time: only ever send fans back to our own hosts.
+  state.ret = await safeReturnUrl(state.ret);
   if (!deezerGloballyEnabled() || !sp.get("code")) return NextResponse.redirect(withParam(state.ret, "notice", "error"));
   try {
     const token = await deezerExchange(sp.get("code")!);

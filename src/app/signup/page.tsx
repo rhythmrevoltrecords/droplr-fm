@@ -28,7 +28,7 @@ function InviteOnly({ searchParams }: { searchParams: SP }) {
         {searchParams.waitlist_error && <p className="text-sm text-red-400">Enter a valid email address.</p>}
         {searchParams.closed && <p className="text-sm text-amber-400">That email doesn&apos;t have an early-access invite yet. Join the waitlist, or email {CONTACT.hello}.</p>}
         <p className="text-xs text-muted-foreground">We&apos;ll only use this to tell you when droplr.fm opens. <Link href="/legal/privacy" className="underline">Privacy</Link></p>
-        <Button className="w-full" type="submit">Join the waitlist</Button>
+        <Button className="w-full" type="submit">Request early access</Button>
       </form>
       <p className="mt-4 text-center text-sm text-muted-foreground">
         Have an invite? <Link className="text-foreground underline" href="/signup?invite=1">Create your account</Link> · <Link className="text-foreground underline" href="/login">Log in</Link>

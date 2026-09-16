@@ -1,11 +1,11 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifyToken } from "@/lib/crypto";
-import { deezerGloballyEnabled } from "@/lib/env";
+import { verifyLegacyToken, verifyToken } from "@/lib/crypto";
+import { deezerGloballyEnabled, SITE_URL } from "@/lib/env";
 import { deezerAuthorizeUrl } from "@/lib/deezer";
-import { packState, releasePageUrl, requestOrigin, spotifyRedirectUri, withParam } from "@/lib/oauth";
+import { packState, releasePageUrl, requestOrigin, safeReturnUrl, spotifyRedirectUri, withParam } from "@/lib/oauth";
 import { getSpotifyCreds, spotifyAuthorizeUrl } from "@/lib/spotify";
-import { requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
+import { capText, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
 import { isReleased } from "@/lib/time";
 import { planOf } from "@/lib/plans";
 
@@ -29,13 +29,17 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   const variant = variantId ? await prisma.linkVariant.findFirst({ where: { id: variantId, releaseId: release.id } }) : null;
   const meta = requestMeta(req.headers);
   const anonId = req.cookies.get(ANON_COOKIE)?.value ?? req.headers.get("x-anon-id");
-  const pageUrl = releasePageUrl(req, release.organization, release.slug, variant?.slug);
+  // Built from the Host header: fall back to the platform URL if that isn't one of our hosts.
+  const pageUrl = await safeReturnUrl(releasePageUrl(req, release.organization, release.slug, variant?.slug), `${SITE_URL}/${release.organization.slug}/${release.slug}${variant?.slug ? `/${variant.slug}` : ""}`);
   const { host } = requestOrigin(req);
   const source = resolveSource({ variantSource: variant?.source, utmSource: q.get("utm_source"), referrer: meta.referrer, selfHosts: [host] });
 
   // Release-day email click? (signed pst token → PreSave id)
   let convertedToPreSave = false;
-  const pst = await verifyToken<{ ps: string }>(q.get("pst"));
+  // Legacy pst links (emailed before audiences) have ps and no act/sub claim.
+  const pst =
+    (await verifyToken<{ ps: string }>(q.get("pst"), "pst")) ??
+    (await verifyLegacyToken<{ ps?: string; act?: string; sub?: string }>(q.get("pst")).then((t) => (t && !t.act && !t.sub ? t : null)));
   if (pst?.ps) {
     const ps = await prisma.preSave.findFirst({ where: { id: pst.ps, releaseId: release.id } });
     if (ps) {
@@ -65,9 +69,9 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
           platform: params.platform,
           linkId: link?.platform === params.platform ? link.id : null,
           source,
-          utm_source: q.get("utm_source"),
-          utm_medium: q.get("utm_medium"),
-          utm_campaign: q.get("utm_campaign") ?? variant?.utm_campaign,
+          utm_source: capText(q.get("utm_source")),
+          utm_medium: capText(q.get("utm_medium")),
+          utm_campaign: capText(q.get("utm_campaign") ?? variant?.utm_campaign),
           referrer: meta.referrer?.slice(0, 500),
           country: meta.country,
           deviceType: meta.deviceType,

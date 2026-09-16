@@ -1,11 +1,12 @@
 import type { Context } from "@netlify/functions";
+import { safeEqual } from "../../src/lib/crypto";
 import { processRelease } from "../../src/lib/presave-processor";
 
 // Background function (the "-background" suffix gives it a 15 minute limit).
 // Loops releases, processes BYO Spotify saves with concurrency 50 + 429 backoff,
 // then sends release-day emails. Stops at ~14 minutes and re-invokes itself if work remains.
 export default async (req: Request, _context: Context) => {
-  if (req.headers.get("x-cron-secret") !== process.env.CRON_SECRET || !process.env.CRON_SECRET) {
+  if (!process.env.CRON_SECRET || !safeEqual(req.headers.get("x-cron-secret") ?? "", process.env.CRON_SECRET)) {
     console.warn("[process-presaves] rejected: bad cron secret");
     return;
   }

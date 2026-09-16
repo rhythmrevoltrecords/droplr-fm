@@ -8,12 +8,30 @@
  *   1. Label A can't read, edit, export or delete anything that belongs to label B (and vice versa).
  *   2. Artists can't reach label admin APIs or another artist's release.
  *   3. Password change / reset revoke old sessions; reset links are single-use and expire.
- *   4. /platform is hidden from non-owners.
+ *   4. /platform is hidden from non-owners; platform admin emails can't be registered.
+ *   5. Cover uploads, fan email pre-saves, token audiences and security headers.
  * Everything it creates is deleted at the end. Never point it at production.
  */
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
+import { signToken } from "../src/lib/crypto";
 import { prisma } from "../src/lib/db";
+
+// The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
+for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
+  const raw = process.env[name];
+  if (!raw) continue;
+  let host = "";
+  try {
+    host = new URL(raw).hostname;
+  } catch {
+    host = raw;
+  }
+  if (host.includes("neon.tech") && process.env.ALLOW_PROD_TEST !== "1") {
+    console.error(`Refusing to run: ${name} points at ${host} (production). Set ALLOW_PROD_TEST=1 only if this really is a throwaway database.`);
+    process.exit(1);
+  }
+}
 
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 if (/droplr\.fm/.test(BASE)) throw new Error("Refusing to run against production");
@@ -199,7 +217,80 @@ async function main() {
     check("comp API is 404 for a label owner", platApi.status === 404, `got ${platApi.status}`);
     check("label owner can't comp themselves", (await prisma.organization.findUnique({ where: { id: A.org.id } }))?.compPlan == null);
     check("/platform needs login", (await http(null, "GET", "/platform")).status === 307);
+
+    const adminEmail = (process.env.PLATFORM_TEST_ADMIN ?? "").trim().toLowerCase();
+    if (!adminEmail) {
+      console.log("  (skipped platform admin email checks: set PLATFORM_TEST_ADMIN to an address in the server's PLATFORM_ADMIN_EMAILS)");
+    } else {
+      const inv = await http(ownerA, "POST", "/api/admin/artists", { email: adminEmail, artistName: "Nope" });
+      check("can't invite a platform admin email", [400, 409].includes(inv.status) && !inv.text.includes("/invite/"), `got ${inv.status}`);
+      check("no invite row for platform admin email", (await prisma.invite.count({ where: { email: adminEmail, organizationId: A.org.id } })) === 0);
+      if (!(await prisma.user.findUnique({ where: { email: adminEmail } }))) {
+        // An invite that predates the block must not be accepted either.
+        const token = randomBytes(24).toString("base64url");
+        await prisma.invite.create({ data: { organizationId: A.org.id, email: adminEmail, tokenHash: createHash("sha256").update(token).digest("hex"), expiresAt: new Date(Date.now() + 86400_000) } });
+        const acc = await http({ cookie: "" }, "POST", "/api/auth/invite", undefined, { token, password: PW, terms: "yes" });
+        check("old invite for platform admin email can't be accepted", acc.location.includes("error=") && !(await prisma.user.findUnique({ where: { email: adminEmail } })), acc.location);
+        // Same email on a non-owner account (e.g. created before the block) still isn't a platform admin.
+        await prisma.user.create({ data: { email: adminEmail, passwordHash: await bcrypt.hash(PW, 10), role: "artist", artistName: "Impostor", organizationId: A.org.id } });
+        const impostor = await login(adminEmail);
+        const impPlat = await http(impostor, "GET", "/platform");
+        const impPatch = await http(impostor, "PATCH", `/api/platform/orgs/${A.org.id}`, { compPlan: "enterprise" });
+        check("platform admin email on a non-owner account isn't platform admin", impPatch.status === 404 && impPlat.status !== 200, `api ${impPatch.status}, page ${impPlat.status}`);
+      } else {
+        console.log("  (skipped invite-acceptance/impostor checks: a user with PLATFORM_TEST_ADMIN already exists locally)");
+      }
+    }
+
+    console.log("\n5. Uploads, fan pre-saves, tokens, headers");
+    const svg = new Blob(['<svg xmlns="http://www.w3.org/2000/svg" onload="alert(document.cookie)"/>'], { type: "image/png" });
+    const fd = new FormData();
+    fd.append("file", svg, "cover.png");
+    const up = await fetch(`${BASE}/api/admin/upload-cover`, { method: "POST", headers: { cookie: ownerA.cookie }, body: fd });
+    const upText = await up.text();
+    check("SVG disguised as PNG is rejected", up.status === 400 && upText.includes("JPG, PNG or WebP"), `${up.status} ${upText.slice(0, 120)}`);
+    const cover = await fetch(`${BASE}/api/cover/does-not-exist-${RUN}.svg`);
+    check("cover route sends nosniff", cover.headers.get("x-content-type-options") === "nosniff");
+    check("cover route sends sandbox CSP", (cover.headers.get("content-security-policy") ?? "").includes("sandbox"));
+    const loginPage = await fetch(`${BASE}/login`, { redirect: "manual" });
+    check("login page can't be framed", loginPage.headers.get("x-frame-options") === "DENY");
+
+    // Fan unsubscribed from label A: posting the form again (anyone can type their email) must not re-subscribe.
+    const fan = `fan-a-${RUN}@fans.dev`;
+    await prisma.preSave.updateMany({ where: { email: fan }, data: { status: "unsubscribed", emailConsent: false } });
+    const again = await http(null, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: fan, consent: "yes" });
+    const fanRows = await prisma.preSave.findMany({ where: { email: fan } });
+    check("unsubscribed fan isn't re-subscribed", again.location.includes("done=email") && fanRows.length === 1 && fanRows.every((r) => r.status === "unsubscribed" && !r.emailConsent), `${again.location} ${JSON.stringify(fanRows.map((r) => [r.status, r.emailConsent]))}`);
+    const released = await http(null, "POST", "/api/presave/email", undefined, { releaseId: A.otherRelease.id, email: `late-${RUN}@fans.dev`, consent: "yes" });
+    check("already-released release takes no email pre-saves", released.location.includes("notice=error") && (await prisma.preSave.count({ where: { email: `late-${RUN}@fans.dev` } })) === 0, released.location);
+    const spam = `spam-${RUN}@fans.dev`;
+    const codes: string[] = [];
+    for (let i = 0; i < 6; i++) codes.push((await http(null, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: spam, consent: "yes" })).location);
+    check("email pre-save limited to 5 per address", codes.slice(0, 5).every((l) => l.includes("done=email")) && codes[5].includes("notice=error"), codes.map((l) => l.split("?")[1]).join(" | "));
+
+    if (!process.env.JWT_SECRET) {
+      console.log("  (skipped token audience checks: set JWT_SECRET to the server's value)");
+    } else {
+      const claims = { sub: A.owner.id, org: A.org.id, role: "owner" };
+      const asCookie = (t: string): Jar => ({ cookie: `dfm_session=${t}` });
+      const control = await http(asCookie(await signToken(claims, "1h", "session")), "GET", "/admin");
+      check("session-audience token works (control)", control.status === 200, `got ${control.status}: JWT_SECRET must match the server`);
+      for (const aud of ["pst", "unsub"] as const) {
+        const jar = asCookie(await signToken(claims, "1h", aud));
+        const page = await http(jar, "GET", "/admin");
+        const api = await http(jar, "PATCH", "/api/admin/org", {});
+        check(`${aud} token rejected as a session`, page.status === 307 && api.status === 401, `page ${page.status}, api ${api.status}`);
+      }
+      const bFan = await prisma.preSave.findFirstOrThrow({ where: { email: `fan-b-${RUN}@fans.dev` } });
+      const unsubWithPst = await http(null, "GET", `/api/unsubscribe?t=${await signToken({ ps: bFan.id, act: "unsub" }, "1h", "pst")}`);
+      const bFanNow = await prisma.preSave.findUnique({ where: { id: bFan.id } });
+      check("pst token can't unsubscribe", unsubWithPst.status === 400 && !!bFanNow?.emailConsent, `got ${unsubWithPst.status}`);
+    }
   } finally {
+    if (process.env.PLATFORM_TEST_ADMIN) {
+      const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();
+      await prisma.user.deleteMany({ where: { email: e, organizationId: { in: [A.org.id, B.org.id] }, role: { not: "owner" } } }).catch(() => {});
+    }
     await prisma.authThrottle.deleteMany({}).catch(() => {});
     await prisma.organization.deleteMany({ where: { id: { in: [A.org.id, B.org.id] } } });
     await prisma.$disconnect();

@@ -1,12 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifyToken } from "@/lib/crypto";
+import { verifyLegacyToken, verifyToken } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
 async function unsubscribe(t: string | null) {
-  const tok = await verifyToken<{ ps: string; act: string }>(t);
-  if (!tok || tok.act !== "unsub") return null;
+  // Legacy: unsubscribe links emailed before tokens carried an audience must keep working.
+  const tok = (await verifyToken<{ ps: string; act: string }>(t, "unsub")) ?? (await verifyLegacyToken<{ ps: string; act: string }>(t));
+  if (!tok || tok.act !== "unsub" || typeof tok.ps !== "string") return null;
   const ps = await prisma.preSave.findUnique({ where: { id: tok.ps }, include: { release: { include: { organization: true } } } });
   if (!ps?.email) return null;
   // Unsubscribe this address from every release of this label

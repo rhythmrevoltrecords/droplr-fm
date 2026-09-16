@@ -261,7 +261,7 @@ function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel }: { 
       <div className="relative mx-auto h-[150px] w-[200px] overflow-hidden rounded-xl border sm:mx-0">
         {/* Real shell at phone width, scaled to 50% */}
         <div className="origin-top-left" style={{ width: 400, height: 300, transform: "scale(0.5)" }}>
-          <ArtworkPageShell preview theme={applyPublic ? theme : "dark"} imageUrl="/api/cover-art?title=Two%20Step&a=%230EA5E9&b=%2322C55E" accentColor="#22D3EE">
+          <ArtworkPageShell preview theme={applyPublic ? theme : "dark"} imageUrl="/demo/two-step-sky.svg" accentColor="#22D3EE">
             <div className="space-y-2.5">
               <GlassLink href="#" track={false} platform="beatport" />
               <GlassLink href="#" track={false} platform="soundcloud" label="SoundCloud (2)" />
@@ -303,7 +303,7 @@ export function AppearanceForm({ initial, orgName, locationLabel, accent }: { in
         <input type="checkbox" checked={applyPublic} onChange={(e) => setApplyPublic(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
         <span>
           <span className="font-medium">Apply theme to public smart links</span>
-          <span className="block text-muted-foreground">Off: fan pages keep the signature look (blurred artwork, black gradient, artwork colour). On: they follow the theme above.</span>
+          <span className="block text-muted-foreground">Off: fan pages keep the signature look (artwork-colour glow on a black gradient). On: they follow the theme above.</span>
         </span>
       </label>
 

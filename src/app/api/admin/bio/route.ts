@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
   if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "That slug is reserved" }, { status: 400 });
   if (await prisma.bioPage.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
 
-  // Same system as releases: accent comes from the artwork via node-vibrant.
+  // Same system as releases: accent comes from the artwork (sharp hue histogram).
   const accentColor = d.accentColor || (await extractAccentColor(d.imageUrl));
   const page = await prisma.bioPage.create({
     data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, isPublic: d.isPublic ?? true },

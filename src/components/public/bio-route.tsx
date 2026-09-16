@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 import { isBot } from "@/lib/tracking";
@@ -8,7 +9,8 @@ import { labelDuplicateLinks } from "@/lib/link-labels";
 import { publicTheme } from "./artwork-shell";
 import { BioView } from "./bio-view";
 
-export async function loadBio(slug: string, host?: string) {
+/** Cached per request: generateMetadata and the page both call it. */
+export const loadBio = cache(async function loadBio(slug: string, host?: string) {
   const page = await prisma.bioPage.findUnique({
     where: { slug: decodeURIComponent(slug).toLowerCase() },
     include: { organization: true, links: { where: { isActive: true }, orderBy: { order: "asc" } } },
@@ -21,7 +23,7 @@ export async function loadBio(slug: string, host?: string) {
     if (!ok) return null;
   }
   return page;
-}
+});
 
 export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata {
   if (!page) return {};
@@ -38,7 +40,8 @@ export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadB
   if (!page) notFound();
   const h = headers();
   if (!isBot(h.get("user-agent")) && h.get("purpose") !== "prefetch") {
-    await prisma.bioPage.update({ where: { id: page.id }, data: { views: { increment: 1 } } }).catch(() => {});
+    // Not awaited: counting the view shouldn't hold up the page.
+    void prisma.bioPage.update({ where: { id: page.id }, data: { views: { increment: 1 } } }).catch(() => {});
   }
   const plan = planOf(page.organization.plan);
   return (
