@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { LEGAL } from "@/lib/legal";
+import { CONTACT, LEGAL } from "@/lib/legal";
 
 export const metadata = { title: "Acceptable Use Policy" };
 
@@ -11,14 +11,14 @@ const toc = [
   { id: "email", title: "Email and fan data" },
   { id: "streaming", title: "Streaming manipulation" },
   { id: "platform", title: "Using the platform" },
-  { id: "report", title: "Reporting abuse and copyright complaints" },
+  { id: "report", title: "Reporting abuse" },
   { id: "enforcement", title: "What we do about breaches" },
 ];
 const s = tocHelper(toc);
 
 export default function AcceptableUsePage() {
   return (
-    <LegalShell slug="acceptable-use" toc={toc}>
+    <LegalShell slug="acceptable-use" toc={toc} contact="abuse">
       <p>This policy is part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link>. It applies to everyone with a droplr.fm account, including invited team members. You must not use droplr.fm, or let anyone else use it, to do any of the following.</p>
 
       <Section {...s("content")}>
@@ -57,7 +57,7 @@ export default function AcceptableUsePage() {
       <Section {...s("platform")}>
         <ul>
           <li>Access another label&apos;s data, or try to get around roles, plan limits or security controls.</li>
-          <li>Probe, scan or test the service for vulnerabilities without our written permission. If you find a security issue, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> and we&apos;ll work with you.</li>
+          <li>Probe, scan or test the service for vulnerabilities without our written permission. If you find a security issue, email <a href={`mailto:${CONTACT.security}`}>{CONTACT.security}</a> and we&apos;ll work with you.</li>
           <li>Overload the service, send automated traffic to your own pages to inflate stats, or scrape the service at scale.</li>
           <li>Resell or white-label droplr.fm to others without an agreement with us.</li>
           <li>Create accounts to evade a suspension, or create multiple Free accounts to avoid plan limits.</li>
@@ -65,13 +65,13 @@ export default function AcceptableUsePage() {
       </Section>
 
       <Section {...s("report")}>
-        <p>To report a page that breaks this policy, or content that infringes your copyright or trade mark, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> with the subject &quot;Abuse report&quot; or &quot;Copyright complaint&quot;. Include:</p>
+        <p>To report a page that breaks this policy (spam, phishing, malware, impersonation or harmful content), email <a href={`mailto:${CONTACT.abuse}`}>{CONTACT.abuse}</a> with the subject &quot;Abuse report&quot;. For copyright or trade mark complaints, follow the process on the <Link href="/legal/copyright">Copyright &amp; Trade Marks</Link> page. Include:</p>
         <ul>
           <li>the link to the page;</li>
-          <li>what&apos;s wrong, and for rights complaints, the work you own and how it&apos;s being infringed;</li>
-          <li>your name and contact details, and a statement that the information is accurate and you&apos;re the rights owner or authorised to act for them.</li>
+          <li>what&apos;s wrong with it;</li>
+          <li>your name and contact details.</li>
         </ul>
-        <p>We review reports promptly and may remove content while we investigate. We&apos;ll tell the label concerned so it can respond.</p>
+        <p>We review reports promptly and may disable a page while we investigate. We&apos;ll tell the label concerned so it can respond.</p>
       </Section>
 
       <Section {...s("enforcement")}>

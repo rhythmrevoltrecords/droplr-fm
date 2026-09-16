@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { LEGAL } from "@/lib/legal";
+import { CONTACT, LEGAL } from "@/lib/legal";
 
 export const metadata = { title: "Data Processing Terms" };
 
@@ -23,8 +23,8 @@ const s = tocHelper(toc);
 
 export default function DataProcessingPage() {
   return (
-    <LegalShell slug="data-processing" toc={toc}>
-      <p>These Data Processing Terms (&quot;<strong>DPA</strong>&quot;) form part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link> between us and your label. They apply automatically to every label account; you don&apos;t need to sign anything separately. If you need a countersigned copy, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</p>
+    <LegalShell slug="data-processing" toc={toc} contact="privacy">
+      <p>These Data Processing Terms (&quot;<strong>DPA</strong>&quot;) form part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link> between us and your label. They apply automatically to every label account; you don&apos;t need to sign anything separately. If you need a countersigned copy, email <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a>.</p>
 
       <Section {...s("scope")}>
         <p>For fan data, your label is the controller (the organisation that decides why and how it&apos;s processed) and we&apos;re your processor. Under Australian privacy law this is equivalent to us providing a service to you. Where the GDPR or UK GDPR applies, these terms are intended to meet Article 28.</p>
@@ -68,7 +68,7 @@ export default function DataProcessingPage() {
       </Section>
 
       <Section {...s("requests")}>
-        <p>You can view fan data and delete it (by deleting a release) from the dashboard on every plan, and export pre-saves as CSV on plans that include it. On any plan, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> and we&apos;ll provide an export of your fan data within 30 days. If a fan contacts us directly, we&apos;ll pass the request to you without undue delay and won&apos;t respond ourselves except to redirect them, unless the law requires otherwise. We&apos;ll give you reasonable help with requests you can&apos;t handle in the dashboard, and with privacy impact assessments or consultations with regulators.</p>
+        <p>You can view fan data and delete it (by deleting a release) from the dashboard on every plan, and export pre-saves as CSV on plans that include it. On any plan, email <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a> and we&apos;ll provide an export of your fan data within 30 days. If a fan contacts us directly, we&apos;ll pass the request to you without undue delay and won&apos;t respond ourselves except to redirect them, unless the law requires otherwise. We&apos;ll give you reasonable help with requests you can&apos;t handle in the dashboard, and with privacy impact assessments or consultations with regulators.</p>
       </Section>
 
       <Section {...s("breaches")}>

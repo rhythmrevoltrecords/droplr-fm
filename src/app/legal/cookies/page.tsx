@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { LEGAL } from "@/lib/legal";
+import { CONTACT, LEGAL } from "@/lib/legal";
 
 export const metadata = { title: "Cookie Policy" };
 
@@ -16,7 +16,7 @@ const s = tocHelper(toc);
 
 export default function CookiePolicyPage() {
   return (
-    <LegalShell slug="cookies" toc={toc}>
+    <LegalShell slug="cookies" toc={toc} contact="privacy">
       <Section {...s("what")}>
         <p>Cookies are small text files a website stores in your browser. We use a small number of our own cookies to keep you logged in and to count visits and clicks on label pages. We don&apos;t use cookies to show you ads, and there are no advertising cookies on the droplr.fm marketing site.</p>
       </Section>
@@ -54,7 +54,7 @@ export default function CookiePolicyPage() {
           <li>You can block or delete cookies in your browser settings. Blocking <code>dfm_session</code> means you can&apos;t log in. Blocking the analytics cookies doesn&apos;t stop links or pre-saves working.</li>
           <li>Many browsers block third-party tracking by default. You can also use <a href="https://www.facebook.com/adpreferences" rel="noreferrer">Meta ad preferences</a>, <a href="https://adssettings.google.com" rel="noreferrer">Google ad settings</a> and the <a href="https://tools.google.com/dlpage/gaoptout" rel="noreferrer">Google Analytics opt-out add-on</a>.</li>
         </ul>
-        <p>Questions: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</p>
+        <p>Questions: <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a>.</p>
       </Section>
     </LegalShell>
   );

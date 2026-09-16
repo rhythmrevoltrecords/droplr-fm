@@ -23,3 +23,13 @@ export const PLAN_LIMITS: Record<PlanKey, {
 export function planOf(plan: string | null | undefined) {
   return PLAN_LIMITS[(plan as PlanKey) in PLAN_LIMITS ? (plan as PlanKey) : "free"];
 }
+
+export const PLAN_ORDER: PlanKey[] = ["free", "pro", "label", "enterprise"];
+export const isPlanKey = (p: unknown): p is PlanKey => typeof p === "string" && (PLAN_ORDER as string[]).includes(p);
+
+/** The better of two plans; unknown values count as free. */
+export function higherPlan(a: string | null | undefined, b: string | null | undefined): PlanKey {
+  const ra = isPlanKey(a) ? PLAN_ORDER.indexOf(a) : 0;
+  const rb = isPlanKey(b) ? PLAN_ORDER.indexOf(b) : 0;
+  return PLAN_ORDER[Math.max(ra, rb)];
+}

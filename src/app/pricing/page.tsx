@@ -44,7 +44,7 @@ export default function PricingPage() {
                 ))}
               </ul>
               <Button asChild className="mt-8" variant={t.highlight ? "white" : "outline"}>
-                <Link href={t.name === "Enterprise" ? "mailto:hello@droplr.fm" : t.price === 0 ? "/signup" : `/signup?plan=${t.name.toLowerCase()}`}>{t.cta}</Link>
+                <Link href={t.name === "Enterprise" ? "mailto:hello@droplr.fm?subject=droplr.fm%20Enterprise" : t.price === 0 ? "/signup" : `/signup?plan=${t.name.toLowerCase()}`}>{t.cta}</Link>
               </Button>
             </div>
           ))}

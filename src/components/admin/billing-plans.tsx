@@ -2,7 +2,7 @@
 import { Check, Loader2, Sparkles } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { LEGAL } from "@/lib/legal";
+import { CONTACT } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
 export type PlanCard = {
@@ -123,13 +123,13 @@ export function BillingPlans({
                 {current ? (
                   <Button variant="outline" className="w-full" disabled>Your plan</Button>
                 ) : p.tier === "enterprise" ? (
-                  <Button asChild variant="outline" className="w-full"><a href={`mailto:${LEGAL.email}?subject=droplr.fm%20Enterprise`}>Contact us</a></Button>
+                  <Button asChild variant="outline" className="w-full"><a href={`mailto:${CONTACT.hello}?subject=droplr.fm%20Enterprise`}>Contact us</a></Button>
                 ) : p.tier === "free" ? (
                   subscribed ? <ManageBillingButton label="Cancel in billing portal" /> : null
                 ) : subscribed ? (
                   <ManageBillingButton label={isUpgrade ? `Switch to ${p.name}` : `Change to ${p.name}`} variant={featured ? "white" : "outline"} />
                 ) : !isUpgrade ? (
-                  <p className="text-center text-xs text-muted-foreground">Email {LEGAL.email} to change</p>
+                  <p className="text-center text-xs text-muted-foreground">Email {CONTACT.billing} to change</p>
                 ) : (
                   <Button className="w-full" variant={featured ? "white" : "outline"} disabled={!billingReady || !price || !!busy} onClick={() => upgrade(p.tier)}>
                     {busy === p.tier ? <Loader2 className="animate-spin" /> : <Sparkles />} Upgrade to {p.name}

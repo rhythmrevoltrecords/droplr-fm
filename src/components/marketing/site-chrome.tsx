@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { copyrightLine } from "@/lib/legal";
 import { Logo } from "./logo";
 
 export function SiteHeader() {
@@ -38,6 +39,9 @@ export function SiteFooter() {
         </div>
         <p>Made in Brisbane. droplr.fm isn&apos;t affiliated with Spotify, Apple, Deezer or Feature.fm.</p>
       </div>
+      <p className="container mt-6 text-xs text-muted-foreground/70">
+        {copyrightLine()} Platform names and logos are trade marks of their owners. <Link href="/legal/copyright" className="underline">Copyright &amp; trade marks</Link>
+      </p>
     </footer>
   );
 }

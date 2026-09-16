@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { LEGAL } from "@/lib/legal";
+import { CONTACT, LEGAL } from "@/lib/legal";
 
 export const metadata = { title: "Billing & Refund Policy" };
 
@@ -22,7 +22,7 @@ const s = tocHelper(toc);
 
 export default function BillingPolicyPage() {
   return (
-    <LegalShell slug="billing" toc={toc}>
+    <LegalShell slug="billing" toc={toc} contact="billing">
       <p>This policy is part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link>. It explains how paid plans are charged, renewed, cancelled and refunded.</p>
 
       <Section {...s("plans")}>
@@ -43,7 +43,12 @@ export default function BillingPolicyPage() {
       </Section>
 
       <Section {...s("tax")}>
-        <p>Prices are charged in the currency shown at checkout (currently US dollars). Unless stated otherwise, prices don&apos;t include taxes. If GST, VAT or a similar tax applies to your purchase, it will be shown at checkout or on your invoice. Your bank may charge currency conversion or international transaction fees; those are between you and your bank.</p>
+        <p>Prices are charged in the currency shown at checkout (currently US dollars). Your bank may charge currency conversion or international transaction fees; those are between you and your bank.</p>
+        {LEGAL.gstRegistered ? (
+          <p>Prices for customers in Australia include GST, which is shown on your tax invoice. For customers outside Australia, any applicable taxes are shown at checkout.</p>
+        ) : (
+          <p>{LEGAL.owner} trading as {LEGAL.operator} is not currently registered for GST, so no GST is charged and invoices don&apos;t include GST. If that changes, we&apos;ll give you notice, and prices for Australian customers will include GST.</p>
+        )}
       </Section>
 
       <Section {...s("changes")}>
@@ -59,7 +64,7 @@ export default function BillingPolicyPage() {
           <li>Cancel any time in <strong>Settings → Plan &amp; billing → Change plan or cancel</strong>. You don&apos;t need to contact us.</li>
           <li>Your plan stays active until the end of the period you&apos;ve already paid for, then moves to Free. You won&apos;t be charged again.</li>
           <li>Changed your mind? You can undo a cancellation in the billing portal before the period ends.</li>
-          <li>Cancelling a subscription doesn&apos;t delete your account or releases. To close your account, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</li>
+          <li>Cancelling a subscription doesn&apos;t delete your account or releases. To close your account, email <a href={`mailto:${CONTACT.support}`}>{CONTACT.support}</a>.</li>
         </ul>
       </Section>
 
@@ -105,7 +110,7 @@ export default function BillingPolicyPage() {
       </Section>
 
       <Section {...s("disputes")}>
-        <p>If a charge looks wrong, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> within 60 days and we&apos;ll look into it quickly. Please talk to us before raising a chargeback with your bank. If a chargeback is raised, we may pause paid features on the account while it&apos;s resolved.</p>
+        <p>If a charge looks wrong, email <a href={`mailto:${CONTACT.billing}`}>{CONTACT.billing}</a> within 60 days and we&apos;ll look into it quickly. Please talk to us before raising a chargeback with your bank. If a chargeback is raised, we may pause paid features on the account while it&apos;s resolved.</p>
       </Section>
     </LegalShell>
   );

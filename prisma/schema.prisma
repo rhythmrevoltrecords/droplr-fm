@@ -26,6 +26,11 @@ model Organization {
   stripeSubscriptionId String? @unique
   stripePriceId String?
   planUpdatedAt DateTime?
+  // Complimentary plan set by the platform owner (/platform). Acts as a floor: Stripe can raise the plan, never drop below it.
+  compPlan      String?
+  compNote      String?
+  compSetAt     DateTime?
+  compSetBy     String?
 
   // BYO Spotify app (encrypted with ENCRYPTION_KEY)
   spotifyClientIdEncrypted     String?
@@ -62,6 +67,8 @@ model User {
   artistName     String?
   termsAcceptedAt DateTime? // when they ticked "I agree" at signup / invite
   termsVersion    String? // LEGAL.version accepted
+  sessionsValidFrom DateTime? // sessions issued before this are rejected (password change/reset, "sign out everywhere")
+  passwordResetTokens PasswordResetToken[]
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -265,4 +272,25 @@ model WaitlistFeature {
 
   @@unique([email, featureName])
   @@map("waitlist_features")
+}
+
+model PasswordResetToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash String    @unique // sha256 of the emailed token; the token itself is never stored
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+/// Sliding-window rate limiting for login and password reset (one row per attempt).
+model AuthThrottle {
+  id        String   @id @default(cuid())
+  key       String // e.g. "login:email:<sha256>", "reset:ip:<hash>"
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
 }

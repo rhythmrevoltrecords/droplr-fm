@@ -19,7 +19,7 @@ export async function middleware(req: NextRequest) {
   headers.set("x-host", host);
 
   // 2) Auth guard (full role checks happen server-side)
-  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard")) {
+  if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/platform")) {
     const token = req.cookies.get("dfm_session")?.value;
     let ok = false;
     if (token && process.env.JWT_SECRET) {
@@ -38,7 +38,7 @@ export async function middleware(req: NextRequest) {
   // 3) Tenant hosts: presave.label.com/slug or label.droplr.fm/slug → /host/<host>/slug
   let res: NextResponse;
   const tenant = !isPlatformHost(host) || !!platformSubdomain(host);
-  if (tenant && !PASSTHROUGH.test(url.pathname) && !url.pathname.startsWith("/admin") && !url.pathname.startsWith("/dashboard") && !url.pathname.startsWith("/login")) {
+  if (tenant && !PASSTHROUGH.test(url.pathname) && !url.pathname.startsWith("/admin") && !url.pathname.startsWith("/dashboard") && !/^\/(login|forgot-password|reset-password)(\/|$)/.test(url.pathname)) {
     const rewritten = url.clone();
     rewritten.pathname = `/host/${encodeURIComponent(host.split(":")[0])}${url.pathname === "/" ? "" : url.pathname}`;
     res = NextResponse.rewrite(rewritten, { request: { headers } });

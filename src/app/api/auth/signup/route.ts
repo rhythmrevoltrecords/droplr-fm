@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { createSessionCookie, hashPassword } from "@/lib/auth";
+import { createSessionCookie, hashPassword, passwordProblem } from "@/lib/auth";
 import { LEGAL } from "@/lib/legal";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
@@ -14,7 +14,8 @@ export async function POST(req: NextRequest) {
   const fail = (msg: string) => NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`, req.url), 303);
   if (name.length < 2) return fail("Label name is required");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");
-  if (password.length < 10) return fail("Password must be at least 10 characters");
+  const problem = passwordProblem(password, email);
+  if (problem) return fail(problem);
   if (form.get("terms") !== "yes") return fail("Please agree to the Terms of Service and Privacy Policy");
   if (await prisma.user.findUnique({ where: { email } })) return fail("That email already has an account");
 

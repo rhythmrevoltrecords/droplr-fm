@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { SITE_URL } from "@/lib/env";
 import { platformMeta } from "@/lib/platforms";
 import { cn } from "@/lib/utils";
 import { Pixels } from "./pixels";
@@ -148,12 +149,22 @@ export function GlassLink({
 }
 
 export function ShellFooter({ showBranding, orgName }: { showBranding: boolean; orgName: string }) {
-  return showBranding ? (
-    <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/70">
-      <Image src="/logo/icon.png" alt="" width={16} height={16} className="shell-logo h-4 w-4 opacity-60 brightness-0 invert" />
-      Powered by droplr.fm
-    </a>
-  ) : (
-    <span>{orgName}</span>
+  return (
+    <div className="space-y-2">
+      {showBranding ? (
+        <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/70">
+          <Image src="/logo/icon.png" alt="" width={16} height={16} className="shell-logo h-4 w-4 opacity-60 brightness-0 invert" />
+          Powered by droplr.fm
+        </a>
+      ) : (
+        <span>{orgName}</span>
+      )}
+      {/* Fan-facing notices. Absolute URLs: these pages also render on labels' custom domains. White-label pages keep them too. */}
+      <nav aria-label="Legal" className="flex justify-center gap-3 text-[11px] text-white/30">
+        <a href={`${SITE_URL}/legal/privacy`} className="hover:text-white/60">Privacy</a>
+        <a href={`${SITE_URL}/legal/cookies`} className="hover:text-white/60">Cookies</a>
+        <a href={`${SITE_URL}/legal/copyright#report`} className="hover:text-white/60">Report</a>
+      </nav>
+    </div>
   );
 }

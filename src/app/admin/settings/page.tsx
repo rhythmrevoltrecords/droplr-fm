@@ -17,7 +17,7 @@ export default async function SettingsPage() {
 
       {/* Section tabs: horizontal from md up, stacked on phones */}
       <nav aria-label="Settings sections" className="flex flex-col gap-1 rounded-xl border p-1 text-sm md:flex-row md:overflow-x-auto">
-        {[["#identity", "Label identity"], ["#appearance", "Appearance"], ["#pixels", "Pixels"], ["#email", "Release-day email"], ["#domain", "Custom domain"], ["/admin/settings/billing", "Plan & billing"]].map(([id, label]) => (
+        {[["#identity", "Label identity"], ["#appearance", "Appearance"], ["#pixels", "Pixels"], ["#email", "Release-day email"], ["#domain", "Custom domain"], ["/admin/settings/billing", "Plan & billing"], ["/admin/settings/account", "Account & password"]].map(([id, label]) => (
           <a key={id} href={id} className="rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground md:py-1.5">{label}</a>
         ))}
       </nav>

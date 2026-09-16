@@ -9,6 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     <AppShell
       user={user}
       billingHref="/admin/settings/billing"
+      accountHref="/admin/settings/account"
       nav={[
         { href: "/admin", label: "Releases" },
         { href: "/admin/bio", label: "Bio links" },

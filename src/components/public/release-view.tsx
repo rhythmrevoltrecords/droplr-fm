@@ -1,3 +1,4 @@
+import { SITE_URL } from "@/lib/env";
 import { formatInTz } from "@/lib/time";
 import { Countdown } from "./countdown";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme } from "./artwork-shell";
@@ -115,7 +116,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
               />
               <label className="flex items-start gap-2.5 text-xs leading-relaxed text-white/70">
                 <input type="checkbox" name="consent" value="yes" required className="mt-0.5 h-4 w-4 accent-white" />
-                <span>Email me on release day. {release.org.name} can send me updates about this release. Unsubscribe anytime.</span>
+                <span>Email me on release day. {release.org.name} can send me updates about this release. Unsubscribe anytime. <a href={`${SITE_URL}/legal/privacy`} target="_blank" rel="noreferrer" className="underline decoration-white/30 underline-offset-2 hover:text-white">Privacy</a></span>
               </label>
               <button type="submit" data-track="email" data-kind="presave" className="h-12 w-full rounded-xl font-semibold text-black transition active:scale-[0.99]" style={{ backgroundColor: "#fff" }}>
                 Pre-save with email

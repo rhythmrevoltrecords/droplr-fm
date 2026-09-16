@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireUser } from "@/lib/auth";
 import { applySubscription, formatMoney, getPriceTable, getSubscriptionSummary } from "@/lib/billing";
 import { prisma } from "@/lib/db";
-import { LEGAL } from "@/lib/legal";
+import { CONTACT } from "@/lib/legal";
 import { PLAN_LIMITS, planOf, type PlanKey } from "@/lib/plans";
 import { getStripe, priceIdFor, stripeConfigured, stripeId, stripeTestMode } from "@/lib/stripe";
 import { formatInTz, zonedDay, zonedLocalToDate } from "@/lib/time";
@@ -119,7 +119,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
         </Card>
       )}
       {!billingReady && (
-        <Card className="border-amber-500/40 bg-amber-500/10 p-4 text-sm">Online upgrades aren&apos;t switched on for this deployment yet. Email <a className="underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> to upgrade.</Card>
+        <Card className="border-amber-500/40 bg-amber-500/10 p-4 text-sm">Online upgrades aren&apos;t switched on for this deployment yet. Email <a className="underline" href={`mailto:${CONTACT.billing}`}>{CONTACT.billing}</a> to upgrade.</Card>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_1fr]">
@@ -130,14 +130,17 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
               {summary?.status === "past_due" && <Badge variant="danger">Payment failed</Badge>}
               {summary?.cancelAtPeriodEnd && <Badge variant="warning">Cancels at period end</Badge>}
               {summary && summary.status === "active" && !summary.cancelAtPeriodEnd && <Badge variant="success">Active</Badge>}
+              {org.compPlan && <Badge variant="success">Complimentary</Badge>}
             </CardTitle>
             <CardDescription>
-              {tier === "free"
+              {org.compPlan && !subscribed
+                ? "Provided free of charge."
+                : tier === "free"
                 ? "No card needed. Upgrade any time; paid features switch on as soon as payment goes through."
                 : summary
                   ? <>
                       {summary.amount && `${summary.amount} ${summary.interval === "yearly" ? "per year" : "per month"}. `}
-                      {summary.periodEnd && (summary.cancelAtPeriodEnd ? `Paid features end ${formatInTz(summary.periodEnd, org.timezone, { dateStyle: "medium" })}, then you move to Free.` : `Renews ${formatInTz(summary.periodEnd, org.timezone, { dateStyle: "medium" })}.`)}
+                      {summary.periodEnd && (summary.cancelAtPeriodEnd ? `Paid features end ${formatInTz(summary.periodEnd, org.timezone, { dateStyle: "medium" })}, then you move to ${org.compPlan ? `your complimentary ${planOf(org.compPlan).name} plan` : "Free"}.` : `Renews ${formatInTz(summary.periodEnd, org.timezone, { dateStyle: "medium" })}.`)}
                     </>
                   : "Billed through Stripe."}
             </CardDescription>
@@ -146,7 +149,15 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
             {summary?.status === "past_due" && (
               <p className="text-sm text-red-400">Stripe couldn&apos;t charge your card. Update it in the billing portal to keep {plan.name} features.</p>
             )}
-            {subscribed ? <ManageBillingButton label="Change plan or cancel" /> : tier === "free" ? <p className="text-sm text-muted-foreground">Pick a plan below.</p> : <p className="text-sm text-muted-foreground">This plan was set up manually. Email {LEGAL.email} for changes.</p>}
+            {subscribed ? (
+              <ManageBillingButton label="Change plan or cancel" />
+            ) : org.compPlan ? (
+              <p className="text-sm text-muted-foreground">Complimentary {planOf(org.compPlan).name} plan from droplr.fm: no charge, no card needed.{org.compPlan !== "enterprise" ? " You can still upgrade to a higher plan below." : ""}</p>
+            ) : tier === "free" ? (
+              <p className="text-sm text-muted-foreground">Pick a plan below.</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">This plan was set up manually. Email {CONTACT.billing} for changes.</p>
+            )}
           </CardContent>
         </Card>
 

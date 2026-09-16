@@ -1,12 +1,12 @@
 import Link from "next/link";
-import { LEGAL, LEGAL_DOCS, operatorLine, type LegalSlug } from "@/lib/legal";
+import { CONTACT, LEGAL, LEGAL_DOCS, operatorLine, type LegalSlug } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 import { MarketingShell } from "./site-chrome";
 
 export type TocItem = { id: string; title: string };
 
 /** Shared layout for every /legal document: doc switcher, table of contents, readable prose. */
-export function LegalShell({ slug, toc, children }: { slug: LegalSlug; toc: TocItem[]; children: React.ReactNode }) {
+export function LegalShell({ slug, toc, children, contact = "hello" }: { slug: LegalSlug; toc: TocItem[]; children: React.ReactNode; /** Inbox shown in the "Questions?" line. */ contact?: keyof typeof CONTACT }) {
   const doc = LEGAL_DOCS.find((d) => d.slug === slug)!;
   return (
     <MarketingShell>
@@ -30,7 +30,7 @@ export function LegalShell({ slug, toc, children }: { slug: LegalSlug; toc: TocI
         <article className="min-w-0 max-w-3xl">
           <p className="text-sm text-muted-foreground">Last updated {LEGAL.updated}</p>
           <h1 className="mt-2 text-balance text-3xl font-bold tracking-tight sm:text-4xl">{doc.title}</h1>
-          <p className="mt-3 text-sm text-muted-foreground">{operatorLine}. {LEGAL.address}. <a className="underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a></p>
+          <p className="mt-3 text-sm text-muted-foreground">A service provided by {operatorLine}. {LEGAL.address}.</p>
 
           {toc.length > 3 && (
             <nav aria-label="On this page" className="mt-8 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-sm">
@@ -46,7 +46,7 @@ export function LegalShell({ slug, toc, children }: { slug: LegalSlug; toc: TocI
           </div>
 
           <p className="mt-12 border-t border-white/10 pt-6 text-sm text-muted-foreground">
-            Questions about this document? Email <a className="underline" href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.
+            Questions about this document? Email <a className="underline" href={`mailto:${CONTACT[contact]}`}>{CONTACT[contact]}</a>. All contacts are on the <Link className="underline" href="/legal">Legal</Link> page.
           </p>
         </article>
       </div>

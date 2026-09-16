@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { LEGAL, operatorLine } from "@/lib/legal";
+import { CONTACT, LEGAL, operatorLine } from "@/lib/legal";
 
 export const metadata = { title: "Terms of Service" };
 
@@ -29,9 +29,9 @@ const s = tocHelper(toc);
 
 export default function TermsPage() {
   return (
-    <LegalShell slug="terms" toc={toc}>
+    <LegalShell slug="terms" toc={toc} contact="legal">
       <Section {...s("about")}>
-        <p>droplr.fm is operated by {operatorLine} (&quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;). These Terms of Service are a legal agreement between us and the person or business that creates a droplr.fm account (&quot;<strong>you</strong>&quot;).</p>
+        <p>droplr.fm is a service provided by {operatorLine} (&quot;<strong>we</strong>&quot;, &quot;<strong>us</strong>&quot;). {LEGAL.operator} is a registered business name of {LEGAL.owner}, a sole trader in {LEGAL.state}, Australia. These Terms of Service are a legal agreement between us and the person or business that creates a droplr.fm account (&quot;<strong>you</strong>&quot;).</p>
         <p>By creating an account, accepting an invite or using the service, you agree to these terms and to the policies they refer to: the <Link href="/legal/privacy">Privacy Policy</Link>, <Link href="/legal/billing">Billing &amp; Refund Policy</Link>, <Link href="/legal/acceptable-use">Acceptable Use Policy</Link>, <Link href="/legal/cookies">Cookie Policy</Link> and <Link href="/legal/data-processing">Data Processing Terms</Link>. If you don&apos;t agree, don&apos;t use droplr.fm.</p>
         <p>If you sign up for a label, company or other organisation, you confirm you&apos;re authorised to accept these terms for it, and &quot;you&quot; includes that organisation.</p>
       </Section>
@@ -51,8 +51,9 @@ export default function TermsPage() {
         <ul>
           <li>You must be at least 18 and able to enter a binding contract. droplr.fm is a business tool for labels, artists and their teams.</li>
           <li>Give us accurate details and keep them up to date, including a working email address.</li>
-          <li>Keep your password secret. You&apos;re responsible for activity on your account, including what your team members do. Tell us straight away at <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> if you think someone has accessed it without permission.</li>
+          <li>Keep your password secret. You&apos;re responsible for activity on your account, including what your team members do. Tell us straight away at <a href={`mailto:${CONTACT.support}`}>{CONTACT.support}</a> if you think someone has accessed it without permission.</li>
           <li>You decide who to invite and what role they get. Remove access for people who shouldn&apos;t have it.</li>
+          <li>Each label account is kept separate. Other labels can&apos;t see your releases, analytics, settings or fan data, and artists you invite only see releases assigned to them.</li>
         </ul>
       </Section>
 
@@ -154,7 +155,7 @@ export default function TermsPage() {
       </Section>
 
       <Section {...s("disputes")}>
-        <p>If something goes wrong, email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> first. We&apos;ll both try in good faith to resolve it within 30 days before starting legal proceedings, except for urgent injunctive relief.</p>
+        <p>If something goes wrong, email <a href={`mailto:${CONTACT.hello}`}>{CONTACT.hello}</a> first (or <a href={`mailto:${CONTACT.billing}`}>{CONTACT.billing}</a> for charges). We&apos;ll both try in good faith to resolve it within 30 days before starting legal proceedings, except for urgent injunctive relief.</p>
         <p>These terms are governed by the laws of {LEGAL.state}, Australia. Both of us submit to the non-exclusive jurisdiction of the courts of {LEGAL.state} and the courts that can hear appeals from them. If you&apos;re a consumer outside Australia, you also keep any protections the law of your country gives you that can&apos;t be excluded.</p>
       </Section>
 
@@ -165,7 +166,7 @@ export default function TermsPage() {
           <li>Not enforcing a term straight away doesn&apos;t mean we&apos;ve given up the right to.</li>
           <li>You can&apos;t transfer your account or these terms without our written consent. We may transfer them to a successor to the droplr.fm business, and we&apos;ll tell you if we do.</li>
           <li>Neither of us is responsible for delays caused by events outside reasonable control, such as outages at hosting or streaming providers.</li>
-          <li>We&apos;ll send notices to the account owner&apos;s email. Send notices to us at <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>.</li>
+          <li>We&apos;ll send notices to the account owner&apos;s email. Send legal notices to us at <a href={`mailto:${CONTACT.legal}`}>{CONTACT.legal}</a>.</li>
         </ul>
       </Section>
     </LegalShell>

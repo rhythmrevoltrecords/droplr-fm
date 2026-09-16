@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { LEGAL, operatorLine } from "@/lib/legal";
+import { CONTACT, LEGAL, operatorLine } from "@/lib/legal";
 
 export const metadata = { title: "Privacy Policy" };
 
@@ -27,8 +27,8 @@ const s = tocHelper(toc);
 
 export default function PrivacyPage() {
   return (
-    <LegalShell slug="privacy" toc={toc}>
-      <p>This policy explains how {operatorLine} handles personal information. We follow the Australian Privacy Principles in the <em>Privacy Act 1988</em> (Cth). Where the EU or UK General Data Protection Regulation (GDPR) applies to you, this policy also explains your rights under it.</p>
+    <LegalShell slug="privacy" toc={toc} contact="privacy">
+      <p>droplr.fm is a service provided by {operatorLine}. This policy explains how we handle personal information. We follow the Australian Privacy Principles in the <em>Privacy Act 1988</em> (Cth). Where the EU or UK General Data Protection Regulation (GDPR) applies to you, this policy also explains your rights under it.</p>
 
       <Section {...s("who")}>
         <p>This policy covers:</p>
@@ -52,6 +52,7 @@ export default function PrivacyPage() {
           <li><strong>Content</strong>: release titles, artwork, UPC/ISRC codes, store links, bio pages and invites you send, including the invitee&apos;s email address.</li>
           <li><strong>Spotify developer credentials</strong>, if you connect your own Spotify app. These are encrypted with AES-256-GCM before storage.</li>
           <li><strong>Billing</strong>: your plan and the customer and subscription IDs Stripe gives us. Card details go directly to Stripe; we never see or store your full card number.</li>
+          <li><strong>Security records</strong>: when you agreed to the Terms, password reset requests (we store only a hash of the reset link, which expires after 60 minutes), and a record of failed logins and reset requests used for rate limiting. Those rate-limit records contain a hash of the email or IP address, not the address itself, and are deleted after a day.</li>
           <li><strong>Support</strong>: what you tell us when you email us.</li>
         </ul>
 
@@ -83,7 +84,7 @@ export default function PrivacyPage() {
           <li>To send release-day emails and perform Spotify or Deezer saves on labels&apos; behalf.</li>
           <li>To show labels analytics about their pages (views, clicks, sources, countries and pre-saves).</li>
           <li>To bill paid plans and keep financial records.</li>
-          <li>To send service emails, such as invites, security notices, receipts and changes to these policies.</li>
+          <li>To send service emails, such as password resets, security notices, receipts and changes to these policies.</li>
           <li>To keep droplr.fm secure: preventing fraud, spam, bots and abuse.</li>
           <li>To fix problems and improve the service, using aggregated or de-identified data where we can.</li>
           <li>To comply with the law and enforce our <Link href="/legal/terms">Terms</Link>.</li>
@@ -111,7 +112,7 @@ export default function PrivacyPage() {
               <tr><td>Netlify</td><td>Website hosting, server functions, file storage for artwork</td><td>United States, with a global content delivery network</td></tr>
               <tr><td>Neon (through Netlify DB)</td><td>Database</td><td>Sydney, Australia</td></tr>
               <tr><td>Stripe</td><td>Subscription payments and invoices</td><td>United States and other countries</td></tr>
-              <tr><td>Resend</td><td>Sending release-day and service emails</td><td>United States</td></tr>
+              <tr><td>Resend</td><td>Sending release-day emails and account emails such as password resets</td><td>United States</td></tr>
               <tr><td>Spotify, Deezer</td><td>Only when a fan chooses to connect their account</td><td>Per those providers</td></tr>
               <tr><td>Meta, TikTok, Google</td><td>Only on label pages where the label has added its own pixel</td><td>Per those providers</td></tr>
             </tbody>
@@ -152,7 +153,7 @@ export default function PrivacyPage() {
           <li><strong>EU and UK residents</strong> also have the right to data portability, to restrict or object to processing, and to complain to their local data protection authority.</li>
           <li><strong>US state privacy laws.</strong> Where they apply, you can request access or deletion in the same way. We don&apos;t sell or share personal information for cross-context behavioural advertising; label pixels are controlled by the label.</li>
         </ul>
-        <p>Email <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a> with the subject &quot;Privacy request&quot;. We&apos;ll confirm who you are and reply within 30 days. For fan data, we&apos;ll work with the relevant label.</p>
+        <p>Email <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a> with the subject &quot;Privacy request&quot;. We&apos;ll confirm who you are and reply within 30 days. For fan data, we&apos;ll work with the relevant label.</p>
       </Section>
 
       <Section {...s("marketing")}>
@@ -172,7 +173,7 @@ export default function PrivacyPage() {
       </Section>
 
       <Section {...s("contact")}>
-        <p>Privacy questions and requests: <a href={`mailto:${LEGAL.email}`}>{LEGAL.email}</a>, or write to {LEGAL.operator}, {LEGAL.address}.</p>
+        <p>Privacy questions and requests: <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a>, or write to {LEGAL.owner}, {LEGAL.operator}, {LEGAL.address}.</p>
         <p>If you&apos;re not happy with our response, you can complain to the Office of the Australian Information Commissioner (OAIC) at <a href="https://www.oaic.gov.au" rel="noreferrer">oaic.gov.au</a> or on 1300 363 992. If you&apos;re in the EU or UK, you can contact your local data protection authority.</p>
       </Section>
     </LegalShell>

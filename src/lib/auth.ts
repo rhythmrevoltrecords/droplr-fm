@@ -7,9 +7,22 @@ import { signToken, verifyToken } from "./crypto";
 
 export const SESSION_COOKIE = "dfm_session";
 export type Role = "owner" | "admin" | "artist";
-export type SessionPayload = { sub: string; org: string; role: Role };
+export type SessionPayload = { sub: string; org: string; role: Role; iat?: number };
 
 export const hashPassword = (pw: string) => bcrypt.hash(pw, 12);
+
+export const MIN_PASSWORD = 10;
+/** Returns an error message, or null when the password is acceptable. */
+export function passwordProblem(pw: string, email?: string | null): string | null {
+  if (pw.length < MIN_PASSWORD) return `Password must be at least ${MIN_PASSWORD} characters`;
+  if (pw.length > 200) return "Password is too long";
+  if (email && pw.toLowerCase().includes(email.split("@")[0].toLowerCase()) && email.split("@")[0].length >= 4) return "Password can't contain your email name";
+  if (/^(.)\1+$/.test(pw)) return "Password can't be one repeated character";
+  return null;
+}
+
+/** Sessions issued before this instant stop working. Second precision, because JWT iat is in seconds. */
+export const sessionCutoffNow = () => new Date(Math.floor(Date.now() / 1000) * 1000);
 export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, hash);
 
 export async function createSessionCookie(user: { id: string; organizationId: string; role: string }) {
@@ -42,6 +55,8 @@ export async function getCurrentUser() {
   if (!s?.sub || typeof s.sub !== "string") return null;
   const user = await prisma.user.findUnique({ where: { id: s.sub }, include: { organization: true } });
   if (!user || !user.organizationId || !user.organization) return null;
+  // Revoked by a password change/reset or "sign out everywhere".
+  if (user.sessionsValidFrom && (typeof s.iat !== "number" || s.iat * 1000 < user.sessionsValidFrom.getTime())) return null;
   return user as typeof user & { organization: NonNullable<typeof user.organization> };
 }
 

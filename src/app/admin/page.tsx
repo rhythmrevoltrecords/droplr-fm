@@ -12,7 +12,7 @@ import { planOf } from "@/lib/plans";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
-export default async function AdminHome({ searchParams }: { searchParams: { days?: string; welcome?: string } }) {
+export default async function AdminHome({ searchParams }: { searchParams: { days?: string; welcome?: string; password?: string } }) {
   const user = await requireUser("label");
   const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
   const releases = await prisma.release.findMany({
@@ -29,6 +29,7 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
 
   return (
     <div className="space-y-8">
+      {searchParams.password === "reset" && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Password updated. You&apos;re signed in, and every other device has been signed out.</Card>}
       {searchParams.welcome && (
         <Card className="border-primary/40 bg-primary/10 p-4 text-sm">
           Welcome to droplr.fm. Paste a Spotify link to create your first release, then invite artists from <Link className="underline" href="/admin/artists">Roster</Link>.

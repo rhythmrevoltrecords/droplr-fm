@@ -1,5 +1,6 @@
 import type Stripe from "stripe";
 import { prisma } from "./db";
+import { higherPlan } from "./plans";
 import { getStripe, isPaidTier, priceIdFor, stripeConfigured, stripeId, tierForPrice, type BillingInterval, type PaidTier } from "./stripe";
 
 /** Stripe statuses that keep paid features on. past_due = Stripe is still retrying the card. */
@@ -11,14 +12,15 @@ const KEEPS_PLAN = new Set<Stripe.Subscription.Status>(["active", "trialing", "p
  * immediately even if the webhook is slow). Idempotent.
  */
 export async function applySubscription(orgId: string, sub: Stripe.Subscription) {
-  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { id: true, stripeSubscriptionId: true } });
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: { id: true, stripeSubscriptionId: true, compPlan: true } });
   if (!org) return null;
   const priceId = sub.items?.data?.[0]?.price?.id ?? null;
   const tier = tierForPrice(priceId)?.tier ?? (isPaidTier(sub.metadata?.tier) ? sub.metadata.tier : null);
   const ended = sub.status === "canceled" || sub.status === "incomplete_expired" || sub.status === "unpaid";
   // A late event for an old, ended subscription must not wipe a newer one.
   if (ended && org.stripeSubscriptionId && org.stripeSubscriptionId !== sub.id) return null;
-  const plan = KEEPS_PLAN.has(sub.status) && tier ? tier : "free";
+  // A complimentary plan is a floor: Stripe can only raise it.
+  const plan = higherPlan(KEEPS_PLAN.has(sub.status) && tier ? tier : "free", org.compPlan);
   // "incomplete" = first payment not finished yet: record ids but don't grant or revoke anything.
   if (sub.status === "incomplete") {
     return prisma.organization.update({ where: { id: org.id }, data: { stripeCustomerId: stripeId(sub.customer), stripeSubscriptionId: sub.id } });
@@ -103,4 +105,13 @@ export async function getSubscriptionSummary(subscriptionId: string | null): Pro
   } catch {
     return null;
   }
+}
+
+/**
+ * Plan implied by what's stored (no Stripe call): the subscription's tier if one is on file, else free,
+ * raised to the complimentary plan if set. Used when a comp plan is added or removed.
+ */
+export function storedPlan(org: { stripeSubscriptionId: string | null; stripePriceId: string | null; compPlan: string | null }) {
+  const paid = org.stripeSubscriptionId ? tierForPrice(org.stripePriceId)?.tier ?? null : null;
+  return higherPlan(paid ?? "free", org.compPlan);
 }
