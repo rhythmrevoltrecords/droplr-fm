@@ -32,6 +32,7 @@ export default async function RosterPage() {
         <h1 className="text-2xl font-semibold">Roster</h1>
         <p className="text-sm text-muted-foreground">
           {artistCount} artist{artistCount === 1 ? "" : "s"}{Number.isFinite(plan.artists) ? ` of ${plan.artists} on ${plan.name}` : ""}. Artists see only their own releases and can copy links, but can&apos;t edit URLs.
+          {Number.isFinite(plan.artists) && artistCount >= plan.artists && <> <a href="/admin/settings/billing" className="text-violet-400 underline">Upgrade for more artists</a></>}
         </p>
       </div>
       <Card>

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, isLabelRole } from "@/lib/auth";
 import { sha256 } from "@/lib/crypto";
+import { LEGAL } from "@/lib/legal";
 
 /** Accept an invite: set password → logged in as artist (or admin). */
 export async function POST(req: NextRequest) {
@@ -12,10 +13,11 @@ export async function POST(req: NextRequest) {
   const back = (msg: string) => NextResponse.redirect(new URL(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent(msg)}`, req.url), 303);
   if (!invite || invite.acceptedAt || invite.expiresAt < new Date()) return back("This invite is invalid or expired");
   if (password.length < 10) return back("Password must be at least 10 characters");
+  if (form.get("terms") !== "yes") return back("Please agree to the Terms of Service and Privacy Policy");
   if (await prisma.user.findUnique({ where: { email: invite.email } })) return back("An account with this email already exists. Log in instead.");
 
   const user = await prisma.user.create({
-    data: { email: invite.email, passwordHash: await hashPassword(password), role: invite.role, artistName: invite.artistName, organizationId: invite.organizationId },
+    data: { email: invite.email, passwordHash: await hashPassword(password), role: invite.role, artistName: invite.artistName, organizationId: invite.organizationId, termsAcceptedAt: new Date(), termsVersion: LEGAL.version },
   });
   await prisma.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
   await createSessionCookie(user);

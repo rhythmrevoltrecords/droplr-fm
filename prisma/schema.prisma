@@ -60,6 +60,8 @@ model User {
   passwordHash   String
   role           String       @default("artist") // owner | admin | artist
   artistName     String?
+  termsAcceptedAt DateTime? // when they ticked "I agree" at signup / invite
+  termsVersion    String? // LEGAL.version accepted
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -196,6 +198,8 @@ model PreSave {
   platform              String // email | spotify | deezer
   email                 String?
   emailConsent          Boolean   @default(false)
+  consentAt             DateTime? // last time the fan ticked the consent box
+  consentVersion        String? // FAN_EMAIL_CONSENT_VERSION shown at that time
   spotifyUserId         String?
   deezerUserId          String?
   refreshTokenEncrypted String?

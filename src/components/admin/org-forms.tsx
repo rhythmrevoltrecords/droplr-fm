@@ -40,7 +40,7 @@ export function OrgFieldsForm({ fields, initial, disabled, submitLabel = "Save" 
       </div>
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={busy || !!disabled}>{busy && <Loader2 className="animate-spin" />} {submitLabel}</Button>
-        {disabled ? <span className="text-sm text-muted-foreground">{disabled}</span> : <Msg msg={msg} />}
+        {disabled ? <span className="text-sm text-muted-foreground">{disabled}. <a href="/admin/settings/billing" className="text-violet-400 underline">Upgrade</a></span> : <Msg msg={msg} />}
       </div>
     </form>
   );

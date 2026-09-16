@@ -21,7 +21,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     csv = toCsv(rows.map((r) => ({ createdAt: r.createdAt, platform: r.platform, source: r.source, utm_source: r.utm_source, utm_medium: r.utm_medium, utm_campaign: r.utm_campaign, country: r.country, deviceType: r.deviceType, referrer: r.referrer, fromReleaseEmail: r.convertedToPreSave })));
   } else {
     const rows = await prisma.preSave.findMany({ where: { releaseId: release.id }, orderBy: { createdAt: "desc" } });
-    csv = toCsv(rows.map((r) => ({ createdAt: r.createdAt, email: r.emailConsent ? r.email : "", consent: r.emailConsent, platform: r.platform, status: r.status, source: r.source, country: r.country, emailSentAt: r.emailSentAt, clickedAt: r.clickedAt, completedAt: r.completedAt })));
+    csv = toCsv(rows.map((r) => ({ createdAt: r.createdAt, email: r.emailConsent ? r.email : "", consent: r.emailConsent, consentAt: r.consentAt, consentVersion: r.consentVersion, platform: r.platform, status: r.status, source: r.source, country: r.country, emailSentAt: r.emailSentAt, clickedAt: r.clickedAt, completedAt: r.completedAt })));
   }
   return new NextResponse(csv, {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="${release.slug}-${type}.csv"` },

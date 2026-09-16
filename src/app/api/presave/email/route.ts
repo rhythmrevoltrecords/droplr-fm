@@ -1,3 +1,4 @@
+import { FAN_EMAIL_CONSENT_VERSION } from "@/lib/legal";
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { releasePageUrl, requestOrigin, withParam } from "@/lib/oauth";
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.preSave.findFirst({ where: { releaseId, email, platform: "email" } });
   if (existing) {
-    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, status: existing.status === "unsubscribed" ? "pending" : existing.status } });
+    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, status: existing.status === "unsubscribed" ? "pending" : existing.status } });
   } else {
     await prisma.preSave.create({
       data: {
@@ -36,6 +37,8 @@ export async function POST(req: NextRequest) {
         platform: "email",
         email,
         emailConsent: true,
+        consentAt: new Date(),
+        consentVersion: FAN_EMAIL_CONSENT_VERSION,
         status: "pending",
         sourceVariantId: variant?.id,
         source,

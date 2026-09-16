@@ -44,13 +44,14 @@ export default function PricingPage() {
                 ))}
               </ul>
               <Button asChild className="mt-8" variant={t.highlight ? "white" : "outline"}>
-                <Link href={t.name === "Enterprise" ? "mailto:hello@droplr.fm" : "/signup"}>{t.cta}</Link>
+                <Link href={t.name === "Enterprise" ? "mailto:hello@droplr.fm" : t.price === 0 ? "/signup" : `/signup?plan=${t.name.toLowerCase()}`}>{t.cta}</Link>
               </Button>
             </div>
           ))}
         </div>
         <div className="mx-auto mt-10 max-w-3xl space-y-2 text-center text-sm text-muted-foreground">
           <p>All plans include email pre-saves and a release-day email to every fan who opted in. No per-release fees.</p>
+          <p>Already have an account? Upgrade from <Link href="/admin/settings/billing" className="underline">Settings → Plan &amp; billing</Link>. Paid plans renew automatically; cancel any time. <Link href="/legal/billing" className="underline">Billing &amp; refunds</Link></p>
           <p>
             * True auto-saves run through a Spotify developer app you create and own. Spotify limits Development Mode apps to 5 allowlisted users. Going past that needs Spotify&apos;s Extended Quota approval, which is up to Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
           </p>

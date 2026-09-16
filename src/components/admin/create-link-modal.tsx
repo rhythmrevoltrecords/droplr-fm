@@ -97,7 +97,7 @@ export function CreateLinkModal({ releaseLimitReached }: { releaseLimitReached: 
                 {joined.has(t.key) ? "You're on the list" : "Notify Me"}
               </Button>
             ) : blocked ? (
-              <Button asChild variant="outline" className="w-full"><Link href="/pricing">Upgrade for more releases</Link></Button>
+              <Button asChild variant="outline" className="w-full"><Link href="/admin/settings/billing">Upgrade for more releases</Link></Button>
             ) : (
               <Button asChild className="w-full"><Link href={t.href!} onClick={() => setOpen(false)}>Create {t.name}</Link></Button>
             )}

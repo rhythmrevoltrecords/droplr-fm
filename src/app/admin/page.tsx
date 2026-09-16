@@ -41,7 +41,7 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {org.logoUrl && <img src={org.logoUrl} alt="" className="h-5 w-5 rounded object-cover ring-1 ring-border" />}
             <span>{org.name} · {releases.length} release{releases.length === 1 ? "" : "s"}</span>
-            {atLimit && <Link href="/pricing" className="text-xs underline">{plan.name} limit reached</Link>}
+            {atLimit && <Link href="/admin/settings/billing" className="text-xs text-violet-400 underline">{plan.name} limit reached · Upgrade</Link>}
           </p>
         </div>
         <CreateLinkModal releaseLimitReached={atLimit} />

@@ -32,6 +32,9 @@ export function SiteFooter() {
           <Link href="/docs/custom-domain">Custom domains</Link>
           <Link href="/docs/spotify-byo">Spotify BYO app</Link>
           <Link href="/demo/demo-track">Demo</Link>
+          <Link href="/legal/terms">Terms</Link>
+          <Link href="/legal/privacy">Privacy</Link>
+          <Link href="/legal">Legal</Link>
         </div>
         <p>Made in Brisbane. droplr.fm isn&apos;t affiliated with Spotify, Apple, Deezer or Feature.fm.</p>
       </div>

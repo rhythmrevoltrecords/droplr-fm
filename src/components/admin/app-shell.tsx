@@ -1,3 +1,4 @@
+import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { Logo } from "@/components/marketing/logo";
 import { Badge } from "@/components/ui/badge";
@@ -11,7 +12,7 @@ export function themeClass(pref: string | null | undefined) {
 }
 
 /** Admin + artist dashboard chrome. Theme follows Organization.themePreference (dark by default). */
-export function AppShell({ user, nav, children }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string }[]; children: React.ReactNode }) {
+export function AppShell({ user, nav, children, billingHref }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string }[]; children: React.ReactNode; /** Label admins only: plan badge links here, and Free shows an Upgrade button. */ billingHref?: string }) {
   const org = user.organization;
   return (
     <div className={cn(themeClass(org.themePreference), "min-h-dvh bg-background text-foreground")}>
@@ -32,7 +33,18 @@ export function AppShell({ user, nav, children }: { user: { email: string; role:
               {org.logoUrl && <img src={org.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded object-cover ring-1 ring-border" />}
               <span className="truncate">{org.name}</span>
             </span>
-            <Badge variant="secondary">{planOf(org.plan).name}</Badge>
+            {billingHref && planOf(org.plan).name === "Free" ? (
+              <Link
+                href={billingHref}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full bg-violet-600 px-3 text-xs font-semibold text-white shadow-[0_0_24px_-6px_rgba(124,58,237,0.8)] transition hover:bg-violet-500"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Upgrade
+              </Link>
+            ) : billingHref ? (
+              <Link href={billingHref} title="Plan & billing"><Badge variant="secondary" className="hover:bg-secondary/70">{planOf(org.plan).name}</Badge></Link>
+            ) : (
+              <Badge variant="secondary">{planOf(org.plan).name}</Badge>
+            )}
             <form method="post" action="/api/auth/logout"><button className="text-muted-foreground hover:text-foreground">Log out</button></form>
           </div>
         </div>

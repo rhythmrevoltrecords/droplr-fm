@@ -1,15 +1,16 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type Stripe from "stripe";
+import { applySubscription, orgIdForSubscription } from "@/lib/billing";
 import { prisma } from "@/lib/db";
-import { getStripe, isPaidTier, stripeConfigured, stripeId } from "@/lib/stripe";
+import { getStripe, stripeConfigured, stripeId } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
 
-async function orgExists(id: string | null | undefined) {
-  if (!id) return null;
-  return prisma.organization.findUnique({ where: { id }, select: { id: true } });
-}
-
+/**
+ * Stripe → droplr.fm. Endpoint: https://droplr.fm/api/stripe/webhook
+ * Events: checkout.session.completed, customer.subscription.created,
+ * customer.subscription.updated, customer.subscription.deleted
+ */
 export async function POST(req: NextRequest) {
   const sig = req.headers.get("stripe-signature");
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -22,40 +23,30 @@ export async function POST(req: NextRequest) {
     return new NextResponse(`Webhook Error: ${err instanceof Error ? err.message : "invalid signature"}`, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
-    const s = event.data.object as Stripe.Checkout.Session;
-    const org = await orgExists(s.client_reference_id ?? s.metadata?.organizationId);
-    const tier = isPaidTier(s.metadata?.tier) ? s.metadata!.tier : "pro";
-    if (org) {
-      await prisma.organization.update({
-        where: { id: org.id },
-        data: { plan: tier, stripeCustomerId: stripeId(s.customer), stripeSubscriptionId: stripeId(s.subscription), planUpdatedAt: new Date() },
-      });
+  try {
+    switch (event.type) {
+      case "checkout.session.completed": {
+        const s = event.data.object as Stripe.Checkout.Session;
+        const orgId = s.client_reference_id ?? s.metadata?.organizationId ?? null;
+        const subId = stripeId(s.subscription);
+        if (!orgId || !(await prisma.organization.findUnique({ where: { id: orgId }, select: { id: true } }))) break;
+        if (subId) await applySubscription(orgId, await getStripe().subscriptions.retrieve(subId));
+        else await prisma.organization.update({ where: { id: orgId }, data: { stripeCustomerId: stripeId(s.customer) } });
+        break;
+      }
+      case "customer.subscription.created":
+      case "customer.subscription.updated":
+      case "customer.subscription.deleted": {
+        const sub = event.data.object as Stripe.Subscription;
+        const orgId = await orgIdForSubscription(sub);
+        if (orgId) await applySubscription(orgId, sub);
+        break;
+      }
     }
-  }
-
-  if (event.type === "customer.subscription.updated") {
-    const sub = event.data.object as Stripe.Subscription;
-    const org = await orgExists(sub.metadata?.organizationId);
-    if (org) {
-      const active = sub.status === "active" || sub.status === "trialing" || sub.status === "past_due";
-      const tier = isPaidTier(sub.metadata?.tier) ? sub.metadata!.tier : "pro";
-      await prisma.organization.update({
-        where: { id: org.id },
-        data: {
-          plan: active ? tier : "free",
-          stripeSubscriptionId: sub.id,
-          stripePriceId: sub.items?.data?.[0]?.price?.id ?? null,
-          planUpdatedAt: new Date(),
-        },
-      });
-    }
-  }
-
-  if (event.type === "customer.subscription.deleted") {
-    const sub = event.data.object as Stripe.Subscription;
-    const org = await orgExists(sub.metadata?.organizationId);
-    if (org) await prisma.organization.update({ where: { id: org.id }, data: { plan: "free", stripeSubscriptionId: null, stripePriceId: null, planUpdatedAt: new Date() } });
+  } catch (err) {
+    // 500 makes Stripe retry, which is what we want for a transient DB error.
+    console.error("[stripe webhook]", event.type, err);
+    return new NextResponse("Handler error", { status: 500 });
   }
 
   return NextResponse.json({ received: true });
