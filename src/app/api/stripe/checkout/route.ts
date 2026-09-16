@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { SITE_URL } from "@/lib/env";
+import { clearStaleStripeIds } from "@/lib/billing";
 import { getStripe, isInterval, isPaidTier, priceIdFor, stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -21,6 +22,8 @@ export async function POST(req: NextRequest) {
 
   const org = user.organization;
   try {
+    // Sandbox-era ids aren't valid on live keys: forget them so this becomes a normal checkout.
+    if (await clearStaleStripeIds(org)) Object.assign(org, { stripeCustomerId: null, stripeSubscriptionId: null, stripePriceId: null });
     // Already subscribed: plan changes go through the portal so nobody ends up with two subscriptions.
     if (org.stripeSubscriptionId && org.stripeCustomerId) {
       const portal = await getStripe().billingPortal.sessions.create({ customer: org.stripeCustomerId, return_url: BILLING });

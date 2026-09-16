@@ -5,7 +5,7 @@ import { BillingPlans, ManageBillingButton, type PlanCard } from "@/components/a
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
-import { applySubscription, formatMoney, getPriceTable, getSubscriptionSummary } from "@/lib/billing";
+import { applySubscription, clearStaleStripeIds, formatMoney, getPriceTable, getSubscriptionSummary } from "@/lib/billing";
 import { prisma } from "@/lib/db";
 import { CONTACT } from "@/lib/legal";
 import { PLAN_LIMITS, planOf, type PlanKey } from "@/lib/plans";
@@ -69,6 +69,8 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
     await syncCheckout(searchParams.session_id, user.organizationId);
     redirect("/admin/settings/billing?upgraded=1");
   }
+  // Ids left over from sandbox testing don't exist on live keys: clear them and reload with the corrected plan.
+  if (await clearStaleStripeIds(user.organization)) redirect("/admin/settings/billing");
   const org = user.organization;
   const tier = (org.plan in PLAN_LIMITS ? org.plan : "free") as PlanKey;
   const plan = planOf(tier);

@@ -37,6 +37,40 @@ export async function applySubscription(orgId: string, sub: Stripe.Subscription)
   });
 }
 
+const isMissing = (err: unknown) => (err as { code?: string })?.code === "resource_missing";
+
+/**
+ * Stripe ids saved while the site ran on sandbox keys don't exist in live mode (and vice versa).
+ * If the stored customer or subscription is gone from the current Stripe account, forget them and
+ * drop the plan back to Free (or the complimentary plan), so the label can check out again.
+ * Returns true if anything was cleared. Other Stripe errors (network, rate limit) change nothing.
+ */
+export async function clearStaleStripeIds(org: { id: string; stripeCustomerId: string | null; stripeSubscriptionId: string | null; compPlan: string | null }) {
+  if (!stripeConfigured() || (!org.stripeCustomerId && !org.stripeSubscriptionId)) return false;
+  const stripe = getStripe();
+  let stale = false;
+  try {
+    if (org.stripeSubscriptionId) await stripe.subscriptions.retrieve(org.stripeSubscriptionId);
+    else if (org.stripeCustomerId) await stripe.customers.retrieve(org.stripeCustomerId);
+  } catch (err) {
+    stale = isMissing(err);
+  }
+  if (!stale && org.stripeSubscriptionId && org.stripeCustomerId) {
+    try {
+      await stripe.customers.retrieve(org.stripeCustomerId);
+    } catch (err) {
+      stale = isMissing(err);
+    }
+  }
+  if (!stale) return false;
+  await prisma.organization.update({
+    where: { id: org.id },
+    data: { stripeCustomerId: null, stripeSubscriptionId: null, stripePriceId: null, plan: higherPlan("free", org.compPlan), planUpdatedAt: new Date() },
+  });
+  console.warn("[billing] cleared Stripe ids not found in this Stripe account", org.id);
+  return true;
+}
+
 /** Find the org for a subscription: metadata first, then the stored customer id. */
 export async function orgIdForSubscription(sub: Stripe.Subscription) {
   const metaId = sub.metadata?.organizationId;
