@@ -179,7 +179,19 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{tier === "free" ? "Upgrade" : "Plans"}</h2>
-        <BillingPlans plans={plans} currentTier={tier} subscribed={subscribed} highlight={highlight} billingReady={billingReady} />
+        <BillingPlans
+          plans={plans}
+          currentTier={tier}
+          subscribed={subscribed}
+          highlight={highlight}
+          billingReady={billingReady}
+          defaultInterval={summary?.interval ?? "monthly"}
+          scheduledChange={
+            summary?.cancelAtPeriodEnd && summary.periodEnd
+              ? { tier: org.compPlan ?? "free", date: formatInTz(summary.periodEnd, org.timezone, { dateStyle: "medium" }) }
+              : null
+          }
+        />
         <p className="text-xs text-muted-foreground">
           Plans renew automatically until cancelled. Cancel any time: you keep paid features until the end of the period you&apos;ve paid for. No refunds for partial periods, except where the law requires. See the <Link className="underline" href="/legal/billing">Billing &amp; Refund Policy</Link> and <Link className="underline" href="/legal/terms">Terms</Link>.
         </p>

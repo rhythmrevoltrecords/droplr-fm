@@ -44,6 +44,7 @@ export function BillingPlans({
   highlight,
   billingReady,
   defaultInterval = "monthly",
+  scheduledChange = null,
 }: {
   plans: PlanCard[];
   currentTier: string;
@@ -52,6 +53,8 @@ export function BillingPlans({
   highlight?: string | null;
   billingReady: boolean;
   defaultInterval?: "monthly" | "yearly";
+  /** Subscription is set to cancel: the plan they drop to and when (already formatted). */
+  scheduledChange?: { tier: string; date: string } | null;
 }) {
   const [interval, setBillingInterval] = useState<"monthly" | "yearly">(defaultInterval);
   const [busy, setBusy] = useState<string | null>(null);
@@ -87,6 +90,8 @@ export function BillingPlans({
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         {plans.map((p) => {
           const current = p.tier === currentTier;
+          const ending = current && !!scheduledChange;
+          const next = !current && scheduledChange?.tier === p.tier;
           const price = p.tier === "free" ? "$0" : p.price[interval];
           const isUpgrade = rank(p.tier) > rank(currentTier);
           const featured = highlight ? highlight === p.tier : p.tier === "pro" && currentTier === "free";
@@ -96,10 +101,13 @@ export function BillingPlans({
               className={cn(
                 "relative flex flex-col rounded-2xl border p-5",
                 featured && !current && "border-violet-500 bg-violet-500/[0.08] shadow-[0_0_60px_-24px_rgba(124,58,237,0.7)]",
-                current && "border-emerald-500/50",
+                current && (ending ? "border-amber-500/50" : "border-emerald-500/50"),
+                next && "border-dashed",
               )}
             >
-              {current && <span className="absolute -top-2.5 left-5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[11px] font-semibold text-black">Current plan</span>}
+              {current && !ending && <span className="absolute -top-2.5 left-5 rounded-full bg-emerald-500 px-2.5 py-0.5 text-[11px] font-semibold text-black">Current plan</span>}
+              {ending && <span className="absolute -top-2.5 left-5 rounded-full bg-amber-400 px-2.5 py-0.5 text-[11px] font-semibold text-black">Current plan · ends {scheduledChange!.date}</span>}
+              {next && <span className="absolute -top-2.5 left-5 rounded-full border bg-background px-2.5 py-0.5 text-[11px] font-semibold text-muted-foreground">From {scheduledChange!.date}</span>}
               <h3 className="font-semibold">{p.name}</h3>
               <p className="mt-1 text-xs text-muted-foreground">{p.blurb}</p>
               <p className="mt-3 min-h-9">
@@ -120,12 +128,16 @@ export function BillingPlans({
                 ))}
               </ul>
               <div className="mt-5">
-                {current ? (
+                {ending && subscribed ? (
+                  <ManageBillingButton label={`Keep ${p.name}`} />
+                ) : current ? (
                   <Button variant="outline" className="w-full" disabled>Your plan</Button>
+                ) : next ? (
+                  <Button variant="outline" className="w-full" disabled>Starts {scheduledChange!.date}</Button>
                 ) : p.tier === "enterprise" ? (
                   <Button asChild variant="outline" className="w-full"><a href={`mailto:${CONTACT.hello}?subject=droplr.fm%20Enterprise`}>Contact us</a></Button>
                 ) : p.tier === "free" ? (
-                  subscribed ? <ManageBillingButton label="Cancel in billing portal" /> : null
+                  subscribed && !scheduledChange ? <ManageBillingButton label="Cancel in billing portal" /> : null
                 ) : subscribed ? (
                   <ManageBillingButton label={isUpgrade ? `Switch to ${p.name}` : `Change to ${p.name}`} variant={featured ? "white" : "outline"} />
                 ) : !isUpgrade ? (
