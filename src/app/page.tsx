@@ -122,7 +122,7 @@ export default function Landing() {
 
       <section className="container pb-20">
         <h2 className="text-3xl font-bold tracking-tight">droplr.fm vs Feature.fm for labels</h2>
-        <p className="mt-2 text-sm text-muted-foreground">Compared with Feature.fm&apos;s business plans as listed on feature.fm/pricing, checked 15 September 2026. Prices USD/month.</p>
+        <p className="mt-2 text-sm text-muted-foreground">Compared with Feature.fm&apos;s business plans as listed on feature.fm/pricing, checked 15 September 2026. droplr.fm prices are AUD/month; Feature.fm prices are USD/month as Feature.fm lists them.</p>
         <div className="mt-8 overflow-x-auto rounded-2xl border border-white/10">
           <table className="w-full min-w-[640px] text-sm">
             <thead className="bg-white/[0.03] text-left">

@@ -65,7 +65,7 @@ export async function getPriceTable(): Promise<PriceTable> {
       jobs.push(
         getStripe().prices.retrieve(id).then(
           (p) => { table[tier][interval] = { id: p.id, amount: p.unit_amount, currency: p.currency, interval: p.recurring?.interval ?? null }; },
-          () => { table[tier][interval] = { id, amount: null, currency: "usd", interval: null }; },
+          () => { table[tier][interval] = { id, amount: null, currency: "aud", interval: null }; },
         ),
       );
     }
@@ -78,7 +78,8 @@ export async function getPriceTable(): Promise<PriceTable> {
 export function formatMoney(amount: number | null, currency: string) {
   if (amount == null) return null;
   const n = amount / 100;
-  return new Intl.NumberFormat("en-US", { style: "currency", currency: currency.toUpperCase(), minimumFractionDigits: n % 1 ? 2 : 0 }).format(n) + (currency.toLowerCase() === "usd" ? " USD" : "");
+  // "$29 AUD": symbol plus code, so overseas labels don't read AUD as USD.
+  return `${new Intl.NumberFormat("en-AU", { style: "currency", currency: currency.toUpperCase(), currencyDisplay: "narrowSymbol", minimumFractionDigits: n % 1 ? 2 : 0 }).format(n)} ${currency.toUpperCase()}`;
 }
 
 export type SubscriptionSummary = {
@@ -100,7 +101,7 @@ export async function getSubscriptionSummary(subscriptionId: string | null): Pro
       cancelAtPeriodEnd: sub.cancel_at_period_end || !!sub.cancel_at,
       periodEnd: end ? new Date(end * 1000) : null,
       interval: tierForPrice(item?.price?.id)?.interval ?? (item?.price?.recurring?.interval === "year" ? "yearly" : item?.price?.recurring?.interval === "month" ? "monthly" : null),
-      amount: formatMoney(item?.price?.unit_amount ?? null, item?.price?.currency ?? "usd"),
+      amount: formatMoney(item?.price?.unit_amount ?? null, item?.price?.currency ?? "aud"),
     };
   } catch {
     return null;

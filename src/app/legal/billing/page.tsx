@@ -43,7 +43,7 @@ export default function BillingPolicyPage() {
       </Section>
 
       <Section {...s("tax")}>
-        <p>Prices are charged in the currency shown at checkout (currently US dollars). Your bank may charge currency conversion or international transaction fees; those are between you and your bank.</p>
+        <p>Prices are charged in the currency shown at checkout (currently Australian dollars, AUD). Your bank may charge currency conversion or international transaction fees; those are between you and your bank.</p>
         {LEGAL.gstRegistered ? (
           <p>Prices for customers in Australia include GST, which is shown on your tax invoice. For customers outside Australia, any applicable taxes are shown at checkout.</p>
         ) : (

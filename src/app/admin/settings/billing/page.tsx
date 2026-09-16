@@ -81,7 +81,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
     const p = prices[t][i];
     if (!priceIdFor(t, i)) return null;
     // Price exists but Stripe didn't answer: still purchasable, amount shows on the checkout page.
-    return (p && formatMoney(p.amount, p.currency)) ?? (i === "monthly" ? `$${PLAN_LIMITS[t].price}` : "Price shown at checkout");
+    return (p && formatMoney(p.amount, p.currency)) ?? (i === "monthly" ? `$${PLAN_LIMITS[t].price} AUD` : "Price shown at checkout");
   };
   const plans: PlanCard[] = (["free", "pro", "label", "enterprise"] as const).map((t) => ({
     tier: t,
