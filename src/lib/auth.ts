@@ -31,10 +31,18 @@ export async function getSession() {
   return verifyToken<SessionPayload>(cookies().get(SESSION_COOKIE)?.value);
 }
 
+/**
+ * Logged-in user with their organization, or null.
+ * Null (→ /login or 401) when there's no/expired session, the user was deleted, or the account has
+ * no organization (e.g. a hand-made test account). Database errors are NOT swallowed: those should
+ * surface as a real error, not as a silent logout loop.
+ */
 export async function getCurrentUser() {
   const s = await getSession();
-  if (!s?.sub) return null;
-  return prisma.user.findUnique({ where: { id: s.sub }, include: { organization: true } });
+  if (!s?.sub || typeof s.sub !== "string") return null;
+  const user = await prisma.user.findUnique({ where: { id: s.sub }, include: { organization: true } });
+  if (!user || !user.organizationId || !user.organization) return null;
+  return user as typeof user & { organization: NonNullable<typeof user.organization> };
 }
 
 export const isLabelRole = (role: string) => role === "owner" || role === "admin";
