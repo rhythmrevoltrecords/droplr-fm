@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { CleanUrl } from "@/components/admin/clean-url";
 import { BillingPlans, ManageBillingButton, type PlanCard } from "@/components/admin/billing-plans";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,9 +64,12 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
 
 export default async function BillingPage({ searchParams }: { searchParams: { upgraded?: string; canceled?: string; session_id?: string; plan?: string } }) {
   const user = await requireUser("label");
-  const synced = searchParams.upgraded && searchParams.session_id ? await syncCheckout(searchParams.session_id, user.organizationId) : false;
-  // Re-read after a sync so the page shows the new plan.
-  const org = synced ? (await prisma.organization.findUniqueOrThrow({ where: { id: user.organizationId } })) : user.organization;
+  // Stripe returns here with ?session_id=cs_…: apply the subscription, then redirect so the ID never sits in the address bar or history.
+  if (searchParams.session_id) {
+    await syncCheckout(searchParams.session_id, user.organizationId);
+    redirect("/admin/settings/billing?upgraded=1");
+  }
+  const org = user.organization;
   const tier = (org.plan in PLAN_LIMITS ? org.plan : "free") as PlanKey;
   const plan = planOf(tier);
 
@@ -106,6 +111,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
         {org.stripeCustomerId && <ManageBillingButton label="Invoices & payment method" />}
       </div>
 
+      {(searchParams.upgraded || searchParams.canceled || searchParams.plan) && <CleanUrl path="/admin/settings/billing" />}
       {searchParams.upgraded && !pending && (
         <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">You&apos;re on {plan.name}. Everything in the plan is switched on now.</Card>
       )}
