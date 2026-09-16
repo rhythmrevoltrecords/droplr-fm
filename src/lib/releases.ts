@@ -2,7 +2,7 @@ import { prisma } from "./db";
 
 const include = {
   organization: true,
-  platformLinks: { where: { isActive: true }, orderBy: { order: "asc" as const } },
+  links: { where: { visible: true }, orderBy: { position: "asc" as const } },
   linkVariants: { where: { isActive: true } },
 };
 

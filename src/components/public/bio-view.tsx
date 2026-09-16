@@ -5,7 +5,7 @@ export type BioViewData = {
   bio: string | null;
   imageUrl: string;
   accentColor: string | null;
-  links: { id: string; platform: string; label: string | null }[];
+  links: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null }[];
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
@@ -24,7 +24,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false }
       <ul className="mt-7 space-y-2.5">
         {page.links.map((l) => (
           <li key={l.id}>
-            <GlassLink href={preview ? "#" : `/api/b/${l.id}`} platform={l.platform} label={l.label} track={!preview} />
+            <GlassLink href={preview ? "#" : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} track={!preview} />
           </li>
         ))}
         {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}

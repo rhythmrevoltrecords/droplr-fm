@@ -5,10 +5,10 @@ import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
 
 const FEATURES = [
-  { icon: Wand2, title: "One paste, every platform", body: "Paste a Spotify link or URI. We pull title, artist, artwork, colour and every streaming link. Not out yet? Fill in the basics and we re-resolve on release day." },
+  { icon: Wand2, title: "One paste, stores fill in", body: "Paste a Spotify link and your UPC. We pull title, artwork and colour, and Apple Music and Deezer links fill in on release day. Add Beatport, Traxsource and Bandcamp once." },
   { icon: Mail, title: "Email pre-save + release-day email", body: "Fans leave their email before the drop. At release time we email them a one-tap link to save it, and track who clicked through." },
   { icon: KeyRound, title: "BYO Spotify app for true saves", body: "Connect your own Spotify developer app and pre-saves go straight into fans' libraries on release day, under your app and your quota." },
-  { icon: Disc3, title: "Beatport, Traxsource & Bandcamp up top", body: "DJ stores get the same big button as Spotify, and you drag them into any order. Juno, Audius and custom links too." },
+  { icon: Disc3, title: "Beatport, Traxsource & Bandcamp up top", body: "DJ stores get the same big button as Spotify. Drag them into any order, hide a link without deleting it, and add custom buttons like Merch & Vinyl or Dubplate Download." },
   { icon: Users, title: "Label view + artist logins", body: "The label sees the whole roster. Artists log in to copy their IG, TikTok and bio links and see their own stats. Only the label edits URLs." },
   { icon: BarChart3, title: "Own your data + label-level pixels", body: "Set Meta, TikTok and GA4 once for the label. Clicks, sources, countries and pre-save emails are yours to export." },
   { icon: Globe, title: "Your domain", body: "presave.yourlabel.com/track-name. Your brand in the URL, not ours." },
@@ -93,7 +93,7 @@ export default function Landing() {
           {[
             ["1", "Paste the Spotify link", "From Spotify for Artists → Upcoming. Unreleased is fine."],
             ["2", "Share the variants", "/ig in your story, /tiktok in bio, QR on the flyer. Every source is tracked."],
-            ["3", "Drop day runs itself", "Links re-resolve, BYO saves land in libraries, and every pre-saver gets the email."],
+            ["3", "Drop day runs itself", "Apple Music and Deezer fill in from your UPC, BYO saves land in libraries, and every pre-saver gets the email."],
           ].map(([n, t, b]) => (
             <div key={n} className="flex gap-4">
               <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-black">{n}</span>

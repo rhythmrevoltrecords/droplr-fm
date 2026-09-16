@@ -1,7 +1,7 @@
 import { platformMeta } from "@/lib/platforms";
 
 /** Neutral monogram badge in the platform's accent colour (no third-party logos bundled). */
-export function PlatformIcon({ platform, className = "" }: { platform: string; className?: string }) {
+export function PlatformIcon({ platform, icon, className = "" }: { platform: string; icon?: string | null; className?: string }) {
   const m = platformMeta(platform);
   return (
     <span
@@ -9,7 +9,7 @@ export function PlatformIcon({ platform, className = "" }: { platform: string; c
       style={{ backgroundColor: `${m.color}22`, color: m.color, boxShadow: `inset 0 0 0 1px ${m.color}44` }}
       aria-hidden
     >
-      {m.monogram}
+      {icon || m.monogram}
     </span>
   );
 }

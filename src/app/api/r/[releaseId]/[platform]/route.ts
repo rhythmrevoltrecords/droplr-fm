@@ -21,7 +21,7 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   const status = method === "POST" ? 303 : 302;
   const release = await prisma.release.findUnique({
     where: { id: params.releaseId },
-    include: { organization: true, platformLinks: { where: { isActive: true }, orderBy: { order: "asc" } } },
+    include: { organization: true, links: { where: { visible: true }, orderBy: { position: "asc" } } },
   });
   if (!release) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -99,7 +99,7 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
       return finish(deezerAuthorizeUrl(packState({ ...baseState, ru: process.env.DEEZER_REDIRECT_URI ?? "" })));
     }
     if (params.platform === "appleMusic") {
-      const apple = release.platformLinks.find((l) => l.platform === "appleMusic");
+      const apple = release.links.find((l) => l.platform === "appleMusic");
       if (apple && isReleased(release.releaseDate)) return finish(apple.url);
       return finish(withParam(pageUrl, "notice", "apple-soon"));
     }
@@ -108,8 +108,8 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   // 3) Smart link redirect
   const linkId = q.get("l");
   const link = linkId
-    ? release.platformLinks.find((l) => l.id === linkId)
-    : release.platformLinks.find((l) => l.platform === params.platform);
+    ? release.links.find((l) => l.id === linkId)
+    : release.links.find((l) => l.platform === params.platform);
   if (!link || !/^https?:\/\//i.test(link.url)) return finish(pageUrl);
   return finish(link.url);
 }

@@ -10,7 +10,7 @@ export type ReleaseViewData = {
   coverUrl: string;
   accentColor: string | null;
   releaseDate: string; // ISO
-  links: { id: string; platform: string; label: string | null; url: string }[];
+  links: { id: string; platform: string; label: string | null; url: string; buttonText?: string | null; icon?: string | null }[];
   org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null };
 };
 
@@ -84,7 +84,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           <ul className="mt-7 space-y-2.5">
             {release.links.map((l) => (
               <li key={l.id}>
-                <GlassLink href={r(l.platform, l.platform === "custom" ? { l: l.id } : {})} platform={l.platform} label={l.label} />
+                <GlassLink href={r(l.platform, l.platform === "custom" ? { l: l.id } : {})} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} />
               </li>
             ))}
             {release.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links are landing shortly. Check back in a few minutes.</li>}

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { isPlatformKey, PLATFORMS } from "@/lib/platforms";
 import { planOf } from "@/lib/plans";
 import { brisbaneLocalToDate, isReleased } from "@/lib/time";
@@ -20,7 +21,16 @@ const schema = z.object({
   spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyArtistId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   autoReResolve: z.boolean().default(true),
-  links: z.array(z.object({ platform: z.string(), url: z.string().url(), label: z.string().nullable().optional(), isActive: z.boolean().default(true) })).default([]),
+  upc: z.string().max(20).nullable().optional(),
+  isrc: z.string().max(20).nullable().optional(),
+  links: z.array(z.object({
+    platform: z.string(),
+    url: z.string().url(),
+    title: z.string().max(60).nullable().optional(),
+    buttonText: z.string().max(20).nullable().optional(),
+    icon: z.string().max(2).nullable().optional(),
+    visible: z.boolean().default(true),
+  })).default([]),
 });
 
 export async function POST(req: NextRequest) {
@@ -61,12 +71,14 @@ export async function POST(req: NextRequest) {
       releaseDate,
       status: isReleased(releaseDate) ? "live" : "upcoming",
       autoReResolve: d.autoReResolve,
-      resolvedAt: d.links.length > 1 ? new Date() : null,
-      platformLinks: {
+      resolvedAt: d.links.some((l) => l.platform === "appleMusic") && d.links.some((l) => l.platform === "deezer") ? new Date() : null,
+      upc: normaliseUpc(d.upc),
+      isrc: normaliseIsrc(d.isrc),
+      links: {
         create: d.links
           .filter((l) => isPlatformKey(l.platform))
           .sort((a, b) => PLATFORMS[a.platform as keyof typeof PLATFORMS].weight - PLATFORMS[b.platform as keyof typeof PLATFORMS].weight)
-          .map((l, i) => ({ platform: l.platform, url: l.url, label: l.label ?? null, isActive: l.isActive, isCustom: l.platform === "custom", order: i })),
+          .map((l, i) => ({ platform: l.platform, url: l.url, title: l.title ?? null, buttonText: l.buttonText ?? null, icon: l.icon ?? null, visible: l.visible, isCustom: l.platform === "custom", position: i })),
       },
       linkVariants: { create: [{ slug: "ig", source: "instagram" }, { slug: "tiktok", source: "tiktok" }, { slug: "bio", source: "bio" }] },
     },

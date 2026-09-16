@@ -29,7 +29,7 @@ https://presave.yourlabel.com/api/spotify/callback   (if you use a custom domain
 
       <h2>What happens on release day</h2>
       <ol>
-        <li>The hourly job sees the release is live and re-resolves the missing platform links through Odesli.</li>
+        <li>The hourly job sees the release is live and looks up Apple Music and Deezer from the release&apos;s UPC/ISRC, retrying for up to 72 hours.</li>
         <li>For each Spotify pre-save it refreshes the fan&apos;s token and calls <code>PUT /v1/me/library</code> with the album URI and the artist URI (that&apos;s the follow). If the new endpoint isn&apos;t available it falls back to the legacy album, track and following endpoints. A 429 backs off. <code>QUOTA_EXCEEDED</code> pauses the job until the next hour.</li>
         <li>Every fan who consented to email gets the release-day email.</li>
       </ol>

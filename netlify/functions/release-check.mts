@@ -2,7 +2,7 @@ import type { Config } from "@netlify/functions";
 import { findDueReleases } from "../../src/lib/presave-processor";
 
 // Hourly: find releases that are live (releaseDate <= now) with outstanding work
-// (status flip + Odesli re-resolve, pending BYO Spotify saves, unsent release-day emails)
+// (status flip + Apple Music/Deezer lookup by UPC/ISRC, pending BYO Spotify saves, unsent release-day emails)
 // and hand them to the 15-minute background function.
 export default async () => {
   const due = await findDueReleases();

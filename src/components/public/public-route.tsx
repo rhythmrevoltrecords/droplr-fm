@@ -60,7 +60,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         coverUrl: release.coverUrl,
         accentColor: release.accentColor,
         releaseDate: release.releaseDate.toISOString(),
-        links: release.platformLinks.map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url })),
+        links: release.links.map((l) => ({ id: l.id, platform: l.platform, label: l.title, url: l.url, buttonText: l.buttonText, icon: l.icon })),
         org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl },
       }}
       live={live}

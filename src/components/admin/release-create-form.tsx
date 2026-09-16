@@ -10,13 +10,17 @@ import { slugify } from "@/lib/utils";
 import { PlatformIcon } from "@/components/public/platform-icon";
 
 type Resolved = {
-  found: boolean;
-  odesliStatus: number;
+  appleFound: boolean;
+  deezerFound: boolean;
+  via: { appleMusic?: string; deezer?: string };
+  notes: string[];
+  upc: string | null;
+  isrc: string | null;
   title: string;
   artistName: string;
   coverUrl: string;
   accentColor: string | null;
-  spotifyUrl: string;
+  spotifyUrl: string | null;
   spotifyAlbumId: string | null;
   spotifyTrackId: string | null;
   spotifyArtistId: string | null;
@@ -27,11 +31,13 @@ type Resolved = {
 export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: string; name: string }[]; defaultDate: string }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
+  const [upcIn, setUpcIn] = useState("");
+  const [isrcIn, setIsrcIn] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [r, setR] = useState<Resolved | null>(null);
-  const [form, setForm] = useState({ title: "", artistName: "", coverUrl: "", accentColor: "", slug: "", releaseDateLocal: defaultDate, artistId: "", spotifyAlbumId: "", spotifyTrackId: "", spotifyArtistId: "", autoReResolve: true });
-  const [links, setLinks] = useState<{ platform: string; url: string; isActive: boolean }[]>([]);
+  const [form, setForm] = useState({ title: "", artistName: "", coverUrl: "", accentColor: "", slug: "", releaseDateLocal: defaultDate, artistId: "", spotifyAlbumId: "", spotifyTrackId: "", spotifyArtistId: "", upc: "", isrc: "", autoReResolve: true });
+  const [links, setLinks] = useState<{ platform: string; url: string; visible: boolean }[]>([]);
   const [slugTouched, setSlugTouched] = useState(false);
   const set = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => {
@@ -44,7 +50,7 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
     setBusy(true);
     setError(null);
     try {
-      const res = await fetch("/api/admin/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url }) });
+      const res = await fetch("/api/admin/resolve", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ url: url || undefined, upc: upcIn || undefined, isrc: isrcIn || undefined }) });
       const j = await res.json();
       if (!res.ok) throw new Error(j.error);
       setR(j);
@@ -52,9 +58,10 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
         ...f,
         title: j.title, artistName: j.artistName, coverUrl: j.coverUrl, accentColor: j.accentColor ?? "", slug: j.suggestedSlug,
         spotifyAlbumId: j.spotifyAlbumId ?? "", spotifyTrackId: j.spotifyTrackId ?? "", spotifyArtistId: j.spotifyArtistId ?? "",
+        upc: j.upc ?? "", isrc: j.isrc ?? "",
         autoReResolve: true,
       }));
-      setLinks(j.links.map((l: { platform: string; url: string }) => ({ ...l, isActive: true })));
+      setLinks(j.links.map((l: { platform: string; url: string }) => ({ ...l, visible: true })));
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -79,7 +86,7 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
     const res = await fetch("/api/admin/releases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, accentColor: form.accentColor || null, artistId: form.artistId || null, spotifyUrl: r?.spotifyUrl, links }),
+      body: JSON.stringify({ ...form, accentColor: form.accentColor || null, artistId: form.artistId || null, spotifyUrl: r?.spotifyUrl, upc: form.upc || null, isrc: form.isrc || null, links }),
     });
     const j = await res.json();
     setBusy(false);
@@ -92,19 +99,34 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
       <div className="space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>1. Paste Spotify link</CardTitle>
-            <CardDescription>Album or track URL, or a URI from Spotify for Artists → Music → Upcoming → Share → Copy URI.</CardDescription>
+            <CardTitle>1. Spotify link + UPC / ISRC</CardTitle>
+            <CardDescription>
+              Spotify link or URI (Spotify for Artists → Music → Upcoming → Share → Copy URI) for title and artwork.
+              UPC and ISRC (on your DistroKid release page) find Apple Music and Deezer automatically.
+            </CardDescription>
           </CardHeader>
-          <CardContent className="flex flex-col gap-2 sm:flex-row">
+          <CardContent className="space-y-2">
             <Input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="https://open.spotify.com/album/… or spotify:album:…" />
-            <Button onClick={resolve} disabled={busy || !url}>{busy ? <Loader2 className="animate-spin" /> : <Wand2 />} Resolve</Button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Input value={upcIn} onChange={(e) => setUpcIn(e.target.value)} placeholder="UPC, e.g. 701508333538" inputMode="numeric" />
+              <Input value={isrcIn} onChange={(e) => setIsrcIn(e.target.value)} placeholder="ISRC, e.g. QZDA82600001" />
+              <Button onClick={resolve} disabled={busy || (!url && !upcIn && !isrcIn)} className="shrink-0">{busy ? <Loader2 className="animate-spin" /> : <Wand2 />} Resolve</Button>
+            </div>
           </CardContent>
         </Card>
 
-        {r && !r.found && (
+        {r && (!r.appleFound || !r.deezerFound || r.notes.length > 0) && (
           <Card className="border-amber-500/40 bg-amber-500/10">
-            <CardContent className="p-4 text-sm text-amber-100">
-              <strong>Odesli couldn&apos;t find this yet</strong> (status {r.odesliStatus || "network"}). That&apos;s normal for unreleased music. Fill in the details below. Only the Spotify link is created now. With <em>Auto re-resolve on release day</em> on, the hourly job fetches every other platform once it&apos;s out.
+            <CardContent className="space-y-1 p-4 text-sm text-amber-100">
+              {(!r.appleFound || !r.deezerFound) && (
+                <p>
+                  <strong>{!r.appleFound && !r.deezerFound ? "Apple Music and Deezer aren't" : !r.appleFound ? "Apple Music isn't" : "Deezer isn't"} listed yet.</strong>{" "}
+                  {r.upc || r.isrc
+                    ? <>That&apos;s normal before release day. With <em>Auto re-resolve on release day</em> on, the hourly job looks them up by {r.upc ? "UPC" : "ISRC"} once the release is live and keeps retrying for 72 hours.</>
+                    : <>Add the UPC or ISRC so they can be found automatically, or add the links by hand on the next screen.</>}
+                </p>
+              )}
+              {r.notes.map((n) => <p key={n}>{n}</p>)}
             </CardContent>
           </Card>
         )}
@@ -137,6 +159,8 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
               </div>
               <div className="space-y-2"><Label>Spotify album ID</Label><Input value={form.spotifyAlbumId} onChange={(e) => set("spotifyAlbumId", e.target.value)} /></div>
               <div className="space-y-2"><Label>Spotify artist ID (for follow)</Label><Input value={form.spotifyArtistId} onChange={(e) => set("spotifyArtistId", e.target.value)} placeholder="optional" /></div>
+              <div className="space-y-2"><Label>UPC</Label><Input value={form.upc} onChange={(e) => set("upc", e.target.value)} placeholder="Finds Apple Music + Deezer" inputMode="numeric" /></div>
+              <div className="space-y-2"><Label>ISRC</Label><Input value={form.isrc} onChange={(e) => set("isrc", e.target.value)} placeholder="Backup lookup for singles" /></div>
               <label className="flex items-center gap-2 text-sm sm:col-span-2">
                 <input type="checkbox" checked={form.autoReResolve} onChange={(e) => set("autoReResolve", e.target.checked)} className="h-4 w-4" />
                 Auto re-resolve links on release day
@@ -147,14 +171,15 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
 
         {r && (
           <Card>
-            <CardHeader><CardTitle>3. Platforms found</CardTitle><CardDescription>Add Beatport, Traxsource, Bandcamp, Juno and custom links on the next screen, and drag to reorder.</CardDescription></CardHeader>
+            <CardHeader><CardTitle>3. Platforms found</CardTitle><CardDescription>Add Beatport, Traxsource, Bandcamp, Juno and custom buttons on the next screen, where you can also hide, rename and reorder them.</CardDescription></CardHeader>
             <CardContent className="space-y-2">
               {links.map((l, i) => (
                 <label key={l.platform + i} className="flex items-center gap-3 rounded-lg border p-2">
-                  <input type="checkbox" checked={l.isActive} onChange={(e) => setLinks((ls) => ls.map((x, j) => (j === i ? { ...x, isActive: e.target.checked } : x)))} className="h-4 w-4" />
+                  <input type="checkbox" checked={l.visible} onChange={(e) => setLinks((ls) => ls.map((x, j) => (j === i ? { ...x, visible: e.target.checked } : x)))} className="h-4 w-4" />
                   <PlatformIcon platform={l.platform} />
                   <span className="w-32 text-sm font-medium">{platformMeta(l.platform).name}</span>
                   <span className="truncate text-xs text-muted-foreground">{l.url}</span>
+                  {l.platform !== "spotify" && r.via[l.platform as "appleMusic" | "deezer"] && <span className="ml-auto shrink-0 text-[11px] text-emerald-400">via {r.via[l.platform as "appleMusic" | "deezer"]}</span>}
                 </label>
               ))}
             </CardContent>

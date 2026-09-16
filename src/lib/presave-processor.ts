@@ -3,9 +3,9 @@
 import { prisma } from "./db";
 import { decrypt, encrypt } from "./crypto";
 import { SITE_URL, deezerGloballyEnabled } from "./env";
-import { resolveWithOdesli } from "./odesli";
-import { PLATFORMS, platformMeta } from "./platforms";
-import { getSpotifyCreds, refreshAccessToken, saveToLibrary, SpotifyError, spotifyUrl } from "./spotify";
+import { normaliseIsrc, normaliseUpc, resolveFromSpotifyUri, resolveStores } from "./odesli";
+import { platformMeta } from "./platforms";
+import { getSpotifyCreds, refreshAccessToken, saveToLibrary, SpotifyError } from "./spotify";
 import { deezerSaveAlbum, parseDeezerAlbumId } from "./deezer";
 import { emailConfigured, releaseDayEmail, sendBatch } from "./email";
 
@@ -13,27 +13,65 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 export type ProcessResult = { releaseId: string; resolvedLinks: number; spotifyDone: number; spotifyFailed: number; deezerDone: number; emailed: number; stoppedEarly: boolean; notes: string[] };
 
-/** Step 1: releases that just went live → re-resolve links via Odesli (if enabled) and flip status. */
-export async function reResolveRelease(releaseId: string) {
-  const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { platformLinks: true } });
-  if (!release) return 0;
-  const source = release.spotifyUrl ?? (release.spotifyAlbumId ? spotifyUrl({ type: "album", id: release.spotifyAlbumId }) : release.spotifyTrackId ? spotifyUrl({ type: "track", id: release.spotifyTrackId }) : null);
-  if (!source) return 0;
-  const resolved = await resolveWithOdesli(source);
-  if (!resolved.found) return 0;
+const AUTO_PLATFORMS = [
+  { key: "appleMusic", label: "Apple" },
+  { key: "deezer", label: "Deezer" },
+] as const;
 
-  const existing = new Set(release.platformLinks.map((l) => l.platform));
-  let order = release.platformLinks.reduce((m, l) => Math.max(m, l.order), -1) + 1;
-  const toCreate = resolved.links
-    .filter((l) => !existing.has(l.platform))
-    .sort((a, b) => PLATFORMS[a.platform].weight - PLATFORMS[b.platform].weight)
-    .map((l) => ({ releaseId, platform: l.platform, url: l.url, order: order++ }));
-  if (toCreate.length) await prisma.platformLink.createMany({ data: toCreate });
+/**
+ * Step 1: fill Apple Music + Deezer links from UPC/ISRC (iTunes Lookup + Deezer API).
+ * - Only creates a link when there's no row for that platform at all. A hidden row means the
+ *   label hid it on purpose, and an existing visible row is left untouched.
+ * - If the release has no UPC/ISRC yet, asks Spotify for external_ids first.
+ * - New rows go to the end of the list so the label's order (Beatport up top etc.) is kept.
+ */
+export async function reResolveRelease(releaseId: string, log: (msg: string) => void = console.log) {
+  const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { links: true } });
+  if (!release) return 0;
+
+  let upc = normaliseUpc(release.upc);
+  let isrc = normaliseIsrc(release.isrc);
+  if (!upc && !isrc && (release.spotifyAlbumId || release.spotifyTrackId)) {
+    const creds = await getSpotifyCreds(release.organizationId).catch(() => null);
+    const meta = await resolveFromSpotifyUri(
+      release.spotifyAlbumId ? { type: "album", id: release.spotifyAlbumId } : { type: "track", id: release.spotifyTrackId! },
+      creds,
+    );
+    upc = normaliseUpc(meta?.upc);
+    isrc = normaliseIsrc(meta?.isrc);
+    if (upc || isrc) {
+      await prisma.release.update({ where: { id: releaseId }, data: { upc: release.upc ?? upc, isrc: release.isrc ?? isrc } });
+      log(`[resolve] ${release.slug}: got ${upc ? `UPC ${upc}` : `ISRC ${isrc}`} from Spotify`);
+    }
+  }
+  if (!upc && !isrc) return 0;
+
+  const missing = AUTO_PLATFORMS.filter((p) => !release.links.some((l) => l.platform === p.key));
+  if (!missing.length) {
+    if (!release.resolvedAt) await prisma.release.update({ where: { id: releaseId }, data: { resolvedAt: new Date() } });
+    return 0;
+  }
+
+  const found = await resolveStores({ upc, isrc });
+  let position = release.links.reduce((m, l) => Math.max(m, l.position), -1) + 1;
+  let added = 0;
+  for (const p of missing) {
+    const url = found[p.key];
+    if (!url) continue;
+    await prisma.releaseLink.create({ data: { releaseId, platform: p.key, url, visible: true, position: position++ } });
+    log(`Auto-resolved ${p.label} via ${found.via[p.key]}`);
+    added++;
+  }
+
+  const stillMissing = missing.filter((p) => !found[p.key]).length;
   await prisma.release.update({
     where: { id: releaseId },
-    data: { resolvedAt: new Date(), coverUrl: release.coverUrl || resolved.coverUrl || release.coverUrl },
+    data: {
+      resolvedAt: stillMissing ? release.resolvedAt : new Date(),
+      coverUrl: release.coverUrl || found.artwork || release.coverUrl,
+    },
   });
-  return toCreate.length;
+  return added;
 }
 
 async function pool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>, shouldStop: () => boolean) {
@@ -52,7 +90,7 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
   const out: ProcessResult = { releaseId, resolvedLinks: 0, spotifyDone: 0, spotifyFailed: 0, deezerDone: 0, emailed: 0, stoppedEarly: false, notes: [] };
   const release = await prisma.release.findUnique({
     where: { id: releaseId },
-    include: { organization: true, platformLinks: { where: { isActive: true }, orderBy: { order: "asc" } } },
+    include: { organization: true, links: { where: { visible: true }, orderBy: { position: "asc" } } },
   });
   if (!release) return out;
   if (release.releaseDate.getTime() > Date.now()) {
@@ -60,13 +98,22 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
     return out;
   }
 
-  if (release.status !== "live") {
-    if (release.autoReResolve) {
-      out.resolvedLinks = await reResolveRelease(releaseId).catch((e) => {
-        out.notes.push(`odesli: ${e}`);
-        return 0;
-      });
+  // Apple Music / Deezer from UPC/ISRC: on the flip to live, then hourly for 72h until both are found
+  // (stores often publish a few hours after midnight).
+  const retryWindow = Date.now() - release.releaseDate.getTime() < 72 * 3600_000;
+  if (release.autoReResolve && (release.status !== "live" || (!release.resolvedAt && retryWindow))) {
+    out.resolvedLinks = await reResolveRelease(releaseId, (m) => {
+      console.log(`[process-presaves] ${release.slug}: ${m}`);
+      out.notes.push(m);
+    }).catch((e) => {
+      out.notes.push(`store lookup failed: ${e}`);
+      return 0;
+    });
+    if (out.resolvedLinks) {
+      release.links = await prisma.releaseLink.findMany({ where: { releaseId, visible: true }, orderBy: { position: "asc" } });
     }
+  }
+  if (release.status !== "live") {
     await prisma.release.update({ where: { id: releaseId }, data: { status: "live" } });
   }
 
@@ -133,7 +180,7 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
 
   // --- Deezer (feature-flagged) ---
   if (deezerGloballyEnabled() && release.organization.deezerEnabled && !stop()) {
-    const albumId = parseDeezerAlbumId(release.platformLinks.find((l) => l.platform === "deezer")?.url);
+    const albumId = parseDeezerAlbumId(release.links.find((l) => l.platform === "deezer")?.url);
     if (albumId) {
       const rows = await prisma.preSave.findMany({ where: { releaseId, platform: "deezer", status: "pending" }, take: 1000 });
       await pool(rows, 20, async (ps) => {
@@ -155,7 +202,7 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
     const org = release.organization;
     const origin = org.customDomain ? `https://${org.customDomain}` : SITE_URL;
     const publicUrl = org.customDomain ? `${origin}/${release.slug}` : `${SITE_URL}/${org.slug}/${release.slug}`;
-    const platforms = release.platformLinks.map((l) => l.platform).filter((p) => p !== "custom");
+    const platforms = release.links.map((l) => l.platform).filter((p) => p !== "custom");
     const topPlatforms = platforms.length ? platforms : ["spotify"];
 
     for (;;) {
@@ -224,6 +271,8 @@ export async function findDueReleases() {
       releaseDate: { lte: now },
       OR: [
         { status: "upcoming" },
+        // store-link retry window: live < 72h, auto re-resolve on, Apple/Deezer not both found yet
+        { autoReResolve: true, resolvedAt: null, releaseDate: { gte: new Date(now.getTime() - 72 * 3600_000) } },
         { preSaves: { some: { status: "pending", platform: { in: ["spotify", "deezer"] }, attempts: { lt: 5 } } } },
         { preSaves: { some: { emailConsent: true, emailSentAt: null, email: { not: null }, status: { not: "unsubscribed" } } } },
       ],

@@ -42,8 +42,7 @@ export default async function EditBio({ params, searchParams }: { params: { id: 
         <CardContent>
           <LinkEditor
             saveUrl={`/api/admin/bio/${page.id}/links`}
-            labelsForAll
-            initial={page.links.map((l) => ({ platform: l.platform, url: l.url, label: l.label, isActive: l.isActive }))}
+            initial={page.links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, visible: l.isActive }))}
           />
         </CardContent>
       </Card>
@@ -55,7 +54,7 @@ export default async function EditBio({ params, searchParams }: { params: { id: 
             mode="edit"
             id={page.id}
             initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", isPublic: page.isPublic }}
-            previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label }))}
+            previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon }))}
             orgName={user.organization.name}
             showBranding={!plan.removeBranding}
           />

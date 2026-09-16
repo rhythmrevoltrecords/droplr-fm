@@ -5,7 +5,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; autoReResolve: boolean; isPublic: boolean };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean };
 
 export function ReleaseSettingsForm({ releaseId, initial, artists }: { releaseId: string; initial: Initial; artists: { id: string; name: string }[] }) {
   const router = useRouter();
@@ -43,6 +43,8 @@ export function ReleaseSettingsForm({ releaseId, initial, artists }: { releaseId
         {field("spotifyAlbumId", "Spotify album ID")}
         {field("spotifyTrackId", "Spotify track ID")}
         {field("spotifyArtistId", "Spotify artist ID (follow)")}
+        {field("upc", "UPC (finds Apple Music + Deezer)")}
+        {field("isrc", "ISRC")}
         <div className="space-y-2">
           <Label>Artist login</Label>
           <Select value={f.artistId} onChange={(e) => set("artistId", e.target.value)}>

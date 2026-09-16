@@ -39,7 +39,7 @@ export const PLATFORMS: Record<PlatformKey, PlatformMeta> = {
 
 export const PLATFORM_KEYS = Object.keys(PLATFORMS) as PlatformKey[];
 
-/** Platforms an admin can add by hand (Odesli doesn't cover DJ stores). */
+/** Platforms an admin adds by hand (UPC/ISRC lookups only cover Apple Music and Deezer). */
 export const MANUAL_PLATFORMS: PlatformKey[] = ["beatport", "traxsource", "bandcamp", "juno", "audius", "soundcloud", "tiktokSound", "youtube", "custom"];
 
 export function platformMeta(key: string): PlatformMeta {
@@ -55,19 +55,13 @@ export function guessPlatformFromUrl(url: string): PlatformKey {
   return "custom";
 }
 
-/** Odesli `linksByPlatform` keys → ours */
-export const ODESLI_MAP: Record<string, PlatformKey> = {
-  spotify: "spotify",
-  appleMusic: "appleMusic",
-  itunes: "itunes",
-  youtubeMusic: "youtubeMusic",
-  youtube: "youtube",
-  amazonMusic: "amazonMusic",
-  deezer: "deezer",
-  tidal: "tidal",
-  pandora: "pandora",
-  soundcloud: "soundcloud",
-  napster: "napster",
-  audius: "audius",
-  bandcamp: "bandcamp",
-};
+/** Suggested button labels. Any text is allowed. */
+export const BUTTON_TEXT_PRESETS = ["Play", "Buy", "Open", "Listen", "Watch", "Download", "Tickets", "Follow", "Locked"];
+
+/** One-tap custom buttons for dance labels (title + button text prefilled). */
+export const CUSTOM_BUTTON_PRESETS = [
+  { title: "Merch & Vinyl", buttonText: "Buy" },
+  { title: "Dubplate Download", buttonText: "Download" },
+  { title: "Tickets", buttonText: "Tickets" },
+  { title: "Stems & Remix Pack", buttonText: "Download" },
+];

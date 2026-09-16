@@ -30,7 +30,7 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
   const user = await requireUser("label");
   const release = await prisma.release.findFirst({
     where: { id: params.id, organizationId: user.organizationId },
-    include: { platformLinks: { orderBy: { order: "asc" } }, linkVariants: { orderBy: { createdAt: "asc" } }, organization: true },
+    include: { links: { orderBy: { position: "asc" } }, linkVariants: { orderBy: { createdAt: "asc" } }, organization: true },
   });
   if (!release) notFound();
   const tab = TABS.some((t) => t.key === searchParams.tab) ? searchParams.tab! : "links";
@@ -78,10 +78,10 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
         <Card>
           <CardHeader>
             <CardTitle>Platform links</CardTitle>
-            <CardDescription>Drag to reorder. DJ stores sit alongside the streaming majors. {release.autoReResolve && !release.resolvedAt && "Missing platforms fill in automatically on release day."}</CardDescription>
+            <CardDescription>Drag to reorder, rename, change button text, or hide a link without deleting it. DJ stores sit alongside the streaming majors. {release.autoReResolve && !release.resolvedAt && (release.upc || release.isrc ? "Apple Music and Deezer fill in automatically from the UPC/ISRC on release day." : "Add the UPC or ISRC in Settings so Apple Music and Deezer can be found automatically.")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <LinkEditor saveUrl={`/api/admin/releases/${release.id}/links`} reresolveUrl={`/api/admin/releases/${release.id}/reresolve`} initial={release.platformLinks.map((l) => ({ platform: l.platform, url: l.url, label: l.label, isActive: l.isActive }))} />
+            <LinkEditor saveUrl={`/api/admin/releases/${release.id}/links`} reresolveUrl={`/api/admin/releases/${release.id}/reresolve`} initial={release.links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.title, buttonText: l.buttonText, icon: l.icon, visible: l.visible }))} />
           </CardContent>
         </Card>
       )}
@@ -138,7 +138,7 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
               initial={{
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
                 releaseDateLocal: dateToBrisbaneLocal(release.releaseDate), artistId: release.artistId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
-                spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic,
+                spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic,
               }}
             />
           </CardContent>

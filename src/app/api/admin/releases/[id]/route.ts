@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { labelRelease } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
+import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { brisbaneLocalToDate, isReleased } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
@@ -16,6 +17,8 @@ const schema = z.object({
   spotifyAlbumId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyArtistId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
+  upc: z.string().max(20).optional(),
+  isrc: z.string().max(20).optional(),
   autoReResolve: z.boolean().optional(),
   isPublic: z.boolean().optional(),
 });
@@ -29,6 +32,17 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: Record<string, unknown> = {};
   for (const k of ["title", "artistName", "coverUrl", "accentColor", "autoReResolve", "isPublic"] as const) if (d[k] !== undefined) data[k] = d[k];
   for (const k of ["spotifyAlbumId", "spotifyTrackId", "spotifyArtistId"] as const) if (d[k] !== undefined) data[k] = d[k] || null;
+  if (d.upc !== undefined) {
+    if (d.upc && !normaliseUpc(d.upc)) return NextResponse.json({ error: "UPC should be 12–14 digits" }, { status: 400 });
+    data.upc = normaliseUpc(d.upc);
+  }
+  if (d.isrc !== undefined) {
+    if (d.isrc && !normaliseIsrc(d.isrc)) return NextResponse.json({ error: "ISRC should look like AUXXX2600001" }, { status: 400 });
+    data.isrc = normaliseIsrc(d.isrc);
+  }
+  if ((d.upc !== undefined && normaliseUpc(d.upc) !== g.release.upc) || (d.isrc !== undefined && normaliseIsrc(d.isrc) !== g.release.isrc)) {
+    data.resolvedAt = null; // new identifiers → let the job look again
+  }
   if (d.slug !== undefined) {
     const slug = slugify(d.slug);
     if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "Invalid slug" }, { status: 400 });

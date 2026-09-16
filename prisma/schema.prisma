@@ -82,6 +82,8 @@ model Release {
   spotifyAlbumId String?
   spotifyTrackId String?
   spotifyArtistId String?
+  upc            String?
+  isrc           String?
   releaseDate    DateTime
   status         String       @default("upcoming") // upcoming | live
   isPublic       Boolean      @default(true)
@@ -90,7 +92,7 @@ model Release {
   emailsSentAt   DateTime?
   createdAt      DateTime     @default(now())
 
-  platformLinks PlatformLink[]
+  links        ReleaseLink[]
   linkVariants  LinkVariant[]
   clickEvents   ClickEvent[]
   pageViews     PageView[]
@@ -101,18 +103,22 @@ model Release {
   @@index([releaseDate])
 }
 
-model PlatformLink {
-  id        String  @id @default(cuid())
-  releaseId String
-  release   Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
-  platform  String // spotify, appleMusic, itunes, youtubeMusic, youtube, amazonMusic, deezer, tidal, pandora, soundcloud, tiktokSound, beatport, traxsource, bandcamp, audius, juno, napster, custom
-  label     String? // display label for custom links
-  url       String
-  isCustom  Boolean @default(false)
-  isActive  Boolean @default(true)
-  order     Int     @default(0)
+// Every button on a release page. Replaces PlatformLink (migration add_upc_and_release_links).
+// visible=false hides it from fans but keeps it in the editor; isCustom rows carry their own title/button/icon.
+model ReleaseLink {
+  id         String  @id @default(cuid())
+  releaseId  String
+  release    Release @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  platform   String // spotify, appleMusic, beatport, traxsource, bandcamp, juno, audius, youtube, soundcloud, tidal, deezer, custom, …
+  url        String
+  title      String? // custom label e.g. "Merch & Vinyl", "Dubplate Download"
+  buttonText String? // Play, Buy, Open, Tickets, Follow, Download, Locked, Watch, Listen — or anything
+  icon       String? // 1–2 character monogram override, e.g. "S", "B", "↗"
+  visible    Boolean @default(true)
+  position   Int
+  isCustom   Boolean @default(false)
 
-  @@index([releaseId])
+  @@index([releaseId, position])
 }
 
 model LinkVariant {
@@ -220,11 +226,13 @@ model BioLink {
   bioPageId String
   bioPage   BioPage @relation(fields: [bioPageId], references: [id], onDelete: Cascade)
   platform  String
-  label     String?
-  url       String
-  isActive  Boolean @default(true)
-  order     Int     @default(0)
-  clicks    Int     @default(0)
+  label      String?
+  url        String
+  buttonText String?
+  icon       String?
+  isActive   Boolean @default(true)
+  order      Int     @default(0)
+  clicks     Int     @default(0)
 
   @@index([bioPageId])
 }

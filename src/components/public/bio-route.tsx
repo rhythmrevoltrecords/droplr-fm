@@ -41,7 +41,7 @@ export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadB
   const plan = planOf(page.organization.plan);
   return (
     <BioView
-      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor, links: page.links.map((l) => ({ id: l.id, platform: l.platform, label: l.label })) }}
+      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor, links: page.links.map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon })) }}
       orgName={page.organization.name}
       showBranding={!plan.removeBranding}
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}

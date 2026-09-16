@@ -103,13 +103,17 @@ export function GlassLink({
   platform,
   label,
   action,
+  icon,
   track = true,
   kind,
 }: {
   href: string;
   platform: string;
   label?: string | null;
-  action?: string;
+  /** Custom button text; falls back to the platform default (Play / Buy / …). */
+  action?: string | null;
+  /** Monogram override for the icon tile. */
+  icon?: string | null;
   track?: boolean;
   kind?: "presave";
 }) {
@@ -121,9 +125,9 @@ export function GlassLink({
       data-kind={kind}
       className="glass group flex items-center gap-3 rounded-2xl p-2.5 pr-3 transition hover:bg-white/[0.12] active:scale-[0.99]"
     >
-      <PlatformIcon platform={platform} />
+      <PlatformIcon platform={platform} icon={icon} />
       <span className="flex-1 truncate font-medium">{label || m.name}</span>
-      <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black transition group-hover:bg-white/90">{action ?? m.action}</span>
+      <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black transition group-hover:bg-white/90">{action || m.action}</span>
     </a>
   );
 }

@@ -2,7 +2,7 @@
 
 Pre-saves and smart links for independent labels. Self-hostable on Netlify, and sellable as SaaS.
 
-- **Smart links**: paste a Spotify link. Odesli fills in every platform, and Beatport, Traxsource, Bandcamp, Juno and Audius get the same size button as Spotify.
+- **Smart links**: paste a Spotify link and the UPC. Apple Music and Deezer are found automatically. Beatport, Traxsource, Bandcamp, Juno, Audius and custom buttons (Merch & Vinyl, Dubplate Download) get the same size button as Spotify, and any link can be hidden, renamed or given its own button text.
 - **Email pre-save + release-day email** (every plan): fans leave an email, and on release day the hourly job emails them one-tap platform links through Resend.
 - **BYO Spotify app** (Pro+): each label connects its own Spotify developer app for true auto-saves.
 - **Label vs artist logins**: owners and admins see the whole roster. Artists only see releases assigned to them and can copy links, but can't edit them.
@@ -17,7 +17,7 @@ Pre-saves and smart links for independent labels. Self-hostable on Netlify, and 
 | Spotify Web API | Since Feb 2026, a Development Mode app is limited to **5 allowlisted users** and the owner needs Premium. Quota is counted per developer account. Extended quota is reserved for "established, scalable" businesses. | True saves only work through each label's **own** app (BYO). Email pre-save is the primary product. |
 | Spotify save endpoints | `PUT /me/albums`, `/me/tracks` and `/me/following` were replaced by `PUT /v1/me/library?uris=…`, which also accepts artist URIs for follows. | Calls `/me/library` first and falls back to the legacy endpoints on 404/405. |
 | Deezer | New app creation has been suspended since June 2026. | Code is built but gated behind `DEEZER_ENABLED=false`. |
-| Odesli | Doesn't resolve unreleased music. | Manual fallback form, plus "auto re-resolve on release day" in the hourly job. |
+| Odesli | Public API discontinued 31 Jul 2026. | Removed. Apple Music comes from the iTunes Lookup API (UPC, then ISRC) and Deezer from its public API (`album/upc:` / `track/isrc:`). Both are free and need no key. They only find music that is already live, so the hourly job retries for 72h after release. DJ stores are added by hand. |
 | Apple Music pre-add | Needs MusicKit JS and an Apple Developer membership. | The button currently points fans to email. |
 
 **About BYO.** Moving the app to the label doesn't lift Spotify's 5-user cap. Every label's own app still has that cap until Spotify grants that label extended quota. Market BYO as "true saves for your team, VIPs and testers, or unlimited if you have extended quota", not as auto-save for every fan. The pricing page footnote says exactly this.
@@ -102,8 +102,9 @@ To see it fire, set a release's date in the past (Admin → release → Settings
 1. Upload in DistroKid with a future release date (give yourself 3–4+ weeks if you want time to promote the pre-save).
 2. **Wait about 2 days**, sometimes longer, while Spotify ingests the release.
 3. Open **Spotify for Artists → Music → Upcoming**, click the release, then **Share → Copy URI** (or Copy link). You'll get `spotify:album:XXXXXXXXXXXXXXXXXXXXXX`.
-4. droplr.fm → **New release** → paste → **Resolve**. Odesli won't find it yet, so fill in title, artist and cover (upload works). Leave **Auto re-resolve links on release day** ticked.
-5. Add Beatport, Traxsource and Bandcamp links on the Links tab whenever you have them.
+4. Copy the **UPC** (and ISRC for singles) from the DistroKid release page.
+5. droplr.fm → **Create link → Pre-Save Link** → paste the URI + UPC → **Resolve**. Apple Music and Deezer won't exist yet, which is expected, so fill in title, artist and cover (upload works). Leave **Auto re-resolve links on release day** ticked and the hourly job adds them once the stores list the release.
+6. Add Beatport, Traxsource and Bandcamp links on the Links tab whenever you have them.
 
 ---
 
@@ -199,7 +200,7 @@ netlify/functions/
 src/middleware.ts               anon id, auth guard, custom-domain rewrite
 src/lib/presave-processor.ts    re-resolve, Spotify saves, Deezer, emails (shared by functions + /api/cron)
 src/lib/spotify.ts              URI parsing, BYO creds, OAuth, /me/library + legacy fallback
-src/lib/odesli.ts  email.ts  analytics.ts  releases.ts  tracking.ts  crypto.ts  plans.ts
+src/lib/odesli.ts (UPC/ISRC store lookup, no Odesli)  email.ts  analytics.ts  releases.ts  tracking.ts  crypto.ts  plans.ts
 src/app/[slug]/…  src/app/host/[host]/…   public pages
 src/app/api/r/[releaseId]/[platform]      click logging + redirect
 src/app/api/presave/email                 email pre-save (no-JS form)
@@ -210,6 +211,6 @@ src/app/admin/…  src/app/dashboard        label + artist UIs
 ## Known gaps / next steps
 
 - **Migration SQL was written by hand.** Prisma's engine download was blocked in the build sandbox. It was applied to Postgres 16 and exercised by the seed and a full smoke test. Run `npx prisma migrate diff --from-migrations prisma/migrations --to-schema-datamodel prisma/schema.prisma --shadow-database-url <url>` once on your machine to confirm there's no drift.
-- Odesli couldn't be reached from the build sandbox, so its success path was tested against a mocked response. Test one real released URL after deploy.
+- The iTunes Lookup and Deezer endpoints couldn't be reached from the build sandbox, so store lookups were tested against mocked responses. Test one real released UPC after deploy. iTunes `lookup?isrc=` isn't in Apple's published docs, so UPC is the reliable path.
 - No rate limiting on the email form beyond a honeypot. Add Netlify rate-limit rules before launch.
 - Stripe billing, API/webhooks and SSO aren't built.

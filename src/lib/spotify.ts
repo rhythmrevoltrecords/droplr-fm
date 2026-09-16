@@ -135,7 +135,7 @@ async function legacy(accessToken: string, path: string) {
   if (!res.ok && res.status !== 204) throw new SpotifyError(`PUT ${path} ${res.status} ${await res.text()}`, res.status);
 }
 
-/** Metadata lookup via client-credentials (works when Odesli can't see an unreleased album). */
+/** Title / artist / artwork (+ UPC/ISRC when Spotify returns external_ids) via oEmbed and client-credentials. */
 export async function fetchSpotifyMetadata(ref: SpotifyRef, creds: { clientId: string; clientSecret: string } | null) {
   // oEmbed needs no credentials — gives title + thumbnail for most public items.
   let title: string | undefined;
@@ -160,6 +160,7 @@ export async function fetchSpotifyMetadata(ref: SpotifyRef, creds: { clientId: s
     images?: { url: string }[];
     album?: { id: string; images?: { url: string }[]; release_date?: string };
     release_date?: string;
+    external_ids?: { upc?: string; isrc?: string; ean?: string };
   };
   return {
     title: j.name,
@@ -168,5 +169,8 @@ export async function fetchSpotifyMetadata(ref: SpotifyRef, creds: { clientId: s
     coverUrl: j.images?.[0]?.url ?? j.album?.images?.[0]?.url ?? coverUrl,
     albumId: ref.type === "album" ? ref.id : j.album?.id,
     releaseDate: j.release_date ?? j.album?.release_date,
+    // external_ids was removed in Feb 2026 and restored in March 2026 — treat as optional.
+    upc: j.external_ids?.upc ?? j.external_ids?.ean,
+    isrc: j.external_ids?.isrc,
   };
 }

@@ -20,7 +20,7 @@ export function BioForm({
   mode: "create" | "edit";
   id?: string;
   initial: Values;
-  previewLinks?: { id: string; platform: string; label: string | null }[];
+  previewLinks?: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null }[];
   orgName: string;
   showBranding: boolean;
 }) {
