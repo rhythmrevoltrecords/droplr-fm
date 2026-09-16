@@ -22,6 +22,10 @@ model Organization {
   tiktokPixelId String?
   ga4Id         String?
   plan          String   @default("free") // free | pro | label | enterprise
+  stripeCustomerId String? @unique
+  stripeSubscriptionId String? @unique
+  stripePriceId String?
+  planUpdatedAt DateTime?
 
   // BYO Spotify app (encrypted with ENCRYPTION_KEY)
   spotifyClientIdEncrypted     String?
