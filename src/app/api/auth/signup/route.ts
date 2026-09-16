@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, passwordProblem } from "@/lib/auth";
+import { canSignUp } from "@/lib/launch";
 import { LEGAL } from "@/lib/legal";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
@@ -14,6 +15,8 @@ export async function POST(req: NextRequest) {
   const fail = (msg: string) => NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`, req.url), 303);
   if (name.length < 2) return fail("Label name is required");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");
+  // Pre-launch: invite-only (SIGNUPS_OPEN / SIGNUP_ALLOWLIST).
+  if (!canSignUp(email)) return NextResponse.redirect(new URL("/signup?closed=1", req.url), 303);
   const problem = passwordProblem(password, email);
   if (problem) return fail(problem);
   if (form.get("terms") !== "yes") return fail("Please agree to the Terms of Service and Privacy Policy");

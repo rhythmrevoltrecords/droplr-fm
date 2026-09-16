@@ -65,7 +65,7 @@ export default function PrivacyPage() {
         </ul>
 
         <h3>From visitors</h3>
-        <p>Pages you visit on droplr.fm and the same kind of technical information as above. We don&apos;t run advertising pixels on the droplr.fm marketing site.</p>
+        <p>Pages you visit on droplr.fm and the same kind of technical information as above. If you join the waitlist, your email address and when you joined; we use it only to tell you when droplr.fm opens and delete it on request. We don&apos;t run advertising pixels on the droplr.fm marketing site.</p>
       </Section>
 
       <Section {...s("how")}>

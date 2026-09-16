@@ -2,6 +2,7 @@ import Link from "next/link";
 import { AuthShell } from "@/components/marketing/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { signupsOpen } from "@/lib/launch";
 
 export const metadata = { title: "Log in" };
 
@@ -22,7 +23,7 @@ export default function LoginPage({ searchParams }: { searchParams: { error?: st
         ) : null}
         <Button className="w-full" type="submit">Log in</Button>
       </form>
-      <p className="mt-4 text-center text-sm text-muted-foreground">New label? <Link className="text-foreground underline" href="/signup">Start free</Link></p>
+      <p className="mt-4 text-center text-sm text-muted-foreground">New label? <Link className="text-foreground underline" href="/signup">{signupsOpen() ? "Start free" : "Join the waitlist"}</Link></p>
     </AuthShell>
   );
 }

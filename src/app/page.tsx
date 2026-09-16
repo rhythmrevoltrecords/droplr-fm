@@ -1,3 +1,4 @@
+import { signupsOpen } from "@/lib/launch";
 import Link from "next/link";
 import { ArrowRight, AtSign, BarChart3, Check, Disc3, Globe, KeyRound, Mail, Minus, Users, Wand2 } from "lucide-react";
 import { MarketingShell } from "@/components/marketing/site-chrome";
@@ -80,7 +81,7 @@ export default function Landing() {
             </p>
             <p className="mt-3 text-sm text-muted-foreground">Capture fans before release, auto-email them on drop day. No per-release fees. Beatport, Bandcamp &amp; Traxsource included.</p>
             <div className="mt-8 flex flex-wrap gap-3">
-              <Button asChild size="lg" variant="white"><Link href="/signup">Start free <ArrowRight /></Link></Button>
+              <Button asChild size="lg" variant="white"><Link href="/signup">{signupsOpen() ? "Start free" : "Join the waitlist"} <ArrowRight /></Link></Button>
               <Button asChild size="lg" variant="outline"><Link href="/demo/demo-track">See a live demo</Link></Button>
             </div>
           </div>
@@ -147,7 +148,7 @@ export default function Landing() {
           <h2 className="text-balance text-3xl font-bold tracking-tight">Your next release, your fans&apos; emails.</h2>
           <p className="mx-auto mt-3 max-w-lg text-muted-foreground">Free for 3 releases. Upgrade when the roster grows.</p>
           <div className="mt-6 flex justify-center gap-3">
-            <Button asChild size="lg" variant="white"><Link href="/signup">Start free</Link></Button>
+            <Button asChild size="lg" variant="white"><Link href="/signup">{signupsOpen() ? "Start free" : "Join the waitlist"}</Link></Button>
             <Button asChild size="lg" variant="outline"><Link href="/pricing">Pricing</Link></Button>
           </div>
         </div>

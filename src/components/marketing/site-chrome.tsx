@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { signupsOpen } from "@/lib/launch";
 import { copyrightLine } from "@/lib/legal";
 import { Logo } from "./logo";
 
@@ -16,7 +17,7 @@ export function SiteHeader() {
         </nav>
         <div className="ml-auto flex items-center gap-2">
           <Button asChild variant="ghost" size="sm"><Link href="/login">Log in</Link></Button>
-          <Button asChild size="sm" variant="white"><Link href="/signup">Start free</Link></Button>
+          <Button asChild size="sm" variant="white"><Link href="/signup">{signupsOpen() ? "Start free" : "Join waitlist"}</Link></Button>
         </div>
       </div>
     </header>
