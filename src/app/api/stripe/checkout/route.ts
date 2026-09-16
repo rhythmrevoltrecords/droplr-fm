@@ -36,9 +36,6 @@ export async function POST(req: NextRequest) {
       line_items: [{ price: priceId, quantity: 1 }],
       allow_promotion_codes: true,
       billing_address_collection: "auto",
-      custom_text: {
-        submit: { message: `By subscribing you agree to the droplr.fm Terms of Service and Billing & Refund Policy (${SITE_URL}/legal). Renews automatically until cancelled.` },
-      },
       success_url: `${BILLING}?upgraded=1&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${BILLING}?canceled=1`,
     });
