@@ -32,7 +32,7 @@ export default function PricingPage() {
         <div className="mx-auto max-w-2xl text-center">
           <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">Priced for labels, not per release</h1>
           {!signupsOpen() && <p className="mx-auto mb-4 w-fit rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">Invite-only while we onboard our first labels. <Link href="/signup" className="underline">Join the waitlist</Link></p>}
-          <p className="mt-4 text-muted-foreground">Every plan includes email pre-saves with a release-day email. No per-release fees. Prices in Australian dollars (AUD), billed monthly or yearly.</p>
+          <p className="mt-4 text-muted-foreground">Every plan includes email pre-saves with a release-day email. No per-release fees. Prices in Australian dollars (AUD), including any tax, billed monthly or yearly.</p>
         </div>
         <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
           {TIERS.map((t) => (

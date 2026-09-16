@@ -193,7 +193,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
           }
         />
         <p className="text-xs text-muted-foreground">
-          Plans renew automatically until cancelled. Cancel any time: you keep paid features until the end of the period you&apos;ve paid for. No refunds for partial periods, except where the law requires. See the <Link className="underline" href="/legal/billing">Billing &amp; Refund Policy</Link> and <Link className="underline" href="/legal/terms">Terms</Link>.
+          Prices are in AUD and include any tax. Plans are sold through Link (Stripe) and renew automatically until cancelled. Cancel any time: you keep paid features until the end of the period you&apos;ve paid for. No refunds for partial periods, except where the law requires. See the <Link className="underline" href="/legal/billing">Billing &amp; Refund Policy</Link> and <Link className="underline" href="/legal/terms">Terms</Link>.
         </p>
       </section>
     </div>

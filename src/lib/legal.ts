@@ -14,7 +14,7 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-16b",
+  version: "2026-09-16c",
   updated: "16 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
-import { CONTACT, LEGAL } from "@/lib/legal";
+import { CONTACT } from "@/lib/legal";
 
 export const metadata = { title: "Billing & Refund Policy" };
 
@@ -26,14 +26,16 @@ export default function BillingPolicyPage() {
       <p>This policy is part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link>. It explains how paid plans are charged, renewed, cancelled and refunded.</p>
 
       <Section {...s("plans")}>
-        <p>droplr.fm has a Free plan and paid plans (currently Pro and Label, billed monthly or yearly), plus Enterprise by agreement. Features and limits for each plan are listed on the <Link href="/pricing">pricing page</Link> and in <strong>Settings → Plan &amp; billing</strong>. The price you&apos;ll pay is always shown on the Stripe checkout page before you confirm.</p>
+        <p>droplr.fm has a Free plan and paid plans (currently Pro and Label, billed monthly or yearly), plus Enterprise by agreement. Features and limits for each plan are listed on the <Link href="/pricing">pricing page</Link> and in <strong>Settings → Plan &amp; billing</strong>. Prices include any GST, VAT or sales tax that applies. The total you&apos;ll pay is always shown on the checkout page before you confirm.</p>
       </Section>
 
       <Section {...s("payment")}>
         <ul>
-          <li>Payments are processed by Stripe. By subscribing you authorise us, through Stripe, to charge your payment method for each billing period until you cancel.</li>
+          <li><strong>Paid plans are sold through Link</strong>, the merchant of record service run by our payment provider Stripe. That means Link is the seller of record for the payment: it takes your payment, handles tax on it, sends your receipts and invoices, and provides payment support. We provide the droplr.fm service itself.</li>
+          <li>By subscribing you authorise Link (Stripe) to charge your payment method for each billing period until you cancel. Your bank statement shows the charge as <strong>LINK.COM* DROPLR</strong> or similar.</li>
           <li>You&apos;re charged at the start of each period (monthly or yearly, in advance).</li>
-          <li>Receipts and invoices are emailed by Stripe and available any time from <strong>Plan &amp; billing → Invoices &amp; payment method</strong>, where you can also update your card.</li>
+          <li>Link emails your receipts and invoices. They&apos;re also available from <strong>Plan &amp; billing → Invoices &amp; payment method</strong>, where you can update your card, and from your account at <a href="https://link.com">link.com</a>.</li>
+          <li>Checkout may show the price converted into your local currency. Link sets the exchange rate and shows the converted total before you pay.</li>
           <li>Enterprise customers may be invoiced under their order form, which overrides this policy where it differs.</li>
         </ul>
       </Section>
@@ -43,12 +45,8 @@ export default function BillingPolicyPage() {
       </Section>
 
       <Section {...s("tax")}>
-        <p>Prices are charged in the currency shown at checkout (currently Australian dollars, AUD). Your bank may charge currency conversion or international transaction fees; those are between you and your bank.</p>
-        {LEGAL.gstRegistered ? (
-          <p>Prices for customers in Australia include GST, which is shown on your tax invoice. For customers outside Australia, any applicable taxes are shown at checkout.</p>
-        ) : (
-          <p>{LEGAL.owner} trading as {LEGAL.operator} is not currently registered for GST, so no GST is charged and invoices don&apos;t include GST. If that changes, we&apos;ll give you notice, and prices for Australian customers will include GST.</p>
-        )}
+        <p>Our prices are set in Australian dollars (AUD) and <strong>include tax</strong>. As merchant of record, Link works out whether GST, VAT or sales tax applies based on where you are, collects it from within the price, and pays it to the tax authority. The tax amount is shown on your receipt or tax invoice from Link.</p>
+        <p>If you pay in another currency, or your card is issued outside Australia, your bank may charge currency conversion or international transaction fees. Those are between you and your bank.</p>
       </Section>
 
       <Section {...s("changes")}>
@@ -61,7 +59,7 @@ export default function BillingPolicyPage() {
 
       <Section {...s("cancel")}>
         <ul>
-          <li>Cancel any time in <strong>Settings → Plan &amp; billing → Change plan or cancel</strong>. You don&apos;t need to contact us.</li>
+          <li>Cancel any time in <strong>Settings → Plan &amp; billing → Change plan or cancel</strong>, or from your Link account at <a href="https://link.com">link.com</a>. You don&apos;t need to contact us.</li>
           <li>Your plan stays active until the end of the period you&apos;ve already paid for, then moves to Free. You won&apos;t be charged again.</li>
           <li>Changed your mind? You can undo a cancellation in the billing portal before the period ends.</li>
           <li>Cancelling a subscription doesn&apos;t delete your account or releases. To close your account, email <a href={`mailto:${CONTACT.support}`}>{CONTACT.support}</a>.</li>
@@ -84,14 +82,15 @@ export default function BillingPolicyPage() {
         </ul>
         <p>Our services come with guarantees that cannot be excluded under the Australian Consumer Law. For major failures with the service, you are entitled to cancel your service contract with us, and to a refund for the unused portion or compensation for its reduced value. If a failure doesn&apos;t amount to a major failure, you are entitled to have it fixed in a reasonable time; if it isn&apos;t, you can cancel and get a refund of any unused portion. You are also entitled to compensation for any other reasonably foreseeable loss or damage from a failure. Nothing in this policy limits those rights.</p>
         <p>We&apos;ll always refund duplicate charges and charges made in error. We may, at our discretion, offer a refund or credit in other cases; doing so once doesn&apos;t mean we&apos;ll do it again.</p>
-        <p>Refunds go back to the original payment method through Stripe and usually appear within 5–10 business days, depending on your bank.</p>
+        <p>Because Link is the merchant of record, Link support can also look at payment problems and may issue a refund within 60 days of a payment in some cases, for example to resolve a dispute or where local consumer law gives a cooling-off period. This policy doesn&apos;t limit refunds Link gives.</p>
+        <p>Refunds, whether from us or from Link, go back to the original payment method and usually appear within 5–10 business days, depending on your bank.</p>
       </Section>
 
       <Section {...s("failed")}>
         <ul>
-          <li>If a renewal payment fails, Stripe retries it automatically over the following days and emails you. Paid features stay on while it retries.</li>
+          <li>If a renewal payment fails, it&apos;s retried automatically over the following days and you&apos;ll get an email about it. Paid features stay on while it retries.</li>
           <li>Update your card in the billing portal to fix it.</li>
-          <li>If the payment still hasn&apos;t gone through when Stripe stops retrying (usually within about two weeks), the subscription is cancelled and your label moves to the Free plan.</li>
+          <li>If the payment still hasn&apos;t gone through when the retries stop (usually within about two weeks), the subscription is cancelled and your label moves to the Free plan.</li>
         </ul>
       </Section>
 
@@ -110,7 +109,8 @@ export default function BillingPolicyPage() {
       </Section>
 
       <Section {...s("disputes")}>
-        <p>If a charge looks wrong, email <a href={`mailto:${CONTACT.billing}`}>{CONTACT.billing}</a> within 60 days and we&apos;ll look into it quickly. Please talk to us before raising a chargeback with your bank. If a chargeback is raised, we may pause paid features on the account while it&apos;s resolved.</p>
+        <p>If a charge looks wrong, email <a href={`mailto:${CONTACT.billing}`}>{CONTACT.billing}</a> within 60 days and we&apos;ll look into it quickly. For questions about the payment itself, such as a receipt, a declined card or a duplicate charge, you can also contact <a href="https://support.link.com/topics/sold-through-link">Link support</a>.</p>
+        <p>Please talk to us or Link before raising a chargeback with your bank. Stripe handles chargebacks on these payments. If a chargeback is raised, we may pause paid features on the account while it&apos;s resolved.</p>
       </Section>
     </LegalShell>
   );

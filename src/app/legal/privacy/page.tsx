@@ -51,7 +51,7 @@ export default function PrivacyPage() {
           <li><strong>Label settings</strong>: logo, timezone and location, theme, custom domain, reply-to address, and the IDs of any Meta, TikTok or Google Analytics pixels you add.</li>
           <li><strong>Content</strong>: release titles, artwork, UPC/ISRC codes, store links, bio pages and invites you send, including the invitee&apos;s email address.</li>
           <li><strong>Spotify developer credentials</strong>, if you connect your own Spotify app. These are encrypted with AES-256-GCM before storage.</li>
-          <li><strong>Billing</strong>: your plan and the customer and subscription IDs Stripe gives us. Card details go directly to Stripe; we never see or store your full card number.</li>
+          <li><strong>Billing</strong>: your plan and the customer and subscription IDs Stripe gives us. Your card and billing details go directly to Stripe and Link; we never see or store your full card number.</li>
           <li><strong>Security records</strong>: when you agreed to the Terms, password reset requests (we store only a hash of the reset link, which expires after 60 minutes), and a record of failed logins and reset requests used for rate limiting. Those rate-limit records contain a hash of the email or IP address, not the address itself, and are deleted after a day.</li>
           <li><strong>Support</strong>: what you tell us when you email us.</li>
         </ul>
@@ -111,7 +111,7 @@ export default function PrivacyPage() {
               <tr><td>The label whose page you used</td><td>Fan emails, pre-saves and analytics belong to that label&apos;s dashboard and CSV export</td><td>Wherever the label is</td></tr>
               <tr><td>Netlify</td><td>Website hosting, server functions, file storage for artwork</td><td>United States, with a global content delivery network</td></tr>
               <tr><td>Neon (through Netlify DB)</td><td>Database</td><td>Sydney, Australia</td></tr>
-              <tr><td>Stripe</td><td>Subscription payments and invoices</td><td>United States and other countries</td></tr>
+              <tr><td>Stripe, including Link</td><td>Subscription checkout, payments, tax and invoices. Link is the merchant of record for paid plans and handles the details you give it at checkout under its own privacy policy.</td><td>United States and other countries</td></tr>
               <tr><td>Resend</td><td>Sending release-day emails and account emails such as password resets</td><td>United States</td></tr>
               <tr><td>Spotify, Deezer</td><td>Only when a fan chooses to connect their account</td><td>Per those providers</td></tr>
               <tr><td>Meta, TikTok, Google</td><td>Only on label pages where the label has added its own pixel</td><td>Per those providers</td></tr>

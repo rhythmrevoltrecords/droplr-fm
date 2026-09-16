@@ -60,7 +60,7 @@ export default function TermsPage() {
       <Section {...s("plans")}>
         <p>We offer a Free plan and paid plans. Current limits and prices are on the <Link href="/pricing">pricing page</Link> and shown again before you pay.</p>
         <ul>
-          <li>Paid plans are subscriptions billed in advance, monthly or yearly, through our payment processor Stripe. They <strong>renew automatically</strong> until you cancel.</li>
+          <li>Paid plans are subscriptions billed in advance, monthly or yearly. They&apos;re sold through Link, the merchant of record service of our payment provider Stripe, which takes payment, handles tax and issues receipts. Prices include any applicable tax. Plans <strong>renew automatically</strong> until you cancel.</li>
           <li>You can cancel at any time from <strong>Settings → Plan &amp; billing</strong>. Cancellation takes effect at the end of the period you&apos;ve paid for.</li>
           <li>We don&apos;t give refunds or credits for part-used periods, except where the law requires it.</li>
           <li>If a payment fails and isn&apos;t fixed, your label moves to the Free plan and paid features switch off.</li>
