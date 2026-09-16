@@ -13,6 +13,14 @@ import { PlatformIcon } from "./platform-icon";
  */
 export const DEFAULT_ACCENT = "#8B5CF6";
 
+export type PublicTheme = "dark" | "light" | "system";
+
+/** Label setting → theme for public pages (dark unless "Apply theme to public smart links" is on). */
+export function publicTheme(org: { themePublic?: boolean | null; themePreference?: string | null }): PublicTheme {
+  if (!org.themePublic) return "dark";
+  return org.themePreference === "light" || org.themePreference === "system" ? org.themePreference : "dark";
+}
+
 export type ShellPixels = { meta: string | null; tiktok: string | null; ga4: string | null; contentName: string };
 
 export function ArtworkPageShell({
@@ -22,6 +30,7 @@ export function ArtworkPageShell({
   footer,
   pixels,
   preview = false,
+  theme = "dark",
 }: {
   imageUrl: string;
   accentColor: string | null | undefined;
@@ -30,15 +39,21 @@ export function ArtworkPageShell({
   pixels?: ShellPixels | null;
   /** Renders inside a fixed-size box (admin previews) instead of the full viewport. */
   preview?: boolean;
+  /** "dark" (default) is the signature look. light/system only when the label opts in for public pages. */
+  theme?: PublicTheme;
 }) {
   const accent = accentColor || DEFAULT_ACCENT;
+  const themed = theme === "light" || theme === "system";
   return (
-    <main className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh")}>
+    <main className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`)}>
       {/* Artwork-driven background: blurred artwork + dark gradient + vibrant accent glow */}
       <div aria-hidden className="absolute inset-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imageUrl} alt="" className="h-full w-full scale-125 object-cover opacity-50 blur-3xl saturate-150" />
         <div className="absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` }} />
+        {themed && (
+          <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
+        )}
       </div>
       <div className="grain absolute inset-0" aria-hidden />
 
@@ -135,7 +150,7 @@ export function GlassLink({
 export function ShellFooter({ showBranding, orgName }: { showBranding: boolean; orgName: string }) {
   return showBranding ? (
     <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/70">
-      <Image src="/logo/icon.png" alt="" width={16} height={16} className="h-4 w-4 opacity-60 brightness-0 invert" />
+      <Image src="/logo/icon.png" alt="" width={16} height={16} className="shell-logo h-4 w-4 opacity-60 brightness-0 invert" />
       Powered by droplr.fm
     </a>
   ) : (

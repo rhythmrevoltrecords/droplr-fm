@@ -114,7 +114,7 @@ export function CreateLinkModal({ releaseLimitReached }: { releaseLimitReached: 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-labelledby="create-link-title">
           <button aria-label="Close" className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setOpen(false)} tabIndex={-1} />
-          <div className="relative flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#0c0a14] shadow-[0_0_120px_-30px_rgba(124,58,237,0.6)] sm:m-4 sm:rounded-3xl">
+          <div className="admin-surface relative flex max-h-[92dvh] w-full max-w-6xl flex-col overflow-hidden rounded-t-3xl border border-white/10 bg-[#0c0a14] shadow-[0_0_120px_-30px_rgba(124,58,237,0.6)] sm:m-4 sm:rounded-3xl">
             <div aria-hidden className="pointer-events-none absolute left-1/2 top-[-200px] h-[400px] w-[800px] -translate-x-1/2 rounded-full bg-violet-500/20 blur-[120px]" />
             <div className="relative flex items-center justify-between border-b border-white/10 px-5 py-4 sm:px-6">
               <div>

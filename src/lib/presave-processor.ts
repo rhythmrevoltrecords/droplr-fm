@@ -202,7 +202,7 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
     const org = release.organization;
     const origin = org.customDomain ? `https://${org.customDomain}` : SITE_URL;
     const publicUrl = org.customDomain ? `${origin}/${release.slug}` : `${SITE_URL}/${org.slug}/${release.slug}`;
-    const platforms = release.links.map((l) => l.platform).filter((p) => p !== "custom");
+    const platforms = [...new Set(release.links.map((l) => l.platform).filter((p) => p !== "custom"))];
     const topPlatforms = platforms.length ? platforms : ["spotify"];
 
     for (;;) {

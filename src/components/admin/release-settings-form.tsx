@@ -7,7 +7,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 
 type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean };
 
-export function ReleaseSettingsForm({ releaseId, initial, artists }: { releaseId: string; initial: Initial; artists: { id: string; name: string }[] }) {
+export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane" }: { releaseId: string; initial: Initial; artists: { id: string; name: string }[]; locationLabel?: string }) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -37,7 +37,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists }: { releaseId
         {field("title", "Title")}
         {field("artistName", "Artist name")}
         {field("slug", "Slug")}
-        {field("releaseDateLocal", "Release date & time (Brisbane)", "datetime-local")}
+        {field("releaseDateLocal", `Release date & time (${locationLabel})`, "datetime-local")}
         {field("coverUrl", "Cover URL")}
         {field("accentColor", "Accent colour")}
         {field("spotifyAlbumId", "Spotify album ID")}

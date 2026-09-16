@@ -16,7 +16,7 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
-import { dateToBrisbaneLocal, formatBrisbane, isReleased } from "@/lib/time";
+import { dateToZonedLocal, formatInTz, isReleased } from "@/lib/time";
 
 const TABS = [
   { key: "links", label: "Links" },
@@ -49,7 +49,7 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-semibold">{release.title}</h1>
-            {live ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Pre-save until {formatBrisbane(release.releaseDate)}</Badge>}
+            {live ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Pre-save until {formatInTz(release.releaseDate, release.organization.timezone)} ({release.organization.locationLabel})</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">{release.artistName}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
@@ -105,7 +105,7 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
               </div>
             )}
           </div>
-          <AnalyticsPanels stats={await getStats([release.id], days)} />
+          <AnalyticsPanels perLink stats={await getStats([release.id], days, release.organization.timezone)} />
         </div>
       )}
 
@@ -123,7 +123,7 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
             )}
           </CardHeader>
           <CardContent className="px-2">
-            <PresaveTable rows={await prisma.preSave.findMany({ where: { releaseId: release.id }, orderBy: { createdAt: "desc" }, take: 500 })} />
+            <PresaveTable timeZone={release.organization.timezone} locationLabel={release.organization.locationLabel} rows={await prisma.preSave.findMany({ where: { releaseId: release.id }, orderBy: { createdAt: "desc" }, take: 500 })} />
           </CardContent>
         </Card>
       )}
@@ -134,10 +134,11 @@ export default async function ReleaseDetail({ params, searchParams }: { params: 
           <CardContent>
             <ReleaseSettingsForm
               releaseId={release.id}
+              locationLabel={release.organization.locationLabel}
               artists={(await prisma.user.findMany({ where: { organizationId: user.organizationId, role: "artist" } })).map((a) => ({ id: a.id, name: a.artistName ?? a.email }))}
               initial={{
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
-                releaseDateLocal: dateToBrisbaneLocal(release.releaseDate), artistId: release.artistId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
+                releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistId: release.artistId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
                 spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic,
               }}
             />

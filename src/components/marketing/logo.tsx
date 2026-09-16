@@ -3,9 +3,8 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 // Source files are black artwork on a transparent background.
-// The app runs in dark mode (<html class="dark">), so `dark:brightness-0 dark:invert`
-// renders them pure white. Drop the `dark` class and they show in their original black.
-const INVERT = "invert-0 dark:brightness-0 dark:invert";
+// .logo-adaptive (globals.css) renders the black artwork white, and leaves it black inside a light theme scope.
+const INVERT = "logo-adaptive";
 
 export function Logo({ href = "/", variant = "wordmark", className, priority = false }: { href?: string; variant?: "wordmark" | "icon"; className?: string; priority?: boolean }) {
   return (

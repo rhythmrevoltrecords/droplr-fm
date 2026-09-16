@@ -3,7 +3,7 @@ import { z } from "zod";
 import { labelRelease } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
-import { brisbaneLocalToDate, isReleased } from "@/lib/time";
+import { isReleased, zonedLocalToDate } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 const schema = z.object({
@@ -51,7 +51,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.slug = slug;
   }
   if (d.releaseDateLocal) {
-    const rd = brisbaneLocalToDate(d.releaseDateLocal);
+    const rd = zonedLocalToDate(d.releaseDateLocal, g.user.organization.timezone);
     data.releaseDate = rd;
     data.status = isReleased(rd) ? g.release.status : "upcoming";
   }

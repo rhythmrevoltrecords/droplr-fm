@@ -23,8 +23,8 @@ export function DailyChart({ data }: { data: { date: string; views: number; clic
   );
 }
 
-export function PlatformBars({ data }: { data: { platform: string; clicks: number }[] }) {
-  const rows = data.map((d) => ({ name: platformMeta(d.platform).name, clicks: d.clicks, fill: platformMeta(d.platform).color }));
+export function PlatformBars({ data }: { data: { platform: string; clicks: number; label?: string | null; key?: string }[] }) {
+  const rows = data.map((d) => ({ name: d.label || platformMeta(d.platform).name, clicks: d.clicks, fill: platformMeta(d.platform).color }));
   if (!rows.length) return <p className="py-10 text-center text-sm text-muted-foreground">No clicks yet.</p>;
   return (
     <div className="w-full" style={{ height: Math.max(160, rows.length * 34) }}>

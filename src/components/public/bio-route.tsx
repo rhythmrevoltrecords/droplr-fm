@@ -4,6 +4,8 @@ import type { Metadata } from "next";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 import { isBot } from "@/lib/tracking";
+import { labelDuplicateLinks } from "@/lib/link-labels";
+import { publicTheme } from "./artwork-shell";
 import { BioView } from "./bio-view";
 
 export async function loadBio(slug: string, host?: string) {
@@ -41,9 +43,10 @@ export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadB
   const plan = planOf(page.organization.plan);
   return (
     <BioView
-      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor, links: page.links.map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon })) }}
+      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, links: labelDuplicateLinks(page.links.map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon })) }}
       orgName={page.organization.name}
       showBranding={!plan.removeBranding}
+      theme={publicTheme(page.organization)}
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}
     />
   );

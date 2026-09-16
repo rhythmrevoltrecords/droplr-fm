@@ -1,6 +1,6 @@
-import { formatBrisbane } from "@/lib/time";
+import { formatInTz } from "@/lib/time";
 import { Countdown } from "./countdown";
-import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter } from "./artwork-shell";
+import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme } from "./artwork-shell";
 import { PlatformIcon } from "./platform-icon";
 
 export type ReleaseViewData = {
@@ -11,7 +11,7 @@ export type ReleaseViewData = {
   accentColor: string | null;
   releaseDate: string; // ISO
   links: { id: string; platform: string; label: string | null; url: string; buttonText?: string | null; icon?: string | null }[];
-  org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null };
+  org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null; timezone?: string | null };
 };
 
 export type ReleaseViewProps = {
@@ -23,6 +23,7 @@ export type ReleaseViewProps = {
   deezerEnabled: boolean;
   showBranding: boolean;
   demo?: boolean;
+  theme?: PublicTheme;
 };
 
 const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
@@ -45,7 +46,7 @@ function buildHref(base: string, params: Record<string, string | undefined | nul
   return s ? `${base}?${s}` : base;
 }
 
-export function ReleaseView({ release, live, variantId, query, spotifyEnabled, deezerEnabled, showBranding, demo }: ReleaseViewProps) {
+export function ReleaseView({ release, live, variantId, query, spotifyEnabled, deezerEnabled, showBranding, demo, theme = "dark" }: ReleaseViewProps) {
   const accent = release.accentColor ?? "#8B5CF6";
   const passthrough = {
     variant: variantId ?? undefined,
@@ -60,6 +61,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
 
   return (
     <ArtworkPageShell
+      theme={theme}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
       footer={<ShellFooter showBranding={showBranding} orgName={release.org.name} />}
@@ -69,7 +71,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           imageUrl={release.coverUrl}
           accentColor={release.accentColor}
           alt={`${release.title} cover art`}
-          eyebrow={live ? "Out now" : `Out ${formatBrisbane(new Date(release.releaseDate), { dateStyle: "medium" })}`}
+          eyebrow={live ? "Out now" : `Out ${formatInTz(new Date(release.releaseDate), release.org.timezone, { dateStyle: "medium" })}`}
           title={release.title}
           subtitle={release.artistName}
         />
@@ -84,7 +86,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           <ul className="mt-7 space-y-2.5">
             {release.links.map((l) => (
               <li key={l.id}>
-                <GlassLink href={r(l.platform, l.platform === "custom" ? { l: l.id } : {})} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} />
+                <GlassLink href={r(l.platform, { l: l.id })} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} />
               </li>
             ))}
             {release.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links are landing shortly. Check back in a few minutes.</li>}

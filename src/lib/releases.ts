@@ -23,55 +23,83 @@ function pickVariant(r: PublicRelease, variantSlug?: string | null) {
 export type Resolution =
   | { kind: "release"; release: PublicRelease; variant: ReturnType<typeof pickVariant> }
   | { kind: "org"; org: NonNullable<Awaited<ReturnType<typeof prisma.organization.findUnique>>> }
+  | { kind: "redirect"; to: string }
   | null;
 
-/** droplr.fm paths: /slug, /slug/variant, /org/slug, /org/slug/variant */
+/** Org by current slug, or by a slug it used before (renamed labels keep old links alive). */
+async function findOrgBySlug(slug: string) {
+  const current = await prisma.organization.findUnique({ where: { slug } });
+  if (current) return { org: current, renamed: false };
+  const old = await prisma.organization.findFirst({ where: { previousSlugs: { has: slug } } });
+  return old ? { org: old, renamed: true } : null;
+}
+
+const path = (...segs: (string | null | undefined)[]) => "/" + segs.filter(Boolean).map((x) => encodeURIComponent(x!)).join("/");
+
+/**
+ * droplr.fm paths. Canonical form is /{orgSlug}/{releaseSlug}[/{variant}].
+ * Legacy /{releaseSlug}[/{variant}] and old org slugs return a redirect to the canonical URL.
+ */
 export async function resolvePlatformPath(parts: string[], variantQuery?: string | null): Promise<Resolution> {
   const [a, b, c] = parts.map((p) => decodeURIComponent(p).toLowerCase());
   if (parts.length === 1) {
+    const found = await findOrgBySlug(a);
+    if (found) return found.renamed ? { kind: "redirect", to: path(found.org.slug) } : { kind: "org", org: found.org };
     const r = await loadBySlug(a);
-    if (r) return { kind: "release", release: r, variant: pickVariant(r, variantQuery) };
-    const org = await prisma.organization.findUnique({ where: { slug: a } });
-    return org ? { kind: "org", org } : null;
+    if (r) return { kind: "redirect", to: path(r.organization.slug, r.slug, pickVariant(r, variantQuery)?.slug) };
+    return null;
   }
   if (parts.length === 2) {
-    const org = await prisma.organization.findUnique({ where: { slug: a } });
-    if (org) {
-      const r = await loadBySlug(b, org.id);
-      if (r) return { kind: "release", release: r, variant: pickVariant(r, variantQuery) };
+    const found = await findOrgBySlug(a);
+    if (found) {
+      const r = await loadBySlug(b, found.org.id);
+      if (r) {
+        if (found.renamed) return { kind: "redirect", to: path(found.org.slug, r.slug, pickVariant(r, variantQuery)?.slug) };
+        const v = pickVariant(r, variantQuery);
+        return v ? { kind: "redirect", to: path(found.org.slug, r.slug, v.slug) } : { kind: "release", release: r, variant: null };
+      }
     }
     const r = await loadBySlug(a);
-    if (r) {
-      const v = pickVariant(r, b);
-      if (v) return { kind: "release", release: r, variant: v };
-    }
+    if (r && pickVariant(r, b)) return { kind: "redirect", to: path(r.organization.slug, r.slug, b) };
     return null;
   }
   if (parts.length === 3) {
-    const org = await prisma.organization.findUnique({ where: { slug: a } });
-    if (!org) return null;
-    const r = await loadBySlug(b, org.id);
+    const found = await findOrgBySlug(a);
+    if (!found) return null;
+    const r = await loadBySlug(b, found.org.id);
     if (!r) return null;
     const v = pickVariant(r, c);
-    return v ? { kind: "release", release: r, variant: v } : null;
+    if (!v) return null;
+    return found.renamed ? { kind: "redirect", to: path(found.org.slug, r.slug, v.slug) } : { kind: "release", release: r, variant: v };
   }
   return null;
 }
 
-/** Custom domain (presave.label.com) or subdomain (label.droplr.fm): /, /slug, /slug/variant */
+/**
+ * Custom domain (presave.label.com) or subdomain (label.droplr.fm): /, /slug, /slug/variant.
+ * The domain already identifies the label, so the canonical form stays short.
+ * /{orgSlug}/{slug}[/{variant}] on a custom domain redirects to /{slug}[/{variant}].
+ */
 export async function resolveTenantPath(host: string, parts: string[], variantQuery?: string | null): Promise<Resolution> {
   const h = host.toLowerCase().split(":")[0];
   const sub = h.match(/^([a-z0-9-]+)\.droplr\.fm$/)?.[1];
-  const org = sub
-    ? await prisma.organization.findUnique({ where: { slug: sub } })
-    : await prisma.organization.findUnique({ where: { customDomain: h } });
+  const org = sub ? (await findOrgBySlug(sub))?.org ?? null : await prisma.organization.findUnique({ where: { customDomain: h } });
   if (!org) return null;
   if (parts.length === 0) return { kind: "org", org };
-  const r = await loadBySlug(decodeURIComponent(parts[0]).toLowerCase(), org.id);
+  const segs = parts.map((p) => decodeURIComponent(p).toLowerCase());
+  if ((segs[0] === org.slug || org.previousSlugs.includes(segs[0])) && segs.length >= 2) {
+    const r = await loadBySlug(segs[1], org.id);
+    if (r) return { kind: "redirect", to: path(r.slug, segs[2]) };
+  }
+  if (segs.length > 2) return null;
+  const r = await loadBySlug(segs[0], org.id);
   if (!r) return null;
-  const variantSlug = parts[1] ?? variantQuery;
-  const v = pickVariant(r, variantSlug);
-  if (parts[1] && !v) return null;
+  if (!segs[1] && variantQuery) {
+    const v = pickVariant(r, variantQuery);
+    if (v) return { kind: "redirect", to: path(r.slug, v.slug) };
+  }
+  const v = pickVariant(r, segs[1]);
+  if (segs[1] && !v) return null;
   return { kind: "release", release: r, variant: v };
 }
 

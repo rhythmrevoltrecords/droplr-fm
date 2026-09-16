@@ -10,7 +10,7 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
-import { formatBrisbane, isReleased } from "@/lib/time";
+import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
 export default async function ArtistDashboard({ searchParams }: { searchParams: { days?: string } }) {
@@ -23,7 +23,7 @@ export default async function ArtistDashboard({ searchParams }: { searchParams: 
     include: { linkVariants: { where: { isActive: true } } },
   });
   const ids = releases.map((r) => r.id);
-  const [totals, stats] = await Promise.all([releaseTotals(ids), getStats(ids, days)]);
+  const [totals, stats] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone)]);
   const plan = planOf(user.organization.plan);
 
   return (
@@ -50,7 +50,7 @@ export default async function ArtistDashboard({ searchParams }: { searchParams: 
                 <div className="min-w-0 flex-1 space-y-3">
                   <div className="flex flex-wrap items-center gap-2">
                     <h2 className="text-lg font-semibold">{r.title}</h2>
-                    {isReleased(r.releaseDate) ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Out {formatBrisbane(r.releaseDate, { dateStyle: "medium" })}</Badge>}
+                    {isReleased(r.releaseDate) ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Out {formatInTz(r.releaseDate, user.organization.timezone, { dateStyle: "medium" })}</Badge>}
                   </div>
                   <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                     <span>{fmtNum(t.views)} views</span><span>{fmtNum(t.clicks)} clicks</span><span>{pct(t.clicks, t.views)} CTR</span><span>{fmtNum(t.presaves)} pre-saves</span>

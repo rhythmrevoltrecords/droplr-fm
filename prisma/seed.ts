@@ -98,6 +98,7 @@ async function main() {
           { platform: "tidal", url: "https://tidal.com/browse/album/1", position: 9, visible: false },
           { platform: "custom", url: "https://rhythmrevoltrecords.bandcamp.com/merch", position: 10, isCustom: true, title: "Merch & Vinyl", buttonText: "Buy", icon: "M" },
           { platform: "custom", url: "https://rhythmrevoltrecords.com/dubplates", position: 11, isCustom: true, title: "Dubplate Download", buttonText: "Download", icon: "D" },
+          { platform: "soundcloud", url: "https://soundcloud.com/ototodj/test2", position: 12 },
         ],
       },
       linkVariants: { create: [{ slug: "ig", source: "instagram" }, { slug: "tiktok", source: "tiktok" }, { slug: "bio", source: "bio" }] },

@@ -3,7 +3,8 @@ import { jwtVerify } from "jose";
 import { isPlatformHost, platformSubdomain } from "./lib/env";
 
 const ANON_COOKIE = "dfm_anon";
-const PASSTHROUGH = /^\/(api|_next|uploads|logo|host|favicon\.ico|robots\.txt|icon|apple-icon)/;
+// Whole path segments only, so a release slug like "iconic-dubplate" or "logo-riddim" still reaches the tenant rewrite.
+const PASSTHROUGH = /^\/(api|_next|uploads|logo|host|r)(\/|$)|^\/(favicon\.ico|robots\.txt|icon|apple-icon)$/;
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;

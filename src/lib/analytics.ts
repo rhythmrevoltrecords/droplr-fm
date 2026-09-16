@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
+import { labelDuplicateLinks } from "./link-labels";
+import { DEFAULT_TZ, isValidTimeZone, zonedDay } from "./time";
 
 export type StatsRange = 14 | 30 | 90;
 
@@ -18,9 +20,10 @@ export async function releaseTotals(releaseIds: string[]) {
   return map;
 }
 
-export async function getStats(releaseIds: string[], days: StatsRange = 30) {
+export async function getStats(releaseIds: string[], days: StatsRange = 30, timeZone: string = DEFAULT_TZ) {
+  const tz = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TZ;
   const since = new Date(Date.now() - days * 86400_000);
-  const empty = { views: 0, clicks: 0, presaves: 0, emailClicks: 0, ctr: 0, conv: 0, byPlatform: [], bySource: [], byCountry: [], byArtist: [], daily: [] as { date: string; views: number; clicks: number; presaves: number }[] };
+  const empty = { views: 0, clicks: 0, presaves: 0, emailClicks: 0, ctr: 0, conv: 0, byPlatform: [], byLink: [] as { key: string; platform: string; label: string | null; clicks: number }[], bySource: [], byCountry: [], byArtist: [], daily: [] as { date: string; views: number; clicks: number; presaves: number }[] };
   if (!releaseIds.length) return empty;
   const inIds = { releaseId: { in: releaseIds } };
   const w = { ...inIds, createdAt: { gte: since } };
@@ -30,7 +33,7 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30) {
     prisma.clickEvent.count({ where: w }),
     prisma.preSave.count({ where: w }),
     prisma.clickEvent.count({ where: { ...w, convertedToPreSave: true } }),
-    prisma.clickEvent.groupBy({ by: ["platform"], where: w, _count: { _all: true } }),
+    prisma.clickEvent.groupBy({ by: ["platform", "linkId"], where: w, _count: { _all: true } }),
     prisma.pageView.groupBy({ by: ["source"], where: w, _count: { _all: true } }),
     prisma.clickEvent.groupBy({ by: ["source"], where: w, _count: { _all: true } }),
     prisma.preSave.groupBy({ by: ["source"], where: w, _count: { _all: true } }),
@@ -67,8 +70,19 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30) {
     artistMap.set(a, (artistMap.get(a) ?? 0) + r._count._all);
   });
 
+  // Clicks per platform (roster-level) and per individual button (so two SoundCloud links count separately)
+  const platformMap = new Map<string, number>();
+  platformRows.forEach((r) => platformMap.set(r.platform, (platformMap.get(r.platform) ?? 0) + r._count._all));
+  const byPlatform = [...platformMap.entries()].map(([platform, clicks]) => ({ platform, clicks })).sort((a, b) => b.clicks - a.clicks);
+  const linkRows = await prisma.releaseLink.findMany({ where: { releaseId: { in: releaseIds } }, orderBy: [{ releaseId: "asc" }, { position: "asc" }] });
+  const labelById = new Map<string, string | null>();
+  for (const rid of releaseIds) labelDuplicateLinks(linkRows.filter((l) => l.releaseId === rid)).forEach((l) => labelById.set(l.id, l.label));
+  const byLink = platformRows
+    .map((r) => ({ key: r.linkId ?? `platform:${r.platform}`, platform: r.platform, label: r.linkId ? labelById.get(r.linkId) ?? null : null, clicks: r._count._all }))
+    .sort((a, b) => b.clicks - a.clicks);
+
   const ids = Prisma.join(releaseIds);
-  const bucket = Prisma.sql`to_char(date_trunc('day', ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Australia/Brisbane'), 'YYYY-MM-DD')`;
+  const bucket = Prisma.sql`to_char(date_trunc('day', ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE ${tz}), 'YYYY-MM-DD')`;
   const [dv, dc, dp] = await Promise.all([
     prisma.$queryRaw<{ d: string; n: bigint }[]>`SELECT ${bucket} AS d, COUNT(*)::bigint AS n FROM "PageView" WHERE "releaseId" IN (${ids}) AND "createdAt" >= ${since} GROUP BY 1`,
     prisma.$queryRaw<{ d: string; n: bigint }[]>`SELECT ${bucket} AS d, COUNT(*)::bigint AS n FROM "ClickEvent" WHERE "releaseId" IN (${ids}) AND "createdAt" >= ${since} GROUP BY 1`,
@@ -77,7 +91,7 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30) {
   const daily: { date: string; views: number; clicks: number; presaves: number }[] = [];
   const idx = new Map<string, (typeof daily)[number]>();
   for (let i = days - 1; i >= 0; i--) {
-    const d = new Date(Date.now() + 10 * 3600_000 - i * 86400_000).toISOString().slice(0, 10);
+    const d = zonedDay(new Date(Date.now() - i * 86400_000), tz);
     const row = { date: d, views: 0, clicks: 0, presaves: 0 };
     daily.push(row);
     idx.set(d, row);
@@ -93,7 +107,8 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30) {
     emailClicks,
     ctr: views ? clicks / views : 0,
     conv: views ? presaves / views : 0,
-    byPlatform: platformRows.map((r) => ({ platform: r.platform, clicks: r._count._all })).sort((a, b) => b.clicks - a.clicks),
+    byPlatform,
+    byLink,
     bySource: [...sourceMap.values()].sort((a, b) => b.views + b.clicks - (a.views + a.clicks)),
     byCountry: [...countryMap.values()].sort((a, b) => b.views - a.views).slice(0, 25),
     byArtist: [...artistMap.entries()].map(([artist, clicks]) => ({ artist, clicks })).sort((a, b) => b.clicks - a.clicks),

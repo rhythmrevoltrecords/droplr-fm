@@ -36,3 +36,174 @@
     background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
   }
 }
+
+/* ---------- Theme scopes (admin + optional public) ----------
+   Admin: <div class="theme-dark|theme-light|theme-system"> (Organization.themePreference)
+   Public: ArtworkPageShell adds shell-theme-light|shell-theme-system only when the label ticks
+   "Apply theme to public smart links". Default public pages render exactly as before (dark). */
+.logo-adaptive { filter: brightness(0) invert(1); }
+.shell-light-layer { display: none; }
+
+.theme-light {
+  --background: 0 0% 98%;
+  --foreground: 240 10% 4%;
+  --card: 0 0% 100%;
+  --card-foreground: 240 10% 4%;
+  --primary: 258 75% 55%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 240 5% 92%;
+  --secondary-foreground: 240 10% 4%;
+  --muted: 240 5% 94%;
+  --muted-foreground: 240 4% 38%;
+  --accent: 240 5% 92%;
+  --accent-foreground: 240 10% 4%;
+  --border: 240 6% 87%;
+  --input: 240 6% 82%;
+  --ring: 258 75% 55%;
+  color-scheme: light;
+}
+.theme-light .text-zinc-300 {
+  color: hsl(240 5% 26%);
+}
+.theme-light .text-amber-100, .theme-light .text-amber-200 {
+  color: #92400e;
+}
+.theme-light .text-emerald-300, .theme-light .text-emerald-400 {
+  color: #047857;
+}
+.theme-light .text-red-400 {
+  color: #b91c1c;
+}
+.theme-light .logo-adaptive {
+  filter: none;
+}
+
+@media (prefers-color-scheme: light) {
+  .theme-system {
+    --background: 0 0% 98%;
+    --foreground: 240 10% 4%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 4%;
+    --primary: 258 75% 55%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 240 5% 92%;
+    --secondary-foreground: 240 10% 4%;
+    --muted: 240 5% 94%;
+    --muted-foreground: 240 4% 38%;
+    --accent: 240 5% 92%;
+    --accent-foreground: 240 10% 4%;
+    --border: 240 6% 87%;
+    --input: 240 6% 82%;
+    --ring: 258 75% 55%;
+    color-scheme: light;
+  }
+  .theme-system .text-zinc-300 {
+    color: hsl(240 5% 26%);
+  }
+  .theme-system .text-amber-100, .theme-system .text-amber-200 {
+    color: #92400e;
+  }
+  .theme-system .text-emerald-300, .theme-system .text-emerald-400 {
+    color: #047857;
+  }
+  .theme-system .text-red-400 {
+    color: #b91c1c;
+  }
+  .theme-system .logo-adaptive {
+    filter: none;
+  }
+}
+
+.shell-theme-light {
+  background-color: #fafafa; color: #0a0a0a;
+}
+.shell-theme-light .shell-light-layer {
+  display: block;
+}
+.shell-theme-light .text-white {
+  color: #0a0a0a;
+}
+.shell-theme-light [class*="text-white/"] {
+  color: rgb(10 10 10 / 0.62);
+}
+.shell-theme-light .glass {
+  background-color: rgb(255 255 255 / 0.6); border-color: rgb(0 0 0 / 0.08);
+}
+.shell-theme-light .glass:hover {
+  background-color: rgb(255 255 255 / 0.8);
+}
+.shell-theme-light .glass .bg-white {
+  background-color: #0a0a0a; color: #fff;
+}
+.shell-theme-light form button[type=submit] {
+  background-color: #0a0a0a !important; color: #fff;
+}
+.shell-theme-light input[type=email] {
+  background-color: rgb(255 255 255 / 0.75); border-color: rgb(0 0 0 / 0.12); color: #0a0a0a;
+}
+.shell-theme-light input[type=email]::placeholder {
+  color: rgb(10 10 10 / 0.4);
+}
+.shell-theme-light .text-emerald-300 {
+  color: #047857;
+}
+.shell-theme-light .text-amber-200 {
+  color: #92400e;
+}
+.shell-theme-light .shell-logo {
+  filter: brightness(0);
+}
+.shell-theme-light .platform-icon {
+  filter: brightness(0.6) saturate(1.4);
+}
+
+@media (prefers-color-scheme: light) {
+  .shell-theme-system {
+    background-color: #fafafa; color: #0a0a0a;
+  }
+  .shell-theme-system .shell-light-layer {
+    display: block;
+  }
+  .shell-theme-system .text-white {
+    color: #0a0a0a;
+  }
+  .shell-theme-system [class*="text-white/"] {
+    color: rgb(10 10 10 / 0.62);
+  }
+  .shell-theme-system .glass {
+    background-color: rgb(255 255 255 / 0.6); border-color: rgb(0 0 0 / 0.08);
+  }
+  .shell-theme-system .glass:hover {
+    background-color: rgb(255 255 255 / 0.8);
+  }
+  .shell-theme-system .glass .bg-white {
+    background-color: #0a0a0a; color: #fff;
+  }
+  .shell-theme-system form button[type=submit] {
+    background-color: #0a0a0a !important; color: #fff;
+  }
+  .shell-theme-system input[type=email] {
+    background-color: rgb(255 255 255 / 0.75); border-color: rgb(0 0 0 / 0.12); color: #0a0a0a;
+  }
+  .shell-theme-system input[type=email]::placeholder {
+    color: rgb(10 10 10 / 0.4);
+  }
+  .shell-theme-system .text-emerald-300 {
+    color: #047857;
+  }
+  .shell-theme-system .text-amber-200 {
+    color: #92400e;
+  }
+  .shell-theme-system .shell-logo {
+    filter: brightness(0);
+  }
+  .shell-theme-system .platform-icon {
+    filter: brightness(0.6) saturate(1.4);
+  }
+}
+
+/* Admin surfaces that are hard-coded dark for the purple look follow the light theme too */
+.theme-light .admin-surface { background-color: hsl(var(--background)); }
+@media (prefers-color-scheme: light) {
+  .theme-system .admin-surface { background-color: hsl(var(--background)); }
+}

@@ -5,7 +5,7 @@ export function PlatformIcon({ platform, icon, className = "" }: { platform: str
   const m = platformMeta(platform);
   return (
     <span
-      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${className}`}
+      className={`platform-icon inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-sm font-bold ${className}`}
       style={{ backgroundColor: `${m.color}22`, color: m.color, boxShadow: `inset 0 0 0 1px ${m.color}44` }}
       aria-hidden
     >

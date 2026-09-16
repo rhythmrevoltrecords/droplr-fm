@@ -48,6 +48,13 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
     }
   }
 
+  // Which button? ?l={linkId} identifies it exactly (needed when a platform appears more than once,
+  // e.g. three SoundCloud links on a mashup pack). Older links without ?l fall back to the first match.
+  const linkParam = q.get("l");
+  const link =
+    (linkParam ? release.links.find((l) => l.id === linkParam) : undefined) ??
+    release.links.find((l) => l.platform === params.platform);
+
   // 1) LOG before redirect
   if (!meta.bot) {
     await prisma.$transaction([
@@ -56,6 +63,7 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
           releaseId: release.id,
           variantId: variant?.id,
           platform: params.platform,
+          linkId: link?.platform === params.platform ? link.id : null,
           source,
           utm_source: q.get("utm_source"),
           utm_medium: q.get("utm_medium"),
@@ -106,10 +114,6 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   }
 
   // 3) Smart link redirect
-  const linkId = q.get("l");
-  const link = linkId
-    ? release.links.find((l) => l.id === linkId)
-    : release.links.find((l) => l.platform === params.platform);
   if (!link || !/^https?:\/\//i.test(link.url)) return finish(pageUrl);
   return finish(link.url);
 }

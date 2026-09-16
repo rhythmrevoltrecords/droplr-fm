@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { isPlatformKey, PLATFORMS } from "@/lib/platforms";
 import { planOf } from "@/lib/plans";
-import { brisbaneLocalToDate, isReleased } from "@/lib/time";
+import { isReleased, zonedLocalToDate } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 const schema = z.object({
@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
     const a = await prisma.user.findFirst({ where: { id: d.artistId, organizationId: user.organizationId } });
     if (!a) return NextResponse.json({ error: "Artist not in your roster" }, { status: 400 });
   }
-  const releaseDate = brisbaneLocalToDate(d.releaseDateLocal);
+  const releaseDate = zonedLocalToDate(d.releaseDateLocal, user.organization.timezone);
 
   const release = await prisma.release.create({
     data: {

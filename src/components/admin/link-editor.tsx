@@ -1,5 +1,5 @@
 "use client";
-import { DndContext, closestCenter, PointerSensor, KeyboardSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
+import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { Eye, EyeOff, GripVertical, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, guessPlatformFromUrl, MANUAL_PLATFORMS, PLATFORM_KEYS, platformMeta } from "@/lib/platforms";
+import { labelDuplicateLinks } from "@/lib/link-labels";
 import { cn } from "@/lib/utils";
 
 export type EditorLink = { id?: string | null; platform: string; url: string; title: string | null; buttonText: string | null; icon: string | null; visible: boolean };
@@ -16,7 +17,7 @@ type L = EditorLink & { key: string };
 
 const withKey = (l: EditorLink, i: number): L => ({ ...l, key: l.id ?? `${l.platform}-${i}-${Math.random().toString(36).slice(2)}` });
 
-function Row({ link, onChange, onRemove, presetsId }: { link: L; onChange: (l: L) => void; onRemove: () => void; presetsId: string }) {
+function Row({ link, onChange, onRemove, presetsId, autoLabel }: { link: L; onChange: (l: L) => void; onRemove: () => void; presetsId: string; autoLabel?: string | null }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.key });
   const meta = platformMeta(link.platform);
   return (
@@ -25,22 +26,22 @@ function Row({ link, onChange, onRemove, presetsId }: { link: L; onChange: (l: L
       style={{ transform: CSS.Transform.toString(transform), transition }}
       className={cn("rounded-xl border bg-card p-2", isDragging && "z-10 ring-2 ring-primary", !link.visible && "border-dashed bg-card/40")}
     >
+      {/* Phone: [drag][icon][title][shown] / [url] / [button text][delete]. Desktop (lg): one row. */}
       <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap">
-        <button type="button" className="cursor-grab touch-none p-1 text-muted-foreground" aria-label="Drag to reorder" {...attributes} {...listeners}>
+        <button type="button" className="order-1 -m-1 cursor-grab touch-none p-2 text-muted-foreground active:cursor-grabbing lg:order-none" aria-label="Drag to reorder" {...attributes} {...listeners}>
           <GripVertical className="h-4 w-4" />
         </button>
 
         {/* Icon: monogram override, blank = platform default */}
-        <div className={cn("relative shrink-0", !link.visible && "opacity-40")}>
+        <div className={cn("relative order-2 shrink-0 lg:order-none", !link.visible && "opacity-40")}>
           <PlatformIcon platform={link.platform} icon={link.icon} />
           <input
             aria-label="Icon letter"
             title="Icon (1–2 characters). Leave blank for the default."
             value={link.icon ?? ""}
             maxLength={2}
-            placeholder=""
             onChange={(e) => onChange({ ...link, icon: e.target.value || null })}
-            className="absolute inset-0 h-9 w-9 cursor-text rounded-lg bg-transparent text-center text-transparent caret-white focus:outline-none focus:ring-2 focus:ring-ring"
+            className="absolute inset-0 h-9 w-9 cursor-text rounded-lg bg-transparent text-center text-transparent caret-current focus:outline-none focus:ring-2 focus:ring-ring"
           />
         </div>
 
@@ -48,15 +49,16 @@ function Row({ link, onChange, onRemove, presetsId }: { link: L; onChange: (l: L
           aria-label="Title"
           value={link.title ?? ""}
           onChange={(e) => onChange({ ...link, title: e.target.value || null })}
-          placeholder={link.platform === "custom" ? "Title, e.g. Merch & Vinyl" : meta.name}
-          className={cn("h-8 min-w-0 flex-1 sm:w-52 sm:flex-none lg:w-48", !link.visible && "opacity-60")}
+          placeholder={link.platform === "custom" ? "Title, e.g. Merch & Vinyl" : autoLabel ?? meta.name}
+          className={cn("order-3 h-9 min-w-0 flex-1 lg:order-none lg:h-8 lg:w-48 lg:flex-none", !link.visible && "opacity-60")}
         />
         <Input
           aria-label="URL"
           value={link.url}
           onChange={(e) => onChange({ ...link, url: e.target.value })}
           placeholder="https://…"
-          className={cn("h-8 min-w-0 flex-1 basis-full sm:basis-60", !link.visible && "opacity-60")}
+          title={link.url}
+          className={cn("order-5 h-9 min-w-0 basis-full text-ellipsis lg:order-none lg:h-8 lg:flex-1 lg:basis-auto", !link.visible && "opacity-60")}
         />
         <Input
           aria-label="Button text"
@@ -65,7 +67,7 @@ function Row({ link, onChange, onRemove, presetsId }: { link: L; onChange: (l: L
           onChange={(e) => onChange({ ...link, buttonText: e.target.value || null })}
           placeholder={meta.action}
           maxLength={20}
-          className={cn("h-8 w-28", !link.visible && "opacity-60")}
+          className={cn("order-6 h-9 min-w-0 flex-1 lg:order-none lg:h-8 lg:w-28 lg:flex-none", !link.visible && "opacity-60")}
         />
         <Button
           type="button"
@@ -73,12 +75,13 @@ function Row({ link, onChange, onRemove, presetsId }: { link: L; onChange: (l: L
           variant={link.visible ? "ghost" : "secondary"}
           onClick={() => onChange({ ...link, visible: !link.visible })}
           aria-pressed={!link.visible}
+          aria-label={link.visible ? "Shown — tap to hide" : "Hidden — tap to show"}
           title={link.visible ? "Visible to fans — click to hide" : "Hidden from fans — click to show"}
-          className="w-24 justify-start"
+          className="order-4 h-9 shrink-0 justify-start px-2 sm:w-24 lg:order-none lg:h-8"
         >
-          {link.visible ? <Eye /> : <EyeOff />} {link.visible ? "Shown" : "Hidden"}
+          {link.visible ? <Eye /> : <EyeOff />} <span className="hidden sm:inline">{link.visible ? "Shown" : "Hidden"}</span>
         </Button>
-        <Button type="button" size="icon" variant="ghost" onClick={onRemove} aria-label="Remove"><Trash2 /></Button>
+        <Button type="button" size="icon" variant="ghost" onClick={onRemove} aria-label="Remove" className="order-7 lg:order-none"><Trash2 /></Button>
       </div>
     </div>
   );
@@ -96,7 +99,12 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
   const [newUrl, setNewUrl] = useState("");
   const [busy, setBusy] = useState<"save" | "resolve" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
-  const sensors = useSensors(useSensor(PointerSensor), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
+  // Mouse + touch (short press-and-hold on the handle so page scrolling still works) + keyboard
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 120, tolerance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   const onDragEnd = (e: DragEndEvent) => {
     if (!e.over || e.active.id === e.over.id) return;
@@ -141,6 +149,8 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
     setLinks((ls) => [...ls, withKey({ platform: "custom", url: "", title: p.title, buttonText: p.buttonText, icon: null, visible: true }, ls.length)]);
 
   const hidden = links.filter((l) => !l.visible).length;
+  // Same numbering fans see: 2nd SoundCloud without a title shows as "SoundCloud (2)"
+  const autoLabels = new Map(labelDuplicateLinks(links.filter((l) => l.visible)).map((l) => [l.key, l.label]));
 
   return (
     <div className="space-y-4">
@@ -154,7 +164,7 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
         <SortableContext items={links.map((l) => l.key)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {links.map((l, i) => (
-              <Row key={l.key} link={l} presetsId={presetsId} onChange={(n) => setLinks((ls) => ls.map((x, j) => (j === i ? n : x)))} onRemove={() => setLinks((ls) => ls.filter((_, j) => j !== i))} />
+              <Row key={l.key} link={l} presetsId={presetsId} autoLabel={autoLabels.get(l.key)} onChange={(n) => setLinks((ls) => ls.map((x, j) => (j === i ? n : x)))} onRemove={() => setLinks((ls) => ls.filter((_, j) => j !== i))} />
             ))}
             {!links.length && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No links yet.</p>}
           </div>
@@ -176,6 +186,7 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
           <Button type="button" variant="secondary" onClick={add}><Plus /> Add platform</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <span className="basis-full sm:basis-auto">Any platform can be added more than once (e.g. three SoundCloud links for a mashup pack).</span>
           <span>Quick custom buttons:</span>
           {CUSTOM_BUTTON_PRESETS.map((p) => (
             <button key={p.title} type="button" onClick={() => addPreset(p)} className="rounded-full border px-2.5 py-1 hover:border-violet-500/40 hover:text-foreground">

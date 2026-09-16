@@ -61,7 +61,7 @@ npm run db:seed
 netlify dev               # http://localhost:8888
 ```
 
-Set `NEXT_PUBLIC_SITE_URL=http://localhost:8888` in `.env` for local dev.
+Set `NEXT_PUBLIC_SITE_URL=http://localhost:8888` in `.env` for local dev. In production it must be `https://droplr.fm`. That's the variable this app reads for absolute URLs, redirects, emails and the Spotify callback. `NEXTAUTH_URL` isn't used (auth is custom JWT, not NextAuth), so setting it changes nothing.
 
 ### Seeded logins (change these before deploying)
 
@@ -80,8 +80,10 @@ The seed also creates the `droplr` platform org, a pre-save release at `/rhythm-
 | `/docs/custom-domain` `/docs/spotify-byo` | Docs |
 | `/admin` | Label dashboard: releases, roster, settings, integrations |
 | `/dashboard` | Artist dashboard |
-| `/{org}/{release}` `/{release}` `/{release}/{variant}` | Public pages on droplr.fm |
-| `presave.label.com/{release}[/{variant}]` | Public pages on a custom domain |
+| `/{orgSlug}/{release}[/{variant}]` | Canonical public page on droplr.fm |
+| `/{release}`, `/{release}/{variant}`, `?v=ig`, `/r/{releaseId}` | Legacy/short forms → permanent redirect to the canonical URL (query string kept) |
+| `/{oldOrgSlug}/…` | A renamed label's old slug keeps redirecting (`Organization.previousSlugs`) |
+| `presave.label.com/{release}[/{variant}]` | Public pages on a custom domain (the domain already names the label; `/{orgSlug}/{release}` there redirects to the short form) |
 
 ### Test the release-day job locally
 
@@ -166,6 +168,12 @@ Every public page renders through `src/components/public/artwork-shell.tsx`:
 `ArtworkPageShell` (blurred artwork + dark gradient + accent glow), `ArtworkHero` and `GlassLink`.
 The accent colour is extracted from the uploaded image or cover with node-vibrant (`src/lib/color.ts`) and stored on the record.
 Bio links count views and clicks (`/api/b/{linkId}` counts, then redirects).
+
+## Label settings (Admin → Settings)
+
+- **Label identity**: name, slug (renames keep old links redirecting), location/timezone (IANA, DST-safe; drives the `DATE (SYDNEY)` column, release date inputs and analytics days), optional accent colour (admin top border + glow fallback), logo.
+- **Appearance**: Dark / Light / System for admin and artist dashboards. **Apply theme to public smart links** is off by default, so fan pages keep the signature blurred-artwork + black-gradient look, pixel-identical to before.
+- **Duplicate platforms**: any platform can be added more than once (e.g. three SoundCloud links for a mashup pack). Untitled repeats are labelled "SoundCloud (2)", and each button has its own visibility, order, button text and click count (`ClickEvent.linkId`).
 
 ## How tracking works
 

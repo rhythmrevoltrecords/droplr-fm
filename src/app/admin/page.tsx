@@ -9,7 +9,7 @@ import { getStats, releaseTotals, type StatsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
-import { formatBrisbane, isReleased } from "@/lib/time";
+import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
 export default async function AdminHome({ searchParams }: { searchParams: { days?: string; welcome?: string } }) {
@@ -21,7 +21,9 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
     include: { artist: { select: { artistName: true, email: true } } },
   });
   const ids = releases.map((r) => r.id);
-  const [totals, stats] = await Promise.all([releaseTotals(ids), getStats(ids, days)]);
+  const [totals, stats] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone)]);
+  const org = user.organization;
+  const location = (org.locationLabel || "Local").toUpperCase();
   const plan = planOf(user.organization.plan);
   const atLimit = releases.length >= plan.releases;
 
@@ -35,7 +37,12 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Releases</h1>
-          <p className="text-sm text-muted-foreground">{user.organization.name} · {releases.length} release{releases.length === 1 ? "" : "s"}{Number.isFinite(plan.releases) ? ` of ${plan.releases}` : ""}</p>
+          <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            {org.logoUrl && <img src={org.logoUrl} alt="" className="h-5 w-5 rounded object-cover ring-1 ring-border" />}
+            <span>{org.name} · {releases.length} release{releases.length === 1 ? "" : "s"}</span>
+            {atLimit && <Link href="/pricing" className="text-xs underline">{plan.name} limit reached</Link>}
+          </p>
         </div>
         <CreateLinkModal releaseLimitReached={atLimit} />
       </div>
@@ -43,7 +50,7 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
       <Card className="p-0">
         <Table>
           <THead>
-            <TR><TH>Release</TH><TH>Artist</TH><TH>Date (Brisbane)</TH><TH>Status</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="text-right">CTR</TH><TH className="text-right">Pre-saves</TH></TR>
+            <TR><TH>Release</TH><TH>Artist</TH><TH>Date ({location})</TH><TH>Public link</TH><TH>Status</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="text-right">CTR</TH><TH className="text-right">Pre-saves</TH></TR>
           </THead>
           <TBody>
             {releases.map((r) => {
@@ -58,7 +65,12 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
                     </Link>
                   </TD>
                   <TD className="text-muted-foreground">{r.artist?.artistName ?? r.artistName}</TD>
-                  <TD className="whitespace-nowrap text-muted-foreground">{formatBrisbane(r.releaseDate, { dateStyle: "medium" })}</TD>
+                  <TD className="whitespace-nowrap text-muted-foreground">{formatInTz(r.releaseDate, org.timezone, { dateStyle: "medium" })}</TD>
+                  <TD className="max-w-[220px]">
+                    <a href={`/${org.slug}/${r.slug}?preview=1`} target="_blank" rel="noreferrer" className="block truncate font-mono text-xs text-muted-foreground hover:text-foreground hover:underline" title="Open public page (preview: not counted as a view)">
+                      /{org.slug}/{r.slug}
+                    </a>
+                  </TD>
                   <TD>{isReleased(r.releaseDate) ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Pre-save</Badge>}</TD>
                   <TD className="text-right tabular-nums">{fmtNum(t.views)}</TD>
                   <TD className="text-right tabular-nums">{fmtNum(t.clicks)}</TD>
@@ -67,7 +79,7 @@ export default async function AdminHome({ searchParams }: { searchParams: { days
                 </TR>
               );
             })}
-            {!releases.length && <TR><TD colSpan={8} className="py-12 text-center text-muted-foreground">No releases yet.</TD></TR>}
+            {!releases.length && <TR><TD colSpan={9} className="py-12 text-center text-muted-foreground">No releases yet.</TD></TR>}
           </TBody>
         </Table>
       </Card>

@@ -1,4 +1,4 @@
-import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type ShellPixels } from "./artwork-shell";
+import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 
 export type BioViewData = {
   title: string;
@@ -9,10 +9,11 @@ export type BioViewData = {
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
-export function BioView({ page, orgName, showBranding, pixels, preview = false }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean }) {
+export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark" }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme }) {
   return (
     <ArtworkPageShell
       preview={preview}
+      theme={theme}
       imageUrl={page.imageUrl}
       accentColor={page.accentColor}
       footer={<ShellFooter showBranding={showBranding} orgName={orgName} />}

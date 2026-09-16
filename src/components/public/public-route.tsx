@@ -1,7 +1,9 @@
 import { headers } from "next/headers";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { deezerGloballyEnabled } from "@/lib/env";
+import { labelDuplicateLinks } from "@/lib/link-labels";
+import { publicTheme } from "./artwork-shell";
 import { planOf } from "@/lib/plans";
 import type { Resolution } from "@/lib/releases";
 import { isReleased } from "@/lib/time";
@@ -21,6 +23,12 @@ export function spotifyEnabledFor(org: { plan: string; spotifyAppStatus: string;
 
 export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { resolution: Resolution; searchParams: SearchParams; orgHrefBase: (slug: string) => string }) {
   if (!resolution) notFound();
+  if (resolution.kind === "redirect") {
+    // Legacy /{slug} → /{orgSlug}/{slug}. permanentRedirect = HTTP 308 (treated like 301 by browsers and search engines).
+    const qs = new URLSearchParams();
+    for (const [k, v] of Object.entries(searchParams)) if (k !== "v" && typeof v === "string") qs.set(k, v);
+    permanentRedirect(qs.size ? `${resolution.to}?${qs}` : resolution.to);
+  }
   if (resolution.kind === "org") return <OrgView org={resolution.org} hrefBase={orgHrefBase(resolution.org.slug)} />;
 
   const { release, variant } = resolution;
@@ -58,10 +66,10 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         title: release.title,
         artistName: release.artistName,
         coverUrl: release.coverUrl,
-        accentColor: release.accentColor,
+        accentColor: release.accentColor ?? org.accentColor,
         releaseDate: release.releaseDate.toISOString(),
-        links: release.links.map((l) => ({ id: l.id, platform: l.platform, label: l.title, url: l.url, buttonText: l.buttonText, icon: l.icon })),
-        org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl },
+        links: labelDuplicateLinks(release.links).map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url, buttonText: l.buttonText, icon: l.icon })),
+        org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, timezone: org.timezone },
       }}
       live={live}
       variantId={variant?.id}
@@ -69,12 +77,13 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       spotifyEnabled={spotifyEnabledFor(org)}
       deezerEnabled={deezerGloballyEnabled() && org.deezerEnabled}
       showBranding={!planOf(org.plan).removeBranding}
+      theme={publicTheme(org)}
     />
   );
 }
 
 export async function releaseMetadata(resolution: Resolution) {
-  if (!resolution) return {};
+  if (!resolution || resolution.kind === "redirect") return {};
   if (resolution.kind === "org") return { title: resolution.org.name };
   const r = resolution.release;
   const live = isReleased(r.releaseDate);

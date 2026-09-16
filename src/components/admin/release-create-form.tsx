@@ -28,7 +28,7 @@ type Resolved = {
   links: { platform: string; url: string }[];
 };
 
-export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: string; name: string }[]; defaultDate: string }) {
+export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisbane" }: { artists: { id: string; name: string }[]; defaultDate: string; locationLabel?: string }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [upcIn, setUpcIn] = useState("");
@@ -138,7 +138,7 @@ export function ReleaseCreateForm({ artists, defaultDate }: { artists: { id: str
               <div className="space-y-2"><Label>Title</Label><Input value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
               <div className="space-y-2"><Label>Artist name</Label><Input value={form.artistName} onChange={(e) => set("artistName", e.target.value)} /></div>
               <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} /></div>
-              <div className="space-y-2"><Label>Release date &amp; time (Brisbane)</Label><Input type="datetime-local" value={form.releaseDateLocal} onChange={(e) => set("releaseDateLocal", e.target.value)} /></div>
+              <div className="space-y-2"><Label>Release date &amp; time ({locationLabel})</Label><Input type="datetime-local" value={form.releaseDateLocal} onChange={(e) => set("releaseDateLocal", e.target.value)} /></div>
               <div className="space-y-2">
                 <Label>Assign to artist login</Label>
                 <Select value={form.artistId} onChange={(e) => set("artistId", e.target.value)}>

@@ -35,6 +35,14 @@ model Organization {
   emailFromName String?
   emailReplyTo  String?
 
+  // Label identity + appearance
+  previousSlugs   String[] @default([]) // old slugs keep redirecting after a rename
+  timezone        String   @default("Australia/Brisbane") // IANA zone: date display + scheduling input
+  locationLabel   String   @default("Brisbane") // shown in admin, e.g. "DATE (SYDNEY)"
+  themePreference String   @default("dark") // dark | light | system
+  themePublic     Boolean  @default(false) // also apply themePreference to public smart links / bio pages
+  accentColor     String? // hex; admin top border + fallback when a release has no extracted colour
+
   createdAt DateTime  @default(now())
   users     User[]
   releases  Release[]
@@ -169,10 +177,12 @@ model ClickEvent {
   deviceType         String?
   ipHash             String?
   anonId             String?
+  linkId             String? // ReleaseLink.id — separates duplicate platforms (e.g. three SoundClouds)
   convertedToPreSave Boolean  @default(false)
   createdAt          DateTime @default(now())
 
   @@index([releaseId, createdAt])
+  @@index([linkId])
 }
 
 model PreSave {

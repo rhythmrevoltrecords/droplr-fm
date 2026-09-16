@@ -26,5 +26,5 @@ export function fmtNum(n: number) {
 
 export const RESERVED_SLUGS = new Set([
   "admin", "dashboard", "api", "login", "logout", "signup", "pricing", "docs", "demo",
-  "host", "invite", "settings", "b", "_next", "favicon.ico", "robots.txt", "sitemap.xml",
+  "host", "invite", "settings", "b", "r", "_next", "favicon.ico", "robots.txt", "sitemap.xml",
 ]);

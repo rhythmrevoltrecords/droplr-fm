@@ -38,7 +38,7 @@ export function RangeTabs({ base, days }: { base: string; days: number }) {
   );
 }
 
-export function AnalyticsPanels({ stats, showArtists = false }: { stats: Stats; showArtists?: boolean }) {
+export function AnalyticsPanels({ stats, showArtists = false, perLink = false }: { stats: Stats; showArtists?: boolean; perLink?: boolean }) {
   return (
     <div className="space-y-4">
       <StatCards stats={stats} />
@@ -46,10 +46,10 @@ export function AnalyticsPanels({ stats, showArtists = false }: { stats: Stats; 
         <CardHeader><CardTitle>Traffic</CardTitle></CardHeader>
         <CardContent><DailyChart data={stats.daily} /></CardContent>
       </Card>
-      <div className="grid gap-4 lg:grid-cols-2">
+      <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         <Card>
           <CardHeader><CardTitle>Clicks by platform</CardTitle><CardDescription>Stores and streaming, side by side</CardDescription></CardHeader>
-          <CardContent><PlatformBars data={stats.byPlatform} /></CardContent>
+          <CardContent><PlatformBars data={perLink ? stats.byLink : stats.byPlatform} /></CardContent>
         </Card>
         <Card>
           <CardHeader><CardTitle>Performance by source</CardTitle></CardHeader>
