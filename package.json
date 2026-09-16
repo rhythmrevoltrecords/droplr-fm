@@ -38,6 +38,7 @@
     "react-dom": "18.3.1",
     "recharts": "2.15.4",
     "server-only": "^0.0.1",
+    "stripe": "^22.6.2",
     "tailwind-merge": "2.6.0",
     "zod": "3.25.76"
   },
