@@ -34,6 +34,9 @@ export async function POST(req: NextRequest) {
       metadata: { organizationId: org.id, tier: body.tier, interval },
       subscription_data: { metadata: { organizationId: org.id, tier: body.tier, interval } },
       line_items: [{ price: priceId, quantity: 1 }],
+      // Link (Stripe Managed Payments) is merchant of record: it collects tax, sends receipts and handles disputes.
+      // Sandbox turns this on by default; live mode needs it on every session. STRIPE_MANAGED_PAYMENTS=false opts out.
+      ...(process.env.STRIPE_MANAGED_PAYMENTS === "false" ? {} : { managed_payments: { enabled: true } }),
       allow_promotion_codes: true,
       billing_address_collection: "auto",
       success_url: `${BILLING}?upgraded=1&session_id={CHECKOUT_SESSION_ID}`,
