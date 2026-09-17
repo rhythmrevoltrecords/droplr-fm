@@ -97,7 +97,22 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
         </CardContent>
       </Card>
 
-      <Card className="p-0">
+      <div className="space-y-2 md:hidden">
+        {rows.map((f) => (
+          <Card key={f.email} className="p-3 text-sm">
+            <div className="flex items-start justify-between gap-2">
+              <span className="min-w-0 break-all font-medium">{f.email}</span>
+              {f.unsubscribed ? <Badge variant="secondary">Unsubscribed</Badge> : f.news ? <Badge variant="success">News</Badge> : <span className="shrink-0 text-xs text-muted-foreground">Release only</span>}
+            </div>
+            <div className="mt-1 text-xs text-muted-foreground">
+              {[f.listenOn ? platformMeta(f.listenOn).name : null, f.country ? countryName(f.country) : null, `${f.releases} release${f.releases === 1 ? "" : "s"}`, formatInTz(f.lastSeen, org.timezone, { dateStyle: "medium" })].filter(Boolean).join(" · ")}
+            </div>
+          </Card>
+        ))}
+        {!rows.length && <Card className="py-10 text-center text-sm text-muted-foreground">{summary.total ? "No fans match those filters." : "No fans yet. Share a pre-save link and they'll show up here."}</Card>}
+      </div>
+
+      <Card className="hidden p-0 md:block">
         <div className="overflow-x-auto">
           <Table>
             <THead><TR><TH>Email</TH><TH>News</TH><TH>Listens on</TH><TH>Country</TH><TH className="text-right">Releases</TH><TH>Last pre-save</TH></TR></THead>

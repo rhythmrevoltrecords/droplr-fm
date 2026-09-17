@@ -72,10 +72,10 @@ export function AnalyticsPanels({ stats, showArtists = false, perLink = false }:
           <CardHeader><CardTitle>Performance by source</CardTitle></CardHeader>
           <CardContent className="px-2">
             <Table>
-              <THead><TR><TH>Source</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="text-right">CTR</TH><TH className="text-right">Pre-saves</TH></TR></THead>
+              <THead><TR><TH>Source</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="hidden text-right sm:table-cell">CTR</TH><TH className="text-right">Pre-saves</TH></TR></THead>
               <TBody>
                 {stats.bySource.map((s) => (
-                  <TR key={s.source}><TD className="font-medium">{s.source}</TD><TD className="text-right tabular-nums">{fmtNum(s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.clicks)}</TD><TD className="text-right tabular-nums">{pct(s.clicks, s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.presaves)}</TD></TR>
+                  <TR key={s.source}><TD className="max-w-[9rem] truncate font-medium">{s.source}</TD><TD className="text-right tabular-nums">{fmtNum(s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.clicks)}</TD><TD className="hidden text-right tabular-nums sm:table-cell">{pct(s.clicks, s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.presaves)}</TD></TR>
                 ))}
                 {!stats.bySource.length && <TR><TD colSpan={5} className="py-8 text-center text-muted-foreground">No traffic yet</TD></TR>}
               </TBody>

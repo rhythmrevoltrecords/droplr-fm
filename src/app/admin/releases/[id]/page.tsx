@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ScrollActiveIntoView } from "@/components/admin/nav-links";
 import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { CopyButton } from "@/components/admin/copy-button";
@@ -79,13 +80,15 @@ export default async function ReleaseDetail(
         </Card>
       )}
 
-      <nav className="flex gap-1 overflow-x-auto border-b">
+      <ScrollActiveIntoView>
+      <nav className="no-scrollbar flex gap-1 overflow-x-auto border-b">
         {TABS.map((t) => (
-          <Link key={t.key} href={`/admin/releases/${release.id}?tab=${t.key}`} className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm ${tab === t.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+          <Link key={t.key} data-active={tab === t.key} href={`/admin/releases/${release.id}?tab=${t.key}`} className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm ${tab === t.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
             {t.label}
           </Link>
         ))}
       </nav>
+      </ScrollActiveIntoView>
 
       {tab === "links" && (
         <Card>

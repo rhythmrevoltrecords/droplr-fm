@@ -1,6 +1,7 @@
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DashboardGlow } from "@/components/admin/dashboard-glow";
+import { DesktopNav, MobileNav } from "@/components/admin/nav-links";
 import { FeedbackButton } from "@/components/feedback/feedback-forms";
 import { Logo } from "@/components/marketing/logo";
 import { Badge } from "@/components/ui/badge";
@@ -26,11 +27,7 @@ export function AppShell({ user, nav, children, billingHref, accountHref, feedba
       >
         <div className="container flex h-14 items-center gap-4">
           <Logo href={nav[0]?.href ?? "/"} priority />
-          <nav className="hidden items-center gap-1 text-sm md:flex">
-            {nav.map((n) => (
-              <Link key={n.href} href={n.href} className="rounded-md px-3 py-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground">{n.label}</Link>
-            ))}
-          </nav>
+          <DesktopNav nav={nav} />
           <div className="ml-auto flex min-w-0 items-center gap-3 text-sm">
             <span className="hidden min-w-0 items-center gap-2 text-muted-foreground sm:flex">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -57,13 +54,9 @@ export function AppShell({ user, nav, children, billingHref, accountHref, feedba
             <form method="post" action="/api/auth/logout"><button className="text-muted-foreground hover:text-foreground">Log out</button></form>
           </div>
         </div>
-        <nav className="container flex gap-1 overflow-x-auto pb-2 text-sm md:hidden">
-          {nav.map((n) => (
-            <Link key={n.href} href={n.href} className="shrink-0 rounded-md bg-secondary/60 px-3 py-1.5">{n.label}</Link>
-          ))}
-        </nav>
+        <MobileNav nav={nav} />
       </header>
-      <main className="container relative py-8">{children}</main>
+      <main className="container relative py-6 sm:py-8">{children}</main>
       <footer className="container relative flex flex-col gap-2 border-t py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>{copyrightLine()}</span>
         <nav aria-label="Legal" className="flex flex-wrap gap-4">

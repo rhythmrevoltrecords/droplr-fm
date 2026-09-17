@@ -56,7 +56,36 @@ export default async function AdminHome(
         <CreateLinkModal releaseLimitReached={atLimit} />
       </div>
 
-      <Card className="p-0">
+      {/* Phones: one card per release (a 9-column table is unreadable at 390px). */}
+      <div className="space-y-3 md:hidden">
+        {releases.map((r) => {
+          const t = totals.get(r.id)!;
+          return (
+            <Card key={r.id} className="p-3">
+              <Link href={`/admin/releases/${r.id}`} className="flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={r.coverUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{r.title}</div>
+                  <div className="truncate text-sm text-muted-foreground">{r.artist?.artistName ?? r.artistName}</div>
+                  <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                    {isReleased(r.releaseDate) ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Pre-save</Badge>}
+                    <span>{formatInTz(r.releaseDate, org.timezone, { dateStyle: "medium" })}</span>
+                  </div>
+                </div>
+              </Link>
+              <dl className="mt-3 grid grid-cols-4 gap-1 border-t pt-3 text-center">
+                {[["Views", fmtNum(t.views)], ["Clicks", fmtNum(t.clicks)], ["CTR", pct(t.clicks, t.views)], ["Pre-saves", fmtNum(t.presaves)]].map(([k, v]) => (
+                  <div key={k}><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{k}</dt><dd className="font-semibold tabular-nums">{v}</dd></div>
+                ))}
+              </dl>
+            </Card>
+          );
+        })}
+        {!releases.length && <Card className="py-10 text-center text-sm text-muted-foreground">No releases yet.</Card>}
+      </div>
+
+      <Card className="hidden p-0 md:block">
         <Table>
           <THead>
             <TR><TH>Release</TH><TH>Artist</TH><TH>Date ({location})</TH><TH>Public link</TH><TH>Status</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="text-right">CTR</TH><TH className="text-right">Pre-saves</TH></TR>
@@ -94,7 +123,7 @@ export default async function AdminHome(
       </Card>
 
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-lg font-semibold">{org.kind === "artist" ? "Analytics" : "Label analytics"}</h2>
           <RangeTabs base="/admin" days={days} maxDays={maxDays} />
         </div>
