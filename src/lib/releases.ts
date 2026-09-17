@@ -1,5 +1,7 @@
 import { cache } from "react";
 import { prisma } from "./db";
+import { SITE_URL } from "./env";
+import { activeCustomDomain } from "./plans";
 
 const include = {
   organization: true,
@@ -24,7 +26,8 @@ function pickVariant(r: PublicRelease, variantSlug?: string | null) {
 export type Resolution =
   | { kind: "release"; release: PublicRelease; variant: ReturnType<typeof pickVariant> }
   | { kind: "org"; org: NonNullable<Awaited<ReturnType<typeof prisma.organization.findUnique>>> }
-  | { kind: "redirect"; to: string }
+  /** temporary: 307 (e.g. custom domain paused by a downgrade, can come back); otherwise 308. */
+  | { kind: "redirect"; to: string; temporary?: boolean }
   | null;
 
 /** Org by current slug, or by a slug it used before (renamed labels keep old links alive). */
@@ -86,6 +89,13 @@ async function resolveTenantPathUncached(host: string, parts: string[], variantQ
   const sub = h.match(/^([a-z0-9-]+)\.droplr\.fm$/)?.[1];
   const org = sub ? (await findOrgBySlug(sub))?.org ?? null : await prisma.organization.findUnique({ where: { customDomain: h } });
   if (!org) return null;
+  // Custom domain no longer on the plan (after the grace period): send visitors to the same page on droplr.fm
+  // instead of breaking links that were already shared. Temporary, because upgrading switches the domain back on.
+  if (!sub && !activeCustomDomain(org)) {
+    const rest = parts.map((p) => decodeURIComponent(p).toLowerCase());
+    if (rest[0] === org.slug || org.previousSlugs.includes(rest[0])) rest.shift();
+    return { kind: "redirect", to: [`${SITE_URL}/${org.slug}`, ...rest.map(encodeURIComponent)].join("/"), temporary: true };
+  }
   if (parts.length === 0) return { kind: "org", org };
   const segs = parts.map((p) => decodeURIComponent(p).toLowerCase());
   if ((segs[0] === org.slug || org.previousSlugs.includes(segs[0])) && segs.length >= 2) {
@@ -117,7 +127,9 @@ export function resolveTenantPath(host: string, parts: string[], variantQuery?: 
   return cachedTenantPath(host, JSON.stringify(parts), variantQuery ?? null);
 }
 
-export function publicReleaseUrl(org: { slug: string; customDomain: string | null }, slug: string, siteUrl: string, variant?: string) {
-  const base = org.customDomain ? `https://${org.customDomain}/${slug}` : `${siteUrl}/${org.slug}/${slug}`;
+export function publicReleaseUrl(org: { slug: string; customDomain: string | null; plan?: string | null; planUpdatedAt?: Date | null }, slug: string, siteUrl: string, variant?: string) {
+  // Callers without plan info (e.g. previews) pass customDomain: null.
+  const domain = org.plan === undefined ? org.customDomain : activeCustomDomain({ plan: org.plan, customDomain: org.customDomain, planUpdatedAt: org.planUpdatedAt });
+  const base = domain ? `https://${domain}/${slug}` : `${siteUrl}/${org.slug}/${slug}`;
   return variant ? `${base}/${variant}` : base;
 }

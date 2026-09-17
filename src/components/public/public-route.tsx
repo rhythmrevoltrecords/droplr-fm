@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { after } from "next/server";
-import { notFound, permanentRedirect } from "next/navigation";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { deezerGloballyEnabled } from "@/lib/env";
 import { labelDuplicateLinks } from "@/lib/link-labels";
@@ -28,7 +28,9 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
     // Legacy /{slug} → /{orgSlug}/{slug}. permanentRedirect = HTTP 308 (treated like 301 by browsers and search engines).
     const qs = new URLSearchParams();
     for (const [k, v] of Object.entries(searchParams)) if (k !== "v" && typeof v === "string") qs.set(k, v);
-    permanentRedirect(qs.size ? `${resolution.to}?${qs}` : resolution.to);
+    const to = qs.size ? `${resolution.to}?${qs}` : resolution.to;
+    if (resolution.temporary) redirect(to);
+    permanentRedirect(to);
   }
   if (resolution.kind === "org") return <OrgView org={resolution.org} hrefBase={orgHrefBase(resolution.org.slug)} />;
 

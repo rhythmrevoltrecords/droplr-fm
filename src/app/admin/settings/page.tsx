@@ -5,7 +5,7 @@ import { SITE_HOST } from "@/lib/env";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { emailConfigured } from "@/lib/email";
-import { planOf } from "@/lib/plans";
+import { planOf, customDomainStatus } from "@/lib/plans";
 
 export default async function SettingsPage() {
   const user = await requireUser("label");
@@ -73,7 +73,18 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <OrgFieldsForm disabled={plan.customDomain ? undefined : "Custom domains are on Pro and above"} fields={[{ key: "customDomain", label: "Domain", placeholder: "presave.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
-          {org.customDomain && (
+          {org.customDomain && !plan.customDomain && (() => {
+            const st = customDomainStatus(org);
+            return (
+              <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
+                {st.active && st.graceUntil
+                  ? <>Custom domains are on Pro and above. <strong>{org.customDomain}</strong> keeps working until {st.graceUntil.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}. After that, visitors are sent to the same pages on droplr.fm, so shared links keep working.</>
+                  : <><strong>{org.customDomain}</strong> is paused: visitors are sent to the same pages on droplr.fm/{org.slug}, and new links use droplr.fm.</>}{" "}
+                <Link className="underline" href="/admin/settings/billing">Upgrade to switch it back on</Link>
+              </div>
+            );
+          })()}
+          {org.customDomain && plan.customDomain && (
             <ol className="list-decimal space-y-1 break-words pl-5 text-sm text-muted-foreground [&_code]:break-all">
               <li>At your DNS provider add <code className="text-foreground">CNAME {org.customDomain.split(".")[0]} → droplr-fm.netlify.app</code></li>
               <li>droplr.fm admin adds <code className="text-foreground">{org.customDomain}</code> as a domain alias in Netlify → Domain management (SSL provisions automatically).</li>

@@ -1,8 +1,10 @@
 import { z } from "zod";
 import { SITE_URL } from "./env";
+import { activeCustomDomain } from "./plans";
 
-export function bioPublicUrl(org: { customDomain: string | null }, slug: string) {
-  return org.customDomain ? `https://${org.customDomain}/b/${slug}` : `${SITE_URL}/b/${slug}`;
+export function bioPublicUrl(org: { customDomain: string | null; plan: string | null; planUpdatedAt?: Date | null }, slug: string) {
+  const domain = activeCustomDomain(org);
+  return domain ? `https://${domain}/b/${slug}` : `${SITE_URL}/b/${slug}`;
 }
 
 export const bioSchema = z.object({

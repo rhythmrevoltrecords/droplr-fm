@@ -99,7 +99,7 @@ export default function BillingPolicyPage() {
         <ul>
           <li>you can&apos;t create releases or invite artists beyond the Free limits;</li>
           <li>pixels, CSV export, QR codes and branding removal switch off;</li>
-          <li>you can&apos;t add or change a custom domain or connect a new Spotify app. A custom domain that&apos;s already set up, and Spotify saves fans have already made, keep working for now, but we may switch them off on Free after giving you 14 days&apos; notice.</li>
+          <li>you can&apos;t add or change a custom domain or connect a new Spotify app. A custom domain that&apos;s already set up keeps working for 14 days after your plan changes. After that, visitors to it are sent to the same pages on droplr.fm, so links you&apos;ve shared keep working, and upgrading switches the domain back on. Spotify saves fans have already made keep working for now, but we may switch them off on Free after giving you 14 days&apos; notice.</li>
         </ul>
         <p>Your settings are kept, so paid features come back if you upgrade again. The Free plan&apos;s limits may change; we&apos;ll give 30 days&apos; notice of any reduction.</p>
       </Section>

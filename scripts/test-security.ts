@@ -397,6 +397,35 @@ async function main() {
     await http({ cookie: "" }, "POST", "/api/auth/invite", undefined, { token: gLink.split("/invite/")[1] ?? "", password: PW, terms: "yes" });
     const gUser = await prisma.user.findUnique({ where: { email: genericEmail }, include: { artistProfile: true } });
     check("generic artist invite creates a linked profile on accept", !!gUser?.artistProfile && gUser.artistProfile.name === `Generic ${RUN}` && gUser.artistProfile.organizationId === A.org.id, gInv.text.slice(0, 120));
+
+    console.log("\n7. Custom domain after a downgrade");
+    // Three labels on custom domains: Pro (active), Free within the 14-day grace (active), Free after it (paused → droplr.fm).
+    const domainOrg = async (tag: string, plan: string, daysAgo: number) => {
+      const o = await prisma.organization.create({ data: { name: `Dom ${tag} ${RUN}`, slug: `sectest-dom-${tag}-${RUN}`, plan, customDomain: `presave-${tag}-${RUN}.sectest.dev`, planUpdatedAt: new Date(Date.now() - daysAgo * 86400_000) } });
+      extraOrgs.push(o.id);
+      const r = await prisma.release.create({ data: { organizationId: o.id, slug: `dom-rel-${tag}`, title: `Dom ${tag}`, artistName: "D", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() + 86400_000) } });
+      const b = await prisma.bioPage.create({ data: { organizationId: o.id, slug: `sectest-dombio-${tag}-${RUN}`, title: `Dom bio ${tag}`, imageUrl: "https://example.com/b.jpg" } });
+      return { o, r, b };
+    };
+    const onHost = (host: string, path: string) => fetch(BASE + path, { headers: { "x-forwarded-host": host }, redirect: "manual" });
+    const pro = await domainOrg("pro", "pro", 40);
+    const grace = await domainOrg("grace", "free", 3);
+    const paused = await domainOrg("paused", "free", 20);
+    const proRes = await onHost(pro.o.customDomain!, `/${pro.r.slug}`);
+    check("Pro label: release page served on its custom domain", proRes.status === 200, `status ${proRes.status}`);
+    const graceRes = await onHost(grace.o.customDomain!, `/${grace.r.slug}`);
+    check("Free label inside 14-day grace: still served on its domain", graceRes.status === 200, `status ${graceRes.status}`);
+    const pausedRes = await onHost(paused.o.customDomain!, `/${paused.r.slug}/ig?utm_source=x`);
+    const loc = pausedRes.headers.get("location") ?? "";
+    check("after grace: release link redirects (307) to the same page on droplr.fm", pausedRes.status === 307 && loc.includes(`/${paused.o.slug}/${paused.r.slug}/ig`) && loc.includes("utm_source=x"), `${pausedRes.status} ${loc}`);
+    const pausedRoot = await onHost(paused.o.customDomain!, "/");
+    check("after grace: domain root redirects to the label page on droplr.fm", pausedRoot.status === 307 && (pausedRoot.headers.get("location") ?? "").endsWith(`/${paused.o.slug}`), `${pausedRoot.status} ${pausedRoot.headers.get("location")}`);
+    const pausedBio = await onHost(paused.o.customDomain!, `/b/${paused.b.slug}`);
+    check("after grace: bio page redirects to droplr.fm/b/…", pausedBio.status === 307 && (pausedBio.headers.get("location") ?? "").endsWith(`/b/${paused.b.slug}`), `${pausedBio.status} ${pausedBio.headers.get("location")}`);
+    const graceBio = await onHost(grace.o.customDomain!, `/b/${grace.b.slug}`);
+    check("inside grace: bio page still served on its domain", graceBio.status === 200, `status ${graceBio.status}`);
+    const freeSet = await http(ownerA, "PATCH", "/api/admin/org", { customDomain: "" });
+    check("clearing a domain is always allowed", freeSet.status === 200, `${freeSet.status}`);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

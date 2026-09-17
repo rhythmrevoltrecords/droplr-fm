@@ -34,3 +34,25 @@ export function higherPlan(a: string | null | undefined, b: string | null | unde
   const rb = isPlanKey(b) ? PLAN_ORDER.indexOf(b) : 0;
   return PLAN_ORDER[Math.max(ra, rb)];
 }
+
+/** After a downgrade, a connected custom domain keeps serving pages this long, then its links redirect to droplr.fm. */
+export const CUSTOM_DOMAIN_GRACE_DAYS = 14;
+
+type DomainOrg = { plan: string | null; customDomain: string | null; planUpdatedAt?: Date | null };
+
+/**
+ * Whether the label's custom domain is in use right now.
+ * - Plan includes custom domains: active.
+ * - Plan doesn't (cancelled / downgraded): active until CUSTOM_DOMAIN_GRACE_DAYS after the plan changed, then off.
+ * Off never means broken: pages on the domain redirect to the same page on droplr.fm, and new links use droplr.fm.
+ */
+export function customDomainStatus(org: DomainOrg): { domain: string | null; active: boolean; graceUntil: Date | null } {
+  if (!org.customDomain) return { domain: null, active: false, graceUntil: null };
+  if (planOf(org.plan).customDomain) return { domain: org.customDomain, active: true, graceUntil: null };
+  const changed = org.planUpdatedAt ?? null;
+  const graceUntil = changed ? new Date(changed.getTime() + CUSTOM_DOMAIN_GRACE_DAYS * 86_400_000) : null;
+  return { domain: org.customDomain, active: !!graceUntil && graceUntil.getTime() > Date.now(), graceUntil };
+}
+
+/** The domain to use for public links, or null to use droplr.fm. */
+export const activeCustomDomain = (org: DomainOrg) => (customDomainStatus(org).active ? org.customDomain : null);
