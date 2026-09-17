@@ -16,7 +16,7 @@ export async function POST(req: NextRequest) {
   const password = String(form.get("password") ?? "");
   const kind = form.get("kind") === "artist" ? "artist" : "label";
   const planParam = String(form.get("plan") ?? "");
-  const plan = kind === "artist" ? (planParam === "artist" ? planParam : "") : planParam === "pro" || planParam === "label" ? planParam : "";
+  const plan = kind === "artist" ? (planParam === "artist" || planParam === "artist_pro" ? planParam : "") : planParam === "pro" || planParam === "label" ? planParam : "";
   const fail = (msg: string) => NextResponse.redirect(new URL(`/signup?type=${kind}&invite=1&error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`, req.url), 303);
   if (name.length < 2 || name.length > 100) return fail(kind === "artist" ? "Artist name is required" : "Label name is required");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");

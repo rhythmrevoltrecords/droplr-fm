@@ -5,7 +5,7 @@ export const metadata = { title: "Custom domain setup" };
 export default function CustomDomainDocs() {
   return (
     <DocShell title="Use your own domain">
-      <p>On Pro and above, every release can live on your label&apos;s domain: <code>https://presave.yourlabel.com/track-name</code>. Variants work too: <code>/track-name/ig</code>.</p>
+      <p>On Artist Pro and the label plans, every release can live on your own domain: <code>https://presave.yourlabel.com/track-name</code>. Variants work too: <code>/track-name/ig</code>.</p>
 
       <h2>1. Add the domain in droplr.fm</h2>
       <p>Admin → Settings → Custom domain → enter <code>presave.yourlabel.com</code> and save. Settings then shows the two DNS records for your domain, with copy buttons.</p>
@@ -34,7 +34,7 @@ TTL:    Auto / 3600`}</pre>
       <p>To keep the Spotify login on your own domain, also add <code>https://presave.yourlabel.com/api/spotify/callback</code> as a Redirect URI in your Spotify app.</p>
 
       <h2>If the plan changes</h2>
-      <p>Custom domains are on Pro and above. If a label cancels or moves to Free, its domain keeps working for 14 days. After that, anyone opening a link on the domain is sent to the same page on droplr.fm, and new links use droplr.fm. Nothing breaks, and upgrading switches the domain back on.</p>
+      <p>Custom domains are on Artist Pro and the label plans. If an account cancels or moves to a plan without them, its domain keeps working for 14 days. After that, anyone opening a link on the domain is sent to the same page on droplr.fm, and new links use droplr.fm. Nothing breaks, and upgrading switches the domain back on.</p>
       <p>Changing or removing your domain disconnects the old one straight away. After 90 days on a plan without custom domains, droplr also lets go of the domain; it stays saved, and upgrading reconnects it.</p>
       <h2>Troubleshooting</h2>
       <ul>

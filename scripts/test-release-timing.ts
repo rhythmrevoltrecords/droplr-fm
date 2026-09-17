@@ -6,6 +6,7 @@
  */
 import { prisma } from "../src/lib/db";
 import { findDueReleases, processRelease } from "../src/lib/presave-processor";
+import { statsRange } from "../src/lib/analytics";
 import { dateToZonedLocal, releaseEmailDueFor, releaseInstantFor, releaseWindow, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL"]) {
@@ -35,6 +36,7 @@ async function main() {
   check("9am email in LA", iso(releaseEmailDueFor(local, "Australia/Brisbane", "America/Los_Angeles", 9)) === "2026-09-25T16:00:00.000Z");
   check("10pm drop → 9am next morning", iso(releaseEmailDueFor({ releaseDate: zonedLocalToDate("2026-09-25T22:00", "Australia/Brisbane"), rollout: "local" }, "Australia/Brisbane", "Australia/Brisbane", 9)) === "2026-09-25T23:00:00.000Z");
   check("5pm drop → at 5pm", iso(releaseEmailDueFor({ releaseDate: zonedLocalToDate("2026-09-25T17:00", "Australia/Brisbane"), rollout: "local" }, "Australia/Brisbane", "Australia/Brisbane", 9)) === "2026-09-25T07:00:00.000Z");
+  check("analytics range clamps to the plan", statsRange("365", 30) === 30 && statsRange("90", 90) === 90 && statsRange("365", Infinity) === 365 && statsRange("junk", 90) === 30);
   const w = releaseWindow(local, "Australia/Brisbane");
   check("window spans UTC+14 to UTC−12", iso(w.earliest) === "2026-09-24T10:00:00.000Z" && iso(w.latest) === "2026-09-25T12:00:00.000Z");
 
@@ -95,7 +97,21 @@ async function main() {
     check("after the wait the Beatport fan gets All platforms", to2.includes(`kiri-beatport-${tag}@fans.test`));
     check("label-timezone fan gets it once it's out in Brisbane", to2.includes(`nozone-${tag}@fans.test`));
 
-    console.log("\n3. Pre-release store scans");
+    console.log("\n3. Free plan release-day email cap");
+    await prisma.organization.update({ where: { id: org.id }, data: { plan: "free" } });
+    const capRel = await prisma.release.create({
+      data: { organizationId: org.id, slug: `timing-cap-${tag}`, title: "Cap", artistName: "Tester", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() - 20 * 3600_000), rollout: "global", autoReResolve: false, status: "live",
+        links: { create: [{ platform: "spotify", url: "https://open.spotify.com/album/y", position: 0 }] } },
+    });
+    await prisma.preSave.createMany({ data: Array.from({ length: 260 }, (_, i) => ({ releaseId: capRel.id, platform: "email", email: `cap${i}-${tag}@fans.test`, emailConsent: true, createdAt: new Date(Date.now() - (300 - i) * 60_000) })) });
+    const before = sent.length;
+    const capOut = await processRelease(capRel.id, Date.now() + 120_000);
+    const capSent = sent.slice(before).map((m) => m.to);
+    check("Free plan emails the first 250 pre-savers, in order", capSent.length === 250 && capSent.includes(`cap0-${tag}@fans.test`) && !capSent.includes(`cap259-${tag}@fans.test`), `${capSent.length}`);
+    check("the cap is noted and nothing else is sent on the next run", capOut.notes.some((n) => n.includes("plan limit")) && (await processRelease(capRel.id, Date.now() + 60_000)).emailed === 0);
+
+    await prisma.organization.update({ where: { id: org.id }, data: { plan: "label" } });
+    console.log("\n4. Pre-release store scans");
     const soon = await prisma.release.create({
       data: { organizationId: org.id, slug: `timing-soon-${tag}`, title: "Soon", artistName: "Tester", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() + 5 * 86400_000), upc: "701508333538", autoReResolve: true },
     });

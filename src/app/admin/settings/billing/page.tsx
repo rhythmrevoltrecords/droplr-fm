@@ -8,28 +8,14 @@ import { requireUser } from "@/lib/auth";
 import { applySubscription, clearStaleStripeIds, formatMoney, getPriceTable, getSubscriptionSummary } from "@/lib/billing";
 import { prisma } from "@/lib/db";
 import { CONTACT } from "@/lib/legal";
-import { accountKind, PLAN_LIMITS, planOf, PLANS_FOR, type PlanKey } from "@/lib/plans";
+import { PLAN_BLURB, planFeatures } from "@/lib/plan-copy";
+import { accountKind, PLAN_LIMITS, planOf, PLANS_FOR, releaseWindowStart, type PlanKey } from "@/lib/plans";
 import { getStripe, priceIdFor, stripeConfigured, stripeId, stripeTestMode } from "@/lib/stripe";
 import { formatInTz, zonedDay, zonedLocalToDate } from "@/lib/time";
 import { cn, fmtNum } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Billing" };
-
-const FEATURES: Record<PlanKey, string[]> = {
-  free: ["3 releases", "1k clicks / month", "1 artist", "yourname.droplr.fm subdomain", "Email pre-save + release-day email"],
-  artist: ["Unlimited releases", "25k clicks / month", "Fan list with news opt-ins + CSV export", "Custom domain", "Meta, TikTok & GA4 pixels", "Promo plans + share graphics", "QR codes", "Remove droplr.fm branding"],
-  pro: ["Unlimited releases", "50k clicks / month", "5 artists", "Custom domain", "Meta, TikTok & GA4 pixels", "BYO Spotify app", "CSV export + QR codes", "Remove droplr.fm branding"],
-  label: ["Everything in Pro", "250k clicks / month", "Unlimited artists", "Team roles (admins)", "Label analytics across the roster"],
-  enterprise: ["Everything in Label", "Uncapped clicks", "Priority support and onboarding", "SSO (coming soon)"],
-};
-const BLURB: Record<PlanKey, string> = {
-  free: "Try it on a few releases.",
-  artist: "For an independent artist releasing regularly.",
-  pro: "For a label putting out music every month.",
-  label: "For a roster with a team behind it.",
-  enterprise: "Distributors and big catalogues.",
-};
 
 /** Checkout success: apply the subscription now instead of waiting for the webhook. */
 async function syncCheckout(sessionId: string, orgId: string) {
@@ -82,14 +68,14 @@ export default async function BillingPage(
 
   const monthStart = zonedLocalToDate(`${zonedDay(new Date(), org.timezone).slice(0, 8)}01T00:00`, org.timezone);
   const [releaseCount, artistCount, clicks, prices, summary] = await Promise.all([
-    prisma.release.count({ where: { organizationId: org.id } }),
+    prisma.release.count({ where: { organizationId: org.id, createdAt: { gte: releaseWindowStart() } } }),
     prisma.artist.count({ where: { organizationId: org.id } }), // roster profiles hold the artist seats
     prisma.clickEvent.count({ where: { release: { organizationId: org.id }, createdAt: { gte: monthStart } } }),
     getPriceTable(),
     getSubscriptionSummary(org.stripeSubscriptionId),
   ]);
 
-  const show = (t: "artist" | "pro" | "label", i: "monthly" | "yearly") => {
+  const show = (t: "artist" | "artist_pro" | "pro" | "label", i: "monthly" | "yearly") => {
     const p = prices[t][i];
     if (!priceIdFor(t, i)) return null;
     // Price exists but Stripe didn't answer: still purchasable, amount shows on the checkout page.
@@ -99,13 +85,13 @@ export default async function BillingPage(
   const plans: PlanCard[] = PLANS_FOR[kind].map((t) => ({
     tier: t,
     name: PLAN_LIMITS[t].name,
-    blurb: BLURB[t],
-    features: FEATURES[t],
-    price: t === "artist" || t === "pro" || t === "label" ? { monthly: show(t, "monthly"), yearly: show(t, "yearly") } : { monthly: null, yearly: null },
+    blurb: PLAN_BLURB[t],
+    features: planFeatures(t),
+    price: t === "artist" || t === "artist_pro" || t === "pro" || t === "label" ? { monthly: show(t, "monthly"), yearly: show(t, "yearly") } : { monthly: null, yearly: null },
   }));
 
   const subscribed = !!org.stripeSubscriptionId;
-  const firstPaid = kind === "artist" ? "artist" : "pro";
+  const firstPaid = kind === "artist" ? "artist" : "pro"; // online upgrades are "on" once the entry paid plan has a price
   const billingReady = stripeConfigured() && !!(priceIdFor(firstPaid, "monthly") || priceIdFor(firstPaid, "yearly"));
   const highlight = searchParams.plan && (PLANS_FOR[kind] as string[]).includes(searchParams.plan) ? searchParams.plan : null;
   const pending = searchParams.upgraded && tier === "free";
@@ -179,7 +165,7 @@ export default async function BillingPage(
         <Card>
           <CardHeader><CardTitle>Usage</CardTitle><CardDescription>This month ({org.locationLabel} time).</CardDescription></CardHeader>
           <CardContent className="space-y-4">
-            <Meter label="Releases" used={releaseCount} limit={plan.releases} />
+            <Meter label="New releases (last 12 months)" used={releaseCount} limit={plan.releases} />
             <Meter label="Link clicks this month" used={clicks} limit={plan.clicksPerMonth} />
             {kind === "label" && <Meter label="Artists" used={artistCount} limit={plan.artists} />}
           </CardContent>

@@ -1,4 +1,4 @@
-export type PlanKey = "free" | "artist" | "pro" | "label" | "enterprise";
+export type PlanKey = "free" | "artist" | "artist_pro" | "pro" | "label" | "enterprise";
 export type AccountKind = "label" | "artist";
 export const isAccountKind = (k: unknown): k is AccountKind => k === "label" || k === "artist";
 
@@ -6,9 +6,17 @@ export const PLAN_LIMITS: Record<PlanKey, {
   name: string;
   /** Monthly AUD incl. tax. null = not self-serve (Enterprise: contact us). */
   price: number | null;
+  /** Yearly AUD incl. tax (two months free). null = no yearly price. */
+  yearly: number | null;
+  /** New releases allowed in any rolling 12 months. Existing releases always stay live. */
   releases: number;
+  /** Soft cap: shown as usage and an upgrade prompt. Fan links never stop working. */
   clicksPerMonth: number;
   artists: number;
+  /** Days of analytics history you can view. */
+  insightsDays: number;
+  /** Release-day emails sent per release (the first N pre-savers, in order). Everyone still pre-saves. */
+  releaseEmails: number;
   customDomain: boolean;
   pixels: boolean;
   byoSpotify: boolean;
@@ -17,22 +25,26 @@ export const PLAN_LIMITS: Record<PlanKey, {
   removeBranding: boolean;
   whiteLabel: boolean;
 }> = {
-  free: { name: "Free", price: 0, releases: 3, clicksPerMonth: 1_000, artists: 1, customDomain: false, pixels: false, byoSpotify: false, csvExport: false, qr: false, removeBranding: false, whiteLabel: false },
-  artist: { name: "Artist", price: 15, releases: Infinity, clicksPerMonth: 25_000, artists: 1, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false },
-  pro: { name: "Pro", price: 29, releases: Infinity, clicksPerMonth: 50_000, artists: 5, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false },
-  label: { name: "Label", price: 79, releases: Infinity, clicksPerMonth: 250_000, artists: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
-  enterprise: { name: "Enterprise", price: null, releases: Infinity, clicksPerMonth: Infinity, artists: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
+  free: { name: "Free", price: 0, yearly: null, releases: 3, clicksPerMonth: 1_000, artists: 1, insightsDays: 30, releaseEmails: 250, customDomain: false, pixels: false, byoSpotify: false, csvExport: false, qr: false, removeBranding: false, whiteLabel: false },
+  artist: { name: "Artist", price: 12, yearly: 120, releases: 12, clicksPerMonth: 10_000, artists: 1, insightsDays: 90, releaseEmails: Infinity, customDomain: false, pixels: true, byoSpotify: false, csvExport: true, qr: true, removeBranding: false, whiteLabel: false },
+  artist_pro: { name: "Artist Pro", price: 25, yearly: 250, releases: Infinity, clicksPerMonth: 50_000, artists: 1, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false },
+  pro: { name: "Pro", price: 29, yearly: 290, releases: Infinity, clicksPerMonth: 50_000, artists: 5, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false },
+  label: { name: "Label", price: 79, yearly: 790, releases: Infinity, clicksPerMonth: 250_000, artists: Infinity, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
+  enterprise: { name: "Enterprise", price: null, yearly: null, releases: Infinity, clicksPerMonth: Infinity, artists: Infinity, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
 };
+
+/** Start of the rolling 12-month window release limits count in. */
+export const releaseWindowStart = (now = new Date()) => new Date(now.getTime() - 365 * 86_400_000);
 
 export function planOf(plan: string | null | undefined) {
   return PLAN_LIMITS[(plan as PlanKey) in PLAN_LIMITS ? (plan as PlanKey) : "free"];
 }
 
-/** Rank order (higherPlan). Artist sits below Pro: same tools, one artist. */
-export const PLAN_ORDER: PlanKey[] = ["free", "artist", "pro", "label", "enterprise"];
+/** Rank order (higherPlan). Artist plans sit below the label plans (one artist). */
+export const PLAN_ORDER: PlanKey[] = ["free", "artist", "artist_pro", "pro", "label", "enterprise"];
 
 /** Plans each kind of account can pick. Labels can't buy the Artist plan; artists see Free and Artist. */
-export const PLANS_FOR: Record<AccountKind, PlanKey[]> = { artist: ["free", "artist"], label: ["free", "pro", "label", "enterprise"] };
+export const PLANS_FOR: Record<AccountKind, PlanKey[]> = { artist: ["free", "artist", "artist_pro"], label: ["free", "pro", "label", "enterprise"] };
 export const accountKind = (k: string | null | undefined): AccountKind => (k === "artist" ? "artist" : "label");
 export const isPlanKey = (p: unknown): p is PlanKey => typeof p === "string" && (PLAN_ORDER as string[]).includes(p);
 

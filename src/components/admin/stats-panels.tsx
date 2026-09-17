@@ -26,15 +26,23 @@ export function StatCards({ stats }: { stats: Stats }) {
   );
 }
 
-export function RangeTabs({ base, days }: { base: string; days: number }) {
+export function RangeTabs({ base, days, maxDays = Infinity }: { base: string; days: number; maxDays?: number }) {
   const sep = base.includes("?") ? "&" : "?";
   return (
-    <div className="inline-flex rounded-lg border p-0.5 text-sm">
-      {[14, 30, 90].map((d) => (
-        <Link key={d} href={`${base}${sep}days=${d}`} className={`rounded-md px-3 py-1 ${d === days ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
-          {d}d
-        </Link>
-      ))}
+    <div className="inline-flex flex-wrap items-center gap-2">
+      <div className="inline-flex rounded-lg border p-0.5 text-sm">
+        {[14, 30, 90, 365].map((d) =>
+          d > maxDays ? (
+            <Link key={d} href="/admin/settings/billing" title="More history on paid plans" className="rounded-md px-3 py-1 text-muted-foreground/50 hover:text-foreground">
+              {d === 365 ? "1y" : `${d}d`} 🔒
+            </Link>
+          ) : (
+            <Link key={d} href={`${base}${sep}days=${d}`} className={`rounded-md px-3 py-1 ${d === days ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+              {d === 365 ? "1y" : `${d}d`}
+            </Link>
+          ),
+        )}
+      </div>
     </div>
   );
 }

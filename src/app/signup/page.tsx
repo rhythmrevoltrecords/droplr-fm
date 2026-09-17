@@ -40,9 +40,9 @@ function InviteOnly({ searchParams }: { searchParams: SP }) {
 export default async function SignupPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
   if (!signupsOpen() && !searchParams.invite) return <InviteOnly searchParams={searchParams} />;
-  const kind = searchParams.type === "artist" || searchParams.plan === "artist" ? "artist" : "label";
-  const planNames: Record<string, string> = { artist: "Artist", pro: "Pro", label: "Label" };
-  const plan = searchParams.plan && planNames[searchParams.plan] && (kind === "artist" ? searchParams.plan === "artist" : searchParams.plan !== "artist") ? searchParams.plan : null;
+  const kind = searchParams.type === "artist" || searchParams.plan?.startsWith("artist") ? "artist" : "label";
+  const planNames: Record<string, string> = { artist: "Artist", artist_pro: "Artist Pro", pro: "Pro", label: "Label" };
+  const plan = searchParams.plan && planNames[searchParams.plan] && (kind === "artist" ? searchParams.plan.startsWith("artist") : !searchParams.plan.startsWith("artist")) ? searchParams.plan : null;
   const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}`;
   return (
     <AuthShell

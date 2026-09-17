@@ -3,7 +3,15 @@ import { prisma } from "./db";
 import { labelDuplicateLinks } from "./link-labels";
 import { DEFAULT_TZ, isValidTimeZone, zonedDay } from "./time";
 
-export type StatsRange = 14 | 30 | 90;
+export type StatsRange = 14 | 30 | 90 | 365;
+
+/** Parse ?days= and clamp it to the plan's analytics history. */
+export function statsRange(raw: string | undefined, maxDays: number): StatsRange {
+  const n = Number(raw);
+  const want = ([14, 30, 90, 365] as const).find((d) => d === n) ?? 30;
+  const allowed = ([365, 90, 30, 14] as const).find((d) => d <= maxDays && d <= want) ?? 14;
+  return allowed;
+}
 
 export async function releaseTotals(releaseIds: string[]) {
   if (!releaseIds.length) return new Map<string, { views: number; clicks: number; presaves: number }>();

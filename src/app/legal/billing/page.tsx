@@ -26,7 +26,7 @@ export default function BillingPolicyPage() {
       <p>This policy is part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link>. It explains how paid plans are charged, renewed, cancelled and refunded.</p>
 
       <Section {...s("plans")}>
-        <p>droplr.fm has a Free plan and paid plans (currently Pro and Label, billed monthly or yearly), plus Enterprise by agreement. Features and limits for each plan are listed on the <Link href="/pricing">pricing page</Link> and in <strong>Settings → Plan &amp; billing</strong>. Prices include any GST, VAT or sales tax that applies. The total you&apos;ll pay is always shown on the checkout page before you confirm.</p>
+        <p>droplr.fm has a Free plan and paid plans (currently Artist and Artist Pro for artists, Pro and Label for labels, billed monthly or yearly), plus Enterprise by agreement. Features and limits for each plan are listed on the <Link href="/pricing">pricing page</Link> and in <strong>Settings → Plan &amp; billing</strong>. Prices include any GST, VAT or sales tax that applies. The total you&apos;ll pay is always shown on the checkout page before you confirm.</p>
       </Section>
 
       <Section {...s("payment")}>
@@ -95,9 +95,11 @@ export default function BillingPolicyPage() {
       </Section>
 
       <Section {...s("free")}>
-        <p>When a label moves to Free, existing releases and pages stay live and Free plan limits apply from then on:</p>
+        <p>When an account moves to Free (or to a plan with lower limits), existing releases and pages stay live and that plan&apos;s limits apply from then on:</p>
         <ul>
-          <li>you can&apos;t create releases or invite artists beyond the Free limits;</li>
+          <li>you can&apos;t create more new releases in a 12-month period, or invite more artists, than the plan allows;</li>
+          <li>release-day emails go to the plan&apos;s number of pre-savers per release (on Free, the first 250). Fans past that still pre-save, and your admin shows how many won&apos;t be emailed;</li>
+          <li>analytics history is limited to the plan&apos;s range. Older data is kept, and comes back if you upgrade;</li>
           <li>pixels, CSV export, QR codes and branding removal switch off;</li>
           <li>you can&apos;t add or change a custom domain or connect a new Spotify app. A custom domain that&apos;s already set up keeps working for 14 days after your plan changes. After that, visitors to it are sent to the same pages on droplr.fm, so links you&apos;ve shared keep working, and upgrading switches the domain back on. Spotify saves fans have already made keep working for now, but we may switch them off on Free after giving you 14 days&apos; notice.</li>
         </ul>

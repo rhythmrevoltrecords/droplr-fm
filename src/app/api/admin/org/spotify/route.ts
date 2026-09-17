@@ -11,7 +11,7 @@ export async function POST(req: NextRequest) {
   const user = await apiUser("label");
   if (!user || user.role !== "owner") return NextResponse.json({ error: "Only the label owner can connect Spotify" }, { status: 401 });
   if (!user.emailVerifiedAt) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
-  if (!planOf(user.organization.plan).byoSpotify) return NextResponse.json({ error: "BYO Spotify app is on Pro and above" }, { status: 402 });
+  if (!planOf(user.organization.plan).byoSpotify) return NextResponse.json({ error: "Your own Spotify app is on Artist Pro and the label plans" }, { status: 402 });
   const { clientId, clientSecret } = (await req.json()) as { clientId?: string; clientSecret?: string };
   if (!clientId || !/^[a-f0-9]{32}$/i.test(clientId.trim()) || !clientSecret || !/^[a-f0-9]{32}$/i.test(clientSecret.trim())) {
     return NextResponse.json({ error: "Client ID and Secret are 32-character hex strings from developer.spotify.com/dashboard" }, { status: 400 });

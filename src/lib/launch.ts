@@ -26,7 +26,7 @@ export type CtaCopy = {
   /** Invite-only hint shown under the CTA while signups are closed. */
   hint: { text: string; link: Cta } | null;
   /** Pricing-page tier buttons. */
-  plans: { free: Cta; artist: Cta; pro: Cta; label: Cta };
+  plans: { free: Cta; artist: Cta; artist_pro: Cta; pro: Cta; label: Cta };
 };
 
 /** Every signup CTA in one place, so closed/open launch copy can't drift between pages. */
@@ -40,6 +40,7 @@ export function ctaCopy(): CtaCopy {
       plans: {
         free: { label: "Start free", href: "/signup" },
         artist: { label: "Start Artist", href: "/signup?type=artist&plan=artist" },
+        artist_pro: { label: "Start Artist Pro", href: "/signup?type=artist&plan=artist_pro" },
         pro: { label: "Start Pro", href: "/signup?plan=pro" },
         label: { label: "Start Label", href: "/signup?plan=label" },
       },
@@ -52,6 +53,6 @@ export function ctaCopy(): CtaCopy {
     primary: { label: "Request early access", href: "/signup" },
     primaryShort: access,
     hint: { text: "Invite-only while we onboard our first artists and labels. Have an invite?", link: { label: "Sign up", href: "/signup?invite=1" } },
-    plans: { free: access, artist: access, pro: access, label: access },
+    plans: { free: access, artist: access, artist_pro: access, pro: access, label: access },
   };
 }

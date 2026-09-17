@@ -234,13 +234,17 @@ export default function Landing() {
       ),
     },
     {
+      q: "What's the catch on Free?",
+      a: <p>Free covers {PLAN_LIMITS.free.releases} new releases a year and emails the first {PLAN_LIMITS.free.releaseEmails} pre-savers of each release on release day. Fans past that still pre-save and never see an error; you&apos;ll see how many missed out and can upgrade before release day. Links and pages never switch off.</p>,
+    },
+    {
       q: "Can I email my fans about other things?",
       a: <p>Fans who tick the optional &quot;news and new music&quot; box are yours to email. Fans who only pre-saved agreed to hear about that release, and droplr sends that email for you. The fan list shows which is which and exports it as CSV.</p>,
     },
     { q: "What currency are the prices in?", a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. No per-release fees.</p> },
     {
       q: "Can I use my own domain?",
-      a: <p>Yes, on paid plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and we verify it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
+      a: <p>Yes, on Artist Pro and the label plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and we verify it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
     },
     {
       q: "Can a label's artists log in?",
@@ -376,7 +380,7 @@ export default function Landing() {
           <div aria-hidden className="mk-aurora absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.55), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(217,70,239,.25), transparent 70%)" }} />
           <h2 className="mk-text-gradient mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Your next release deserves a proper launch.</h2>
           <p className="mx-auto mt-4 max-w-lg text-white/65">
-            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
+            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases a year, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
           </p>
           <Actions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="mt-8 sm:justify-center" />
           <InviteHint cta={cta} className="mt-4" />

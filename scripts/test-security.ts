@@ -652,7 +652,23 @@ async function main() {
       check("artist account can't buy a label plan", wrongTier.status === 400, `${wrongTier.status}`);
     }
     const labelArtistTier = await http(ownerA, "POST", "/api/stripe/checkout", { tier: "artist", interval: "monthly" });
-    check("label account can't buy the Artist plan", labelArtistTier.status === 400, `${labelArtistTier.status}`);
+    const labelArtistProTier = await http(ownerA, "POST", "/api/stripe/checkout", { tier: "artist_pro", interval: "yearly" });
+    check("label account can't buy the Artist or Artist Pro plan", labelArtistTier.status === 400 && labelArtistProTier.status === 400, `${labelArtistTier.status}/${labelArtistProTier.status}`);
+
+    // Release limit counts a rolling 12 months: old releases never have to be deleted.
+    const limOrg = await prisma.organization.create({ data: { name: `Limit ${RUN}`, slug: `sectest-limit-${RUN}`, plan: "free" } });
+    extraOrgs.push(limOrg.id);
+    const limOwner = await prisma.user.create({ data: { email: `owner-limit-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: limOrg.id, emailVerifiedAt: new Date() } });
+    const old = new Date(Date.now() - 400 * 86400_000);
+    for (let i = 0; i < 3; i++) await prisma.release.create({ data: { organizationId: limOrg.id, slug: `sectest-old-${i}-${RUN}`, title: `Old ${i}`, artistName: "L", coverUrl: "https://example.com/c.jpg", releaseDate: old, createdAt: old } });
+    const limJar = await login(limOwner.email);
+    const newRel = (n: number) => http(limJar, "POST", "/api/admin/releases", { title: `New ${n}`, artistName: "L", coverUrl: "https://example.com/c.jpg", slug: `sectest-new-${n}-${RUN}`, releaseDateLocal: "2027-01-01T00:00", links: [] });
+    const afterOld = await newRel(1);
+    check("Free: releases older than 12 months don't count toward the limit", afterOld.status === 200 || afterOld.status === 201, `${afterOld.status} ${afterOld.text.slice(0, 120)}`);
+    await newRel(2);
+    await newRel(3);
+    const fourth = await newRel(4);
+    check("Free: a 4th new release in 12 months is blocked", fourth.status === 402, `${fourth.status}`);
 
     // News opt-in on the pre-save form, fan list and export
     await prisma.authThrottle.deleteMany({}); // earlier sections used up the per-IP pre-save limit

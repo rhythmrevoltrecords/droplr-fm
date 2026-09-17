@@ -49,7 +49,7 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <OrgFieldsForm
-            disabled={plan.pixels ? undefined : "Pixels are on Pro and above"}
+            disabled={plan.pixels ? undefined : "Pixels are on paid plans"}
             fields={[{ key: "metaPixelId", label: "Meta Pixel ID", placeholder: "123456789012345" }, { key: "tiktokPixelId", label: "TikTok Pixel ID", placeholder: "C1A2B3C4D5E6F7" }, { key: "ga4Id", label: "GA4 Measurement ID", placeholder: "G-XXXXXXXXXX" }]}
             initial={{ metaPixelId: org.metaPixelId ?? "", tiktokPixelId: org.tiktokPixelId ?? "", ga4Id: org.ga4Id ?? "" }}
           />
@@ -76,13 +76,13 @@ export default async function SettingsPage() {
           <CardDescription>Serve every release from your own domain, e.g. presave.yourlabel.com/track-name. <Link className="underline" href="/docs/custom-domain">Setup guide</Link></CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <OrgFieldsForm disabled={plan.customDomain ? undefined : "Custom domains are on Pro and above"} fields={[{ key: "customDomain", label: "Domain", placeholder: "presave.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
+          <OrgFieldsForm disabled={plan.customDomain ? undefined : "Custom domains are on Artist Pro and the label plans"} fields={[{ key: "customDomain", label: "Domain", placeholder: "presave.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
           {org.customDomain && !plan.customDomain && (() => {
             const st = customDomainStatus(org);
             return (
               <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                 {st.active && st.graceUntil
-                  ? <>Custom domains are on Pro and above. <strong>{org.customDomain}</strong> keeps working until {st.graceUntil.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}. After that, visitors are sent to the same pages on droplr.fm, so shared links keep working.</>
+                  ? <>Custom domains are on Artist Pro and the label plans. <strong>{org.customDomain}</strong> keeps working until {st.graceUntil.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}. After that, visitors are sent to the same pages on droplr.fm, so shared links keep working.</>
                   : <><strong>{org.customDomain}</strong> is paused: visitors are sent to the same pages on droplr.fm/{org.slug}, and new links use droplr.fm.</>}{" "}
                 <Link className="underline" href="/admin/settings/billing">Upgrade to switch it back on</Link>
               </div>

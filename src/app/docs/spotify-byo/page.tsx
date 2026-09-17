@@ -9,7 +9,7 @@ export default function SpotifyByoDocs() {
       <p>droplr.fm has two kinds of pre-save:</p>
       <ul>
         <li><strong>Email pre-save (every plan, every fan).</strong> The fan leaves an email and picks where they listen. At your send hour (9am by default) in their own timezone on release day, they get an email that leads with their store. The page also has a Follow on Spotify button, which works for everyone and puts future releases in front of them in Spotify. None of this is limited by Spotify&apos;s API.</li>
-        <li><strong>Spotify library pre-save (Pro+, your own Spotify app, 5 fans).</strong> The fan logs in with Spotify and the release is added to their library, and the artist followed, when it unlocks in their timezone.</li>
+        <li><strong>Spotify library pre-save (Artist Pro and label plans, your own Spotify app, 5 fans).</strong> The fan logs in with Spotify and the release is added to their library, and the artist followed, when it unlocks in their timezone.</li>
       </ul>
 
       <h2>The limit you need to know</h2>

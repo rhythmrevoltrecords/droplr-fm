@@ -50,7 +50,7 @@ export function SpotifyConnectForm({ status, canEdit, planAllows }: { status: st
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const { busy, msg, submit } = useSubmit();
-  if (!planAllows) return <p className="text-sm text-muted-foreground">Bring-your-own Spotify app is on Pro and Label plans.</p>;
+  if (!planAllows) return <p className="text-sm text-muted-foreground">Bring-your-own Spotify app is on Artist Pro and the label plans.</p>;
   return (
     <form className="space-y-4" onSubmit={async (e) => { e.preventDefault(); const r = await submit("/api/admin/org/spotify", "POST", { clientId, clientSecret }); if (r.ok) { setClientId(""); setClientSecret(""); } }}>
       <div className="grid gap-4 sm:grid-cols-2">

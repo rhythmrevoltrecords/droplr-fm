@@ -13,7 +13,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     where: { id: params.id, organizationId: user.organizationId, ...(isLabelRole(user.role) ? {} : { artistId: user.id }) },
   });
   if (!release) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  if (!planOf(user.organization.plan).csvExport) return NextResponse.json({ error: "CSV export is on Pro and above" }, { status: 402 });
+  if (!planOf(user.organization.plan).csvExport) return NextResponse.json({ error: "CSV export is on paid plans" }, { status: 402 });
 
   const type = req.nextUrl.searchParams.get("type") === "clicks" && isLabelRole(user.role) ? "clicks" : "presaves";
   let csv: string;

@@ -17,7 +17,7 @@ import { VariantManager } from "@/components/admin/variant-manager";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { getStats, type StatsRange } from "@/lib/analytics";
+import { getStats, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
@@ -47,8 +47,8 @@ export default async function ReleaseDetail(
   });
   if (!release) notFound();
   const tab = TABS.some((t) => t.key === searchParams.tab) ? searchParams.tab! : "links";
-  const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
   const plan = planOf(release.organization.plan);
+  const days = statsRange(searchParams.days, plan.insightsDays);
   const url = publicReleaseUrl(release.organization, release.slug, SITE_URL);
   const live = isReleased(release.releaseDate);
 
@@ -120,7 +120,7 @@ export default async function ReleaseDetail(
       {tab === "analytics" && (
         <div className="space-y-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <RangeTabs base={`/admin/releases/${release.id}?tab=analytics`} days={days} />
+            <RangeTabs base={`/admin/releases/${release.id}?tab=analytics`} days={days} maxDays={plan.insightsDays} />
             {plan.csvExport && (
               <div className="flex gap-2">
                 <Button asChild size="sm" variant="outline"><a href={`/api/admin/releases/${release.id}/export?type=clicks`}>Export clicks CSV</a></Button>
@@ -131,6 +131,19 @@ export default async function ReleaseDetail(
         </div>
       )}
 
+      {tab === "presaves" && Number.isFinite(plan.releaseEmails) && (async () => {
+        const emailFans = await prisma.preSave.count({ where: { releaseId: release.id, email: { not: null }, emailConsent: true } });
+        if (emailFans <= plan.releaseEmails * 0.8) return null;
+        const over = Math.max(0, emailFans - plan.releaseEmails);
+        return (
+          <Card className="border-amber-500/40 bg-amber-500/10 p-4 text-sm">
+            {over > 0
+              ? <><strong>{over} fan{over === 1 ? "" : "s"} won&apos;t get the release-day email.</strong> {plan.name} emails the first {plan.releaseEmails} pre-savers per release. </>
+              : <><strong>{emailFans} of {plan.releaseEmails} release-day emails used.</strong> Fans past {plan.releaseEmails} still pre-save, but won&apos;t be emailed on {plan.name}. </>}
+            <Link className="underline" href="/admin/settings/billing">Upgrade before release day</Link> and everyone gets it.
+          </Card>
+        );
+      })()}
       {tab === "presaves" && (
         <Card>
           <CardHeader className="flex-row flex-wrap items-center justify-between gap-2">
@@ -141,7 +154,7 @@ export default async function ReleaseDetail(
             {plan.csvExport ? (
               <Button asChild size="sm" variant="outline"><a href={`/api/admin/releases/${release.id}/export?type=presaves`}>Export emails CSV</a></Button>
             ) : (
-              <Badge variant="secondary">CSV export on Pro</Badge>
+              <Badge variant="secondary">CSV export on paid plans</Badge>
             )}
           </CardHeader>
           <CardContent className="px-2">

@@ -5,7 +5,7 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type Audience = "artist" | "label";
-export type PriceTier = { key: string; name: string; price: string; suffix: string; blurb: string; features: string[]; featured?: boolean; cta: { label: string; href: string } };
+export type PriceTier = { key: string; name: string; price: string; suffix: string; blurb: string; features: string[]; featured?: boolean; cta: { label: string; href: string }; yearly?: string | null };
 
 export function AudienceToggle({ value, onChange, className }: { value: Audience; onChange: (a: Audience) => void; className?: string }) {
   return (
@@ -27,7 +27,7 @@ export function AudiencePricing({ artist, label, detailed = false, initial = "ar
   return (
     <div className="space-y-8">
       <div className="flex justify-center"><AudienceToggle value={aud} onChange={setAud} /></div>
-      <div key={aud} className={cn("mx-auto grid gap-4", tiers.length === 2 ? "max-w-3xl sm:grid-cols-2" : "sm:grid-cols-2 lg:grid-cols-4")}>
+      <div key={aud} className={cn("mx-auto grid gap-4", tiers.length === 3 ? "max-w-5xl md:grid-cols-3" : "sm:grid-cols-2 lg:grid-cols-4")}>
         {tiers.map((t, i) => (
           <div
             key={t.key}
@@ -36,12 +36,13 @@ export function AudiencePricing({ artist, label, detailed = false, initial = "ar
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-white/70">{t.name}</span>
-              {t.featured && <span className="rounded-full border border-violet-300/40 bg-violet-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-100">Most picked</span>}
+              {t.featured && <span className="rounded-full border border-violet-300/40 bg-violet-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-100">Recommended</span>}
             </div>
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-4xl font-semibold tracking-tight">{t.price}</span>
               <span className="text-sm text-white/50">{t.suffix}</span>
             </div>
+            {t.yearly && <p className="mt-1 text-xs text-white/45">or {t.yearly}/yr, two months free</p>}
             <p className="mt-2 text-sm text-white/60">{t.blurb}</p>
             {detailed && (
               <ul className="mt-5 flex-1 space-y-2.5 text-sm">

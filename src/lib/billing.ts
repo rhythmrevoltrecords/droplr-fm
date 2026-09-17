@@ -89,10 +89,10 @@ let priceCache: { at: number; table: PriceTable } | null = null;
 /** Live amounts from Stripe (10-minute cache). Missing env or a Stripe error → null for that slot. */
 export async function getPriceTable(): Promise<PriceTable> {
   if (priceCache && Date.now() - priceCache.at < 10 * 60_000) return priceCache.table;
-  const table: PriceTable = { artist: { monthly: null, yearly: null }, pro: { monthly: null, yearly: null }, label: { monthly: null, yearly: null } };
+  const table: PriceTable = { artist: { monthly: null, yearly: null }, artist_pro: { monthly: null, yearly: null }, pro: { monthly: null, yearly: null }, label: { monthly: null, yearly: null } };
   if (!stripeConfigured()) return table;
   const jobs: Promise<void>[] = [];
-  for (const tier of ["artist", "pro", "label"] as const) {
+  for (const tier of ["artist", "artist_pro", "pro", "label"] as const) {
     for (const interval of ["monthly", "yearly"] as const) {
       const id = priceIdFor(tier, interval);
       if (!id) continue;

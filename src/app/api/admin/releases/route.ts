@@ -5,7 +5,7 @@ import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { isPlatformKey, PLATFORMS } from "@/lib/platforms";
-import { planOf } from "@/lib/plans";
+import { planOf, releaseWindowStart } from "@/lib/plans";
 import { isReleased, zonedLocalToDate } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
@@ -43,8 +43,9 @@ export async function POST(req: NextRequest) {
   const d = parsed.data;
 
   const plan = planOf(user.organization.plan);
-  const count = await prisma.release.count({ where: { organizationId: user.organizationId } });
-  if (count >= plan.releases) return NextResponse.json({ error: `${plan.name} plan allows ${plan.releases} releases. Upgrade to add more.` }, { status: 402 });
+  // Counted over a rolling 12 months so older releases never have to be deleted (their links stay live).
+  const count = await prisma.release.count({ where: { organizationId: user.organizationId, createdAt: { gte: releaseWindowStart() } } });
+  if (count >= plan.releases) return NextResponse.json({ error: `${plan.name} allows ${plan.releases} new releases in any 12 months. Upgrade to add more; existing releases stay live.` }, { status: 402 });
 
   const slug = slugify(d.slug);
   if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "That slug is reserved" }, { status: 400 });

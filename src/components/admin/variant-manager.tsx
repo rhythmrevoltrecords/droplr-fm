@@ -54,7 +54,7 @@ export function VariantManager({ releaseId, baseUrl, variants, qrEnabled, readOn
         </div>
       )}
       {err && <p className="text-sm text-red-400">{err}</p>}
-      {!qrEnabled && <p className="text-xs text-muted-foreground">QR codes are on Pro and above. <a href="/admin/settings/billing" className="text-violet-400 underline">Upgrade</a></p>}
+      {!qrEnabled && <p className="text-xs text-muted-foreground">QR codes are on paid plans. <a href="/admin/settings/billing" className="text-violet-400 underline">Upgrade</a></p>}
     </div>
   );
 }

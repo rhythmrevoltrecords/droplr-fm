@@ -8,7 +8,7 @@ import { platformMeta } from "./platforms";
 import { getSpotifyCreds, refreshAccessToken, saveToLibrary, SpotifyError } from "./spotify";
 import { deezerSaveAlbum, parseDeezerAlbumId } from "./deezer";
 import { emailConfigured, releaseDayEmail, sendBatch } from "./email";
-import { linkCustomDomain } from "./plans";
+import { linkCustomDomain, planOf } from "./plans";
 import { isReleased, isValidTimeZone, releaseEmailDueFor, releaseInstantFor, releaseWindow } from "./time";
 import { tidalConfigured } from "./odesli";
 
@@ -289,6 +289,9 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
         ...(zonesPastWait.length ? [inZones(zonesPastWait)] : []),
       ],
     };
+    // Free plan: release-day email for the first N pre-savers per release (everyone else still pre-saved; the label sees a warning).
+    const emailCap = planOf(org.plan).releaseEmails;
+    let emailsSent = Number.isFinite(emailCap) ? await prisma.preSave.count({ where: { releaseId, emailSentAt: { not: null }, email: { not: null }, status: { not: "unsubscribed" } } }) : 0;
     const orderFor = (listenOn: string | null) => (listenOn && platforms.includes(listenOn) ? [listenOn, ...topPlatforms.filter((p) => p !== listenOn)] : topPlatforms);
 
     for (;;) {
@@ -320,12 +323,24 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
 
       // One email per address per release, even if they pre-saved on two platforms.
       const seen = new Set<string>();
-      const unique = rows.filter((r) => {
+      let unique = rows.filter((r) => {
         const k = r.email!.toLowerCase();
         if (seen.has(k)) return false;
         seen.add(k);
         return true;
       });
+      if (Number.isFinite(emailCap)) {
+        const room = emailCap - emailsSent;
+        if (room <= 0) {
+          out.notes.push(`plan limit: release-day emails capped at ${emailCap} for this release`);
+          break;
+        }
+        if (unique.length > room) {
+          unique = unique.slice(0, room);
+          const keep = new Set(unique.map((r) => r.email!.toLowerCase()));
+          rows = rows.filter((r) => keep.has(r.email!.toLowerCase()));
+        }
+      }
       const messages = await Promise.all(
         unique.map(async (r) => {
           const tpl = await releaseDayEmail({
@@ -388,6 +403,7 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
         data: { status: "emailed" },
       });
       out.emailed += unique.length - rejected.size - unsent.size;
+      emailsSent += unique.length - unsent.size;
       if (unsent.size) break;
       await sleep(600); // stay under Resend's default 2 req/s
     }
@@ -411,7 +427,8 @@ export async function findDueReleases() {
         OR: [
           { status: "upcoming" },
           { preSaves: { some: { status: "pending", platform: { in: ["spotify", "deezer"] }, attempts: { lt: 5 } } } },
-          { preSaves: { some: { emailConsent: true, emailSentAt: null, email: { not: null }, status: { not: "unsubscribed" } } } },
+          // Release-day emails stop being worth sending a week after release (this also ends retries for capped Free releases).
+          { releaseDate: { gte: new Date(now - 8 * DAY) }, preSaves: { some: { emailConsent: true, emailSentAt: null, email: { not: null }, status: { not: "unsubscribed" } } } },
         ],
       },
       select,

@@ -34,8 +34,8 @@ export async function PATCH(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
   const d = parsed.data;
   const plan = planOf(user.organization.plan);
-  if ((d.metaPixelId || d.tiktokPixelId || d.ga4Id) && !plan.pixels) return NextResponse.json({ error: "Pixels are on Pro and above" }, { status: 402 });
-  if (d.customDomain && !plan.customDomain) return NextResponse.json({ error: "Custom domains are on Pro and above" }, { status: 402 });
+  if ((d.metaPixelId || d.tiktokPixelId || d.ga4Id) && !plan.pixels) return NextResponse.json({ error: "Pixels are on paid plans" }, { status: 402 });
+  if (d.customDomain && !plan.customDomain) return NextResponse.json({ error: "Custom domains are on Artist Pro and the label plans" }, { status: 402 });
   const domain = d.customDomain?.toLowerCase().trim();
   if (domain) {
     if (!user.emailVerifiedAt && domain !== user.organization.customDomain) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });

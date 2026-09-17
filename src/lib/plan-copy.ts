@@ -10,7 +10,7 @@ const compact = (n: number) => (n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : n
 
 export function releasesLine(k: PlanKey) {
   const n = PLAN_LIMITS[k].releases;
-  return n === Infinity ? "Unlimited releases" : `${n} release${n === 1 ? "" : "s"}`;
+  return n === Infinity ? "Unlimited releases" : `${n} new release${n === 1 ? "" : "s"} a year`;
 }
 
 export function artistsLine(k: PlanKey) {
@@ -24,3 +24,43 @@ export function clicksLine(k: PlanKey) {
 }
 
 export const PLAN_KEYS = PLAN_ORDER;
+
+export function insightsLine(k: PlanKey) {
+  const n = PLAN_LIMITS[k].insightsDays;
+  return n === Infinity ? "Full analytics history" : `${n}-day analytics history`;
+}
+
+export function emailsLine(k: PlanKey) {
+  const n = PLAN_LIMITS[k].releaseEmails;
+  return n === Infinity ? "Release-day email to every pre-saver" : `Release-day email to the first ${n} pre-savers per release`;
+}
+
+export const yearlyPrice = (k: PlanKey) => (PLAN_LIMITS[k].yearly === null ? null : `$${PLAN_LIMITS[k].yearly}`);
+
+/** Feature bullets per plan, shared by /pricing, the homepage and Settings → Billing. */
+export function planFeatures(k: PlanKey): string[] {
+  const common = ["Email pre-saves in each fan's timezone", "Promo plan + share graphics"];
+  switch (k) {
+    case "free":
+      return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list (view only)", "yourname.droplr.fm links"];
+    case "artist":
+      return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list with news opt-ins + CSV export", "Meta, TikTok and GA4 pixels", "QR codes for flyers and merch"];
+    case "artist_pro":
+      return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans (coming soon)"];
+    case "pro":
+      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Custom domain, connected for you", "Pixels, CSV export, QR codes", "Remove droplr.fm branding", insightsLine(k)];
+    case "label":
+      return ["Everything in Pro", clicksLine(k), artistsLine(k), "Team roles (admins)", "Analytics across the whole roster"];
+    case "enterprise":
+      return ["Everything in Label", clicksLine(k), "Priority support and onboarding", "SSO (coming soon)"];
+  }
+}
+
+export const PLAN_BLURB: Record<PlanKey, string> = {
+  free: "Try it on your next few releases.",
+  artist: "For an artist releasing through the year.",
+  artist_pro: "For an artist building a brand of their own.",
+  pro: "For a label putting out music every month.",
+  label: "For a roster with a team behind it.",
+  enterprise: "Distributors and big catalogues.",
+};

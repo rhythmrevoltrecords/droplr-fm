@@ -4,7 +4,7 @@ import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getStats, releaseTotals, type StatsRange } from "@/lib/analytics";
+import { getStats, releaseTotals, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
@@ -16,7 +16,7 @@ import { fmtNum, pct } from "@/lib/utils";
 export default async function ArtistDashboard(props: { searchParams: Promise<{ days?: string; password?: string; verified?: string }> }) {
   const searchParams = await props.searchParams;
   const user = await requireUser("artist");
-  const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
+  const days = statsRange(searchParams.days, planOf(user.organization.plan).insightsDays);
   // Scoped strictly to releases assigned to this artist
   const releases = await prisma.release.findMany({
     // artistId is derived from the profile; matching the profile too is belt and braces if a sync was missed.
@@ -76,7 +76,7 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
         <section className="space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="text-lg font-semibold">Your stats</h2>
-            <RangeTabs base="/dashboard" days={days} />
+            <RangeTabs base="/dashboard" days={days} maxDays={planOf(user.organization.plan).insightsDays} />
           </div>
           <AnalyticsPanels stats={stats} />
         </section>

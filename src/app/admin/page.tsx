@@ -5,10 +5,10 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import { getStats, releaseTotals, type StatsRange } from "@/lib/analytics";
+import { getStats, releaseTotals, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { planOf } from "@/lib/plans";
+import { planOf, releaseWindowStart } from "@/lib/plans";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
@@ -17,7 +17,8 @@ export default async function AdminHome(
 ) {
   const searchParams = await props.searchParams;
   const user = await requireUser("label");
-  const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
+  const maxDays = planOf(user.organization.plan).insightsDays;
+  const days = statsRange(searchParams.days, maxDays);
   const releases = await prisma.release.findMany({
     where: { organizationId: user.organizationId },
     orderBy: { releaseDate: "desc" },
@@ -28,7 +29,8 @@ export default async function AdminHome(
   const org = user.organization;
   const location = (org.locationLabel || "Local").toUpperCase();
   const plan = planOf(user.organization.plan);
-  const atLimit = releases.length >= plan.releases;
+  const windowStart = releaseWindowStart();
+  const atLimit = releases.filter((r) => r.createdAt >= windowStart).length >= plan.releases;
 
   return (
     <div className="space-y-8">
@@ -94,7 +96,7 @@ export default async function AdminHome(
       <section className="space-y-4">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">{org.kind === "artist" ? "Analytics" : "Label analytics"}</h2>
-          <RangeTabs base="/admin" days={days} />
+          <RangeTabs base="/admin" days={days} maxDays={maxDays} />
         </div>
         <AnalyticsPanels stats={stats} showArtists={org.kind !== "artist"} />
       </section>

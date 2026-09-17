@@ -225,7 +225,7 @@ export async function checkOrgDomain(orgId: string) {
 
   // 2. Plan (a paused domain stays attached so old links keep redirecting; nothing new is attached)
   if (!activeCustomDomain(org)) {
-    data.customDomainError = "Custom domains are on Pro and above. Upgrade to switch this domain back on.";
+    data.customDomainError = "Custom domains are on Artist Pro and the label plans. Upgrade to switch this domain back on.";
     return save();
   }
 

@@ -31,7 +31,7 @@ export default async function PricingPage(props: { searchParams: Promise<{ for?:
           <div className="mx-auto mt-12 max-w-3xl space-y-2 text-center text-sm text-white/55">
             <p>Already have an account? Upgrade from <Link href="/admin/settings/billing" className="underline">Settings → Plan &amp; billing</Link>. Paid plans renew automatically; cancel any time. <Link href="/legal/billing" className="underline">Billing &amp; refunds</Link></p>
             <p>
-              Spotify only allows library saves through a developer app you create and own, and limits it to 5 Spotify accounts you allowlist by hand (Extended Quota is reserved for businesses with 250,000+ monthly users). Paid plans can connect one for your team and VIPs; every other fan pre-saves by email, picks their store and can follow on Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
+              Spotify only allows library saves through a developer app you create and own, and limits it to 5 Spotify accounts you allowlist by hand (Extended Quota is reserved for businesses with 250,000+ monthly users). Artist Pro and the label plans can connect one for your team and VIPs; every other fan pre-saves by email, picks their store and can follow on Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
             </p>
           </div>
         </div>
