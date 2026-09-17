@@ -22,7 +22,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {
-      id: true, name: true, slug: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, stripeSubscriptionId: true, createdAt: true, customDomain: true,
+      id: true, name: true, slug: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true,
       users: { where: { role: "owner" }, select: { email: true }, take: 1 },
       _count: { select: { releases: true, users: true } },
     },
@@ -58,7 +58,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
             <TBody>
               {orgs.map((o) => (
                 <TR key={o.id}>
-                  <TD><div className="font-medium">{o.name}</div><div className="font-mono text-xs text-muted-foreground">/{o.slug}{o.customDomain ? ` · ${o.customDomain}` : ""}</div></TD>
+                  <TD><div className="font-medium">{o.name}</div><div className="font-mono text-xs text-muted-foreground">/{o.slug}{o.customDomain ? ` · ${o.customDomain} (${o.customDomainLiveAt ? "live" : o.customDomainVerifiedAt ? "connecting" : "unverified"})` : ""}</div></TD>
                   <TD className="text-xs">{o.users[0]?.email ?? "—"}</TD>
                   <TD><Badge variant={o.plan === "free" ? "secondary" : "success"}>{planOf(o.plan).name}</Badge></TD>
                   <TD className="text-xs">{o.stripeSubscriptionId ? "Stripe" : o.compPlan ? `Comp${o.compSetBy ? ` · ${o.compSetBy}` : ""}` : "—"}{o.compNote ? <div className="text-muted-foreground">{o.compNote}</div> : null}</TD>

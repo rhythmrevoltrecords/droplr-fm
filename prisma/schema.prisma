@@ -18,6 +18,14 @@ model Organization {
   slug          String   @unique
   logoUrl       String?
   customDomain  String?  @unique
+  // Custom domain setup: TXT ownership check → droplr attaches the alias in Netlify → HTTPS check passes → links use it.
+  customDomainToken      String? // value for the _droplr TXT record; new token whenever the domain changes
+  customDomainVerifiedAt DateTime? // TXT record found (ownership proven)
+  customDomainAttachedAt DateTime? // added as a domain alias on the droplr Netlify site
+  customDomainLiveAt     DateTime? // HTTPS on the domain reaches droplr; public links only use the domain while set
+  customDomainCheckedAt  DateTime?
+  customDomainError      String? // last problem, shown in settings
+  customDomainFailures   Int       @default(0) // consecutive failed checks once live (3 → back to droplr.fm links)
   metaPixelId   String?
   tiktokPixelId String?
   ga4Id         String?
@@ -335,4 +343,13 @@ model AuthThrottle {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+/// Domain aliases to remove from the Netlify site (domain changed or cleared). Retried by the domain cron until done.
+model DomainDetach {
+  id        String   @id @default(cuid())
+  domain    String   @unique
+  attempts  Int      @default(0)
+  lastError String?
+  createdAt DateTime @default(now())
 }

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { domainProblem, newDomainToken, queueDetach } from "@/lib/domains";
 import { planOf } from "@/lib/plans";
 import { isValidTimeZone } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
@@ -35,7 +36,8 @@ export async function PATCH(req: NextRequest) {
   if (d.customDomain && !plan.customDomain) return NextResponse.json({ error: "Custom domains are on Pro and above" }, { status: 402 });
   const domain = d.customDomain?.toLowerCase().trim();
   if (domain) {
-    if (domain === "droplr.fm" || domain.endsWith(".droplr.fm")) return NextResponse.json({ error: "Use your own domain" }, { status: 400 });
+    const problem = domainProblem(domain);
+    if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     const clash = await prisma.organization.findUnique({ where: { customDomain: domain } });
     if (clash && clash.id !== user.organizationId) return NextResponse.json({ error: "Domain already connected to another label" }, { status: 409 });
   }
@@ -57,6 +59,18 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // A new (or cleared) domain starts setup from scratch with a fresh TXT token; re-saving the same domain changes nothing.
+  const previousDomain = user.organization.customDomain;
+  const domainChanged = d.customDomain !== undefined && (domain || null) !== previousDomain;
+  const domainData = domainChanged
+    ? {
+        customDomain: domain || null,
+        customDomainToken: domain ? newDomainToken() : null,
+        customDomainVerifiedAt: null, customDomainAttachedAt: null, customDomainLiveAt: null,
+        customDomainCheckedAt: null, customDomainError: null, customDomainFailures: 0,
+      }
+    : {};
+
   await prisma.organization.update({
     where: { id: user.organizationId },
     data: {
@@ -71,10 +85,12 @@ export async function PATCH(req: NextRequest) {
       ...(d.metaPixelId !== undefined && { metaPixelId: d.metaPixelId || null }),
       ...(d.tiktokPixelId !== undefined && { tiktokPixelId: d.tiktokPixelId || null }),
       ...(d.ga4Id !== undefined && { ga4Id: d.ga4Id || null }),
-      ...(d.customDomain !== undefined && { customDomain: domain || null }),
+      ...domainData,
       ...(d.emailFromName !== undefined && { emailFromName: d.emailFromName || null }),
       ...(d.emailReplyTo !== undefined && { emailReplyTo: d.emailReplyTo || null }),
     },
   });
-  return NextResponse.json({ ok: true, slug: slugData?.slug });
+  // The old domain's Netlify alias goes (retried by the domain cron if Netlify is unavailable).
+  if (domainChanged && previousDomain && user.organization.customDomainAttachedAt) await queueDetach(previousDomain).catch(() => {});
+  return NextResponse.json({ ok: true, slug: slugData?.slug, ...(domainChanged && domain ? { message: "Saved. Add the DNS records below, then press Check now." } : {}) });
 }

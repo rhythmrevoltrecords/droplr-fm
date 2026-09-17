@@ -8,7 +8,7 @@ import { platformMeta } from "./platforms";
 import { getSpotifyCreds, refreshAccessToken, saveToLibrary, SpotifyError } from "./spotify";
 import { deezerSaveAlbum, parseDeezerAlbumId } from "./deezer";
 import { emailConfigured, releaseDayEmail, sendBatch } from "./email";
-import { activeCustomDomain } from "./plans";
+import { linkCustomDomain } from "./plans";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -201,7 +201,7 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
     out.notes.push("RESEND not configured — emails skipped");
   } else {
     const org = release.organization;
-    const domain = activeCustomDomain(org);
+    const domain = linkCustomDomain(org);
     const origin = domain ? `https://${domain}` : SITE_URL;
     const publicUrl = domain ? `${origin}/${release.slug}` : `${SITE_URL}/${org.slug}/${release.slug}`;
     const platforms = [...new Set(release.links.map((l) => l.platform).filter((p) => p !== "custom"))];

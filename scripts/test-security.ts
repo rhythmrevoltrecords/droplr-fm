@@ -11,12 +11,18 @@
  *   4. /platform is hidden from non-owners; platform admin emails can't be registered.
  *   5. Cover uploads, fan email pre-saves, token audiences and security headers.
  *   6. Artist roster profiles: org scoping, artist self-service allowlist, hosted photos only, plan limits, invite → login linking.
+ *   7. Custom domain grace / fallback after a downgrade.
+ *   8. Self-serve custom domains: TXT token, validation, check-now auth + rate limit, links only on live domains,
+ *      Netlify alias add/remove against a mock API (start the server with NETLIFY_API_URL=http://127.0.0.1:4777
+ *      NETLIFY_API_TOKEN=test NETLIFY_SITE_ID=test-site to include those).
  * Everything it creates is deleted at the end. Never point it at production.
  */
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
+import { createServer } from "node:http";
 import { signToken } from "../src/lib/crypto";
 import { prisma } from "../src/lib/db";
+import { linkCustomDomain } from "../src/lib/plans";
 
 // The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -426,6 +432,94 @@ async function main() {
     check("inside grace: bio page still served on its domain", graceBio.status === 200, `status ${graceBio.status}`);
     const freeSet = await http(ownerA, "PATCH", "/api/admin/org", { customDomain: "" });
     check("clearing a domain is always allowed", freeSet.status === 200, `${freeSet.status}`);
+
+    console.log("\n8. Self-serve custom domains");
+    // Mock Netlify site API: records every alias list it's given.
+    const mock = { primary: "droplr.fm", aliases: ["www.droplr.fm"], patches: [] as string[][], auth: [] as string[] };
+    const mockServer = createServer((req, res) => {
+      mock.auth.push(req.headers.authorization ?? "");
+      let body = "";
+      req.on("data", (c) => (body += c));
+      req.on("end", () => {
+        if (req.method === "PATCH") {
+          const next = (JSON.parse(body || "{}").domain_aliases ?? []) as string[];
+          mock.patches.push(next);
+          mock.aliases = next;
+        }
+        res.setHeader("Content-Type", "application/json");
+        res.end(req.method === "POST" ? "{}" : JSON.stringify({ custom_domain: mock.primary, domain_aliases: mock.aliases }));
+      });
+    });
+    await new Promise<void>((r) => mockServer.listen(4777, "127.0.0.1", () => r()));
+    try {
+      const dom = `presave-self-${RUN}.sectest.dev`;
+      const setRes = await http(ownerA, "PATCH", "/api/admin/org", { customDomain: dom });
+      let orgA = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id } });
+      check("saving a domain issues a TXT token and starts unverified", setRes.status === 200 && /^[0-9a-f]{24}$/.test(orgA.customDomainToken ?? "") && !orgA.customDomainVerifiedAt && !orgA.customDomainLiveAt, `${setRes.status} ${orgA.customDomainToken}`);
+      const token1 = orgA.customDomainToken;
+      await http(ownerA, "PATCH", "/api/admin/org", { customDomain: dom.toUpperCase() });
+      orgA = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id } });
+      check("re-saving the same domain keeps the token", orgA.customDomainToken === token1);
+
+      for (const bad of ["droplr.fm", "evil.droplr.fm", "droplr-fm.netlify.app", "10.0.0.1", "localhost"]) {
+        const r = await http(ownerA, "PATCH", "/api/admin/org", { customDomain: bad });
+        check(`domain rejected: ${bad}`, r.status === 400, `${r.status}`);
+      }
+
+      const anon = await http(null, "POST", "/api/admin/org/domain");
+      const asArtist = await http(artistA, "POST", "/api/admin/org/domain");
+      check("check-now needs a label login", anon.status === 401 && asArtist.status === 401, `${anon.status} ${asArtist.status}`);
+
+      const first = await http(ownerA, "POST", "/api/admin/org/domain");
+      const firstView = (() => { try { return JSON.parse(first.text).view; } catch { return null; } })();
+      check("check-now without the TXT record stays unverified and says why", first.status === 200 && firstView?.state === "verify" && !!firstView?.error && mock.patches.length === 0, first.text.slice(0, 160));
+
+      check("links ignore a domain that isn't live", linkCustomDomain({ plan: "label", customDomain: dom, customDomainLiveAt: null }) === null && linkCustomDomain({ plan: "label", customDomain: dom, customDomainLiveAt: new Date() }) === dom);
+      check("links ignore a live domain once the plan is paused", linkCustomDomain({ plan: "free", customDomain: dom, customDomainLiveAt: new Date(), planUpdatedAt: new Date(Date.now() - 30 * 86400_000) }) === null);
+      const dash = await http(ownerA, "GET", `/admin/releases/${A.release.id}`);
+      check("release admin shows droplr.fm links while the domain is connecting", dash.status === 200 && !dash.text.includes(`https://${dom}/${A.release.slug}`), `${dash.status}`);
+
+      const probe = await fetch(`${BASE}/api/domain-check`, { headers: { "x-forwarded-host": dom } });
+      const pj = (await probe.json().catch(() => ({}))) as { service?: string; host?: string };
+      check("/api/domain-check answers on a label host", probe.status === 200 && pj.service === "droplr.fm" && pj.host === dom, JSON.stringify(pj));
+
+      const mocked = process.env.NETLIFY_MOCK === "1";
+      if (!mocked) console.log("  (skipped Netlify alias checks: run the server with the mock Netlify env and NETLIFY_MOCK=1)");
+      else {
+        // Pretend the TXT record was found; the next check should attach the alias.
+        await prisma.organization.update({ where: { id: A.org.id }, data: { customDomainVerifiedAt: new Date() } });
+        await prisma.domainDetach.create({ data: { domain: dom } }); // stale removal from an earlier owner
+        const attach = await http(ownerA, "POST", "/api/admin/org/domain");
+        orgA = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id } });
+        check("verified domain is added as a Netlify alias (keeping existing aliases)", !!orgA.customDomainAttachedAt && mock.aliases.includes(dom) && mock.aliases.includes("www.droplr.fm"), `${attach.status} ${JSON.stringify(mock.aliases)} ${attach.text.slice(0, 120)}`);
+        check("Netlify calls use the token", mock.auth.every((a) => a === "Bearer test"));
+        check("attaching clears a stale removal for the same domain", (await prisma.domainDetach.count({ where: { domain: dom } })) === 0);
+        check("unreachable domain isn't marked live", !orgA.customDomainLiveAt && !!orgA.customDomainError, orgA.customDomainError ?? "");
+
+        const dom2 = `links-self-${RUN}.sectest.dev`;
+        await http(ownerA, "PATCH", "/api/admin/org", { customDomain: dom2 });
+        orgA = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id } });
+        check("changing the domain removes the old alias and resets setup", !mock.aliases.includes(dom) && mock.aliases.includes("www.droplr.fm") && orgA.customDomainToken !== token1 && !orgA.customDomainAttachedAt, JSON.stringify(mock.aliases));
+        check("droplr.fm's own domains are never in a removal", mock.patches.every((p) => p.includes("www.droplr.fm")));
+
+        // A removal for a domain another label now uses is dropped without touching Netlify.
+        await prisma.organization.update({ where: { id: B.org.id }, data: { customDomain: `claimed-${RUN}.sectest.dev` } });
+        await prisma.domainDetach.create({ data: { domain: `claimed-${RUN}.sectest.dev` } });
+        const before = mock.patches.length;
+        const cron = await fetch(`${BASE}/api/cron/domains`, { method: "POST", headers: { "x-cron-secret": process.env.CRON_SECRET ?? "" } });
+        check("cron drops removals for domains still in use", cron.status === 200 && (await prisma.domainDetach.count({ where: { domain: `claimed-${RUN}.sectest.dev` } })) === 0 && mock.patches.length === before, `${cron.status}`);
+      }
+
+      const badCron = await fetch(`${BASE}/api/cron/domains`, { method: "POST", headers: { "x-cron-secret": "nope" } });
+      check("domain cron needs the cron secret", badCron.status === 401, `${badCron.status}`);
+
+      let limited = 0;
+      for (let i = 0; i < 12; i++) if ((await http(ownerA, "POST", "/api/admin/org/domain")).status === 429) limited++;
+      check("check-now is rate limited", limited > 0, `${limited}`);
+    } finally {
+      await new Promise<void>((r) => mockServer.close(() => r()));
+      await prisma.domainDetach.deleteMany({ where: { domain: { endsWith: `${RUN}.sectest.dev` } } }).catch(() => {});
+    }
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

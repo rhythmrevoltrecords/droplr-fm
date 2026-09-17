@@ -1,10 +1,12 @@
 import Link from "next/link";
+import { DomainSetup } from "@/components/admin/domain-setup";
 import { OrgFieldsForm } from "@/components/admin/org-forms";
 import { AppearanceForm, IdentityForm } from "@/components/admin/settings-forms";
 import { SITE_HOST } from "@/lib/env";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { emailConfigured } from "@/lib/email";
+import { domainSetupView } from "@/lib/domains";
 import { planOf, customDomainStatus } from "@/lib/plans";
 
 export default async function SettingsPage() {
@@ -84,13 +86,10 @@ export default async function SettingsPage() {
               </div>
             );
           })()}
-          {org.customDomain && plan.customDomain && (
-            <ol className="list-decimal space-y-1 break-words pl-5 text-sm text-muted-foreground [&_code]:break-all">
-              <li>At your DNS provider add <code className="text-foreground">CNAME {org.customDomain.split(".")[0]} → droplr-fm.netlify.app</code></li>
-              <li>droplr.fm admin adds <code className="text-foreground">{org.customDomain}</code> as a domain alias in Netlify → Domain management (SSL provisions automatically).</li>
-              <li>Visit <code className="text-foreground">https://{org.customDomain}</code> to check.</li>
-            </ol>
-          )}
+          {(() => {
+            const view = domainSetupView(org);
+            return view && view.state !== "paused" ? <DomainSetup view={view} /> : null;
+          })()}
         </CardContent>
       </Card>
     </div>

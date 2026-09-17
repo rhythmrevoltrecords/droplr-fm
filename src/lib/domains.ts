@@ -1,0 +1,330 @@
+import { randomBytes } from "node:crypto";
+import { Resolver } from "node:dns/promises";
+import { prisma } from "./db";
+import { attachDomain, detachDomain, friendlyNetlifyError, isProtectedDomain, NetlifyError, netlifyConfigured, provisionCertificate } from "./netlify";
+import { activeCustomDomain, CUSTOM_DOMAIN_GRACE_DAYS } from "./plans";
+import { allow } from "./throttle";
+
+/**
+ * Self-serve custom domains.
+ *   1. Label saves presave.label.com → gets a TXT token.
+ *   2. TXT _droplr.presave.label.com = droplr-verify=<token> proves they control the DNS.
+ *   3. droplr adds the domain as an alias on the Netlify site (so nobody can park someone else's domain on droplr).
+ *   4. Their CNAME/A record points at Netlify; once https://domain/api/domain-check answers as droplr, it's live.
+ * Public links only use the domain while it's live; until then (or if it breaks) they use droplr.fm.
+ */
+
+export const TXT_PREFIX = "_droplr";
+export const NETLIFY_TARGET = process.env.NETLIFY_SITE_HOST || "droplr-fm.netlify.app";
+export const NETLIFY_APEX_IP = "75.2.60.5";
+export const NETLIFY_APEX_ALIAS = "apex-loadbalancer.netlify.com";
+/** A live domain has to fail this many checks in a row before links fall back to droplr.fm. */
+const LIVE_FAILURES_BEFORE_DEMOTE = 3;
+/** A paused domain (plan lapsed, grace over) keeps redirecting to droplr.fm this long, then the alias is released. */
+export const PAUSED_DETACH_DAYS = 90;
+
+export const newDomainToken = () => randomBytes(12).toString("hex");
+
+/** Hostname rules on top of the basic regex: real TLD, label lengths, not droplr's own hosts. */
+export function domainProblem(domain: string): string | null {
+  if (domain.length > 253) return "That domain is too long";
+  const labels = domain.split(".");
+  if (labels.length < 2 || labels.some((l) => !l || l.length > 63 || l.startsWith("-") || l.endsWith("-"))) return "Enter a hostname like presave.yourlabel.com";
+  if (!/^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/.test(labels[labels.length - 1])) return "Enter a hostname like presave.yourlabel.com";
+  if (isProtectedDomain(domain)) return "Use your own domain";
+  return null;
+}
+
+// Common two-part public suffixes, so presave.label.com.au → host "presave" on label.com.au.
+const TWO_PART_SUFFIXES = new Set([
+  "com.au", "net.au", "org.au", "edu.au", "asn.au", "id.au", "co.uk", "org.uk", "me.uk", "ltd.uk", "plc.uk", "co.nz", "net.nz", "org.nz",
+  "co.za", "com.br", "com.mx", "co.jp", "com.sg", "com.hk", "co.in", "com.ar", "com.tr", "co.kr", "com.my", "com.ph", "co.id",
+]);
+
+export function splitDomain(domain: string) {
+  const parts = domain.split(".");
+  const rootLen = TWO_PART_SUFFIXES.has(parts.slice(-2).join(".")) ? 3 : 2;
+  const root = parts.slice(-rootLen).join(".");
+  const sub = parts.slice(0, -rootLen).join(".");
+  return { root, sub, apex: sub === "" };
+}
+
+type SetupOrg = {
+  plan: string | null;
+  planUpdatedAt?: Date | null;
+  customDomain: string | null;
+  customDomainToken: string | null;
+  customDomainVerifiedAt: Date | null;
+  customDomainAttachedAt: Date | null;
+  customDomainLiveAt: Date | null;
+  customDomainCheckedAt: Date | null;
+  customDomainError: string | null;
+};
+
+export type DomainState = "verify" | "connecting" | "live" | "paused";
+
+export function domainSetupView(org: SetupOrg) {
+  const domain = org.customDomain;
+  if (!domain) return null;
+  const { root, sub, apex } = splitDomain(domain);
+  const state: DomainState = !activeCustomDomain(org) ? "paused" : !org.customDomainVerifiedAt ? "verify" : org.customDomainLiveAt ? "live" : "connecting";
+  return {
+    domain,
+    root,
+    state,
+    automatic: netlifyConfigured(),
+    txt: { type: "TXT", host: sub ? `${TXT_PREFIX}.${sub}` : TXT_PREFIX, fqdn: `${TXT_PREFIX}.${domain}`, value: `droplr-verify=${org.customDomainToken ?? ""}` },
+    point: apex
+      ? [
+          { type: "A", host: "@", fqdn: domain, value: NETLIFY_APEX_IP },
+          { type: "ALIAS / ANAME (if supported, instead of A)", host: "@", fqdn: domain, value: NETLIFY_APEX_ALIAS },
+        ]
+      : [{ type: "CNAME", host: sub, fqdn: domain, value: NETLIFY_TARGET }],
+    apex,
+    verifiedAt: org.customDomainVerifiedAt?.toISOString() ?? null,
+    liveAt: org.customDomainLiveAt?.toISOString() ?? null,
+    checkedAt: org.customDomainCheckedAt?.toISOString() ?? null,
+    error: org.customDomainError,
+  };
+}
+export type DomainSetupView = NonNullable<ReturnType<typeof domainSetupView>>;
+
+// --- DNS / HTTPS probes -------------------------------------------------------------------------------------------
+
+function resolver() {
+  // Public resolvers first: the platform's cached resolver can hold a "not found" for a while after a label adds a record.
+  const r = new Resolver({ timeout: 3000, tries: 2 });
+  r.setServers(["1.1.1.1", "8.8.8.8"]);
+  return r;
+}
+
+async function withFallback<T>(fn: (r: Resolver) => Promise<T>): Promise<T> {
+  try {
+    return await fn(resolver());
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    if (code === "ENOTFOUND" || code === "ENODATA") throw e; // a real answer: no such record
+    return fn(new Resolver({ timeout: 3000, tries: 1 })); // public DNS unreachable → system resolver
+  }
+}
+
+export async function txtRecordFound(domain: string, token: string): Promise<{ found: boolean; seen: string[]; error?: string }> {
+  try {
+    const records = await withFallback((r) => r.resolveTxt(`${TXT_PREFIX}.${domain}`));
+    const seen = records.map((chunks) => chunks.join(""));
+    return { found: seen.some((v) => v.trim() === `droplr-verify=${token}`), seen };
+  } catch (e) {
+    const code = (e as { code?: string }).code;
+    if (code === "ENOTFOUND" || code === "ENODATA") return { found: false, seen: [] };
+    return { found: false, seen: [], error: "Couldn't look up DNS right now. We'll try again shortly." };
+  }
+}
+
+async function pointsAt(domain: string): Promise<{ netlify: boolean; found: string | null }> {
+  try {
+    const cn = await withFallback((r) => r.resolveCname(domain));
+    if (cn.length) return { netlify: cn.some((c) => /\.netlify\.(app|com)\.?$/i.test(c)), found: `CNAME ${cn[0]}` };
+  } catch {}
+  try {
+    const a = await withFallback((r) => r.resolve4(domain));
+    if (a.length) return { netlify: a.includes(NETLIFY_APEX_IP), found: `A ${a.join(", ")}` };
+  } catch {}
+  return { netlify: false, found: null };
+}
+
+/** https://domain/api/domain-check must answer as droplr for this exact host. */
+export async function probeDomain(domain: string): Promise<{ ok: boolean; tls: boolean; dns: boolean; status?: number }> {
+  try {
+    const res = await fetch(`https://${domain}/api/domain-check`, { redirect: "manual", signal: AbortSignal.timeout(8000), cache: "no-store" });
+    if (!res.ok) return { ok: false, tls: false, dns: false, status: res.status };
+    const j = (await res.json().catch(() => ({}))) as { service?: string; host?: string };
+    return { ok: j.service === "droplr.fm" && j.host === domain, tls: false, dns: false, status: res.status };
+  } catch (e) {
+    const cause = (e as { cause?: { code?: string } }).cause;
+    const code = cause?.code ?? "";
+    return { ok: false, tls: /CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(code), dns: code === "ENOTFOUND" || code === "EAI_AGAIN" };
+  }
+}
+
+// --- Netlify alias changes, serialised ---------------------------------------------------------------------------
+
+/** Netlify's alias list is replaced wholesale on each update, so only one change runs at a time across all instances. */
+async function withNetlifyLock<T>(fn: () => Promise<T>): Promise<T> {
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext('droplr:netlify-domain-aliases'))`;
+      return fn();
+    },
+    { timeout: 45_000, maxWait: 20_000 },
+  );
+}
+
+/** Remember an alias to remove (domain changed or cleared) and try right away; the cron retries failures. */
+export async function queueDetach(domain: string) {
+  await prisma.domainDetach.upsert({ where: { domain }, create: { domain }, update: {} });
+  if (netlifyConfigured()) await processDetaches(1, domain).catch(() => {});
+}
+
+export async function processDetaches(limit = 10, only?: string) {
+  const rows = await prisma.domainDetach.findMany({ where: { attempts: { lt: 50 }, ...(only ? { domain: only } : {}) }, orderBy: { createdAt: "asc" }, take: limit });
+  let done = 0;
+  for (const row of rows) {
+    // Another label (or the same one) has since claimed the domain: keep the alias.
+    const inUse = await prisma.organization.findFirst({ where: { customDomain: row.domain }, select: { id: true } });
+    if (inUse) {
+      await prisma.domainDetach.delete({ where: { id: row.id } }).catch(() => {});
+      continue;
+    }
+    try {
+      await withNetlifyLock(() => detachDomain(row.domain));
+      await prisma.domainDetach.delete({ where: { id: row.id } }).catch(() => {});
+      done++;
+    } catch (e) {
+      await prisma.domainDetach.update({ where: { id: row.id }, data: { attempts: { increment: 1 }, lastError: String((e as Error).message).slice(0, 300) } }).catch(() => {});
+    }
+  }
+  return done;
+}
+
+// --- The check ----------------------------------------------------------------------------------------------------
+
+const SETUP_SELECT = {
+  id: true, plan: true, planUpdatedAt: true, customDomain: true, customDomainToken: true, customDomainVerifiedAt: true,
+  customDomainAttachedAt: true, customDomainLiveAt: true, customDomainCheckedAt: true, customDomainError: true, customDomainFailures: true,
+} as const;
+
+/** Advance one label's domain as far as it can go right now. Safe to call repeatedly. */
+export async function checkOrgDomain(orgId: string) {
+  const org = await prisma.organization.findUnique({ where: { id: orgId }, select: SETUP_SELECT });
+  if (!org?.customDomain) return null;
+  const domain = org.customDomain;
+  const now = new Date();
+  const data: {
+    customDomainCheckedAt: Date; customDomainError: string | null; customDomainVerifiedAt?: Date; customDomainAttachedAt?: Date;
+    customDomainLiveAt?: Date | null; customDomainFailures?: number; customDomainToken?: string;
+  } = { customDomainCheckedAt: now, customDomainError: null };
+
+  const save = async () => {
+    // Only write if the domain hasn't been changed underneath us.
+    await prisma.organization.updateMany({ where: { id: org.id, customDomain: domain }, data });
+    return domainSetupView({ ...org, ...data });
+  };
+
+  // 1. Ownership
+  if (!org.customDomainVerifiedAt) {
+    const token = org.customDomainToken ?? newDomainToken();
+    if (!org.customDomainToken) data.customDomainToken = token;
+    const txt = await txtRecordFound(domain, token);
+    if (!txt.found) {
+      data.customDomainError = txt.error
+        ?? (txt.seen.length ? `Found a TXT record at ${TXT_PREFIX}.${domain}, but its value doesn't match. It should be droplr-verify=${token}.` : `No TXT record at ${TXT_PREFIX}.${domain} yet. DNS changes can take a few minutes to an hour to show up.`);
+      return save();
+    }
+    data.customDomainVerifiedAt = now;
+  }
+
+  // 2. Plan (a paused domain stays attached so old links keep redirecting; nothing new is attached)
+  if (!activeCustomDomain(org)) {
+    data.customDomainError = "Custom domains are on Pro and above. Upgrade to switch this domain back on.";
+    return save();
+  }
+
+  // 3. Attach the alias on Netlify
+  if (!org.customDomainAttachedAt) {
+    if (!netlifyConfigured()) {
+      data.customDomainError = friendlyNetlifyError(new NetlifyError("not configured", 503));
+      return save();
+    }
+    try {
+      await withNetlifyLock(async () => {
+        await attachDomain(domain);
+        await prisma.domainDetach.deleteMany({ where: { domain } });
+      });
+      data.customDomainAttachedAt = now;
+    } catch (e) {
+      console.error("[domains] attach failed", { org: org.id, domain, error: (e as Error).message });
+      data.customDomainError = friendlyNetlifyError(e);
+      return save();
+    }
+  }
+
+  // 4. Does HTTPS on the domain reach droplr?
+  const probe = await probeDomain(domain);
+  if (probe.ok) {
+    data.customDomainLiveAt = org.customDomainLiveAt ?? now;
+    data.customDomainFailures = 0;
+    return save();
+  }
+
+  const dns = await pointsAt(domain);
+  let problem: string;
+  if (!dns.found && probe.dns) problem = `No DNS record for ${domain} yet. Add the ${splitDomain(domain).apex ? "A" : "CNAME"} record below.`;
+  else if (probe.tls) problem = "DNS is set. The HTTPS certificate is still being issued; this usually takes a few minutes.";
+  else if (dns.found && !dns.netlify) problem = `${domain} points at ${dns.found}, not droplr. Update the record below. On Cloudflare, set it to DNS only (grey cloud).`;
+  else problem = probe.status ? `The domain answered with HTTP ${probe.status} instead of droplr. Check the record below.` : `Couldn't reach https://${domain} yet. DNS changes can take up to an hour.`;
+
+  // Certificate not issued yet but DNS looks right: nudge Netlify, at most every 30 minutes per domain.
+  if (probe.tls && netlifyConfigured() && (await allow(`domain-ssl:${domain}`, 1, 30 * 60_000))) {
+    await provisionCertificate().catch((e) => console.warn("[domains] ssl provision", { domain, error: (e as Error).message }));
+  }
+
+  if (org.customDomainLiveAt) {
+    const failures = org.customDomainFailures + 1;
+    data.customDomainFailures = failures;
+    if (failures >= LIVE_FAILURES_BEFORE_DEMOTE) {
+      data.customDomainLiveAt = null;
+      data.customDomainError = `${problem} New links use droplr.fm until this is fixed.`;
+      console.warn("[domains] demoted", { org: org.id, domain, problem });
+    } else data.customDomainError = null; // one blip isn't worth alarming the label
+  } else data.customDomainError = problem;
+  return save();
+}
+
+// --- Cron ---------------------------------------------------------------------------------------------------------
+
+/** Every 15 minutes: retry removals, advance pending domains, re-check live ones, release long-paused aliases. */
+export async function runDomainChecks(deadlineMs = Date.now() + 22_000) {
+  const out = { detached: 0, checked: 0, released: 0 };
+  out.detached = await processDetaches(5);
+
+  const ago = (ms: number) => new Date(Date.now() - ms);
+  const due = await prisma.organization.findMany({
+    where: {
+      customDomain: { not: null },
+      OR: [
+        { customDomainVerifiedAt: null, OR: [{ customDomainCheckedAt: null }, { customDomainCheckedAt: { lt: ago(55 * 60_000) } }] },
+        { customDomainVerifiedAt: { not: null }, customDomainLiveAt: null, OR: [{ customDomainCheckedAt: null }, { customDomainCheckedAt: { lt: ago(14 * 60_000) } }] },
+        { customDomainLiveAt: { not: null }, OR: [{ customDomainCheckedAt: null }, { customDomainCheckedAt: { lt: ago(6 * 3600_000) } }] },
+      ],
+    },
+    orderBy: { customDomainCheckedAt: { sort: "asc", nulls: "first" } },
+    select: { id: true },
+    take: 20,
+  });
+  for (let i = 0; i < due.length && Date.now() < deadlineMs; i += 4) {
+    const batch = due.slice(i, i + 4);
+    await Promise.all(batch.map((o) => checkOrgDomain(o.id).catch((e) => console.error("[domains] check", { org: o.id, error: (e as Error).message }))));
+    out.checked += batch.length;
+  }
+
+  // Plan lapsed long ago: stop holding the alias. The domain stays saved (and verified), so upgrading reconnects it.
+  if (netlifyConfigured() && Date.now() < deadlineMs) {
+    const cutoff = ago((CUSTOM_DOMAIN_GRACE_DAYS + PAUSED_DETACH_DAYS) * 86_400_000);
+    const stale = await prisma.organization.findMany({
+      where: { customDomainAttachedAt: { not: null }, planUpdatedAt: { lt: cutoff } },
+      select: { id: true, plan: true, planUpdatedAt: true, customDomain: true },
+      take: 5,
+    });
+    for (const o of stale) {
+      if (!o.customDomain || activeCustomDomain(o) || Date.now() > deadlineMs) continue;
+      try {
+        await withNetlifyLock(() => detachDomain(o.customDomain!));
+        await prisma.organization.update({ where: { id: o.id }, data: { customDomainAttachedAt: null, customDomainLiveAt: null } });
+        out.released++;
+      } catch (e) {
+        console.error("[domains] release paused alias", { org: o.id, error: (e as Error).message });
+      }
+    }
+  }
+  return out;
+}

@@ -1,7 +1,7 @@
 import { cache } from "react";
 import { prisma } from "./db";
 import { SITE_URL } from "./env";
-import { activeCustomDomain } from "./plans";
+import { activeCustomDomain, linkCustomDomain } from "./plans";
 
 const include = {
   organization: true,
@@ -127,9 +127,9 @@ export function resolveTenantPath(host: string, parts: string[], variantQuery?: 
   return cachedTenantPath(host, JSON.stringify(parts), variantQuery ?? null);
 }
 
-export function publicReleaseUrl(org: { slug: string; customDomain: string | null; plan?: string | null; planUpdatedAt?: Date | null }, slug: string, siteUrl: string, variant?: string) {
+export function publicReleaseUrl(org: { slug: string; customDomain: string | null; plan?: string | null; planUpdatedAt?: Date | null; customDomainLiveAt?: Date | null }, slug: string, siteUrl: string, variant?: string) {
   // Callers without plan info (e.g. previews) pass customDomain: null.
-  const domain = org.plan === undefined ? org.customDomain : activeCustomDomain({ plan: org.plan, customDomain: org.customDomain, planUpdatedAt: org.planUpdatedAt });
+  const domain = org.plan === undefined ? org.customDomain : linkCustomDomain({ plan: org.plan, customDomain: org.customDomain, planUpdatedAt: org.planUpdatedAt, customDomainLiveAt: org.customDomainLiveAt ?? null });
   const base = domain ? `https://${domain}/${slug}` : `${siteUrl}/${org.slug}/${slug}`;
   return variant ? `${base}/${variant}` : base;
 }

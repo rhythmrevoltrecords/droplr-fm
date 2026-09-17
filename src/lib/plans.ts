@@ -38,7 +38,7 @@ export function higherPlan(a: string | null | undefined, b: string | null | unde
 /** After a downgrade, a connected custom domain keeps serving pages this long, then its links redirect to droplr.fm. */
 export const CUSTOM_DOMAIN_GRACE_DAYS = 14;
 
-type DomainOrg = { plan: string | null; customDomain: string | null; planUpdatedAt?: Date | null };
+type DomainOrg = { plan: string | null; customDomain: string | null; planUpdatedAt?: Date | null; customDomainLiveAt?: Date | null };
 
 /**
  * Whether the label's custom domain is in use right now.
@@ -54,5 +54,11 @@ export function customDomainStatus(org: DomainOrg): { domain: string | null; act
   return { domain: org.customDomain, active: !!graceUntil && graceUntil.getTime() > Date.now(), graceUntil };
 }
 
-/** The domain to use for public links, or null to use droplr.fm. */
+/** The domain is switched on for the plan: requests arriving on it are served (or, when off, redirected to droplr.fm). */
 export const activeCustomDomain = (org: DomainOrg) => (customDomainStatus(org).active ? org.customDomain : null);
+
+/**
+ * The domain to put in public links, or null to use droplr.fm.
+ * Needs the plan AND a passed HTTPS check, so nobody copies a link on a domain that isn't connected yet (or has broken).
+ */
+export const linkCustomDomain = (org: DomainOrg) => (org.customDomainLiveAt ? activeCustomDomain(org) : null);

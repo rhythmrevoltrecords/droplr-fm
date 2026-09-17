@@ -1,9 +1,9 @@
 import { z } from "zod";
 import { SITE_URL } from "./env";
-import { activeCustomDomain } from "./plans";
+import { linkCustomDomain } from "./plans";
 
-export function bioPublicUrl(org: { customDomain: string | null; plan: string | null; planUpdatedAt?: Date | null }, slug: string) {
-  const domain = activeCustomDomain(org);
+export function bioPublicUrl(org: { customDomain: string | null; plan: string | null; planUpdatedAt?: Date | null; customDomainLiveAt: Date | null }, slug: string) {
+  const domain = linkCustomDomain(org);
   return domain ? `https://${domain}/b/${slug}` : `${SITE_URL}/b/${slug}`;
 }
 
