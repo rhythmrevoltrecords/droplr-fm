@@ -63,6 +63,14 @@ export async function resolveReleaseArtist(organizationId: string, input: { arti
 
 // ---------- validation ----------
 
+/** Artist ID from a Spotify artist link, spotify:artist: URI or bare 22-character ID. Album/track links are rejected. */
+export function spotifyArtistIdFrom(input: string): string | null {
+  const s = input.trim();
+  if (/^[A-Za-z0-9]{22}$/.test(s)) return s;
+  const m = s.match(/^spotify:artist:([A-Za-z0-9]{22})$/) ?? s.match(/^(?:https?:\/\/)?open\.spotify\.com\/(?:intl-[a-z-]+\/)?artist\/([A-Za-z0-9]{22})(?:[/?#].*)?$/i);
+  return m ? m[1] : null;
+}
+
 const blank = (v: string | null | undefined) => (v === undefined ? undefined : v && v.trim() ? v.trim() : null);
 const text = (max: number, msg?: string) => z.string().max(max, msg).nullable().optional().transform(blank);
 
@@ -133,7 +141,22 @@ const labelShape = {
   notes: text(5000),
   signedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Signed date should be YYYY-MM-DD").or(z.literal("")).nullable().optional()
     .transform((v) => (v === undefined ? undefined : v ? new Date(`${v}T00:00:00.000Z`) : null)),
-  spotifyArtistId: z.string().trim().regex(/^[A-Za-z0-9]{22}$/, "Spotify artist ID is 22 letters and numbers").or(z.literal("")).nullable().optional().transform(blank),
+  // Accepts the artist's Spotify link (open.spotify.com/artist/…, with or without ?si=), a spotify:artist: URI, or the bare ID; stores the ID.
+  spotifyArtistId: z
+    .string()
+    .nullable()
+    .optional()
+    .transform((v, ctx) => {
+      if (v === undefined) return undefined;
+      const s = (v ?? "").trim();
+      if (!s) return null;
+      const id = spotifyArtistIdFrom(s);
+      if (!id) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Paste the artist's Spotify link (open.spotify.com/artist/…) or their 22-character artist ID" });
+        return z.NEVER;
+      }
+      return id;
+    }),
   monthlyListeners: count,
   followers: count,
 };
@@ -143,7 +166,11 @@ export const artistCreateInput = z.object(labelShape);
 /** Label edit: everything optional; only sent fields change. */
 export const artistInput = z.object({ ...labelShape, name: labelShape.name.optional() });
 
-export const zodError = (e: z.ZodError) => e.issues.map((i) => i.message).join("; ");
+/** Readable messages. For "x or blank" unions, zod's top message is just "Invalid input": use the real one inside. */
+export const zodError = (e: z.ZodError) =>
+  e.issues
+    .map((i) => (i.code === "invalid_union" ? i.unionErrors[0]?.issues[0]?.message ?? i.message : i.message))
+    .join("; ");
 
 /** Drop undefined so Prisma leaves those columns alone. */
 export function definedOnly<T extends Record<string, unknown>>(o: T) {

@@ -273,7 +273,7 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
             <Card>
               <CardHeader><CardTitle>Stats</CardTitle><CardDescription>{statsUpdated ? `Updated ${statsUpdated}` : "Not recorded yet"}</CardDescription></CardHeader>
               <CardContent className="space-y-4">
-                {field("spotifyArtistId", "Spotify artist ID", { placeholder: "22 characters", maxLength: 22 })}
+                {field("spotifyArtistId", "Spotify artist link or ID", { placeholder: "https://open.spotify.com/artist/…", maxLength: 200, inputMode: "url" })}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="min-w-0 space-y-2"><Label htmlFor="f-ml">Monthly listeners</Label><Input id="f-ml" inputMode="numeric" value={v.monthlyListeners} onChange={(e) => set("monthlyListeners", e.target.value)} /></div>
                   <div className="min-w-0 space-y-2"><Label htmlFor="f-fl">Followers</Label><Input id="f-fl" inputMode="numeric" value={v.followers} onChange={(e) => set("followers", e.target.value)} /></div>
