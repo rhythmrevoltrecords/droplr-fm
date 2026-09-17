@@ -17,8 +17,8 @@ export const RESERVED_EMAIL_ERROR = "That email can't be used here. Contact supp
 
 export async function platformAdmin() {
   const user = await getCurrentUser();
-  // Email alone isn't proof (addresses aren't verified at signup): must also be the label owner account.
-  if (!user || user.role !== "owner" || !isPlatformAdminEmail(user.email)) return null;
+  // Email alone isn't proof: must also be the label owner account, with the address confirmed by email.
+  if (!user || user.role !== "owner" || !user.emailVerifiedAt || !isPlatformAdminEmail(user.email)) return null;
   return user;
 }
 

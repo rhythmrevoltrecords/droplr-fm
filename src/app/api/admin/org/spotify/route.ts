@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { encrypt } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
+import { UNVERIFIED_ERROR } from "@/lib/email-verification";
 import { planOf } from "@/lib/plans";
 import { clientCredentialsToken } from "@/lib/spotify";
 
@@ -9,6 +10,7 @@ import { clientCredentialsToken } from "@/lib/spotify";
 export async function POST(req: NextRequest) {
   const user = await apiUser("label");
   if (!user || user.role !== "owner") return NextResponse.json({ error: "Only the label owner can connect Spotify" }, { status: 401 });
+  if (!user.emailVerifiedAt) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
   if (!planOf(user.organization.plan).byoSpotify) return NextResponse.json({ error: "BYO Spotify app is on Pro and above" }, { status: 402 });
   const { clientId, clientSecret } = (await req.json()) as { clientId?: string; clientSecret?: string };
   if (!clientId || !/^[a-f0-9]{32}$/i.test(clientId.trim()) || !clientSecret || !/^[a-f0-9]{32}$/i.test(clientSecret.trim())) {

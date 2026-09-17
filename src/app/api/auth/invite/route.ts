@@ -3,6 +3,7 @@ import { syncReleaseAccess } from "@/lib/artists";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, isLabelRole, passwordProblem } from "@/lib/auth";
 import { sha256 } from "@/lib/crypto";
+import { sendVerificationEmail } from "@/lib/email-verification";
 import { LEGAL } from "@/lib/legal";
 import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
 
@@ -26,6 +27,8 @@ export async function POST(req: NextRequest) {
   });
   await prisma.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
   if (user.role === "artist") await linkArtistProfile(invite, user);
+  // The invite link was also shown to whoever sent it, so it doesn't prove this address: confirm by email.
+  await sendVerificationEmail(user);
   await createSessionCookie(user);
   return NextResponse.redirect(new URL(isLabelRole(user.role) ? "/admin" : "/dashboard", req.url), 303);
 }

@@ -45,6 +45,19 @@ export function resetPasswordEmail(url: string) {
   };
 }
 
+export function verifyEmailEmail(url: string) {
+  return {
+    subject: "Confirm your email for droplr.fm",
+    html: shell(
+      "Confirm your email",
+      `<p style="margin:0 0 20px">Tap below to confirm this is your address. It keeps your account recoverable and unlocks inviting your team, custom domains and Spotify. The link expires in 48 hours.</p>
+<p style="margin:0 0 20px"><a href="${url}" style="display:inline-block;background:#8b5cf6;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Confirm my email</a></p>
+<p style="margin:0;font-size:13px;color:#a1a1aa">Didn't create a droplr.fm account? Ignore this email and nothing happens.</p>`,
+    ),
+    text: `Confirm your email for droplr.fm\n\nThis link expires in 48 hours:\n${url}\n\nDidn't create a droplr.fm account? Ignore this email.`,
+  };
+}
+
 export function passwordChangedEmail(when: Date) {
   const stamp = when.toUTCString();
   return {

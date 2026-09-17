@@ -16,12 +16,15 @@
  *      Netlify alias add/remove against a mock API (start the server with NETLIFY_API_URL=http://127.0.0.1:4777
  *      NETLIFY_API_TOKEN=test NETLIFY_SITE_ID=test-site to include those).
  *   9. Spotify pre-save button: hidden from the public unless switched on or opened via ?spotify=1; owner-only toggle.
+ *  10. Email verification: unconfirmed accounts can't invite / connect domains or Spotify; links are single-use,
+ *      expire and die if the address changes; invites don't count as proof; a password reset by email does.
  * Everything it creates is deleted at the end. Never point it at production.
  */
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
+import { createVerificationToken } from "../src/lib/email-verification";
 import { prisma } from "../src/lib/db";
 import { linkCustomDomain } from "../src/lib/plans";
 
@@ -79,9 +82,9 @@ async function login(email: string, password = PW): Promise<Jar> {
 async function fixtures(tag: "a" | "b") {
   const hash = await bcrypt.hash(PW, 10);
   const org = await prisma.organization.create({ data: { name: `Sec Test ${tag.toUpperCase()} ${RUN}`, slug: `sectest-${tag}-${RUN}`, plan: "label" } });
-  const owner = await prisma.user.create({ data: { email: `owner-${tag}-${RUN}@sectest.dev`, passwordHash: hash, role: "owner", organizationId: org.id } });
-  const artist = await prisma.user.create({ data: { email: `artist-${tag}-${RUN}@sectest.dev`, passwordHash: hash, role: "artist", artistName: `Artist ${tag}`, organizationId: org.id } });
-  const artist2 = await prisma.user.create({ data: { email: `artist2-${tag}-${RUN}@sectest.dev`, passwordHash: hash, role: "artist", artistName: `Artist2 ${tag}`, organizationId: org.id } });
+  const owner = await prisma.user.create({ data: { email: `owner-${tag}-${RUN}@sectest.dev`, passwordHash: hash, role: "owner", organizationId: org.id, emailVerifiedAt: new Date() } });
+  const artist = await prisma.user.create({ data: { email: `artist-${tag}-${RUN}@sectest.dev`, passwordHash: hash, role: "artist", artistName: `Artist ${tag}`, organizationId: org.id, emailVerifiedAt: new Date() } });
+  const artist2 = await prisma.user.create({ data: { email: `artist2-${tag}-${RUN}@sectest.dev`, passwordHash: hash, role: "artist", artistName: `Artist2 ${tag}`, organizationId: org.id, emailVerifiedAt: new Date() } });
   const release = await prisma.release.create({
     data: {
       organizationId: org.id, artistId: artist.id, slug: `sectest-rel-${tag}-${RUN}`, title: `Secret ${tag}`, artistName: "X", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() + 86400_000),
@@ -241,7 +244,7 @@ async function main() {
         const acc = await http({ cookie: "" }, "POST", "/api/auth/invite", undefined, { token, password: PW, terms: "yes" });
         check("old invite for platform admin email can't be accepted", acc.location.includes("error=") && !(await prisma.user.findUnique({ where: { email: adminEmail } })), acc.location);
         // Same email on a non-owner account (e.g. created before the block) still isn't a platform admin.
-        await prisma.user.create({ data: { email: adminEmail, passwordHash: await bcrypt.hash(PW, 10), role: "artist", artistName: "Impostor", organizationId: A.org.id } });
+        await prisma.user.create({ data: { email: adminEmail, passwordHash: await bcrypt.hash(PW, 10), role: "artist", artistName: "Impostor", organizationId: A.org.id, emailVerifiedAt: new Date() } });
         const impostor = await login(adminEmail);
         const impPlat = await http(impostor, "GET", "/platform");
         const impPatch = await http(impostor, "PATCH", `/api/platform/orgs/${A.org.id}`, { compPlan: "enterprise" });
@@ -352,7 +355,7 @@ async function main() {
     check("artist dashboard never contains label notes", !(await http(artistA2, "GET", "/dashboard")).text.includes(NOTE));
     check("artist of label B can't reach A's profile", (await http(await login(B.artist.email), "PATCH", "/api/artist/profile", { bio: "x" })).status === 404 && (await prisma.artist.findUnique({ where: { id: profA } }))?.bio === `Artist wrote this ${RUN}`);
     check("owner can't delete a profile that has a login", (await http(ownerA, "DELETE", `/api/admin/roster/${profA}`)).status === 409);
-    const adminA = await prisma.user.create({ data: { email: `admin-a-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "admin", organizationId: A.org.id } });
+    const adminA = await prisma.user.create({ data: { email: `admin-a-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "admin", organizationId: A.org.id, emailVerifiedAt: new Date() } });
     const adminJar = await login(adminA.email);
     const adminRevoke = await http(adminJar, "POST", `/api/admin/roster/${profA}/revoke-login`);
     const adminDelete = await http(adminJar, "DELETE", `/api/admin/roster/${profA}`);
@@ -361,7 +364,7 @@ async function main() {
     // Plan limit (Free: 1 artist)
     const freeOrg = await prisma.organization.create({ data: { name: `Sec Test Free ${RUN}`, slug: `sectest-free-${RUN}`, plan: "free" } });
     extraOrgs.push(freeOrg.id);
-    const freeOwner = await prisma.user.create({ data: { email: `owner-free-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: freeOrg.id } });
+    const freeOwner = await prisma.user.create({ data: { email: `owner-free-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: freeOrg.id, emailVerifiedAt: new Date() } });
     const freeJar = await login(freeOwner.email);
     const first = await http(freeJar, "POST", "/api/admin/roster", { name: "First" });
     const secondProfile = await http(freeJar, "POST", "/api/admin/roster", { name: "Second" });
@@ -535,6 +538,54 @@ async function main() {
     const ownerToggle = await http(ownerA, "PATCH", "/api/admin/org/spotify", { publicButton: true });
     const shown = await http(null, "GET", pagePath);
     check("owner switches the Spotify button on for everyone", badToggle.status === 400 && ownerToggle.status === 200 && shown.text.includes("Pre-save on Spotify"), `${badToggle.status} ${ownerToggle.status}`);
+
+    console.log("\n10. Email verification");
+    const uvOrg = await prisma.organization.create({ data: { name: `Unverified ${RUN}`, slug: `sectest-uv-${RUN}`, plan: "label" } });
+    extraOrgs.push(uvOrg.id);
+    const uvOwner = await prisma.user.create({ data: { email: `owner-uv-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: uvOrg.id } });
+    const uvProfile = await prisma.artist.create({ data: { organizationId: uvOrg.id, name: "UV artist", email: `uv-artist-${RUN}@sectest.dev` } });
+    const uvJar = await login(uvOwner.email);
+    const uvAdmin = await http(uvJar, "GET", "/admin");
+    check("unconfirmed account sees the confirm-email banner", uvAdmin.status === 200 && uvAdmin.text.includes("Confirm your email"), `${uvAdmin.status}`);
+    const uvBlocked = [
+      await http(uvJar, "POST", "/api/admin/artists", { email: `x-${RUN}@sectest.dev` }),
+      await http(uvJar, "POST", `/api/admin/roster/${uvProfile.id}/invite`, {}),
+      await http(uvJar, "PATCH", "/api/admin/org", { customDomain: `uv-${RUN}.sectest.dev` }),
+      await http(uvJar, "POST", "/api/admin/org/spotify", { clientId: "a".repeat(32), clientSecret: "b".repeat(32) }),
+    ];
+    check("unconfirmed account can't invite, add a domain or connect Spotify", uvBlocked.every((r) => r.status === 403) && (await prisma.invite.count({ where: { organizationId: uvOrg.id } })) === 0, uvBlocked.map((r) => r.status).join("/"));
+    check("unconfirmed account can still edit ordinary settings", (await http(uvJar, "PATCH", "/api/admin/org", { name: `Unverified ${RUN} x` })).status === 200);
+    check("resend needs a login", (await http(null, "POST", "/api/auth/verify-email")).status === 401);
+    const resend = await http(uvJar, "POST", "/api/auth/verify-email");
+    check("resend answers for an unconfirmed account", [200, 502, 503].includes(resend.status), `${resend.status}`);
+    const gen = await prisma.user.findUnique({ where: { email: genericEmail } });
+    check("accepting an invite doesn't confirm the address", !!gen && !gen.emailVerifiedAt);
+
+    const vt = await createVerificationToken(uvOwner);
+    const click = await http(null, "GET", `/api/auth/verify-email?t=${vt}`);
+    check("verification link confirms the account", click.status === 303 && click.location.includes("/login?verified=1") && !!(await prisma.user.findUnique({ where: { id: uvOwner.id } }))?.emailVerifiedAt, `${click.status} ${click.location}`);
+    const vAgain = await http(null, "GET", `/api/auth/verify-email?t=${vt}`);
+    check("verification link is single-use", vAgain.location.includes("verify=invalid"), vAgain.location);
+    check("confirmed account can invite", (await http(uvJar, "POST", "/api/admin/artists", { email: `ok-${RUN}@sectest.dev` })).status === 200);
+
+    const uv2 = await prisma.user.create({ data: { email: `uv2-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "artist", organizationId: uvOrg.id } });
+    const vExpired = await createVerificationToken(uv2);
+    await prisma.emailVerificationToken.updateMany({ where: { userId: uv2.id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+    const expClick = await http(null, "GET", `/api/auth/verify-email?t=${vExpired}`);
+    const moved = await createVerificationToken(uv2);
+    await prisma.user.update({ where: { id: uv2.id }, data: { email: `uv2-moved-${RUN}@sectest.dev` } });
+    const movedClick = await http(null, "GET", `/api/auth/verify-email?t=${moved}`);
+    check("expired link and link for an old address are refused", expClick.location.includes("verify=invalid") && movedClick.location.includes("verify=invalid") && !(await prisma.user.findUnique({ where: { id: uv2.id } }))?.emailVerifiedAt, `${expClick.location} ${movedClick.location}`);
+    const uv2Jar = await login(`uv2-moved-${RUN}@sectest.dev`);
+    const own = await createVerificationToken({ id: uv2.id, email: `uv2-moved-${RUN}@sectest.dev` });
+    const ownClick = await http(uv2Jar, "GET", `/api/auth/verify-email?t=${own}`);
+    check("signed-in click lands back in the dashboard", ownClick.location.includes("/dashboard?verified=1"), ownClick.location);
+
+    const uv3 = await prisma.user.create({ data: { email: `uv3-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "artist", organizationId: uvOrg.id } });
+    const rt = randomBytes(24).toString("base64url");
+    await prisma.passwordResetToken.create({ data: { userId: uv3.id, tokenHash: createHash("sha256").update(rt).digest("hex"), expiresAt: new Date(Date.now() + 3600_000) } });
+    await http({ cookie: "" }, "POST", "/api/auth/reset", undefined, { token: rt, password: PW + "x", confirm: PW + "x" });
+    check("resetting the password by email confirms the address", !!(await prisma.user.findUnique({ where: { id: uv3.id } }))?.emailVerifiedAt);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

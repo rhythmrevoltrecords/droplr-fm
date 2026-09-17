@@ -13,7 +13,7 @@ import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
 export default async function AdminHome(
-  props: { searchParams: Promise<{ days?: string; welcome?: string; password?: string }> }
+  props: { searchParams: Promise<{ days?: string; welcome?: string; password?: string; verified?: string }> }
 ) {
   const searchParams = await props.searchParams;
   const user = await requireUser("label");
@@ -33,6 +33,7 @@ export default async function AdminHome(
   return (
     <div className="space-y-8">
       {searchParams.password === "reset" && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Password updated. You&apos;re signed in, and every other device has been signed out.</Card>}
+      {searchParams.verified && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Email confirmed. Thanks!</Card>}
       {searchParams.welcome && (
         <Card className="border-primary/40 bg-primary/10 p-4 text-sm">
           Welcome to droplr.fm. Paste a Spotify link to create your first release, then invite artists from <Link className="underline" href="/admin/artists">Roster</Link>.

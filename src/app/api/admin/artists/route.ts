@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { artistLimitMessage, artistLimitReached } from "@/lib/artists";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { UNVERIFIED_ERROR } from "@/lib/email-verification";
 import { createInvite } from "@/lib/invites";
 import { planOf } from "@/lib/plans";
 
@@ -9,6 +10,7 @@ import { planOf } from "@/lib/plans";
 export async function POST(req: NextRequest) {
   const user = await apiUser("label");
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  if (!user.emailVerifiedAt) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
   const body = (await req.json()) as { email?: string; artistName?: string; role?: string };
   const email = (body.email ?? "").trim().toLowerCase();
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Valid email required" }, { status: 400 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { domainProblem, newDomainToken, queueDetach } from "@/lib/domains";
+import { UNVERIFIED_ERROR } from "@/lib/email-verification";
 import { planOf } from "@/lib/plans";
 import { isValidTimeZone } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
@@ -36,6 +37,7 @@ export async function PATCH(req: NextRequest) {
   if (d.customDomain && !plan.customDomain) return NextResponse.json({ error: "Custom domains are on Pro and above" }, { status: 402 });
   const domain = d.customDomain?.toLowerCase().trim();
   if (domain) {
+    if (!user.emailVerifiedAt && domain !== user.organization.customDomain) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
     const problem = domainProblem(domain);
     if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     const clash = await prisma.organization.findUnique({ where: { customDomain: domain } });

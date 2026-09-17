@@ -78,7 +78,9 @@ model User {
   termsAcceptedAt DateTime? // when they ticked "I agree" at signup / invite
   termsVersion    String? // LEGAL.version accepted
   sessionsValidFrom DateTime? // sessions issued before this are rejected (password change/reset, "sign out everywhere")
+  emailVerifiedAt   DateTime? // clicked the emailed link (or reset their password by email); null = unconfirmed address
   passwordResetTokens PasswordResetToken[]
+  emailVerificationTokens EmailVerificationToken[]
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
@@ -353,4 +355,18 @@ model DomainDetach {
   attempts  Int      @default(0)
   lastError String?
   createdAt DateTime @default(now())
+}
+
+/// Emailed "confirm your address" links. Only the sha256 of the token is stored.
+model EmailVerificationToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  email     String // the address the link was sent to; must still be the account's email when clicked
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
 }

@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/admin/app-shell";
+import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
@@ -19,6 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin/settings/billing", label: "Billing" },
       ]}
     >
+      {!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}
       {children}
     </AppShell>
   );

@@ -13,7 +13,7 @@ import { publicReleaseUrl } from "@/lib/releases";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
-export default async function ArtistDashboard(props: { searchParams: Promise<{ days?: string; password?: string }> }) {
+export default async function ArtistDashboard(props: { searchParams: Promise<{ days?: string; password?: string; verified?: string }> }) {
   const searchParams = await props.searchParams;
   const user = await requireUser("artist");
   const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
@@ -31,6 +31,7 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
   return (
     <div className="space-y-8">
       {searchParams.password === "reset" && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Password updated. You&apos;re signed in, and every other device has been signed out.</Card>}
+      {searchParams.verified && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Email confirmed. Thanks!</Card>}
       <div>
         <h1 className="text-2xl font-semibold">Hey {user.artistName ?? user.email.split("@")[0]}</h1>
         <p className="text-sm text-muted-foreground">Your releases on {user.organization.name}. Copy a link for each placement so we can see what&apos;s working.</p>

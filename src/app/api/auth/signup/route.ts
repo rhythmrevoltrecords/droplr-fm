@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, passwordProblem } from "@/lib/auth";
+import { sendVerificationEmail } from "@/lib/email-verification";
 import { canSignUp } from "@/lib/launch";
 import { LEGAL } from "@/lib/legal";
 import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
     data: { name, slug, emailFromName: name, users: { create: { email, passwordHash: await hashPassword(password), role: "owner", termsAcceptedAt: new Date(), termsVersion: LEGAL.version } } },
     include: { users: true },
   });
+  await sendVerificationEmail(org.users[0]);
   await createSessionCookie(org.users[0]);
   return NextResponse.redirect(new URL(plan ? `/admin/settings/billing?plan=${plan}` : "/admin?welcome=1", req.url), 303);
 }

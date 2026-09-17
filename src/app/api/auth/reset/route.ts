@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   if (claimed.count !== 1) return NextResponse.redirect(new URL("/reset-password?error=invalid", req.url), 303);
 
   await prisma.$transaction([
-    prisma.user.update({ where: { id: record.userId }, data: { passwordHash: await hashPassword(password), sessionsValidFrom: cutoff } }),
+    prisma.user.update({ where: { id: record.userId }, data: { passwordHash: await hashPassword(password), sessionsValidFrom: cutoff, emailVerifiedAt: record.user.emailVerifiedAt ?? new Date() } }),
     prisma.passwordResetToken.deleteMany({ where: { userId: record.userId, id: { not: record.id } } }),
   ]);
 

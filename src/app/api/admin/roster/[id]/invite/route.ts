@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { labelArtistProfile } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
+import { UNVERIFIED_ERROR } from "@/lib/email-verification";
 import { createInvite } from "@/lib/invites";
 
 /** "Invite to log in" for a roster profile. No plan check: the profile already holds a seat. */
@@ -8,6 +9,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const { id } = await props.params;
   const g = await labelArtistProfile(id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
+  if (!g.user.emailVerifiedAt) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
   if (g.artist.userId) return NextResponse.json({ error: "This artist already has a login" }, { status: 409 });
   const body = (await req.json().catch(() => ({}))) as { email?: unknown };
   const email = (typeof body.email === "string" && body.email.trim() ? body.email : g.artist.email ?? "").trim().toLowerCase();
