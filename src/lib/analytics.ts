@@ -23,7 +23,11 @@ export async function releaseTotals(releaseIds: string[]) {
 export async function getStats(releaseIds: string[], days: StatsRange = 30, timeZone: string = DEFAULT_TZ) {
   const tz = isValidTimeZone(timeZone) ? timeZone : DEFAULT_TZ;
   const since = new Date(Date.now() - days * 86400_000);
-  const empty = { views: 0, clicks: 0, presaves: 0, emailClicks: 0, ctr: 0, conv: 0, byPlatform: [], byLink: [] as { key: string; platform: string; label: string | null; clicks: number }[], bySource: [], byCountry: [], byArtist: [], daily: [] as { date: string; views: number; clicks: number; presaves: number }[] };
+  const empty = {
+    views: 0, clicks: 0, presaves: 0, emailClicks: 0, ctr: 0, conv: 0, byPlatform: [], byLink: [] as { key: string; platform: string; label: string | null; clicks: number }[], bySource: [], byCountry: [], byArtist: [],
+    daily: [] as { date: string; views: number; clicks: number; presaves: number }[],
+    heat: { views: emptyGrid(), presaves: emptyGrid() }, byDevice: [] as { device: string; views: number }[], byListenOn: [] as { platform: string; presaves: number }[], insights: [] as Insight[],
+  };
   if (!releaseIds.length) return empty;
   const inIds = { releaseId: { in: releaseIds } };
   const w = { ...inIds, createdAt: { gte: since } };
@@ -100,7 +104,23 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30, time
   dc.forEach((r) => idx.get(r.d) && (idx.get(r.d)!.clicks = Number(r.n)));
   dp.forEach((r) => idx.get(r.d) && (idx.get(r.d)!.presaves = Number(r.n)));
 
+  // --- Insights: when fans are active (their own clock), devices, chosen stores, plain-English patterns ---
+  const [heatViews, heatPresaves, deviceRows, listenRows] = await Promise.all([
+    activityGrid("PageView", releaseIds, since, tz),
+    activityGrid("PreSave", releaseIds, since, tz),
+    prisma.pageView.groupBy({ by: ["deviceType"], where: w, _count: { _all: true } }),
+    prisma.preSave.groupBy({ by: ["listenOn"], where: { ...w, listenOn: { not: null } }, _count: { _all: true } }),
+  ]);
+  const byDevice = deviceRows.map((r) => ({ device: r.deviceType ?? "unknown", views: r._count._all })).sort((a, b) => b.views - a.views);
+  const byListenOn = listenRows.map((r) => ({ platform: r.listenOn!, presaves: r._count._all })).sort((a, b) => b.presaves - a.presaves);
+  const bySourceList = [...sourceMap.values()].sort((a, b) => b.views + b.clicks - (a.views + a.clicks));
+  const byCountryList = [...countryMap.values()].sort((a, b) => b.views - a.views);
+
   return {
+    heat: { views: heatViews, presaves: heatPresaves },
+    byDevice,
+    byListenOn,
+    insights: buildInsights({ views, clicks, presaves, heat: heatViews, byDevice, byListenOn, bySource: bySourceList, byCountry: byCountryList }),
     views,
     clicks,
     presaves,
@@ -109,14 +129,117 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30, time
     conv: views ? presaves / views : 0,
     byPlatform,
     byLink,
-    bySource: [...sourceMap.values()].sort((a, b) => b.views + b.clicks - (a.views + a.clicks)),
-    byCountry: [...countryMap.values()].sort((a, b) => b.views - a.views).slice(0, 25),
+    bySource: bySourceList,
+    byCountry: byCountryList.slice(0, 25),
     byArtist: [...artistMap.entries()].map(([artist, clicks]) => ({ artist, clicks })).sort((a, b) => b.clicks - a.clicks),
     daily,
   };
 }
 
 export type Stats = Awaited<ReturnType<typeof getStats>>;
+
+// --- Activity grid (day of week × hour, in each visitor's own timezone) ---------------------------------------------
+
+/** grid[dow 0=Sun][hour 0-23] */
+export type Grid = number[][];
+export type Insight = { title: string; body: string };
+const emptyGrid = (): Grid => Array.from({ length: 7 }, () => Array<number>(24).fill(0));
+
+async function activityGrid(table: "PageView" | "PreSave", releaseIds: string[], since: Date, labelTz: string): Promise<Grid> {
+  const grid = emptyGrid();
+  const ids = Prisma.join(releaseIds);
+  const t = Prisma.raw(`"${table}"`);
+  // Rows without a visitor timezone (older data, no geo) use the label's timezone.
+  const direct = () => prisma.$queryRaw<{ dow: number; h: number; n: bigint }[]>`
+    SELECT EXTRACT(DOW FROM l)::int AS dow, EXTRACT(HOUR FROM l)::int AS h, COUNT(*)::bigint AS n
+    FROM (SELECT ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE COALESCE("timezone", ${labelTz}) AS l FROM ${t} WHERE "releaseId" IN (${ids}) AND "createdAt" >= ${since}) s
+    GROUP BY 1, 2`;
+  // Fallback if Postgres doesn't know a stored zone name: only use names it has.
+  const safe = () => prisma.$queryRaw<{ dow: number; h: number; n: bigint }[]>`
+    WITH z AS (SELECT name FROM pg_timezone_names)
+    SELECT EXTRACT(DOW FROM l)::int AS dow, EXTRACT(HOUR FROM l)::int AS h, COUNT(*)::bigint AS n
+    FROM (SELECT (x."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE COALESCE(z.name, ${labelTz}) AS l FROM ${t} x LEFT JOIN z ON z.name = x."timezone" WHERE x."releaseId" IN (${ids}) AND x."createdAt" >= ${since}) s
+    GROUP BY 1, 2`;
+  const rows = await direct().catch(() => safe());
+  for (const r of rows) if (grid[r.dow] && r.h >= 0 && r.h < 24) grid[r.dow][r.h] = Number(r.n);
+  return grid;
+}
+
+export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`;
+const share = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
+
+export function countryName(code: string) {
+  if (!/^[A-Z]{2}$/.test(code)) return code;
+  try {
+    return new Intl.DisplayNames(["en"], { type: "region" }).of(code) ?? code;
+  } catch {
+    return code;
+  }
+}
+
+/** Plain-English patterns, only when there's enough data to mean something. */
+function buildInsights(d: {
+  views: number; clicks: number; presaves: number; heat: Grid;
+  byDevice: { device: string; views: number }[]; byListenOn: { platform: string; presaves: number }[];
+  bySource: { source: string; views: number; clicks: number; presaves: number }[]; byCountry: { country: string; views: number }[];
+}): Insight[] {
+  const out: Insight[] = [];
+  if (d.views < 30) return out;
+
+  // Busiest 3-hour window across the week (wraps past midnight into the next day).
+  const flat = d.heat.flat();
+  let best = { start: 0, total: -1 };
+  for (let i = 0; i < 168; i++) {
+    const total = flat[i] + flat[(i + 1) % 168] + flat[(i + 2) % 168];
+    if (total > best.total) best = { start: i, total };
+  }
+  // Only worth saying if that window clearly beats an even spread (3 of 168 hours ≈ 1.8%).
+  if (best.total > 0 && best.total / d.views >= (3 / 168) * 1.6) {
+    const day = Math.floor(best.start / 24);
+    const hour = best.start % 24;
+    out.push({
+      title: `Busiest: ${DAY_NAMES[day]} ${hourLabel(hour)}–${hourLabel((hour + 3) % 24)}`,
+      body: `${share(best.total, d.views)}% of page views land in this 3-hour window, in each fan's own timezone. Post and send stories just before it.`,
+    });
+  }
+
+  // Weekend vs weekday, per day.
+  const dayTotals = d.heat.map((row) => row.reduce((a, b) => a + b, 0));
+  const weekend = (dayTotals[0] + dayTotals[6]) / 2;
+  const weekday = (dayTotals[1] + dayTotals[2] + dayTotals[3] + dayTotals[4] + dayTotals[5]) / 5;
+  if (weekday > 0 && weekend > 0) {
+    const ratio = weekend / weekday;
+    if (ratio >= 1.25) out.push({ title: `Weekends are ${Math.round((ratio - 1) * 100)}% busier`, body: "An average Saturday or Sunday gets more views than an average weekday. Save your biggest posts for the weekend." });
+    else if (ratio <= 0.8) out.push({ title: `Weekdays are ${Math.round((1 / ratio - 1) * 100)}% busier`, body: "Fans check links more on weekdays than weekends. Lead with a weekday post; keep weekends for reminders." });
+  }
+
+  const mobile = d.byDevice.find((x) => x.device === "mobile")?.views ?? 0;
+  const mobileShare = share(mobile, d.views);
+  if (mobileShare >= 70) out.push({ title: `${mobileShare}% of fans are on their phone`, body: "Design posts and stories for vertical screens, and keep the link in your bio and story stickers." });
+  else if (mobileShare > 0 && mobileShare <= 40) out.push({ title: `Only ${mobileShare}% on mobile`, body: "Most visits come from desktop: blogs, newsletters, DJ forums or Discord are likely driving traffic more than Instagram." });
+
+  // Source that converts best (clicks + pre-saves per view) vs the average.
+  const overall = (d.clicks + d.presaves) / d.views;
+  const strong = d.bySource.filter((s) => s.views >= 20).map((s) => ({ ...s, rate: (s.clicks + s.presaves) / s.views })).sort((a, b) => b.rate - a.rate)[0];
+  if (strong && overall > 0 && strong.rate >= overall * 1.5) {
+    const src = strong.source === "x" ? "X" : strong.source.charAt(0).toUpperCase() + strong.source.slice(1);
+    out.push({ title: `${src} visitors act ${(strong.rate / overall).toFixed(1)}× more`, body: `People arriving from ${src} click or pre-save far more than average. Put more of your promo there.` });
+  }
+
+  const picked = d.byListenOn.reduce((a, b) => a + b.presaves, 0);
+  if (picked >= 10 && d.byListenOn[0]) {
+    const top = d.byListenOn[0];
+    const name = top.platform === "appleMusic" ? "Apple Music" : top.platform === "youtubeMusic" ? "YouTube Music" : top.platform === "amazonMusic" ? "Amazon Music" : top.platform.charAt(0).toUpperCase() + top.platform.slice(1);
+    out.push({ title: `${share(top.presaves, picked)}% of pre-savers listen on ${name}`, body: `When fans choose a store, ${name} leads. Make sure that link is on the page before release day.` });
+  }
+
+  const topCountry = d.byCountry.find((c) => c.country !== "Unknown");
+  if (topCountry && share(topCountry.views, d.views) >= 40) {
+    out.push({ title: `${share(topCountry.views, d.views)}% of views are from ${countryName(topCountry.country)}`, body: "Your audience is concentrated there. Time posts to that country's evening and consider local playlists, blogs and gigs." });
+  }
+  return out.slice(0, 5);
+}
 
 export function toCsv(rows: Record<string, unknown>[]) {
   if (!rows.length) return "";

@@ -74,6 +74,7 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
           utm_campaign: capText(q.get("utm_campaign") ?? variant?.utm_campaign),
           referrer: meta.referrer?.slice(0, 500),
           country: meta.country,
+          timezone: meta.timezone,
           deviceType: meta.deviceType,
           ipHash: meta.ipHash,
           anonId,

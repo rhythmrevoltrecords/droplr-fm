@@ -33,5 +33,9 @@ const nextConfig = {
     ];
   },
   serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "@netlify/blobs"],
+  // Share graphics read the Geist font files at runtime: make sure they ship with that route.
+  outputFileTracingIncludes: {
+    "/api/admin/releases/[id]/share": ["./node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf", "./node_modules/geist/dist/fonts/geist-sans/Geist-Medium.ttf"],
+  },
 };
 export default nextConfig;

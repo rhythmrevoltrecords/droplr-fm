@@ -226,6 +226,7 @@ model PageView {
   utm_campaign String?
   referrer     String?
   country      String?
+  timezone     String? // visitor's IANA zone (Netlify geo): activity charts in fan-local time
   deviceType   String?
   anonId       String?
   ipHash       String?
@@ -246,6 +247,7 @@ model ClickEvent {
   utm_campaign       String?
   referrer           String?
   country            String?
+  timezone           String? // visitor's IANA zone (Netlify geo)
   deviceType         String?
   ipHash             String?
   anonId             String?

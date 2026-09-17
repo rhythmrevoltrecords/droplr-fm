@@ -16,6 +16,7 @@
  *      Netlify alias add/remove against a mock API (start the server with NETLIFY_API_URL=http://127.0.0.1:4777
  *      NETLIFY_API_TOKEN=test NETLIFY_SITE_ID=test-site to include those).
  *   9. Spotify pre-save button: hidden from the public unless switched on or opened via ?spotify=1; owner-only toggle.
+ *  12. Insights + share graphics: analytics page renders, share images scoped to the label, milestones must be real.
  *  11. Local release time: fan timezone + store pick saved on pre-save, per-fan "out" check, Spotify follow link.
  *  10. Email verification: unconfirmed accounts can't invite / connect domains or Spotify; links are single-use,
  *      expire and die if the address changes; invites don't count as proof; a password reset by email does.
@@ -614,6 +615,20 @@ async function main() {
     const hourSet = await http(ownerA, "PATCH", "/api/admin/org", { releaseEmailHour: 25 });
     const hourOk = await http(ownerA, "PATCH", "/api/admin/org", { releaseEmailHour: null });
     check("rollout and email hour are validated", releaseSet.status === 400 && hourSet.status === 400 && hourOk.status === 200, `${releaseSet.status}/${hourSet.status}/${hourOk.status}`);
+
+    console.log("\n12. Insights and share graphics");
+    await prisma.release.update({ where: { id: B.release.id }, data: { releaseDate: new Date(Date.now() + 5 * 86400_000) } });
+    const shareOwnerB = await login(B.owner.email);
+    const insightsPage = await http(shareOwnerB, "GET", `/admin/releases/${B.release.id}?tab=analytics`);
+    check("analytics tab renders with activity chart", insightsPage.status === 200 && insightsPage.text.includes("When fans are active"), `${insightsPage.status}`);
+    const shareOk = await fetch(`${BASE}/api/admin/releases/${B.release.id}/share?kind=countdown&format=story`, { headers: { cookie: shareOwnerB.cookie } });
+    check("owner gets a countdown story PNG", shareOk.status === 200 && (shareOk.headers.get("content-type") ?? "").includes("image/png"), `${shareOk.status}`);
+    const shareCross = await http(ownerA, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=post`);
+    const shareArtist = await http(artistA, "GET", `/api/admin/releases/${A.release.id}/share?kind=out&format=post`);
+    check("share images: other label 404, artist 401", shareCross.status === 404 && shareArtist.status === 401, `${shareCross.status}/${shareArtist.status}`);
+    const fakeMilestone = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=milestone&n=10000&format=post`);
+    const badFormat = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=billboard`);
+    check("can't make a milestone that wasn't reached, or an unknown format", fakeMilestone.status === 400 && badFormat.status === 400, `${fakeMilestone.status}/${badFormat.status}`);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

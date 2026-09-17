@@ -4,6 +4,8 @@ import { ExternalLink } from "lucide-react";
 import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
 import { StoreFinder } from "@/components/admin/store-finder";
+import { ShareGraphics } from "@/components/admin/share-graphics";
+import { MILESTONES } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
@@ -24,6 +26,7 @@ const TABS = [
   { key: "variants", label: "Variants & QR" },
   { key: "analytics", label: "Analytics" },
   { key: "presaves", label: "Pre-saves" },
+  { key: "share", label: "Share" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -141,6 +144,11 @@ export default async function ReleaseDetail(
           </CardContent>
         </Card>
       )}
+
+      {tab === "share" && (async () => {
+        const count = await prisma.preSave.count({ where: { releaseId: release.id } });
+        return <ShareGraphics releaseId={release.id} live={live} presaves={count} milestones={MILESTONES.filter((m) => m <= count).slice(-3).reverse()} />;
+      })()}
 
       {tab === "settings" && (
         <Card>

@@ -58,6 +58,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
           utm_campaign: (query.utm_campaign ?? variant?.utm_campaign)?.slice(0, 200),
           referrer: meta.referrer?.slice(0, 500),
           country: meta.country,
+          timezone: meta.timezone,
           deviceType: meta.deviceType,
           ipHash: meta.ipHash,
           anonId: h.get("x-anon-id"),

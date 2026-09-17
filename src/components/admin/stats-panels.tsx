@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
-import type { Stats } from "@/lib/analytics";
+import { countryName, type Stats } from "@/lib/analytics";
 import { fmtNum, pct } from "@/lib/utils";
 import { DailyChart, PlatformBars } from "./charts";
+import { ActivityHeatmap, DeviceShare, InsightList, RankBars, StoreChoiceBars } from "./insights";
 
 export function StatCards({ stats }: { stats: Stats }) {
   const items = [
@@ -43,8 +44,16 @@ export function AnalyticsPanels({ stats, showArtists = false, perLink = false }:
     <div className="space-y-4">
       <StatCards stats={stats} />
       <Card>
+        <CardHeader><CardTitle>What we&apos;re seeing</CardTitle><CardDescription>Patterns in how fans find and use your links</CardDescription></CardHeader>
+        <CardContent><InsightList items={stats.insights} enough={stats.views >= 30} /></CardContent>
+      </Card>
+      <Card>
         <CardHeader><CardTitle>Traffic</CardTitle></CardHeader>
         <CardContent><DailyChart data={stats.daily} /></CardContent>
+      </Card>
+      <Card>
+        <CardHeader><CardTitle>When fans are active</CardTitle><CardDescription>Day and hour in each fan&apos;s own timezone. Post just before your busiest hours.</CardDescription></CardHeader>
+        <CardContent><ActivityHeatmap views={stats.heat.views} presaves={stats.heat.presaves} /></CardContent>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
         <Card>
@@ -66,18 +75,16 @@ export function AnalyticsPanels({ stats, showArtists = false, perLink = false }:
           </CardContent>
         </Card>
         <Card>
-          <CardHeader><CardTitle>Countries</CardTitle></CardHeader>
-          <CardContent className="px-2">
-            <Table>
-              <THead><TR><TH>Country</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH></TR></THead>
-              <TBody>
-                {stats.byCountry.map((c) => (
-                  <TR key={c.country}><TD>{c.country}</TD><TD className="text-right tabular-nums">{fmtNum(c.views)}</TD><TD className="text-right tabular-nums">{fmtNum(c.clicks)}</TD></TR>
-                ))}
-                {!stats.byCountry.length && <TR><TD colSpan={3} className="py-8 text-center text-muted-foreground">No data</TD></TR>}
-              </TBody>
-            </Table>
-          </CardContent>
+          <CardHeader><CardTitle>Countries</CardTitle><CardDescription>Page views</CardDescription></CardHeader>
+          <CardContent><RankBars rows={stats.byCountry.map((c) => ({ label: c.country === "Unknown" ? "Unknown" : countryName(c.country), value: c.views }))} empty="No views yet." /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Devices</CardTitle><CardDescription>Share of page views</CardDescription></CardHeader>
+          <CardContent><DeviceShare rows={stats.byDevice} /></CardContent>
+        </Card>
+        <Card>
+          <CardHeader><CardTitle>Where pre-savers listen</CardTitle><CardDescription>The store fans picked on the email pre-save</CardDescription></CardHeader>
+          <CardContent><StoreChoiceBars rows={stats.byListenOn} /></CardContent>
         </Card>
         {showArtists && (
           <Card>

@@ -49,14 +49,14 @@ async function publicHttpsUrl(raw: string): Promise<URL | null> {
   return url;
 }
 
-/** Extract a dark-friendly accent colour from cover art. Falls back to a neutral violet. */
-export async function extractAccentColor(imageUrl: string): Promise<string> {
+/** Download an image from a public https URL (no redirects, size-capped). null if not allowed or not an image. */
+export async function fetchPublicImage(imageUrl: string): Promise<Buffer | null> {
   try {
     const url = await publicHttpsUrl(imageUrl);
-    if (!url) return FALLBACK;
+    if (!url) return null;
     // No redirects: a public host could otherwise bounce us to an internal address after the check.
     const res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(5000) });
-    if (!res.ok || !res.body || !(res.headers.get("content-type") ?? "").startsWith("image/")) return FALLBACK;
+    if (!res.ok || !res.body || !(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
     const chunks: Uint8Array[] = [];
     let size = 0;
     const reader = res.body.getReader();
@@ -66,11 +66,22 @@ export async function extractAccentColor(imageUrl: string): Promise<string> {
       size += value.byteLength;
       if (size > MAX_IMAGE_BYTES) {
         await reader.cancel().catch(() => {});
-        return FALLBACK;
+        return null;
       }
       chunks.push(value);
     }
-    return await accentFromBuffer(Buffer.concat(chunks));
+    return Buffer.concat(chunks);
+  } catch {
+    return null;
+  }
+}
+
+/** Extract a dark-friendly accent colour from cover art. Falls back to a neutral violet. */
+export async function extractAccentColor(imageUrl: string): Promise<string> {
+  const buf = await fetchPublicImage(imageUrl);
+  if (!buf) return FALLBACK;
+  try {
+    return await accentFromBuffer(buf);
   } catch {
     return FALLBACK;
   }
