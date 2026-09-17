@@ -25,7 +25,7 @@ export function stripeId(v: string | { id: string } | null | undefined): string 
 }
 
 /** Tiers a label can buy self-serve. Enterprise is sales-led (no Stripe price). */
-export const PAID_TIERS = ["pro", "label"] as const;
+export const PAID_TIERS = ["artist", "pro", "label"] as const;
 export type PaidTier = (typeof PAID_TIERS)[number];
 export const isPaidTier = (t: unknown): t is PaidTier => typeof t === "string" && (PAID_TIERS as readonly string[]).includes(t);
 
@@ -35,7 +35,7 @@ export const isInterval = (i: unknown): i is BillingInterval => i === "monthly" 
 
 /**
  * Netlify env names: STRIPE_PRO_MONTHLY_PRICE_ID, STRIPE_PRO_YEARLY_PRICE_ID,
- * STRIPE_LABEL_MONTHLY_PRICE_ID, STRIPE_LABEL_YEARLY_PRICE_ID.
+ * STRIPE_LABEL_MONTHLY_PRICE_ID, STRIPE_LABEL_YEARLY_PRICE_ID, STRIPE_ARTIST_MONTHLY_PRICE_ID, STRIPE_ARTIST_YEARLY_PRICE_ID.
  * STRIPE_<TIER>_PRICE_ID is accepted as a monthly fallback.
  */
 export function priceIdFor(tier: PaidTier, interval: BillingInterval): string | null {

@@ -29,7 +29,8 @@ model Organization {
   metaPixelId   String?
   tiktokPixelId String?
   ga4Id         String?
-  plan          String   @default("free") // free | pro | label | enterprise
+  kind          String   @default("label") // label (runs a roster) | artist (independent artist, own releases)
+  plan          String   @default("free") // free | artist | pro | label | enterprise
   stripeCustomerId String? @unique
   stripeSubscriptionId String? @unique
   stripePriceId String?
@@ -140,6 +141,7 @@ model Release {
 
   links        ReleaseLink[]
   linkVariants  LinkVariant[]
+  promoDone     PromoTaskDone[]
   clickEvents   ClickEvent[]
   pageViews     PageView[]
   preSaves      PreSave[]
@@ -279,6 +281,8 @@ model PreSave {
   country               String?
   timezone              String? // fan's IANA zone (browser, else Netlify geo); null → label's timezone
   listenOn              String? // platform the fan said they listen on (leads their release-day email)
+  newsConsent           Boolean   @default(false) // optional: also wants news and future releases from this artist/label
+  newsConsentAt         DateTime?
   attempts              Int       @default(0)
   lastError             String?
   emailSentAt           DateTime?
@@ -380,4 +384,15 @@ model EmailVerificationToken {
   createdAt DateTime  @default(now())
 
   @@index([userId])
+}
+
+/// A ticked step in a release's promo plan (the plan itself is generated from the release date).
+model PromoTaskDone {
+  id        String   @id @default(cuid())
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  key       String
+  doneAt    DateTime @default(now())
+
+  @@unique([releaseId, key])
 }

@@ -8,7 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { applySubscription, clearStaleStripeIds, formatMoney, getPriceTable, getSubscriptionSummary } from "@/lib/billing";
 import { prisma } from "@/lib/db";
 import { CONTACT } from "@/lib/legal";
-import { PLAN_LIMITS, planOf, type PlanKey } from "@/lib/plans";
+import { accountKind, PLAN_LIMITS, planOf, PLANS_FOR, type PlanKey } from "@/lib/plans";
 import { getStripe, priceIdFor, stripeConfigured, stripeId, stripeTestMode } from "@/lib/stripe";
 import { formatInTz, zonedDay, zonedLocalToDate } from "@/lib/time";
 import { cn, fmtNum } from "@/lib/utils";
@@ -17,13 +17,15 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Billing" };
 
 const FEATURES: Record<PlanKey, string[]> = {
-  free: ["3 releases", "1k clicks / month", "1 artist", "yourlabel.droplr.fm subdomain", "Email pre-save + release-day email"],
+  free: ["3 releases", "1k clicks / month", "1 artist", "yourname.droplr.fm subdomain", "Email pre-save + release-day email"],
+  artist: ["Unlimited releases", "25k clicks / month", "Fan list with news opt-ins + CSV export", "Custom domain", "Meta, TikTok & GA4 pixels", "Promo plans + share graphics", "QR codes", "Remove droplr.fm branding"],
   pro: ["Unlimited releases", "50k clicks / month", "5 artists", "Custom domain", "Meta, TikTok & GA4 pixels", "BYO Spotify app", "CSV export + QR codes", "Remove droplr.fm branding"],
   label: ["Everything in Pro", "250k clicks / month", "Unlimited artists", "Team roles (admins)", "Label analytics across the roster"],
   enterprise: ["Everything in Label", "Uncapped clicks", "Priority support and onboarding", "SSO (coming soon)"],
 };
 const BLURB: Record<PlanKey, string> = {
   free: "Try it on a few releases.",
+  artist: "For an independent artist releasing regularly.",
   pro: "For a label putting out music every month.",
   label: "For a roster with a team behind it.",
   enterprise: "Distributors and big catalogues.",
@@ -87,23 +89,25 @@ export default async function BillingPage(
     getSubscriptionSummary(org.stripeSubscriptionId),
   ]);
 
-  const show = (t: "pro" | "label", i: "monthly" | "yearly") => {
+  const show = (t: "artist" | "pro" | "label", i: "monthly" | "yearly") => {
     const p = prices[t][i];
     if (!priceIdFor(t, i)) return null;
     // Price exists but Stripe didn't answer: still purchasable, amount shows on the checkout page.
     return (p && formatMoney(p.amount, p.currency)) ?? (i === "monthly" && PLAN_LIMITS[t].price !== null ? `$${PLAN_LIMITS[t].price} AUD` : "Price shown at checkout");
   };
-  const plans: PlanCard[] = (["free", "pro", "label", "enterprise"] as const).map((t) => ({
+  const kind = accountKind(org.kind);
+  const plans: PlanCard[] = PLANS_FOR[kind].map((t) => ({
     tier: t,
     name: PLAN_LIMITS[t].name,
     blurb: BLURB[t],
     features: FEATURES[t],
-    price: t === "pro" || t === "label" ? { monthly: show(t, "monthly"), yearly: show(t, "yearly") } : { monthly: null, yearly: null },
+    price: t === "artist" || t === "pro" || t === "label" ? { monthly: show(t, "monthly"), yearly: show(t, "yearly") } : { monthly: null, yearly: null },
   }));
 
   const subscribed = !!org.stripeSubscriptionId;
-  const billingReady = stripeConfigured() && !!(priceIdFor("pro", "monthly") || priceIdFor("pro", "yearly"));
-  const highlight = searchParams.plan === "pro" || searchParams.plan === "label" ? searchParams.plan : null;
+  const firstPaid = kind === "artist" ? "artist" : "pro";
+  const billingReady = stripeConfigured() && !!(priceIdFor(firstPaid, "monthly") || priceIdFor(firstPaid, "yearly"));
+  const highlight = searchParams.plan && (PLANS_FOR[kind] as string[]).includes(searchParams.plan) ? searchParams.plan : null;
   const pending = searchParams.upgraded && tier === "free";
 
   return (
@@ -177,7 +181,7 @@ export default async function BillingPage(
           <CardContent className="space-y-4">
             <Meter label="Releases" used={releaseCount} limit={plan.releases} />
             <Meter label="Link clicks this month" used={clicks} limit={plan.clicksPerMonth} />
-            <Meter label="Artists" used={artistCount} limit={plan.artists} />
+            {kind === "label" && <Meter label="Artists" used={artistCount} limit={plan.artists} />}
           </CardContent>
         </Card>
       </div>

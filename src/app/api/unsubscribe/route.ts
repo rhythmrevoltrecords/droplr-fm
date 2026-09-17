@@ -13,7 +13,7 @@ async function unsubscribe(t: string | null) {
   // Unsubscribe this address from every release of this label
   await prisma.preSave.updateMany({
     where: { email: ps.email, release: { organizationId: ps.release.organizationId } },
-    data: { emailConsent: false },
+    data: { emailConsent: false, newsConsent: false },
   });
   await prisma.preSave.updateMany({
     where: { email: ps.email, platform: "email", release: { organizationId: ps.release.organizationId } },
@@ -25,7 +25,7 @@ async function unsubscribe(t: string | null) {
 export async function GET(req: NextRequest) {
   const org = await unsubscribe(req.nextUrl.searchParams.get("t"));
   const body = org
-    ? `<h1>You're unsubscribed</h1><p>You won't get release emails from ${org.replace(/[<>&]/g, "")} anymore.</p>`
+    ? `<h1>You're unsubscribed</h1><p>You won't get release emails or news from ${org.replace(/[<>&]/g, "")} anymore.</p>`
     : `<h1>Link expired</h1><p>This unsubscribe link is invalid or expired.</p>`;
   return new NextResponse(
     `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribe</title><body style="background:#09090b;color:#fafafa;font:16px system-ui;display:grid;place-items:center;min-height:100vh;margin:0;text-align:center;padding:24px"><div>${body}</div></body>`,

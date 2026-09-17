@@ -19,15 +19,16 @@ export default async function SettingsPage() {
 
       {/* Section tabs: horizontal from md up, stacked on phones */}
       <nav aria-label="Settings sections" className="flex flex-col gap-1 rounded-xl border p-1 text-sm md:flex-row md:overflow-x-auto">
-        {[["#identity", "Label identity"], ["#appearance", "Appearance"], ["#pixels", "Pixels"], ["#email", "Release-day email"], ["#domain", "Custom domain"], ["/admin/settings/billing", "Plan & billing"], ["/admin/settings/account", "Account & password"]].map(([id, label]) => (
+        {[["#identity", org.kind === "artist" ? "Artist identity" : "Label identity"], ["#appearance", "Appearance"], ["#pixels", "Pixels"], ["#email", "Release-day email"], ["#domain", "Custom domain"], ["/admin/settings/billing", "Plan & billing"], ["/admin/settings/account", "Account & password"]].map(([id, label]) => (
           <a key={id} href={id} className="rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground md:py-1.5">{label}</a>
         ))}
       </nav>
 
       <Card id="identity" className="scroll-mt-24">
-        <CardHeader><CardTitle>Label identity</CardTitle><CardDescription>Plan: {plan.name} (<Link className="underline" href="/admin/settings/billing">{plan.name === "Free" ? "upgrade" : "manage billing"}</Link>). Free subdomain: {org.slug}.droplr.fm</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{org.kind === "artist" ? "Artist identity" : "Label identity"}</CardTitle><CardDescription>Plan: {plan.name} (<Link className="underline" href="/admin/settings/billing">{plan.name === "Free" ? "upgrade" : "manage billing"}</Link>). Free subdomain: {org.slug}.droplr.fm</CardDescription></CardHeader>
         <CardContent>
           <IdentityForm
+            kind={org.kind === "artist" ? "artist" : "label"}
             siteHost={SITE_HOST}
             initial={{ name: org.name, slug: org.slug, timezone: org.timezone, locationLabel: org.locationLabel, accentColor: org.accentColor, logoUrl: org.logoUrl }}
           />
@@ -43,7 +44,7 @@ export default async function SettingsPage() {
 
       <Card id="pixels" className="scroll-mt-24">
         <CardHeader>
-          <CardTitle>Pixels (label-level)</CardTitle>
+          <CardTitle>Pixels (whole account)</CardTitle>
           <CardDescription>Set once. They fire on every release page in your catalogue: PageView on load, plus a click event on every platform button.</CardDescription>
         </CardHeader>
         <CardContent>
@@ -59,7 +60,7 @@ export default async function SettingsPage() {
         <CardHeader>
           <CardTitle>Release-day email</CardTitle>
           <CardDescription>
-            Sent from {process.env.RESEND_FROM_EMAIL || "RESEND_FROM_EMAIL"} with your label as the sender name. Replies go to your reply-to address.
+            Sent from {process.env.RESEND_FROM_EMAIL || "RESEND_FROM_EMAIL"} with {org.kind === "artist" ? "your artist name" : "your label"} as the sender name. Replies go to your reply-to address.
             {!emailConfigured() && " ⚠ RESEND_API_KEY isn't set on this deployment, so emails won't send."}
           </CardDescription>
         </CardHeader>

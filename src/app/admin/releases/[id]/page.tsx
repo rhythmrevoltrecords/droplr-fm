@@ -5,6 +5,10 @@ import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
 import { StoreFinder } from "@/components/admin/store-finder";
 import { ShareGraphics } from "@/components/admin/share-graphics";
+import { PromoPlan } from "@/components/admin/promo-plan";
+import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
+import { busiestHour } from "@/lib/analytics";
+import { zonedDay } from "@/lib/time";
 import { MILESTONES } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
@@ -23,6 +27,7 @@ import { dateToZonedLocal, formatInTz, isReleased } from "@/lib/time";
 
 const TABS = [
   { key: "links", label: "Links" },
+  { key: "promo", label: "Promo plan" },
   { key: "variants", label: "Variants & QR" },
   { key: "analytics", label: "Analytics" },
   { key: "presaves", label: "Pre-saves" },
@@ -144,6 +149,27 @@ export default async function ReleaseDetail(
           </CardContent>
         </Card>
       )}
+
+      {tab === "promo" && (async () => {
+        const tz = release.organization.timezone;
+        const [doneRows, orgReleases] = await Promise.all([
+          prisma.promoTaskDone.findMany({ where: { releaseId: release.id }, select: { key: true } }),
+          prisma.release.findMany({ where: { organizationId: user.organizationId }, select: { id: true } }),
+        ]);
+        const best = await busiestHour(orgReleases.map((r) => r.id), tz);
+        const doneKeys = new Set(doneRows.map((d) => d.key));
+        const today = zonedDay(new Date(), tz);
+        const items = promoSteps(release.organization.kind === "artist" ? "artist" : "label").map((s) => {
+          const d = stepDate(release.releaseDate, tz, s.day);
+          const day = zonedDay(d, tz);
+          return {
+            key: s.key, day: s.day, title: s.title, body: s.body,
+            href: s.href ?? (s.tab ? `/admin/releases/${release.id}?tab=${s.tab}` : null), external: !!s.href?.startsWith("http"),
+            date: formatInTz(d, tz, { weekday: "short", day: "numeric", month: "short" }), overdue: day < today, today: day === today, done: doneKeys.has(s.key),
+          };
+        });
+        return <PromoPlan releaseId={release.id} items={items} automatic={AUTOMATIC} bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null} />;
+      })()}
 
       {tab === "share" && (async () => {
         const count = await prisma.preSave.count({ where: { releaseId: release.id } });

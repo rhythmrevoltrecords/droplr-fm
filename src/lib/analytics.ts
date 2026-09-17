@@ -166,6 +166,24 @@ async function activityGrid(table: "PageView" | "PreSave", releaseIds: string[],
 }
 
 export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** The hour fans are most active across an account's releases (last 90 days, fan-local time), if there's enough data. */
+export async function busiestHour(releaseIds: string[], labelTz: string) {
+  if (!releaseIds.length) return null;
+  const grid = await activityGrid("PageView", releaseIds, new Date(Date.now() - 90 * 86_400_000), isValidTimeZone(labelTz) ? labelTz : DEFAULT_TZ);
+  const total = grid.flat().reduce((a, b) => a + b, 0);
+  if (total < 50) return null;
+  // Hour of day summed over the week, smoothed with its neighbours.
+  const hours = Array.from({ length: 24 }, (_, h) => grid.reduce((a, row) => a + row[h], 0));
+  let best = 0;
+  let bestScore = -1;
+  for (let h = 0; h < 24; h++) {
+    const score = hours[(h + 23) % 24] + hours[h] * 2 + hours[(h + 1) % 24];
+    if (score > bestScore) [best, bestScore] = [h, score];
+  }
+  const days = grid.map((row, d) => ({ d, n: row.reduce((a, b) => a + b, 0) })).sort((a, b) => b.n - a.n);
+  return { hour: best, label: hourLabel(best), topDay: DAY_NAMES[days[0].d] };
+}
 export const hourLabel = (h: number) => `${h % 12 === 0 ? 12 : h % 12}${h < 12 ? "am" : "pm"}`;
 const share = (n: number, d: number) => (d ? Math.round((n / d) * 100) : 0);
 

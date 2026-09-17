@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-16c",
-  updated: "16 September 2026",
+  version: "2026-09-17",
+  updated: "17 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -38,10 +38,10 @@ export const CONTACT = {
 /**
  * Version of the fan consent line on the email pre-save form (src/components/public/release-view.tsx:
  * "Email me on release day. {label} can send me updates about this release. Unsubscribe anytime. Privacy").
- * v2 added the Privacy link.
+ * v2 added the Privacy link. v3 added the separate, optional "news and new music" box (PreSave.newsConsent).
  * Change this whenever that wording changes; it's stored on PreSave.consentVersion as proof of consent.
  */
-export const FAN_EMAIL_CONSENT_VERSION = "2026-09-16.release-day-v2";
+export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optional";
 
 export const LEGAL_DOCS = [
   { slug: "terms", title: "Terms of Service", short: "Terms", blurb: "The agreement between your label and droplr.fm." },

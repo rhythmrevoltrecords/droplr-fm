@@ -8,19 +8,19 @@ import { CONTACT } from "@/lib/legal";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Start free" };
 
-type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string };
+type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string };
 
 /** Pre-launch: waitlist, with a small "have an invite?" route to the real form (the API still enforces the allowlist). */
 function InviteOnly({ searchParams }: { searchParams: SP }) {
   if (searchParams.waitlisted) {
     return (
-      <AuthShell title="You're on the list" subtitle="We'll email you when droplr.fm opens to more labels.">
+      <AuthShell title="You're on the list" subtitle="We'll email you when droplr.fm opens to more artists and labels.">
         <Button asChild variant="outline" className="w-full"><Link href="/">Back to droplr.fm</Link></Button>
       </AuthShell>
     );
   }
   return (
-    <AuthShell title="droplr.fm is invite-only for now" subtitle="We're onboarding a small group of labels first. Leave your email and we'll let you know when signups open.">
+    <AuthShell title="droplr.fm is invite-only for now" subtitle="We're onboarding a small group of artists and labels first. Leave your email and we'll let you know when signups open.">
       <form method="post" action="/api/waitlist/launch" className="space-y-4">
         {/* honeypot */}
         <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden className="hidden" />
@@ -40,11 +40,25 @@ function InviteOnly({ searchParams }: { searchParams: SP }) {
 export default async function SignupPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
   if (!signupsOpen() && !searchParams.invite) return <InviteOnly searchParams={searchParams} />;
-  const plan = searchParams.plan === "pro" || searchParams.plan === "label" ? searchParams.plan : null;
+  const kind = searchParams.type === "artist" || searchParams.plan === "artist" ? "artist" : "label";
+  const planNames: Record<string, string> = { artist: "Artist", pro: "Pro", label: "Label" };
+  const plan = searchParams.plan && planNames[searchParams.plan] && (kind === "artist" ? searchParams.plan === "artist" : searchParams.plan !== "artist") ? searchParams.plan : null;
+  const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}`;
   return (
-    <AuthShell title={plan ? `Create your account` : "Start free"} subtitle={plan ? `Create your label account, then choose ${plan === "pro" ? "Pro" : "Label"} billing on the next screen.` : "3 releases, email pre-saves and release-day emails. No card."}>
+    <AuthShell
+      title={plan ? "Create your account" : "Start free"}
+      subtitle={plan ? `Create your ${kind} account, then choose ${planNames[plan]} billing on the next screen.` : kind === "artist" ? "Pre-saves, a fan list and promo tools for your own releases. 3 releases free, no card." : "Smart links, pre-saves and a roster for your label. 3 releases free, no card."}
+    >
+      <div role="radiogroup" aria-label="Account type" className="mb-5 grid grid-cols-2 rounded-xl border p-1 text-sm">
+        {(["artist", "label"] as const).map((k) => (
+          <Link key={k} role="radio" aria-checked={kind === k} href={keep(k)} className={`rounded-lg px-3 py-2 text-center font-medium transition ${kind === k ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
+            {k === "artist" ? "I'm an artist" : "I run a label"}
+          </Link>
+        ))}
+      </div>
       <form method="post" action="/api/auth/signup" className="space-y-4">
-        <div className="space-y-2"><Label htmlFor="orgName">Label name</Label><Input id="orgName" name="orgName" required placeholder="Rhythm Revolt Records" /></div>
+        <input type="hidden" name="kind" value={kind} />
+        <div className="space-y-2"><Label htmlFor="orgName">{kind === "artist" ? "Artist name" : "Label name"}</Label><Input id="orgName" name="orgName" required placeholder={kind === "artist" ? "Ototo" : "Rhythm Revolt Records"} /></div>
         <div className="space-y-2"><Label htmlFor="email">Your email</Label><Input id="email" name="email" type="email" required autoComplete="email" /></div>
         <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password" name="password" type="password" minLength={10} required autoComplete="new-password" /></div>
         {plan && <input type="hidden" name="plan" value={plan} />}
@@ -53,7 +67,7 @@ export default async function SignupPage(props: { searchParams: Promise<SP> }) {
           <span>I agree to the <Link className="text-foreground underline" href="/legal/terms" target="_blank">Terms of Service</Link> and <Link className="text-foreground underline" href="/legal/privacy" target="_blank">Privacy Policy</Link>, including the <Link className="text-foreground underline" href="/legal/data-processing" target="_blank">Data Processing Terms</Link> for fan data.</span>
         </label>
         {searchParams.error && <p className="text-sm text-red-400">{searchParams.error}</p>}
-        <Button className="w-full" type="submit">Create label account</Button>
+        <Button className="w-full" type="submit">{kind === "artist" ? "Create artist account" : "Create label account"}</Button>
       </form>
       <p className="mt-4 text-center text-sm text-muted-foreground">Have an account? <Link className="text-foreground underline" href="/login">Log in</Link></p>
     </AuthShell>

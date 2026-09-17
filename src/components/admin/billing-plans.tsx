@@ -6,7 +6,7 @@ import { CONTACT } from "@/lib/legal";
 import { cn } from "@/lib/utils";
 
 export type PlanCard = {
-  tier: "free" | "pro" | "label" | "enterprise";
+  tier: "free" | "artist" | "pro" | "label" | "enterprise";
   name: string;
   blurb: string;
   features: string[];
@@ -60,7 +60,7 @@ export function BillingPlans({
   const [busy, setBusy] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const yearlyAvailable = plans.some((p) => p.price.yearly);
-  const rank = (t: string) => ["free", "pro", "label", "enterprise"].indexOf(t);
+  const rank = (t: string) => ["free", "artist", "pro", "label", "enterprise"].indexOf(t);
 
   async function upgrade(tier: string) {
     setBusy(tier);
@@ -87,14 +87,14 @@ export function BillingPlans({
         </div>
       )}
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className={cn("grid gap-4 md:grid-cols-2", plans.length > 2 && "xl:grid-cols-4")}>
         {plans.map((p) => {
           const current = p.tier === currentTier;
           const ending = current && !!scheduledChange;
           const next = !current && scheduledChange?.tier === p.tier;
           const price = p.tier === "free" ? "$0" : p.price[interval];
           const isUpgrade = rank(p.tier) > rank(currentTier);
-          const featured = highlight ? highlight === p.tier : p.tier === "pro" && currentTier === "free";
+          const featured = highlight ? highlight === p.tier : (p.tier === "pro" || (p.tier === "artist" && plans.length === 2)) && currentTier === "free";
           return (
             <div
               key={p.tier}

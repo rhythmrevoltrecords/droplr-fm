@@ -36,7 +36,9 @@ export default async function AdminHome(
       {searchParams.verified && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Email confirmed. Thanks!</Card>}
       {searchParams.welcome && (
         <Card className="border-primary/40 bg-primary/10 p-4 text-sm">
-          Welcome to droplr.fm. Paste a Spotify link to create your first release, then invite artists from <Link className="underline" href="/admin/artists">Roster</Link>.
+          {org.kind === "artist"
+            ? <>Welcome to droplr.fm. Paste a Spotify link to create your first release: you&apos;ll get a pre-save page, a promo plan with dated steps and share graphics. Fill in your <Link className="underline" href="/admin/artists">profile</Link> while you&apos;re here.</>
+            : <>Welcome to droplr.fm. Paste a Spotify link to create your first release, then invite artists from <Link className="underline" href="/admin/artists">Roster</Link>.</>}
         </Card>
       )}
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -91,10 +93,10 @@ export default async function AdminHome(
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Label analytics</h2>
+          <h2 className="text-lg font-semibold">{org.kind === "artist" ? "Analytics" : "Label analytics"}</h2>
           <RangeTabs base="/admin" days={days} />
         </div>
-        <AnalyticsPanels stats={stats} showArtists />
+        <AnalyticsPanels stats={stats} showArtists={org.kind !== "artist"} />
       </section>
     </div>
   );

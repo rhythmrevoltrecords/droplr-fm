@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { SITE_URL } from "@/lib/env";
 import { clearStaleStripeIds } from "@/lib/billing";
+import { accountKind, PLANS_FOR } from "@/lib/plans";
 import { getStripe, isInterval, isPaidTier, priceIdFor, stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -12,10 +13,11 @@ const BILLING = `${SITE_URL}/admin/settings/billing`;
 export async function POST(req: NextRequest) {
   const user = await apiUser("label");
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!stripeConfigured()) return NextResponse.json({ error: "Billing isn't configured yet" }, { status: 503 });
-
   const body = (await req.json().catch(() => ({}))) as { tier?: unknown; interval?: unknown };
-  if (!isPaidTier(body.tier)) return NextResponse.json({ error: "Choose Pro or Label" }, { status: 400 });
+  if (!isPaidTier(body.tier)) return NextResponse.json({ error: "Choose a paid plan" }, { status: 400 });
+  // Artist accounts buy Artist; label accounts buy Pro or Label.
+  if (!PLANS_FOR[accountKind(user.organization.kind)].includes(body.tier)) return NextResponse.json({ error: "That plan isn't available for this account" }, { status: 400 });
+  if (!stripeConfigured()) return NextResponse.json({ error: "Billing isn't configured yet" }, { status: 503 });
   const interval = isInterval(body.interval) ? body.interval : "monthly";
   const priceId = priceIdFor(body.tier, interval);
   if (!priceId) return NextResponse.json({ error: `The ${body.tier} ${interval} price isn't set up yet` }, { status: 503 });

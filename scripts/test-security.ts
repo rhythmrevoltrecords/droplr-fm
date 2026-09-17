@@ -16,6 +16,7 @@
  *      Netlify alias add/remove against a mock API (start the server with NETLIFY_API_URL=http://127.0.0.1:4777
  *      NETLIFY_API_TOKEN=test NETLIFY_SITE_ID=test-site to include those).
  *   9. Spotify pre-save button: hidden from the public unless switched on or opened via ?spotify=1; owner-only toggle.
+ *  13. Artist accounts, fan list + news opt-in, promo plan (artist sign-up needs SIGNUP_ALLOWLIST=artist-signup-test@sectest.dev on the server).
  *  12. Insights + share graphics: analytics page renders, share images scoped to the label, milestones must be real.
  *  11. Local release time: fan timezone + store pick saved on pre-save, per-fan "out" check, Spotify follow link.
  *  10. Email verification: unconfirmed accounts can't invite / connect domains or Spotify; links are single-use,
@@ -629,6 +630,60 @@ async function main() {
     const fakeMilestone = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=milestone&n=10000&format=post`);
     const badFormat = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=billboard`);
     check("can't make a milestone that wasn't reached, or an unknown format", fakeMilestone.status === 400 && badFormat.status === 400, `${fakeMilestone.status}/${badFormat.status}`);
+
+    console.log("\n13. Artist accounts, fans and promo plan");
+    const artistSignupEmail = "artist-signup-test@sectest.dev";
+    const stale = await prisma.user.findUnique({ where: { email: artistSignupEmail } });
+    if (stale) await prisma.organization.delete({ where: { id: stale.organizationId } }).catch(() => {});
+    const signupJar: Jar = { cookie: "" };
+    const su = await http(signupJar, "POST", "/api/auth/signup", undefined, { kind: "artist", orgName: `Solo Artist ${RUN}`, email: artistSignupEmail, password: PW, terms: "yes" });
+    const artistUser = await prisma.user.findUnique({ where: { email: artistSignupEmail }, include: { organization: { include: { artists: true } } } });
+    if (!artistUser) {
+      console.log(`  (skipped artist sign-up checks: start the server with SIGNUP_ALLOWLIST=${artistSignupEmail}) ${su.status} ${su.location}`);
+    } else {
+      extraOrgs.push(artistUser.organizationId);
+      check("artist sign-up creates an artist account with its own profile", artistUser.organization.kind === "artist" && artistUser.role === "owner" && artistUser.organization.artists.length === 1 && artistUser.organization.artists[0].name === `Solo Artist ${RUN}`);
+      const nav = await http(signupJar, "GET", "/admin");
+      check("artist admin shows Fans and Profile, not Roster", nav.status === 200 && nav.text.includes(">Profile<") && nav.text.includes(">Fans<") && !nav.text.includes(">Roster<"), `${nav.status}`);
+      const roster = await http(signupJar, "GET", "/admin/artists");
+      check("artist's roster page goes to their own profile", [307, 308].includes(roster.status) && roster.location.includes(`/admin/artists/${artistUser.organization.artists[0].id}`), `${roster.status} ${roster.location}`);
+      await prisma.user.update({ where: { id: artistUser.id }, data: { emailVerifiedAt: new Date() } });
+      const wrongTier = await http(signupJar, "POST", "/api/stripe/checkout", { tier: "label", interval: "monthly" });
+      check("artist account can't buy a label plan", wrongTier.status === 400, `${wrongTier.status}`);
+    }
+    const labelArtistTier = await http(ownerA, "POST", "/api/stripe/checkout", { tier: "artist", interval: "monthly" });
+    check("label account can't buy the Artist plan", labelArtistTier.status === 400, `${labelArtistTier.status}`);
+
+    // News opt-in on the pre-save form, fan list and export
+    await prisma.authThrottle.deleteMany({}); // earlier sections used up the per-IP pre-save limit
+    await prisma.release.update({ where: { id: B.release.id }, data: { releaseDate: new Date(Date.now() + 5 * 86400_000), isPublic: true } });
+    const newsFan = `newsfan-${RUN}@fans.dev`;
+    const plainFan = `plainfan-${RUN}@fans.dev`;
+    await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: B.release.id, email: newsFan, consent: "yes", news: "yes", listenOn: "spotify" });
+    await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: B.release.id, email: plainFan, consent: "yes" });
+    const nf = await prisma.preSave.findFirst({ where: { email: newsFan } });
+    const pf = await prisma.preSave.findFirst({ where: { email: plainFan } });
+    check("news opt-in is stored separately from release-day consent", !!nf?.newsConsent && !!nf.newsConsentAt && !!pf && !pf.newsConsent && pf.emailConsent, JSON.stringify({ nf: nf?.newsConsent, pf: pf?.newsConsent }));
+    const fansOwnerB = await login(B.owner.email);
+    const fansPage = await http(fansOwnerB, "GET", "/admin/fans?news=1");
+    check("fan list filters to news opt-ins", fansPage.status === 200 && fansPage.text.includes(newsFan) && !fansPage.text.includes(plainFan), `${fansPage.status}`);
+    const crossFans = await http(ownerA, "GET", "/admin/fans");
+    check("another label's fan list doesn't include these fans", crossFans.status === 200 && !crossFans.text.includes(newsFan));
+    await prisma.organization.update({ where: { id: B.org.id }, data: { plan: "free" } });
+    const exportFree = await http(fansOwnerB, "GET", "/api/admin/fans/export");
+    await prisma.organization.update({ where: { id: B.org.id }, data: { plan: "label" } });
+    const exportPaid = await http(fansOwnerB, "GET", "/api/admin/fans/export?news=1");
+    check("fan export is paid-only and marks news opt-ins", exportFree.status === 402 && exportPaid.status === 200 && exportPaid.text.includes("news_opt_in") && exportPaid.text.includes(newsFan) && !exportPaid.text.includes(plainFan), `${exportFree.status}/${exportPaid.status}`);
+    const artistExport = await http(artistA, "GET", "/api/admin/fans/export");
+    check("artist logins can't export the label's fans", artistExport.status === 401, `${artistExport.status}`);
+
+    // Promo plan
+    const promoTab = await http(fansOwnerB, "GET", `/admin/releases/${B.release.id}?tab=promo`);
+    check("promo plan tab renders dated steps", promoTab.status === 200 && promoTab.text.includes("Pitch to Spotify") && promoTab.text.includes("droplr does these for you"), `${promoTab.status}`);
+    const tick = await http(fansOwnerB, "POST", `/api/admin/releases/${B.release.id}/promo`, { key: "announce", done: true });
+    const badKey = await http(fansOwnerB, "POST", `/api/admin/releases/${B.release.id}/promo`, { key: "hack", done: true });
+    const crossTick = await http(ownerA, "POST", `/api/admin/releases/${B.release.id}/promo`, { key: "teaser", done: true });
+    check("promo steps tick per release; unknown step 400, other label 404", tick.status === 200 && badKey.status === 400 && crossTick.status === 404 && (await prisma.promoTaskDone.count({ where: { releaseId: B.release.id } })) === 1, `${tick.status}/${badKey.status}/${crossTick.status}`);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

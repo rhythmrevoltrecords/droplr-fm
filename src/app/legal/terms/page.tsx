@@ -80,11 +80,11 @@ export default function TermsPage() {
       </Section>
 
       <Section {...s("fans")}>
-        <p>When a fan pre-saves a release or leaves their email on your page, that information is collected <strong>for your label</strong>. You decide how it&apos;s used, and we handle it for you under the <Link href="/legal/data-processing">Data Processing Terms</Link>.</p>
+        <p>When a fan pre-saves a release or leaves their email on your page, that information is collected <strong>for your account</strong> (your label, or you as the artist). You decide how it&apos;s used, and we handle it for you under the <Link href="/legal/data-processing">Data Processing Terms</Link>.</p>
         <p>You agree to:</p>
         <ul>
           <li>comply with privacy and anti-spam laws that apply to you and your fans, including the <em>Privacy Act 1988</em> (Cth) and <em>Spam Act 2003</em> (Cth) in Australia, and the GDPR and UK GDPR where they apply;</li>
-          <li>only email fans for the purpose they agreed to, and honour unsubscribe requests (droplr.fm release-day emails include an unsubscribe link that works automatically);</li>
+          <li>only email fans for the purpose they agreed to, and honour unsubscribe requests (droplr.fm release-day emails include an unsubscribe link that works automatically). A fan who only ticked the release-day box agreed to hear about that release; send news or other releases only to fans marked as opted in to news in your fan list;</li>
           <li>not upload, import or use purchased, rented or scraped email lists with the service;</li>
           <li>keep any fan data you export secure and use it lawfully.</li>
         </ul>

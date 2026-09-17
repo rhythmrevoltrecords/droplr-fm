@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { AddArtistForm, ArtistAvatar } from "@/components/admin/artist-forms";
 import { InviteForm, RemoveMemberButton } from "@/components/admin/org-forms";
 import { Badge } from "@/components/ui/badge";
@@ -18,6 +19,12 @@ const statusVariant = (s: string) => (s === "active" ? "success" : s === "prospe
 export default async function RosterPage(props: { searchParams: Promise<{ status?: string }> }) {
   const searchParams = await props.searchParams;
   const user = await requireUser("label");
+  // Artist accounts have a single profile: go straight to it (create it if an older account has none).
+  if (user.organization.kind === "artist") {
+    const own = (await prisma.artist.findFirst({ where: { organizationId: user.organizationId }, orderBy: { createdAt: "asc" }, select: { id: true } }))
+      ?? (await prisma.artist.create({ data: { organizationId: user.organizationId, name: user.organization.name, email: user.email }, select: { id: true } }));
+    redirect(`/admin/artists/${own.id}`);
+  }
   const plan = planOf(user.organization.plan);
   const orgId = user.organizationId;
   const filter = isArtistStatus(searchParams.status) ? searchParams.status : null;

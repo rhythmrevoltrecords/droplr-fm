@@ -4,7 +4,7 @@ import { ImageResponse } from "next/og";
 import { MARK_WHITE_PNG } from "./og-mark";
 
 export const OG_SIZE = { width: 1200, height: 630 };
-export const OG_ALT = "droplr.fm: run your label's releases from one place";
+export const OG_ALT = "droplr.fm: launch every release like a label would";
 
 async function font(file: string) {
   try {
@@ -44,13 +44,13 @@ export async function renderOgImage() {
           <div style={{ fontSize: 48, fontWeight: 700, letterSpacing: "-0.02em" }}>droplr.fm</div>
         </div>
         <div style={{ display: "flex", flexDirection: "column" }}>
-          <div style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.03em", maxWidth: 980 }}>Run your label&apos;s releases from one place.</div>
+          <div style={{ fontSize: 76, fontWeight: 700, lineHeight: 1.05, letterSpacing: "-0.03em", maxWidth: 980 }}>Launch every release like a label would.</div>
           <div style={{ marginTop: 28, fontSize: 32, fontWeight: 400, color: "rgba(255,255,255,0.72)", maxWidth: 980 }}>
-            Smart links and email pre-saves today. Roster, release planning and royalties next.
+            Pre-saves in every fan&apos;s timezone, promo plans and a fan list you keep. For artists and labels.
           </div>
         </div>
         <div style={{ display: "flex", gap: 12, fontSize: 24, color: "rgba(255,255,255,0.8)" }}>
-          {["Smart links", "Email pre-saves", "Label roster"].map((t) => (
+          {["For artists", "For labels", "Pre-saves", "Promo plans"].map((t) => (
             <div key={t} style={{ display: "flex", padding: "8px 18px", borderRadius: 999, border: "1px solid rgba(255,255,255,0.18)", backgroundColor: "rgba(255,255,255,0.06)" }}>{t}</div>
           ))}
         </div>

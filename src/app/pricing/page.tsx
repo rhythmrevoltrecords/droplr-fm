@@ -1,92 +1,39 @@
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { AudiencePricing } from "@/components/marketing/audience-pricing";
 import { MarketingShell } from "@/components/marketing/site-chrome";
-import { Button } from "@/components/ui/button";
 import { ctaCopy } from "@/lib/launch";
-import { CONTACT } from "@/lib/legal";
-import { artistsLine, clicksLine, planPrice, priceSuffix, releasesLine } from "@/lib/plan-copy";
-import { PLAN_LIMITS, type PlanKey } from "@/lib/plans";
+import { pricingTiers } from "@/lib/pricing-tiers";
 
 export const metadata = { title: "Pricing" };
 
-// Limits (price, releases, clicks, artists) come from PLAN_LIMITS; the rest describes what each plan unlocks in the product.
-const TIERS: { key: PlanKey; highlight: boolean; features: string[] }[] = [
-  {
-    key: "free",
-    highlight: false,
-    features: [releasesLine("free"), clicksLine("free"), artistsLine("free"), "yourlabel.droplr.fm subdomain", "Basic analytics", "Email pre-save + release-day email"],
-  },
-  {
-    key: "pro",
-    highlight: true,
-    features: [
-      releasesLine("pro"),
-      clicksLine("pro"),
-      artistsLine("pro"),
-      "Custom domain (presave.yourlabel.com), connected for you",
-      "Custom pixels: Meta, TikTok, GA4",
-      "Spotify library pre-save for your team and VIPs (your own Spotify app, 5 fans)*",
-      "Email capture + CSV export",
-      "QR codes",
-      "Remove droplr.fm branding",
-    ],
-  },
-  {
-    key: "label",
-    highlight: false,
-    // PLAN_LIMITS.whiteLabel only gates team roles (admin invites), so it's listed as that, not as a separate "White-label" feature.
-    features: ["Everything in Pro", clicksLine("label"), artistsLine("label"), "Team roles (admins)", "Label analytics across the roster", "API + webhooks (coming soon)"],
-  },
-  {
-    key: "enterprise",
-    highlight: false,
-    features: ["Everything in Label", clicksLine("enterprise"), "Priority support and onboarding", "SSO (coming soon)"],
-  },
-];
-
-export default function PricingPage() {
+export default async function PricingPage(props: { searchParams: Promise<{ for?: string }> }) {
+  const sp = await props.searchParams;
   const cta = ctaCopy();
-  const tierCta = (k: PlanKey) =>
-    k === "enterprise" ? { label: "Contact us", href: `mailto:${CONTACT.hello}?subject=droplr.fm%20Enterprise` } : cta.plans[k];
+  const tiers = pricingTiers();
   return (
     <MarketingShell>
-      <section className="container py-16 md:py-24">
-        <div className="mx-auto max-w-2xl text-center">
-          {cta.hint && (
-            <p className="mx-auto mb-5 w-fit max-w-full rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">
-              {cta.hint.text} <Link href={cta.hint.link.href} className="underline">{cta.hint.link.label}</Link>
+      <section className="relative overflow-hidden">
+        <div aria-hidden className="mk-grid-bg pointer-events-none absolute inset-0" />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-96" style={{ background: "radial-gradient(50% 100% at 50% 0%, rgba(139,92,246,.28), transparent 70%)" }} />
+        <div className="container relative py-16 md:py-24">
+          <div className="mx-auto max-w-2xl text-center">
+            {cta.hint && (
+              <p className="mx-auto mb-5 w-fit max-w-full rounded-full border border-violet-500/40 bg-violet-500/10 px-3 py-1 text-xs text-violet-200">
+                {cta.hint.text} <Link href={cta.hint.link.href} className="underline">{cta.hint.link.label}</Link>
+              </p>
+            )}
+            <h1 className="mk-text-gradient text-balance text-5xl font-semibold tracking-[-0.035em] sm:text-6xl">Priced per account, not per release.</h1>
+            <p className="mt-5 text-lg text-white/60">Every plan includes email pre-saves in each fan&apos;s timezone, promo plans, share graphics and insights. Prices in Australian dollars (AUD), including any tax, billed monthly or yearly.</p>
+          </div>
+          <div className="mt-12">
+            <AudiencePricing detailed artist={tiers.artist} label={tiers.label} initial={sp.for === "label" ? "label" : "artist"} />
+          </div>
+          <div className="mx-auto mt-12 max-w-3xl space-y-2 text-center text-sm text-white/55">
+            <p>Already have an account? Upgrade from <Link href="/admin/settings/billing" className="underline">Settings → Plan &amp; billing</Link>. Paid plans renew automatically; cancel any time. <Link href="/legal/billing" className="underline">Billing &amp; refunds</Link></p>
+            <p>
+              Spotify only allows library saves through a developer app you create and own, and limits it to 5 Spotify accounts you allowlist by hand (Extended Quota is reserved for businesses with 250,000+ monthly users). Paid plans can connect one for your team and VIPs; every other fan pre-saves by email, picks their store and can follow on Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
             </p>
-          )}
-          <h1 className="text-balance text-4xl font-bold tracking-tight sm:text-5xl">Priced for labels, not per release</h1>
-          <p className="mt-4 text-muted-foreground">Every plan includes email pre-saves with a release-day email. No per-release fees. Prices in Australian dollars (AUD), including any tax, billed monthly or yearly.</p>
-        </div>
-        <div className="mt-12 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-          {TIERS.map((t) => {
-            const p = PLAN_LIMITS[t.key];
-            const action = tierCta(t.key);
-            return (
-              <div key={t.key} className={`relative flex flex-col rounded-2xl border p-6 ${t.highlight ? "border-violet-500 bg-violet-500/[0.08] shadow-[0_0_80px_-20px_rgba(124,58,237,0.6)]" : "border-white/10 bg-white/[0.03]"}`}>
-                {t.highlight && <span className="absolute -top-3 left-6 rounded-full bg-violet-500 px-3 py-0.5 text-xs font-semibold text-white">Most Popular</span>}
-                <h2 className="text-lg font-semibold">{p.name}</h2>
-                <p className="mt-3"><span className="text-4xl font-bold">{planPrice(t.key)}</span><span className="text-muted-foreground">{priceSuffix(t.key)}</span></p>
-                <ul className="mt-6 flex-1 space-y-2.5 text-sm">
-                  {t.features.map((f) => (
-                    <li key={f} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /><span>{f}</span></li>
-                  ))}
-                </ul>
-                <Button asChild className="mt-8" variant={t.highlight ? "white" : "outline"}>
-                  <Link href={action.href}>{action.label}</Link>
-                </Button>
-              </div>
-            );
-          })}
-        </div>
-        <div className="mx-auto mt-10 max-w-3xl space-y-2 text-center text-sm text-muted-foreground">
-          <p>All plans include email pre-saves and a release-day email to every fan who opted in. No per-release fees.</p>
-          <p>Already have an account? Upgrade from <Link href="/admin/settings/billing" className="underline">Settings → Plan &amp; billing</Link>. Paid plans renew automatically; cancel any time. <Link href="/legal/billing" className="underline">Billing &amp; refunds</Link></p>
-          <p>
-            * Spotify only allows library saves through a developer app you create and own, and limits it to 5 Spotify accounts you allowlist by hand. Spotify reserves more than that (Extended Quota) for businesses with 250,000+ monthly users. Every other fan pre-saves by email, picks their store and can follow the artist on Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
-          </p>
+          </div>
         </div>
       </section>
     </MarketingShell>

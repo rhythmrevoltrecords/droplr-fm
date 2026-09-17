@@ -127,7 +127,7 @@ export function LocationPicker({ value, onChange }: { value: { label: string; tz
 
 /* ---------------- Section 1: Label identity ---------------- */
 
-export function IdentityForm({ initial, siteHost }: { initial: { name: string; slug: string; timezone: string; locationLabel: string; accentColor: string | null; logoUrl: string | null }; siteHost: string }) {
+export function IdentityForm({ initial, siteHost, kind = "label" }: { initial: { name: string; slug: string; timezone: string; locationLabel: string; accentColor: string | null; logoUrl: string | null }; siteHost: string; kind?: "label" | "artist" }) {
   const [name, setName] = useState(initial.name);
   const [slug, setSlug] = useState(initial.slug);
   const [slugTouched, setSlugTouched] = useState(true); // existing labels keep their slug unless edited
@@ -157,7 +157,7 @@ export function IdentityForm({ initial, siteHost }: { initial: { name: string; s
     >
       <div className="grid gap-4 md:grid-cols-2 [&>*]:min-w-0">
         <div className="space-y-2">
-          <Label htmlFor="org-name">Label name</Label>
+          <Label htmlFor="org-name">{kind === "artist" ? "Artist name" : "Label name"}</Label>
           <Input
             id="org-name"
             value={name}
@@ -171,7 +171,7 @@ export function IdentityForm({ initial, siteHost }: { initial: { name: string; s
           <Label htmlFor="org-slug">Slug</Label>
           <div className="flex gap-2">
             <Input id="org-slug" value={slug} onChange={(e) => { setSlugTouched(true); setSlug(e.target.value); }} className="font-mono" />
-            <Button type="button" variant="outline" className="shrink-0" onClick={() => { setSlugTouched(false); setSlug(slugify(name)); }} title="Generate from label name">From name</Button>
+            <Button type="button" variant="outline" className="shrink-0" onClick={() => { setSlugTouched(false); setSlug(slugify(name)); }} title="Generate from name">From name</Button>
           </div>
           <p className="truncate text-xs text-muted-foreground">
             Public URLs: <span className="font-mono text-foreground">{siteHost}/{slugify(slug) || "your-label"}/your-release</span>

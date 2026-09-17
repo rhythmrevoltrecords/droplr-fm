@@ -1,123 +1,66 @@
 import Link from "next/link";
-import { ArrowRight, AtSign, BarChart3, ChevronDown, Disc3, Globe, Mail, Users } from "lucide-react";
+import { ArrowRight, BarChart3, CalendarCheck, ChevronDown, Globe, Image as ImageIcon, Mail, Users } from "lucide-react";
+import { AudiencePricing, AudienceStory } from "@/components/marketing/audience-pricing";
+import { RevealOnScroll } from "@/components/marketing/reveal";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
-import { artistsLine, clicksLine, planPrice, priceSuffix, releasesLine } from "@/lib/plan-copy";
 import { platformMeta } from "@/lib/platforms";
-import { PLAN_LIMITS, PLAN_ORDER } from "@/lib/plans";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { pricingTiers } from "@/lib/pricing-tiers";
 import { cn } from "@/lib/utils";
 
 const DEMO_COVER = "/demo/two-step-theory.svg";
 
 /* ---------- Content ---------- */
 
-const STEPS = [
-  { title: "Paste the Spotify link", body: "Unreleased is fine. Title, artwork and colour fill in. Add Beatport, Traxsource or Bandcamp once." },
-  { title: "Share a link per placement", body: "/ig in your story, /tiktok in bio, a QR on the flyer. Each one is tracked on its own." },
-  { title: "Release day runs itself", body: "Store links fill in from your UPC and every pre-saver gets the release-day email." },
+const STORES = ["spotify", "appleMusic", "beatport", "youtubeMusic", "soundcloud", "traxsource", "bandcamp", "amazonMusic", "tidal", "deezer", "juno"];
+
+const FOR_ARTISTS = [
+  { title: "Make the release page", body: "Paste a Spotify link. Artwork, colour and store links fill in, unreleased is fine." },
+  { title: "Follow the promo plan", body: "Dated steps from announce day to a week after, each with the graphic or link it needs." },
+  { title: "Let release day run itself", body: "Every pre-saver gets an email at 9am in their own timezone, leading with the store they picked." },
+  { title: "Keep the fans", body: "One fan list across every release. The ones who opted in to news are yours to email again." },
+];
+const FOR_LABELS = [
+  { title: "Run the whole roster", body: "Every release, every artist, one account. Artists log in to grab their links and see their stats." },
+  { title: "A link per placement", body: "/ig, /tiktok, a QR on the flyer: each tracked, so you know which post moved people." },
+  { title: "Your domain, connected for you", body: "presave.yourlabel.com with one DNS record. We verify it and issue the certificate." },
+  { title: "See what works across releases", body: "Busiest hours, top countries, best sources and the stores fans actually use." },
 ];
 
-// Only things that exist in the product today. `pro` marks plan-gated features (see PLAN_LIMITS).
-const AVAILABLE: { icon: typeof Disc3; title: string; body: string; pro?: string }[] = [
-  {
-    icon: Disc3,
-    title: "Smart links + DJ stores",
-    body: "One page for every release. Beatport, Traxsource and Bandcamp get the same big button as Spotify, in whatever order you want.",
-  },
-  {
-    icon: Mail,
-    title: "Email pre-save + release-day email",
-    body: "Fans leave their email and pick where they listen. At 9am their time on release day they get a one-tap link to that store, plus a Follow on Spotify button so Spotify tells them about the next one.",
-  },
-  {
-    icon: AtSign,
-    title: "Link variants + QR codes",
-    body: "/ig, /tiktok, /bio or any placement you name, each with its own stats, so you know which post moved people.",
-    pro: "QR on Pro",
-  },
-  {
-    icon: Users,
-    title: "Label roster + artist logins",
-    body: "The label runs every release across the roster. Artists log in to copy their links and see their own stats. Only the label edits links.",
-  },
-  {
-    icon: BarChart3,
-    title: "Pixels + data export",
-    body: "Set Meta, TikTok and GA4 pixels once for the whole label. Export pre-save emails and click data as CSV.",
-    pro: "Pro",
-  },
-  {
-    icon: Globe,
-    title: "Custom domain, set up for you",
-    body: "presave.yourlabel.com/track-name. Add one DNS record and we connect the domain and its certificate on our side.",
-    pro: "Pro",
-  },
+type Status = "Live now" | "In build" | "Next" | "Later";
+const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = [
+  { status: "In build", items: [
+    { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans." },
+    { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders." },
+  ] },
+  { status: "Next", items: [
+    { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply." },
+    { title: "Royalties and splits", body: "Import distributor statements, set splits and send artists clear statements." },
+    { title: "Fan updates", body: "Email fans who opted in to news, straight from droplr." },
+  ] },
+  { status: "Later", items: [
+    { title: "Unsigned pool", body: "Artists opt in unreleased tracks; labels discover them by genre, BPM and traction." },
+    { title: "Contracts", body: "Agreements kept next to the roster and the releases they cover." },
+  ] },
 ];
-
-type Status = "In build" | "Next" | "Later";
-const ROADMAP: { status: Status; blurb: string; items: { title: string; body: string }[] }[] = [
-  {
-    status: "In build",
-    blurb: "Being built now",
-    items: [
-      { title: "Artist roster profiles", body: "A profile for every artist, with or without a login: bio, photos, contacts and stats." },
-      { title: "Release planning", body: "Task timelines from 6-week and 4-week templates, with separate tasks for the label and the artist." },
-      { title: "Artist portal", body: "One place for artists to see their releases, links and the tasks assigned to them." },
-    ],
-  },
-  {
-    status: "Next",
-    blurb: "Up after that",
-    items: [
-      { title: "Caption & knowledge board", body: "Captions, key messages and release notes, pushed to your artists." },
-      { title: "Demo inbox", body: "Take demo submissions in and sort them next to your releases." },
-      { title: "Royalties ledger", body: "Track earnings per release and send artists clear statements." },
-      { title: "Notifications", body: "A heads-up when tasks are due, releases go live or a statement is ready." },
-    ],
-  },
-  {
-    status: "Later",
-    blurb: "On the list",
-    items: [{ title: "Contracts", body: "Artist agreements kept alongside the roster and their releases." }],
-  },
-];
-
-const STATUS_STYLE: Record<Status, { chip: string; dot: string }> = {
-  "In build": { chip: "border-violet-400/40 bg-violet-500/15 text-violet-100", dot: "bg-violet-400 shadow-[0_0_0_3px_rgba(167,139,250,.25)]" },
-  Next: { chip: "border-sky-400/30 bg-sky-500/10 text-sky-100", dot: "bg-sky-400" },
-  Later: { chip: "border-white/15 bg-white/5 text-zinc-300", dot: "bg-zinc-400" },
-};
 
 /* ---------- Pieces ---------- */
 
 function Eyebrow({ children }: { children: React.ReactNode }) {
-  return <p className="text-xs font-semibold uppercase tracking-[0.18em] text-violet-300">{children}</p>;
+  return <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300/90">{children}</p>;
 }
 
-function ProTag({ children = "Pro" }: { children?: React.ReactNode }) {
-  return <span className="inline-flex shrink-0 items-center rounded-full border border-violet-400/40 bg-violet-500/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-200">{children}</span>;
-}
-
-function StatusChip({ status }: { status: Status }) {
-  const s = STATUS_STYLE[status];
-  return (
-    <span className={cn("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium", s.chip)}>
-      <span className={cn("h-1.5 w-1.5 rounded-full", s.dot)} aria-hidden />
-      {status}
-    </span>
-  );
-}
-
-function PrimaryActions({ cta, secondary, className }: { cta: CtaCopy; secondary: { label: string; href: string }; className?: string }) {
+function Actions({ cta, secondary, className }: { cta: CtaCopy; secondary: { label: string; href: string }; className?: string }) {
   return (
     <div className={cn("flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center", className)}>
-      <Button asChild size="lg" variant="white" className="h-auto min-h-12 w-full whitespace-normal py-3 text-center sm:w-auto">
+      <Button asChild size="lg" variant="white" className="mk-shine relative h-12 overflow-hidden rounded-full px-6 text-[15px]">
         <Link href={cta.primary.href}>{cta.primary.label} <ArrowRight aria-hidden /></Link>
       </Button>
-      <Button asChild size="lg" variant="outline" className="h-auto min-h-12 w-full whitespace-normal border-white/15 py-3 text-center hover:bg-white/5 sm:w-auto">
+      <Button asChild size="lg" variant="outline" className="h-12 rounded-full border-white/15 px-6 text-[15px] hover:bg-white/5">
         <Link href={secondary.href}>{secondary.label}</Link>
       </Button>
     </div>
@@ -127,38 +70,144 @@ function PrimaryActions({ cta, secondary, className }: { cta: CtaCopy; secondary
 function InviteHint({ cta, className }: { cta: CtaCopy; className?: string }) {
   if (!cta.hint) return null;
   return (
-    <p className={cn("text-sm text-muted-foreground", className)}>
+    <p className={cn("text-sm text-white/55", className)}>
       {cta.hint.text}{" "}
-      <Link href={cta.hint.link.href} className="font-medium text-foreground underline decoration-white/30 underline-offset-4 hover:decoration-white">{cta.hint.link.label}</Link>
+      <Link href={cta.hint.link.href} className="font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">{cta.hint.link.label}</Link>
     </p>
   );
 }
 
-function PhoneMock() {
-  const links = ["spotify", "appleMusic", "beatport", "traxsource", "bandcamp"];
+/** The phone rises in tilted, the artwork opens up and the link sheet slides over it, then it floats. */
+function HeroPhone() {
+  const links = ["spotify", "appleMusic", "beatport"];
   return (
-    <div className="relative mx-auto w-[272px] max-w-full rounded-[2.5rem] border border-white/10 bg-black p-3 shadow-[0_40px_120px_-30px_rgba(168,85,247,.6)] sm:w-[280px]">
-      <div
-        className="relative overflow-hidden rounded-[2rem] bg-black px-4 pb-6 pt-8"
-        // Same artwork-coloured wash the real public pages use: gradients only, no blurred image copy.
-        style={{ background: "radial-gradient(130% 70% at 50% 0%, rgba(168,85,247,.5) 0%, rgba(236,72,153,.18) 45%, transparent 75%), linear-gradient(180deg, rgba(0,0,0,.1) 0%, #000 70%)" }}
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={DEMO_COVER} alt="Example release artwork" width={176} height={176} fetchPriority="high" decoding="async" className="mx-auto aspect-square w-44 rounded-xl shadow-[0_20px_50px_-15px_rgba(168,85,247,.7)]" />
-        <p className="mt-3 text-center text-[10px] uppercase tracking-[.2em] text-white/60">Out now</p>
-        <p className="text-center font-semibold">Two Step Theory</p>
-        <p className="text-center text-xs text-white/70">Your Artist</p>
-        <div className="mt-4 space-y-2">
-          {links.map((p) => {
-            const m = platformMeta(p);
-            return (
-              <div key={p} className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.07] p-1.5 pr-2 text-xs">
-                <PlatformIcon platform={p} className="h-7 w-7 text-xs" />
-                <span className="flex-1 truncate">{m.name}</span>
-                <span className="rounded-full bg-white px-2.5 py-1 text-[10px] font-semibold text-black">{m.action}</span>
+    <div className="mk-phone-wrap relative mx-auto w-full max-w-[420px] py-6 [perspective:1600px]">
+      <div aria-hidden className="absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(139,92,246,.45), rgba(217,70,239,.12) 55%, transparent 75%)" }} />
+      <div className="mk-phone-float relative">
+        <div className="mk-phone relative mx-auto w-[272px] rounded-[2.9rem] border border-white/15 bg-[#0a0a0d] p-2.5 shadow-[0_60px_140px_-40px_rgba(139,92,246,.75),inset_0_0_0_1px_rgba(255,255,255,.04)] sm:w-[292px]">
+          <div className="absolute left-1/2 top-4 z-20 h-6 w-24 -translate-x-1/2 rounded-full bg-black" aria-hidden />
+          <div className="relative h-[540px] overflow-hidden rounded-[2.35rem] bg-black sm:h-[570px]" style={{ background: "radial-gradient(120% 60% at 50% 0%, rgba(168,85,247,.55) 0%, rgba(236,72,153,.16) 45%, transparent 72%), #050507" }}>
+            <div className="px-6 pt-12 text-center">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={DEMO_COVER} alt="Example release artwork" width={160} height={160} fetchPriority="high" decoding="async" className="mk-cover mx-auto aspect-square w-[150px] shadow-[0_30px_60px_-18px_rgba(168,85,247,.8)] sm:w-[160px]" />
+              <p className="mt-3 text-[10px] uppercase tracking-[.24em] text-white/60">Out Friday</p>
+              <p className="mt-1 text-lg font-semibold">Two Step Theory</p>
+              <p className="text-xs text-white/60">Your Artist</p>
+            </div>
+            <div className="mk-sheet absolute inset-x-0 bottom-0 rounded-t-[1.75rem] border-t border-white/10 bg-[#0f0f14] px-4 pb-5 pt-3 shadow-[0_-20px_60px_-20px_rgba(0,0,0,.9)]">
+              <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" aria-hidden />
+              <div className="mk-stagger space-y-2">
+                <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-white/40">you@email.com</div>
+                <div>
+                  <p className="mb-1.5 text-[10px] text-white/50">Where do you listen?</p>
+                  <div className="flex flex-wrap gap-1">
+                    {links.map((p, i) => (
+                      <span key={p} className={cn("rounded-full border px-2 py-1 text-[10px]", i === 0 ? "border-white bg-white text-black" : "border-white/15 text-white/75")}>{platformMeta(p).name}</span>
+                    ))}
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white py-2.5 text-center text-xs font-semibold text-black">Pre-save with email</div>
+                <div className="flex items-center gap-2 rounded-xl border border-[#1ED760]/30 bg-[#1ED760]/10 p-1.5 pr-2 text-xs">
+                  <PlatformIcon platform="spotify" className="h-7 w-7 text-xs" />
+                  <span className="flex-1 truncate">Follow on Spotify</span>
+                  <span className="text-[10px] font-semibold text-[#1ED760]">Follow</span>
+                </div>
               </div>
-            );
+            </div>
+          </div>
+        </div>
+
+        {/* Floating proof points (desktop) */}
+        <div className="mk-pop absolute -left-24 top-[46%] hidden w-56 rounded-2xl border border-white/10 bg-[#13111c]/90 p-3 text-xs shadow-2xl lg:block" style={{ animationDelay: "1.7s" }}>
+          <div className="flex items-center gap-2 text-white/60"><Mail className="h-3.5 w-3.5 text-violet-300" /> Release-day email</div>
+          <div className="mt-2 space-y-1.5">
+            {[["Brisbane", "9:00am"], ["London", "9:00am"], ["Los Angeles", "9:00am"]].map(([c, t], i) => (
+              <div key={c} className="flex justify-between"><span className="text-white/80">{c}</span><span className="mk-sweep font-medium tabular-nums text-emerald-300" style={{ animationDelay: `${i * 0.6}s` }}>{t}</span></div>
+            ))}
+          </div>
+        </div>
+        <div className="mk-pop absolute -right-16 -top-2 hidden w-52 rounded-2xl border border-white/10 bg-[#13111c]/90 p-3 text-xs shadow-2xl lg:block" style={{ animationDelay: "2s" }}>
+          <div className="flex items-center justify-between gap-2 text-white/60"><span className="flex items-center gap-2"><BarChart3 className="h-3.5 w-3.5 text-violet-300" /> Busiest time</span><span className="text-[9px] uppercase tracking-wider text-white/35">Example</span></div>
+          <p className="mt-1.5 text-sm font-semibold">Thu 7pm to 10pm</p>
+          <div className="mt-2 grid grid-cols-12 gap-[2px]" aria-hidden>
+            {Array.from({ length: 36 }, (_, i) => {
+              const v = [1, 1, 2, 1, 2, 3, 2, 3, 4, 5, 4, 3][i % 12];
+              return <span key={i} className="aspect-square rounded-[2px]" style={{ background: ["#1c1c21", "#104281", "#1c5cab", "#2a78d6", "#5598e7", "#9ec5f4"][v] }} />;
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function Bento() {
+  return (
+    <div className="grid gap-4 md:grid-cols-6">
+      {/* Timezones */}
+      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-4">
+        <div className="flex items-center gap-2 text-sm text-violet-200"><Globe className="h-4 w-4" /> Pre-saves that follow the sun</div>
+        <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-tight">Out at midnight in every country. In their inbox at 9am their time.</h3>
+        <p className="mt-2 max-w-lg text-sm text-white/60">Stores release country by country, so droplr does too. The page flips, Spotify saves land and the release-day email arrives when the track has actually unlocked for that fan.</p>
+        <div className="mt-6 grid gap-3 sm:grid-cols-3">
+          {[["Brisbane", "Fri 25 Sep", "+10:00"], ["London", "Fri 25 Sep", "+01:00"], ["Los Angeles", "Fri 25 Sep", "−07:00"]].map(([city, day, off], i) => (
+            <div key={city} className="rounded-2xl border border-white/10 bg-black/30 p-4">
+              <div className="flex items-center justify-between text-xs text-white/50"><span>{city}</span><span className="font-mono">{off}</span></div>
+              <div className="mt-3 text-3xl font-semibold tabular-nums">9:00<span className="text-base text-white/50">am</span></div>
+              <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-300"><span className="mk-sweep h-1.5 w-1.5 rounded-full bg-emerald-400" style={{ animationDelay: `${i * 0.7}s` }} /> {day} · email sent</div>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Insights */}
+      <div className="mk-card mk-reveal p-6 md:col-span-2">
+        <div className="flex items-center gap-2 text-sm text-violet-200"><BarChart3 className="h-4 w-4" /> Insights</div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">Know exactly when to post.</h3>
+        <p className="mt-2 text-sm text-white/60">When fans are active in their own time, where they are, and which source converts.</p>
+        <div className="mt-5 grid grid-cols-12 gap-[3px]" aria-hidden>
+          {Array.from({ length: 84 }, (_, i) => {
+            const h = i % 12;
+            const d = Math.floor(i / 12);
+            const v = Math.min(5, Math.max(0, Math.round(((h >= 7 ? 3 : 1) + (d === 3 || d === 5 ? 2 : 0) + ((i * 7) % 3) - 1))));
+            return <span key={i} className="aspect-square rounded-[3px]" style={{ background: ["#1c1c21", "#104281", "#1c5cab", "#2a78d6", "#5598e7", "#9ec5f4"][v] }} />;
           })}
+        </div>
+      </div>
+      {/* Share graphics */}
+      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-2">
+        <div className="flex items-center gap-2 text-sm text-violet-200"><ImageIcon className="h-4 w-4" /> Share graphics</div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">Stories that make themselves.</h3>
+        <p className="mt-2 text-sm text-white/60">Countdown, out now and pre-save milestones, sized for Instagram, made from your artwork.</p>
+        <div className="relative mt-6 flex h-40 items-end justify-center" aria-hidden>
+          {[{ r: -10, x: -46, t: "7 days to go" }, { r: 0, x: 0, t: "Out now" }, { r: 10, x: 46, t: "500 pre-saves" }].map((c, i) => (
+            <div key={c.t} className="absolute bottom-0 flex h-36 w-20 flex-col items-center justify-end rounded-xl border border-white/15 p-2 shadow-xl" style={{ transform: `translateX(${c.x}px) rotate(${c.r}deg)`, zIndex: i === 1 ? 2 : 1, background: "radial-gradient(90% 60% at 50% 20%, rgba(168,85,247,.7), rgba(15,15,20,1) 75%)" }}>
+              <span className="mb-auto mt-2 aspect-square w-12 rounded-md bg-[linear-gradient(135deg,#f0abfc,#7c3aed)]" />
+              <span className="rounded-full bg-white px-1.5 py-0.5 text-[7px] font-bold text-black">{c.t}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Promo plan */}
+      <div className="mk-card mk-reveal p-6 md:col-span-2">
+        <div className="flex items-center gap-2 text-sm text-violet-200"><CalendarCheck className="h-4 w-4" /> Promo plan</div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">What to post, and when.</h3>
+        <ul className="mt-4 space-y-2 text-sm">
+          {[["Announce + countdown graphic", true], ["Pitch to Spotify editors", true], ["Teaser clip at your busiest hour", false], ["Release day: out now", false]].map(([t, done]) => (
+            <li key={t as string} className="flex items-center gap-2.5">
+              <span className={cn("grid h-4 w-4 place-items-center rounded border text-[10px]", done ? "border-emerald-400 bg-emerald-400 text-black" : "border-white/25")}>{done ? "✓" : ""}</span>
+              <span className={done ? "text-white/45 line-through" : "text-white/85"}>{t}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {/* Fan list */}
+      <div className="mk-card mk-reveal p-6 md:col-span-2">
+        <div className="flex items-center justify-between gap-2 text-sm text-violet-200"><span className="flex items-center gap-2"><Users className="h-4 w-4" /> Fan list</span><span className="text-[10px] uppercase tracking-wider text-white/40">Example</span></div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">Fans you keep, not rent.</h3>
+        <p className="mt-2 text-sm text-white/60">Every pre-saver across every release, with the store they use, where they are and whether they opted in to news.</p>
+        <div className="mt-5 flex items-end gap-6">
+          <div><div className="text-3xl font-semibold tabular-nums">2,418</div><div className="text-xs text-white/50">fans</div></div>
+          <div><div className="text-3xl font-semibold tabular-nums text-emerald-300">61%</div><div className="text-xs text-white/50">opted in to news</div></div>
         </div>
       </div>
     </div>
@@ -169,212 +218,152 @@ function PhoneMock() {
 
 export default function Landing() {
   const cta = ctaCopy();
+  const tiers = pricingTiers();
   const faqs: { q: string; a: React.ReactNode }[] = [
+    {
+      q: "Is droplr.fm for artists or labels?",
+      a: <p>Both. Artists run their own releases, fan list and promo plan. Labels run a roster, with artist logins and analytics across every release. Pick artist or label when you sign up.</p>,
+    },
     {
       q: "Do Spotify pre-saves go straight into fans' libraries?",
       a: (
         <>
-          <p>
-            Not for most fans, and we&apos;d rather tell you now than have you find out on release day. Since February 2026, Spotify only lets a new app save music for 5 people you allowlist by hand. Lifting that needs Spotify&apos;s Extended Quota, which is only for registered businesses with 250,000+ monthly users. Any newer pre-save service without that approval has the same limit.
-          </p>
-          <p className="mt-3">
-            So droplr.fm is built around what works for every fan: an email pre-save where they choose their store, a release-day email at 9am in their own timezone once the track has unlocked there, and a Follow on Spotify button so new releases show up for them in Spotify. You can still connect your own Spotify app on Pro for your team and VIPs. <Link href="/docs/spotify-byo" className="text-foreground underline underline-offset-4">How it works</Link>
-          </p>
+          <p>Not for most fans, and we&apos;d rather say so now than have you find out on release day. Since February 2026, Spotify only lets a new app save music for 5 people you allowlist by hand. Lifting that needs Spotify&apos;s Extended Quota, which is only for registered businesses with 250,000+ monthly users. Any newer pre-save service without that approval has the same limit.</p>
+          <p className="mt-3">So droplr.fm is built around what works for every fan: an email pre-save where they choose their store, a release-day email at 9am in their own timezone, and a Follow on Spotify button so new releases show up for them in Spotify. <Link href="/docs/spotify-byo" className="text-foreground underline underline-offset-4">How it works</Link></p>
         </>
       ),
     },
     {
-      q: "What currency are the prices in?",
-      a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. There are no per-release fees.</p>,
+      q: "Can I email my fans about other things?",
+      a: <p>Fans who tick the optional &quot;news and new music&quot; box are yours to email. Fans who only pre-saved agreed to hear about that release, and droplr sends that email for you. The fan list shows which is which and exports it as CSV.</p>,
+    },
+    { q: "What currency are the prices in?", a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. No per-release fees.</p> },
+    {
+      q: "Can I use my own domain?",
+      a: <p>Yes, on paid plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and we verify it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
     },
     {
-      q: "Can we use our own domain?",
-      a: (
-        <p>
-          Yes, on Pro and above. Point a subdomain like presave.yourlabel.com at droplr.fm with one DNS record, and we connect it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link>
-        </p>
-      ),
-    },
-    {
-      q: "Can our artists log in?",
-      a: (
-        <p>
-          Yes. Invite artists from your roster and they get their own login to copy their links and see stats for their releases. Only the label edits links and settings. Free includes {PLAN_LIMITS.free.artists} artist, Pro up to {PLAN_LIMITS.pro.artists}, and Label has no limit.
-        </p>
-      ),
+      q: "Can a label's artists log in?",
+      a: <p>Yes. Labels invite artists from the roster; artists get their own login to copy their links and see stats for their releases. Pro includes up to {PLAN_LIMITS.pro.artists} artists, Label has no limit.</p>,
     },
     ...(cta.open
       ? []
-      : [
-          {
-            q: "Can anyone sign up?",
-            a: (
-              <p>
-                Not yet. We&apos;re onboarding a small group of labels first. <Link href={cta.primary.href} className="text-foreground underline underline-offset-4">Request early access</Link> and we&apos;ll email you when there&apos;s room, or email {CONTACT.hello}. Have an invite? <Link href={cta.hint!.link.href} className="text-foreground underline underline-offset-4">Sign up</Link>.
-              </p>
-            ),
-          },
-        ]),
+      : [{ q: "Can anyone sign up?", a: <p>Not yet. We&apos;re onboarding a small group of artists and labels first. <Link href={cta.primary.href} className="text-foreground underline underline-offset-4">Request early access</Link>, or email {CONTACT.hello}. Have an invite? <Link href={cta.hint!.link.href} className="text-foreground underline underline-offset-4">Sign up</Link>.</p> }]),
   ];
 
   return (
     <MarketingShell>
+      <RevealOnScroll />
+
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-0"
-          style={{ background: "radial-gradient(70% 60% at 50% 0%, rgba(139,92,246,.38) 0%, rgba(139,92,246,.12) 45%, transparent 75%), radial-gradient(35% 45% at 88% 35%, rgba(217,70,239,.14) 0%, transparent 70%)" }}
-        />
-        <div className="container relative grid items-center gap-12 py-14 md:py-24 lg:grid-cols-[1.1fr_.9fr]">
+        <div aria-hidden className="mk-grid-bg pointer-events-none absolute inset-0" />
+        <div aria-hidden className="mk-aurora pointer-events-none absolute -top-1/3 left-1/2 h-[900px] w-[1200px] -translate-x-1/2" style={{ background: "radial-gradient(40% 40% at 40% 40%, rgba(139,92,246,.35), transparent 70%), radial-gradient(30% 30% at 65% 55%, rgba(217,70,239,.18), transparent 70%)" }} />
+        <div className="container relative grid items-center gap-10 pb-16 pt-14 md:pt-20 lg:grid-cols-[1.05fr_.95fr] lg:gap-6 lg:pb-24">
           <div className="min-w-0">
-            <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs text-muted-foreground">
-              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> Built for independent labels
+            <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/70">
+              <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> For independent artists and the labels behind them
             </p>
-            <h1 className="mt-5 text-balance text-4xl font-bold tracking-tight sm:text-5xl lg:text-6xl">Run your label&apos;s releases from one place.</h1>
-            <p className="mt-5 max-w-xl text-pretty text-lg text-muted-foreground">Smart links and email pre-saves today. Roster, release planning and royalties next.</p>
-            <div className="mt-8">
-              <PrimaryActions cta={cta} secondary={{ label: "See a live demo", href: "/demo/demo-track" }} />
-            </div>
+            <h1 className="mk-text-gradient mt-6 text-balance text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.035em] sm:text-6xl lg:text-7xl">
+              Launch every release like a label would.
+            </h1>
+            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-white/65">
+              Pre-saves that land at 9am in every fan&apos;s timezone. Smart links with the DJ stores. A promo plan that tells you what to post and when, and a fan list you keep.
+            </p>
+            <Actions cta={cta} secondary={{ label: "See a live demo", href: "/demo/demo-track" }} className="mt-9" />
             <InviteHint cta={cta} className="mt-4" />
           </div>
-          <PhoneMock />
+          <HeroPhone />
         </div>
       </section>
 
-      {/* How it works */}
-      <section id="how" className="scroll-mt-16 border-y border-white/5 bg-white/[0.02]">
-        <div className="container py-14">
-          <Eyebrow>How it works</Eyebrow>
-          <ol className="mt-6 grid gap-6 md:grid-cols-3 md:gap-8">
-            {STEPS.map((s, i) => (
-              <li key={s.title} className="flex gap-4">
-                <span className="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-white text-sm font-bold text-black" aria-hidden>{i + 1}</span>
-                <div className="min-w-0">
-                  <h3 className="font-semibold">{s.title}</h3>
-                  <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{s.body}</p>
-                </div>
-              </li>
+      {/* Store marquee */}
+      <section aria-label="Stores and platforms" className="border-y border-white/5 bg-white/[0.015] py-6">
+        <div className="mk-mask-x overflow-hidden">
+          <div className="mk-marquee flex w-max gap-3">
+            {[...STORES, ...STORES].map((p, i) => (
+              <span key={`${p}-${i}`} aria-hidden={i >= STORES.length} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1.5 pl-1.5 pr-4 text-sm text-white/70">
+                <PlatformIcon platform={p} className="h-6 w-6 text-[10px]" /> {platformMeta(p).name}
+              </span>
             ))}
-          </ol>
+          </div>
         </div>
       </section>
 
-      {/* Available now */}
-      <section id="product" className="container scroll-mt-16 py-20">
-        <Eyebrow>Available now</Eyebrow>
-        <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">Everything a release needs, live today</h2>
-        <p className="mt-3 max-w-2xl text-muted-foreground">One label account runs the links, the fan data and the artist logins.</p>
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {AVAILABLE.map((f) => (
-            <div key={f.title} className="rounded-2xl border border-white/10 bg-white/[0.03] p-5 transition-colors duration-300 hover:border-violet-500/30 hover:bg-violet-500/[0.05]">
-              <div className="flex items-start justify-between gap-3">
-                <span className="grid h-9 w-9 place-items-center rounded-lg border border-violet-400/20 bg-violet-500/10">
-                  <f.icon className="h-[18px] w-[18px] text-violet-300" aria-hidden />
-                </span>
-                {f.pro && <ProTag>{f.pro}</ProTag>}
-              </div>
-              <h3 className="mt-4 font-semibold">{f.title}</h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{f.body}</p>
+      {/* Product */}
+      <section id="product" className="container scroll-mt-16 py-24">
+        <div className="mk-reveal max-w-2xl">
+          <Eyebrow>The product</Eyebrow>
+          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Everything around the release, handled.</h2>
+          <p className="mt-4 text-lg text-white/60">Built from what independent releases actually need: reach, timing, and fans you get to keep.</p>
+        </div>
+        <div className="mt-12"><Bento /></div>
+      </section>
+
+      {/* Audience */}
+      <section className="border-y border-white/5 bg-white/[0.015]">
+        <div className="container py-24">
+          <div className="mk-reveal mb-10 max-w-2xl">
+            <Eyebrow>Built for both sides</Eyebrow>
+            <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Going it alone, or running a roster.</h2>
+          </div>
+          <div className="mk-reveal"><AudienceStory artist={FOR_ARTISTS} label={FOR_LABELS} /></div>
+        </div>
+      </section>
+
+      {/* Roadmap */}
+      <section id="roadmap" className="container scroll-mt-16 py-24">
+        <div className="mk-reveal max-w-2xl">
+          <Eyebrow>Where it&apos;s going</Eyebrow>
+          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">From your first pre-save to getting signed.</h2>
+          <p className="mt-4 text-lg text-white/60">The order we&apos;re building in. Dates when things ship, not before.</p>
+        </div>
+        <div className="mt-12 grid gap-4 lg:grid-cols-3">
+          {ROADMAP.map((col) => (
+            <div key={col.status} className={cn("mk-card mk-reveal p-6", col.status === "In build" && "border-violet-400/40 bg-[linear-gradient(180deg,rgba(139,92,246,.12),rgba(139,92,246,.02))]")}>
+              <span className={cn("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium", col.status === "In build" ? "border-violet-300/40 text-violet-100" : "border-white/15 text-white/70")}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", col.status === "In build" ? "mk-sweep bg-violet-300" : col.status === "Next" ? "bg-sky-400" : "bg-white/40")} aria-hidden />
+                {col.status}
+              </span>
+              <ul className="mt-5 space-y-5">
+                {col.items.map((it) => (
+                  <li key={it.title}>
+                    <h3 className="font-semibold">{it.title}</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-white/60">{it.body}</p>
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>
       </section>
 
-      {/* What's coming */}
-      <section id="roadmap" className="scroll-mt-16 border-y border-white/5 bg-white/[0.02]">
-        <div className="container py-20">
-          <Eyebrow>What&apos;s coming</Eyebrow>
-          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">From smart links to the whole label</h2>
-          <p className="mt-3 max-w-2xl text-muted-foreground">
-            The rest of the label back office is being built into the same account. This is the order we&apos;re working in. We&apos;ll share dates when things ship, not before.
-          </p>
-
-          <div className="relative mt-10 grid gap-4 lg:grid-cols-3">
-            {ROADMAP.map((col) => (
-              <div key={col.status} className={cn("flex flex-col rounded-2xl border p-5", col.status === "In build" ? "border-violet-500/30 bg-violet-500/[0.06]" : "border-white/10 bg-white/[0.03]")}>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <StatusChip status={col.status} />
-                  <span className="text-xs text-muted-foreground">{col.blurb}</span>
-                </div>
-                <ul className="mt-5 space-y-4 border-l border-white/10 pl-4">
-                  {col.items.map((it) => (
-                    <li key={it.title} className="relative">
-                      <span aria-hidden className={cn("absolute -left-[21px] top-1.5 h-2 w-2 rounded-full", STATUS_STYLE[col.status].dot.split(" ")[0])} />
-                      <h3 className="font-semibold leading-snug">{it.title}</h3>
-                      <p className="mt-1 text-sm leading-relaxed text-muted-foreground">{it.body}</p>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-8 flex flex-col gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">
-              <span className="font-medium text-foreground">Running a label and want a say in what ships first?</span>{" "}
-              {cta.open ? "Start with smart links and pre-saves today, and tell us what you need next." : "Request early access and tell us what you need next."}
-            </p>
-            <Button asChild variant="white" className="h-auto min-h-10 w-full shrink-0 whitespace-normal py-2 text-center sm:w-auto">
-              <Link href={cta.primary.href}>{cta.open ? cta.primaryShort.label : cta.primary.label}</Link>
-            </Button>
-          </div>
-        </div>
-      </section>
-
-      {/* Pricing teaser */}
-      <section id="pricing" className="container scroll-mt-16 py-20">
-        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-          <div>
+      {/* Pricing */}
+      <section id="pricing" className="relative scroll-mt-16 overflow-hidden border-y border-white/5 bg-white/[0.015]">
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80" style={{ background: "radial-gradient(50% 100% at 50% 0%, rgba(139,92,246,.18), transparent 70%)" }} />
+        <div className="container relative py-24">
+          <div className="mk-reveal mx-auto mb-10 max-w-2xl text-center">
             <Eyebrow>Pricing</Eyebrow>
-            <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">Priced for labels, not per release</h2>
-            <p className="mt-3 max-w-xl text-muted-foreground">Monthly prices in Australian dollars, including tax. Every plan includes email pre-saves and the release-day email.</p>
+            <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Priced per account, not per release.</h2>
+            <p className="mt-4 text-white/60">Australian dollars, including tax. Every plan includes email pre-saves, the release-day email, promo plans and share graphics.</p>
           </div>
-          <Link href="/pricing" className="inline-flex items-center gap-1.5 text-sm font-medium text-violet-200 hover:text-white">
-            Compare plans <ArrowRight className="h-4 w-4" aria-hidden />
-          </Link>
+          <div className="mk-reveal"><AudiencePricing artist={tiers.artist} label={tiers.label} /></div>
+          <p className="mt-8 text-center text-sm"><Link href="/pricing" className="inline-flex items-center gap-1.5 font-medium text-violet-200 hover:text-white">Compare every feature <ArrowRight className="h-4 w-4" aria-hidden /></Link></p>
         </div>
-        <ul className="mt-8 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-4">
-          {PLAN_ORDER.map((k) => {
-            const p = PLAN_LIMITS[k];
-            const featured = k === "pro";
-            return (
-              <li key={k}>
-                <Link
-                  href="/pricing"
-                  className={cn(
-                    "flex h-full flex-col rounded-2xl border p-4 transition-colors",
-                    featured ? "border-violet-500/60 bg-violet-500/[0.08] hover:bg-violet-500/[0.12]" : "border-white/10 bg-white/[0.03] hover:border-white/20",
-                  )}
-                >
-                  <span className="text-sm font-medium text-muted-foreground">{p.name}</span>
-                  <span className="mt-1 text-2xl font-bold">
-                    {planPrice(k)}
-                    <span className="text-sm font-normal text-muted-foreground">{priceSuffix(k)}</span>
-                  </span>
-                  <span className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    {k === "enterprise" ? "Contact us for a quote" : `${releasesLine(k)} · ${artistsLine(k)}`}
-                  </span>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="container scroll-mt-16 pb-20">
+      <section id="faq" className="container scroll-mt-16 py-24">
         <div className="mx-auto max-w-3xl">
-          <Eyebrow>FAQ</Eyebrow>
-          <h2 className="mt-3 text-balance text-3xl font-bold tracking-tight sm:text-4xl">Questions labels ask</h2>
-          <div className="mt-8 divide-y divide-white/10 rounded-2xl border border-white/10 bg-white/[0.02]">
+          <div className="mk-reveal"><Eyebrow>FAQ</Eyebrow><h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em]">Questions people ask</h2></div>
+          <div className="mk-reveal mt-10 divide-y divide-white/10 rounded-3xl border border-white/10 bg-white/[0.02]">
             {faqs.map((f) => (
-              <details key={f.q} className="group px-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-4 font-medium [&::-webkit-details-marker]:hidden">
+              <details key={f.q} className="group px-6">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-medium [&::-webkit-details-marker]:hidden">
                   <span>{f.q}</span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden />
+                  <ChevronDown className="h-4 w-4 shrink-0 text-white/50 transition-transform duration-300 group-open:rotate-180" aria-hidden />
                 </summary>
-                <div className="pb-5 text-sm leading-relaxed text-muted-foreground">{f.a}</div>
+                <div className="pb-6 text-sm leading-relaxed text-white/60">{f.a}</div>
               </details>
             ))}
           </div>
@@ -382,18 +371,14 @@ export default function Landing() {
       </section>
 
       {/* Final CTA */}
-      <section className="container pb-24">
-        <div
-          className="relative isolate overflow-hidden rounded-3xl border border-violet-500/30 px-5 py-10 text-center shadow-[0_0_100px_-30px_rgba(124,58,237,0.7)] sm:p-10"
-          style={{ background: "radial-gradient(90% 130% at 50% 0%, rgba(139,92,246,.55) 0%, rgba(124,58,237,.22) 40%, rgba(12,10,20,.6) 75%), radial-gradient(60% 80% at 50% 120%, rgba(217,70,239,.25), transparent 70%)" }}
-        >
-          <h2 className="text-balance text-3xl font-bold tracking-tight">Your next release, run from one place.</h2>
-          <p className="mx-auto mt-3 max-w-lg text-muted-foreground">
-            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases. Upgrade when the roster grows.` : "Smart links and email pre-saves today, with the rest of the label tools on the way."}
+      <section className="container pb-28">
+        <div className="mk-reveal relative isolate overflow-hidden rounded-[2rem] border border-violet-400/25 px-6 py-16 text-center shadow-[0_0_120px_-40px_rgba(124,58,237,0.8)] sm:px-12">
+          <div aria-hidden className="mk-aurora absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.55), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(217,70,239,.25), transparent 70%)" }} />
+          <h2 className="mk-text-gradient mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Your next release deserves a proper launch.</h2>
+          <p className="mx-auto mt-4 max-w-lg text-white/65">
+            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
           </p>
-          <div className="mx-auto mt-6 max-w-md sm:max-w-none">
-            <PrimaryActions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="sm:justify-center" />
-          </div>
+          <Actions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="mt-8 sm:justify-center" />
           <InviteHint cta={cta} className="mt-4" />
         </div>
       </section>

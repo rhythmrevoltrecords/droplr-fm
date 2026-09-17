@@ -3,8 +3,8 @@ import { GeistSans } from "geist/font/sans";
 import "./globals.css";
 import { signupsOpen } from "@/lib/launch";
 
-const TITLE = "droplr.fm — Run your label's releases from one place";
-const DESCRIPTION = "Smart links, email pre-saves with a release-day email, and a label roster with artist logins. Built for independent labels.";
+const TITLE = "droplr.fm — Launch every release like a label would";
+const DESCRIPTION = "Pre-saves that land at 9am in every fan's timezone, smart links with the DJ stores, promo plans and a fan list you keep. For independent artists and labels.";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8888"),

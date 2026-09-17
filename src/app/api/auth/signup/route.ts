@@ -14,10 +14,11 @@ export async function POST(req: NextRequest) {
   const name = String(form.get("orgName") ?? "").trim();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
+  const kind = form.get("kind") === "artist" ? "artist" : "label";
   const planParam = String(form.get("plan") ?? "");
-  const plan = planParam === "pro" || planParam === "label" ? planParam : "";
-  const fail = (msg: string) => NextResponse.redirect(new URL(`/signup?error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`, req.url), 303);
-  if (name.length < 2) return fail("Label name is required");
+  const plan = kind === "artist" ? (planParam === "artist" ? planParam : "") : planParam === "pro" || planParam === "label" ? planParam : "";
+  const fail = (msg: string) => NextResponse.redirect(new URL(`/signup?type=${kind}&invite=1&error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`, req.url), 303);
+  if (name.length < 2 || name.length > 100) return fail(kind === "artist" ? "Artist name is required" : "Label name is required");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");
   // Pre-launch: invite-only (SIGNUPS_OPEN / SIGNUP_ALLOWLIST).
   if (!canSignUp(email)) return NextResponse.redirect(new URL("/signup?closed=1", req.url), 303);
@@ -30,14 +31,19 @@ export async function POST(req: NextRequest) {
   // Platform admin addresses can never be registered fresh (email isn't verified at signup).
   if (isPlatformAdminEmail(email)) return fail(RESERVED_EMAIL_ERROR);
 
-  let slug = slugify(name) || "label";
-  if (RESERVED_SLUGS.has(slug)) slug = `${slug}-label`;
+  let slug = slugify(name) || kind;
+  if (RESERVED_SLUGS.has(slug)) slug = `${slug}-${kind}`;
   // Also skip slugs another label used before a rename: those still redirect to that label.
   const taken = async (s: string) => !!(await prisma.organization.findFirst({ where: { OR: [{ slug: s }, { previousSlugs: { has: s } }] }, select: { id: true } }));
-  for (let i = 2; await taken(slug); i++) slug = `${slugify(name) || "label"}-${i}`;
+  for (let i = 2; await taken(slug); i++) slug = `${slugify(name) || kind}-${i}`;
 
   const org = await prisma.organization.create({
-    data: { name, slug, emailFromName: name, users: { create: { email, passwordHash: await hashPassword(password), role: "owner", termsAcceptedAt: new Date(), termsVersion: LEGAL.version } } },
+    data: {
+      name, slug, kind, emailFromName: name,
+      // An artist account is its own roster of one: the profile holds the artist's bio, photos and stats.
+      ...(kind === "artist" ? { artists: { create: { name, email } } } : {}),
+      users: { create: { email, passwordHash: await hashPassword(password), role: "owner", termsAcceptedAt: new Date(), termsVersion: LEGAL.version } },
+    },
     include: { users: true },
   });
   await sendVerificationEmail(org.users[0]);

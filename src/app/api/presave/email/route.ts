@@ -26,6 +26,7 @@ export async function POST(req: NextRequest) {
   if (form.get("website")) return NextResponse.redirect(withParam(pageUrl, "done", "email"), 303); // honeypot
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const consent = form.get("consent") === "yes";
+  const news = form.get("news") === "yes";
   if (!EMAIL_RE.test(email) || email.length > 254 || !consent) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
   const timezone = fanTimezone(form.get("tz"), req.headers);
   const listenOnRaw = form.get("listenOn");
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.preSave.findFirst({ where: { releaseId, email, platform: "email" } });
   if (existing) {
-    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, ...(timezone && { timezone }), ...(listenOn && { listenOn }) } });
+    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, ...(timezone && { timezone }), ...(listenOn && { listenOn }), ...(news && { newsConsent: true, newsConsentAt: new Date() }) } });
   } else {
     await prisma.preSave.create({
       data: {
@@ -65,6 +66,8 @@ export async function POST(req: NextRequest) {
         country: meta.country,
         timezone,
         listenOn,
+        newsConsent: news,
+        newsConsentAt: news ? new Date() : null,
       },
     });
   }
