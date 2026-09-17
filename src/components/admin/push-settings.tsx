@@ -109,7 +109,7 @@ export function PushSettings({ vapidKey, devices, kinds, prefs }: { vapidKey: st
             <p className="text-muted-foreground">Apple only allows website notifications from apps on the Home Screen (iOS 16.4 or newer).</p>
             <ol className="space-y-2">
               {[
-                <>Open this page in <strong>Safari</strong> and tap <Share className="inline h-4 w-4 align-[-2px]" aria-label="Share" /> <strong>Share</strong>.</>,
+                <>In Safari, Chrome or Edge, tap <Share className="inline h-4 w-4 align-[-2px]" aria-label="Share" /> <strong>Share</strong>.</>,
                 <>Tap <SquarePlus className="inline h-4 w-4 align-[-2px]" aria-hidden /> <strong>Add to Home Screen</strong>, then <strong>Add</strong>.</>,
                 <>Open <strong>droplr</strong> from your Home Screen, log in, and come back to Account to turn notifications on.</>,
               ].map((step, i) => (
