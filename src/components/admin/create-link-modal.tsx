@@ -123,7 +123,7 @@ export function CreateLinkModal({ releaseLimitReached }: { releaseLimitReached: 
               </div>
               <Button ref={closeRef} size="icon" variant="ghost" onClick={() => setOpen(false)} aria-label="Close"><X /></Button>
             </div>
-            <div className="relative overflow-y-auto px-5 py-6 sm:px-6">
+            <div className="relative overflow-y-auto px-5 pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 sm:px-6">
               <h3 className="mb-3 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Available now</h3>
               <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{active.map(card)}</div>
               <h3 className="mb-3 mt-10 text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">Coming soon</h3>
@@ -134,7 +134,7 @@ export function CreateLinkModal({ releaseLimitReached }: { releaseLimitReached: 
       )}
 
       {toast && (
-        <div role="status" className={cn("fixed bottom-6 left-1/2 z-[60] -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-medium shadow-2xl", toast.ok ? "bg-violet-500 text-white" : "bg-red-500 text-white")}>
+        <div role="status" className={cn("fixed bottom-[max(1.5rem,env(safe-area-inset-bottom))] left-1/2 z-[60] -translate-x-1/2 rounded-full px-5 py-2.5 text-sm font-medium shadow-2xl", toast.ok ? "bg-violet-500 text-white" : "bg-red-500 text-white")}>
           {toast.text}
         </div>
       )}
