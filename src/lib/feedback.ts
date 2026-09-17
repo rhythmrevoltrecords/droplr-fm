@@ -1,5 +1,6 @@
 import "server-only";
 import { accountEmailConfigured, accountEmailShell, sendAccountEmail } from "./account-email";
+import { button, quote } from "./email-design";
 import { isLabelRole } from "./auth";
 import { SITE_URL } from "./env";
 import { platformAdminEmails } from "./platform";
@@ -26,8 +27,7 @@ export function safePage(raw: unknown) {
 }
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-const quote = (body: string) => `<blockquote style="margin:0 0 20px;padding:12px 14px;border-left:3px solid #8b5cf6;background:#1f1b2e;border-radius:8px;white-space:pre-wrap">${esc(body.length > 1200 ? `${body.slice(0, 1200)}…` : body)}</blockquote>`;
-const button = (url: string, label: string) => `<p style="margin:0"><a href="${url}" style="display:inline-block;background:#8b5cf6;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">${label}</a></p>`;
+const cta = (url: string, label: string) => `<div style="margin:24px 0 4px">${button(url, label)}</div>`;
 
 /** Best-effort: a failed email never blocks the message being saved. */
 export async function notifyTeam(t: { id: string; subject: string; category: string }, from: { email: string; orgName: string; plan: string }, body: string, isNew: boolean) {
@@ -39,7 +39,7 @@ export async function notifyTeam(t: { id: string; subject: string; category: str
       sendAccountEmail({
         to,
         subject: `[droplr feedback] ${t.subject}`,
-        html: accountEmailShell(esc(title), `<p style="margin:0 0 12px;color:#a1a1aa">${esc(from.email)} · ${esc(from.orgName)} · ${esc(from.plan)} · ${esc(FEEDBACK_CATEGORIES[t.category as FeedbackCategory] ?? t.category)}</p>${quote(body)}${button(url, "Open in platform console")}`),
+        html: accountEmailShell(esc(title), `<p style="margin:0 0 14px;color:#a1a1aa;font-size:13px">${esc(from.email)} · ${esc(from.orgName)} · ${esc(from.plan)} · ${esc(FEEDBACK_CATEGORIES[t.category as FeedbackCategory] ?? t.category)}</p>${quote(body)}${cta(url, "Reply in the platform console")}`),
         text: `${title}\n${from.email} · ${from.orgName} · ${from.plan}\n\n${body}\n\n${url}`,
       }),
     ),
@@ -53,7 +53,7 @@ export async function notifyUser(t: { id: string; subject: string }, user: { ema
     await sendAccountEmail({
       to: user.email,
       subject: `Re: ${t.subject}`,
-      html: accountEmailShell("The droplr.fm team replied", `<p style="margin:0 0 12px;color:#a1a1aa">About: ${esc(t.subject)}</p>${quote(body)}${button(url, "Read and reply")}`),
+      html: accountEmailShell("The droplr.fm team replied", `<p style="margin:0 0 14px;color:#a1a1aa;font-size:13px">About: ${esc(t.subject)}</p>${quote(body)}${cta(url, "Read and reply")}`),
       text: `The droplr.fm team replied about "${t.subject}":\n\n${body}\n\nReply here: ${url}`,
     });
   } catch (err) {

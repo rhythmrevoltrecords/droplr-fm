@@ -38,7 +38,7 @@ export default async function SettingsPage() {
       <Card id="appearance" className="scroll-mt-24">
         <CardHeader><CardTitle>Appearance</CardTitle><CardDescription>Desktop and mobile.</CardDescription></CardHeader>
         <CardContent>
-          <AppearanceForm initial={{ themePreference: org.themePreference, themePublic: org.themePublic }} orgName={org.name} locationLabel={org.locationLabel} accent={org.accentColor} />
+          <AppearanceForm initial={{ themePreference: org.themePreference, themePublic: org.themePublic, dashboardGlow: org.dashboardGlow }} orgName={org.name} locationLabel={org.locationLabel} accent={org.accentColor} />
         </CardContent>
       </Card>
 

@@ -345,7 +345,8 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
         unique.map(async (r) => {
           const tpl = await releaseDayEmail({
             preSaveId: r.id, releaseId, title: release.title, artistName: release.artistName, coverUrl: release.coverUrl,
-            accentColor: release.accentColor, publicUrl, linkBase: origin, platforms: orderFor(r.listenOn), orgName: org.emailFromName || org.name, spotifyArtistId: release.spotifyArtistId,
+            accentColor: release.accentColor ?? org.accentColor, publicUrl, linkBase: origin, platforms: orderFor(r.listenOn), orgName: org.emailFromName || org.name, spotifyArtistId: release.spotifyArtistId,
+            logoUrl: org.logoUrl, leadPlatform: r.listenOn, showBranding: !planOf(org.plan).removeBranding,
           });
           return { to: r.email!, fromName: org.emailFromName || org.name, replyTo: org.emailReplyTo, ...tpl };
         }),

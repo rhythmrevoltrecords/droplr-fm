@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
 /** Owner console chrome: Accounts / Feedback (unread count) / Referrals. */
-export async function PlatformChrome({ email, active, children }: { email: string; active: "accounts" | "feedback" | "referrals"; children: React.ReactNode }) {
+export async function PlatformChrome({ email, active, children }: { email: string; active: "accounts" | "feedback" | "referrals" | "emails"; children: React.ReactNode }) {
   const [unread, toApply] = await Promise.all([
     prisma.feedbackThread.count({ where: { unreadByTeam: true } }),
     prisma.referral.count({ where: { status: "earned", note: { not: null } } }),
@@ -14,6 +14,7 @@ export async function PlatformChrome({ email, active, children }: { email: strin
     { key: "accounts", href: "/platform", label: "Accounts", count: 0 },
     { key: "feedback", href: "/platform/feedback", label: "Feedback", count: unread },
     { key: "referrals", href: "/platform/referrals", label: "Referrals", count: toApply },
+    { key: "emails", href: "/platform/emails", label: "Emails", count: 0 },
   ] as const;
   return (
     <div className="theme-dark min-h-dvh bg-background text-foreground">

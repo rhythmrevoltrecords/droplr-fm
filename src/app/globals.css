@@ -156,6 +156,9 @@
 .shell-theme-light .platform-icon {
   filter: brightness(0.6) saturate(1.4);
 }
+.shell-theme-light .platform-icon[data-mono] {
+  color: #0a0a0a !important; filter: none;
+}
 
 @media (prefers-color-scheme: light) {
   .shell-theme-system {
@@ -200,6 +203,15 @@
   .shell-theme-system .platform-icon {
     filter: brightness(0.6) saturate(1.4);
   }
+  .shell-theme-system .platform-icon[data-mono] {
+    color: #0a0a0a !important; filter: none;
+  }
+}
+
+/* Near-white platform marks (TIDAL) on light admin themes */
+.theme-light .platform-icon[data-mono] { color: #0a0a0a !important; }
+@media (prefers-color-scheme: light) {
+  .theme-system .platform-icon[data-mono] { color: #0a0a0a !important; }
 }
 
 /* Admin surfaces that are hard-coded dark for the purple look follow the light theme too */
@@ -300,3 +312,27 @@
   .mk-js .mk-reveal { opacity: 1; transform: none; transition: none; }
   .mk-card, .mk-card:hover { transform: none; }
 }
+
+/* ---------- Dashboard accent glow (Organization.dashboardGlow). --glow = the account's accent colour ---------- */
+.app-glow {
+  background:
+    radial-gradient(70rem 34rem at 10% -12%, color-mix(in srgb, var(--glow) 55%, transparent), transparent 66%),
+    radial-gradient(52rem 34rem at 100% 30%, color-mix(in srgb, var(--glow) 30%, transparent), transparent 70%),
+    radial-gradient(64rem 40rem at 20% 115%, color-mix(in srgb, var(--glow) 30%, transparent), transparent 70%);
+}
+.theme-light .app-glow {
+  background:
+    radial-gradient(64rem 30rem at 12% -10%, color-mix(in srgb, var(--glow) 32%, transparent), transparent 66%),
+    radial-gradient(48rem 26rem at 96% 2%, color-mix(in srgb, var(--glow) 18%, transparent), transparent 70%),
+    radial-gradient(56rem 32rem at 55% 115%, color-mix(in srgb, var(--glow) 12%, transparent), transparent 70%);
+}
+@media (prefers-color-scheme: light) {
+  .theme-system .app-glow {
+    background:
+      radial-gradient(64rem 30rem at 12% -10%, color-mix(in srgb, var(--glow) 32%, transparent), transparent 66%),
+      radial-gradient(48rem 26rem at 96% 2%, color-mix(in srgb, var(--glow) 18%, transparent), transparent 70%),
+      radial-gradient(56rem 32rem at 55% 115%, color-mix(in srgb, var(--glow) 12%, transparent), transparent 70%);
+  }
+}
+/* Cards float on the glow: a touch of translucency + blur so the colour reads through without hurting text contrast. */
+.glow-on .bg-card { background-color: hsl(var(--card) / 0.78); backdrop-filter: blur(12px); }

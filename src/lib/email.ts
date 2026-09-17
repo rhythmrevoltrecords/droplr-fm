@@ -1,6 +1,6 @@
 import { signToken } from "./crypto";
 import { SITE_URL } from "./env";
-import { platformMeta } from "./platforms";
+import { BRAND, button, esc, eyebrow, h1, layout, p, platformLogoUrl, platformRow, rgba, safeHex, safeHttps } from "./email-design";
 
 type SendArgs = { to: string; subject: string; html: string; text: string; fromName?: string | null; replyTo?: string | null; headers?: Record<string, string> };
 
@@ -37,8 +37,7 @@ export async function sendBatch(messages: SendArgs[]) {
   return res.json();
 }
 
-const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
-
+/** The release-day email, sent as the artist / label (their name, logo and accent colour; droplr only in the footer on Free). */
 export async function releaseDayEmail(args: {
   preSaveId: string;
   releaseId: string;
@@ -51,40 +50,47 @@ export async function releaseDayEmail(args: {
   platforms: string[];
   orgName: string;
   spotifyArtistId?: string | null;
+  logoUrl?: string | null;
+  /** The platform the fan picked when they pre-saved: first and highlighted. */
+  leadPlatform?: string | null;
+  showBranding?: boolean;
 }) {
   const pst = await signToken({ ps: args.preSaveId }, "60d", "pst");
   const unsub = await signToken({ ps: args.preSaveId, act: "unsub" }, "365d", "unsub");
+  return renderReleaseDayEmail({ ...args, pst, unsub });
+}
+
+/** Pure render (no signing) so the platform console can preview it with sample data. */
+export function renderReleaseDayEmail(args: Parameters<typeof releaseDayEmail>[0] & { pst: string; unsub: string }) {
   const utm = "utm_source=release_email&utm_medium=email&utm_campaign=presave";
-  // Interpolated into style attributes: only a plain hex colour is allowed through.
-  const accent = args.accentColor && /^#[0-9a-fA-F]{6}$/.test(args.accentColor) ? args.accentColor : "#8B5CF6";
-  // Cover URLs can come from label input or store lookups: https only, and escaped for the attribute.
-  const cover = /^https:\/\//i.test(args.coverUrl) ? `<img src="${esc(args.coverUrl)}" width="220" height="220" alt="" style="border-radius:14px;display:block;margin:0 auto 20px;width:220px;height:220px;object-fit:cover"/>` : "";
-  const buttons = args.platforms.slice(0, 5).map((p) => {
-    const href = esc(`${args.linkBase}/api/r/${encodeURIComponent(args.releaseId)}/${encodeURIComponent(p)}?${utm}&pst=${pst}`);
-    return `<tr><td style="padding:6px 0"><a href="${href}" style="display:block;background:#18181b;border:1px solid #27272a;color:#fafafa;text-decoration:none;padding:14px 18px;border-radius:12px;font:600 15px system-ui,sans-serif">${esc(platformMeta(p).action)} on ${esc(platformMeta(p).name)} →</a></td></tr>`;
-  }).join("");
-  const allLink = `${args.publicUrl}?${utm}&pst=${pst}`;
-  const unsubUrl = `${SITE_URL}/api/unsubscribe?t=${unsub}`;
+  const accent = safeHex(args.accentColor);
+  const cover = safeHttps(args.coverUrl);
+  const track = (p: string) => `${args.linkBase}/api/r/${encodeURIComponent(args.releaseId)}/${encodeURIComponent(p)}?${utm}&pst=${args.pst}`;
+  const rows = args.platforms.slice(0, 5).map((p, i) => platformRow(track(p), p, accent, i === 0 && !!args.leadPlatform && p === args.leadPlatform)).join("");
+  const allLink = `${args.publicUrl}?${utm}&pst=${args.pst}`;
+  const unsubUrl = `${SITE_URL}/api/unsubscribe?t=${args.unsub}`;
   const subject = `${args.title} by ${args.artistName} is out now`;
+  const follow = args.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(args.spotifyArtistId);
 
-  const html = `<!doctype html><html><body style="margin:0;background:#09090b;padding:24px 12px">
-<table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#0f0f12;border-radius:20px;overflow:hidden;border:1px solid #1f1f23">
-<tr><td style="background:${accent};height:6px"></td></tr>
-<tr><td style="padding:28px 24px 8px;text-align:center">
-${cover}
-<p style="margin:0;color:#a1a1aa;font:500 12px system-ui,sans-serif;letter-spacing:.12em;text-transform:uppercase">Out now</p>
-<h1 style="margin:8px 0 4px;color:#fafafa;font:700 24px system-ui,sans-serif">${esc(args.title)}</h1>
-<p style="margin:0 0 20px;color:#d4d4d8;font:400 16px system-ui,sans-serif">${esc(args.artistName)}</p>
-<p style="margin:0 0 16px;color:#a1a1aa;font:400 14px system-ui,sans-serif">You pre-saved this one. It just dropped. Save it now:</p>
-</td></tr>
-<tr><td style="padding:0 24px"><table role="presentation" width="100%">${buttons}</table></td></tr>
-<tr><td style="padding:12px 24px ${args.spotifyArtistId ? "8px" : "28px"};text-align:center"><a href="${esc(allLink)}" style="color:${accent};font:600 14px system-ui,sans-serif">All platforms</a></td></tr>
-${args.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(args.spotifyArtistId) ? `<tr><td style="padding:0 24px 28px;text-align:center"><a href="${esc(`${args.linkBase}/api/r/${encodeURIComponent(args.releaseId)}/spotifyFollow?${utm}&pst=${pst}`)}" style="color:#1ED760;font:600 14px system-ui,sans-serif">Follow ${esc(args.artistName)} on Spotify</a></td></tr>` : ""}
-<tr><td style="padding:16px 24px;border-top:1px solid #1f1f23;color:#71717a;font:400 12px system-ui,sans-serif;text-align:center">
-Sent by ${esc(args.orgName)} because you asked to be emailed when this release came out.<br/>
-<a href="${esc(unsubUrl)}" style="color:#a1a1aa">Unsubscribe</a></td></tr>
-</table></body></html>`;
+  const body = `
+${cover ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" style="padding:0 0 22px">
+<img src="${esc(cover)}" width="260" height="260" alt="${esc(args.title)} cover" style="display:block;width:260px;max-width:100%;height:auto;border-radius:16px;border:0;box-shadow:0 18px 50px ${rgba(accent, 0.45)}"/></td></tr></table>` : ""}
+<div style="text-align:center">
+${eyebrow("Out now", accent)}
+${h1(args.title)}
+${p(esc(args.artistName), `color:${BRAND.muted};font-size:16px;margin-bottom:22px`)}
+${p("You pre-saved this one. It just dropped: listen or save it now.", `color:${BRAND.text};margin-bottom:18px`)}
+</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">${rows}</table>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px"><tr><td align="center">${button(allLink, "All platforms", accent)}</td></tr></table>
+${follow ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:18px"><tr><td align="center">
+<a href="${esc(track("spotifyFollow"))}" style="display:inline-block;padding:10px 16px;border:1px solid ${rgba("#1ED760", 0.35)};border-radius:999px;color:#1ED760;font:600 14px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;text-decoration:none">
+<img src="${platformLogoUrl("spotify")}" width="16" height="16" alt="" style="display:inline-block;width:16px;height:16px;vertical-align:-3px;margin-right:6px;border:0"/>Follow ${esc(args.artistName)} on Spotify</a></td></tr></table>` : ""}`;
 
-  const text = `${subject}\n\nYou pre-saved this one. Save it now: ${allLink}\n\nSent by ${args.orgName} because you asked to be emailed on release day.\nUnsubscribe: ${unsubUrl}`;
+  const footer = `Sent by ${esc(args.orgName)} because you asked to be emailed when this release came out.<br/>
+<a href="${esc(unsubUrl)}" style="color:${BRAND.muted};text-decoration:underline">Unsubscribe</a>${args.showBranding ? `<br/><br/><a href="https://droplr.fm" style="color:${BRAND.faint};text-decoration:none">Pre-saves by <strong style="color:${BRAND.muted}">droplr.fm</strong></a>` : ""}`;
+
+  const html = layout({ preheader: `${args.artistName} just released ${args.title}. Your pre-save is ready.`, accent, brand: { name: args.orgName, logoUrl: args.logoUrl }, body, footer });
+  const text = `${subject}\n\nYou pre-saved this one. Listen or save it now: ${allLink}\n\nSent by ${args.orgName} because you asked to be emailed on release day.\nUnsubscribe: ${unsubUrl}`;
   return { subject, html, text, headers: { "List-Unsubscribe": `<${unsubUrl}>`, "List-Unsubscribe-Post": "List-Unsubscribe=One-Click" } };
 }

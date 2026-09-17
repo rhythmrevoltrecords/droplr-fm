@@ -63,6 +63,7 @@ model Organization {
   locationLabel   String   @default("Brisbane") // shown in admin, e.g. "DATE (SYDNEY)"
   themePreference String   @default("dark") // dark | light | system
   themePublic     Boolean  @default(false) // also apply themePreference to public smart links / bio pages
+  dashboardGlow   Boolean  @default(true) // soft accent-colour gradient behind the admin / artist dashboards
   accentColor     String? // hex; admin top border + fallback when a release has no extracted colour
 
   createdAt DateTime  @default(now())

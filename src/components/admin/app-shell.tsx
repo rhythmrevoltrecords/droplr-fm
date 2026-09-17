@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
+import { DashboardGlow } from "@/components/admin/dashboard-glow";
 import { FeedbackButton } from "@/components/feedback/feedback-forms";
 import { Logo } from "@/components/marketing/logo";
 import { Badge } from "@/components/ui/badge";
@@ -7,7 +8,7 @@ import { copyrightLine } from "@/lib/legal";
 import { planOf } from "@/lib/plans";
 import { cn } from "@/lib/utils";
 
-export type ShellOrg = { name: string; plan: string; logoUrl?: string | null; themePreference?: string | null; accentColor?: string | null };
+export type ShellOrg = { name: string; plan: string; logoUrl?: string | null; themePreference?: string | null; accentColor?: string | null; dashboardGlow?: boolean | null };
 
 export function themeClass(pref: string | null | undefined) {
   return pref === "light" ? "theme-light" : pref === "system" ? "theme-system" : "theme-dark";
@@ -17,7 +18,8 @@ export function themeClass(pref: string | null | undefined) {
 export function AppShell({ user, nav, children, billingHref, accountHref, feedbackHref, feedbackUnread = false }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string }[]; children: React.ReactNode; /** Label admins only: plan badge links here, and Free shows an Upgrade button. */ billingHref?: string; /** Account page (password, sessions); the name in the header links here. */ accountHref?: string; /** Feedback page; the dot shows when the droplr.fm team has replied. */ feedbackHref?: string; feedbackUnread?: boolean }) {
   const org = user.organization;
   return (
-    <div className={cn(themeClass(org.themePreference), "min-h-dvh bg-background text-foreground")}>
+    <div className={cn(themeClass(org.themePreference), "relative isolate min-h-dvh bg-background text-foreground", org.dashboardGlow !== false && "glow-on")}>
+      {org.dashboardGlow !== false && <DashboardGlow accent={org.accentColor} />}
       <header
         className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur"
         style={org.accentColor ? { borderTop: `2px solid ${org.accentColor}` } : undefined}
@@ -61,8 +63,8 @@ export function AppShell({ user, nav, children, billingHref, accountHref, feedba
           ))}
         </nav>
       </header>
-      <main className="container py-8">{children}</main>
-      <footer className="container flex flex-col gap-2 border-t py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <main className="container relative py-8">{children}</main>
+      <footer className="container relative flex flex-col gap-2 border-t py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>{copyrightLine()}</span>
         <nav aria-label="Legal" className="flex flex-wrap gap-4">
           <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>

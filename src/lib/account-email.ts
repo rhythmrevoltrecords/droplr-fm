@@ -1,4 +1,5 @@
 import { SITE_URL } from "./env";
+import { BRAND, button, esc, h1, layout, muted, p } from "./email-design";
 import { CONTACT } from "./legal";
 
 /**
@@ -25,21 +26,23 @@ export async function sendAccountEmail(msg: { to: string; subject: string; html:
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
 }
 
-export const accountEmailShell = (title: string, body: string) => `<!doctype html><html><body style="margin:0;background:#0c0a14;padding:32px 16px;font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:#e4e4e7">
-<table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#16131f;border:1px solid #27233a;border-radius:16px"><tr><td style="padding:28px">
-<p style="margin:0 0 20px;font-weight:700;color:#fff">droplr.fm</p>
-<h1 style="margin:0 0 12px;font-size:20px;color:#fff">${title}</h1>${body}
-<p style="margin:28px 0 0;font-size:12px;color:#71717a">Need help? Reply to this email or contact ${CONTACT.support}.</p>
-</td></tr></table></body></html>`;
+/** droplr.fm-branded account email: wordmark, violet glow, one card. `body` is trusted HTML built from the helpers. */
+export const accountEmailShell = (title: string, body: string) =>
+  layout({
+    preheader: title.replace(/<[^>]+>/g, ""),
+    brand: "droplr",
+    body: `${h1(title.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'"))}${body}`,
+    footer: `Need help? Reply to this email or contact <a href="mailto:${CONTACT.support}" style="color:${BRAND.muted}">${CONTACT.support}</a>.<br/>droplr.fm · Brisbane, Australia`,
+  });
 
 export function resetPasswordEmail(url: string) {
   return {
     subject: "Reset your droplr.fm password",
     html: accountEmailShell(
       "Reset your password",
-      `<p style="margin:0 0 20px">Someone (hopefully you) asked to reset the password for this droplr.fm account. The link works once and expires in 60 minutes.</p>
-<p style="margin:0 0 20px"><a href="${url}" style="display:inline-block;background:#8b5cf6;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Choose a new password</a></p>
-<p style="margin:0;font-size:13px;color:#a1a1aa">If you didn't ask for this, ignore this email. Your password won't change.</p>`,
+      `${p("Someone (hopefully you) asked to reset the password for this droplr.fm account. The link works once and expires in 60 minutes.")}
+<div style="margin:24px 0">${button(url, "Choose a new password")}</div>
+${muted("If you didn&apos;t ask for this, ignore this email. Your password won&apos;t change.")}`,
     ),
     text: `Reset your droplr.fm password\n\nThis link works once and expires in 60 minutes:\n${url}\n\nIf you didn't ask for this, ignore this email.`,
   };
@@ -50,9 +53,9 @@ export function verifyEmailEmail(url: string) {
     subject: "Confirm your email for droplr.fm",
     html: accountEmailShell(
       "Confirm your email",
-      `<p style="margin:0 0 20px">Tap below to confirm this is your address. It keeps your account recoverable and unlocks inviting your team, custom domains and Spotify. The link expires in 48 hours.</p>
-<p style="margin:0 0 20px"><a href="${url}" style="display:inline-block;background:#8b5cf6;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Confirm my email</a></p>
-<p style="margin:0;font-size:13px;color:#a1a1aa">Didn't create a droplr.fm account? Ignore this email and nothing happens.</p>`,
+      `${p("Tap below to confirm this is your address. It keeps your account recoverable and unlocks inviting your team, custom domains and Spotify. The link expires in 48 hours.")}
+<div style="margin:24px 0">${button(url, "Confirm my email")}</div>
+${muted("Didn&apos;t create a droplr.fm account? Ignore this email and nothing happens.")}`,
     ),
     text: `Confirm your email for droplr.fm\n\nThis link expires in 48 hours:\n${url}\n\nDidn't create a droplr.fm account? Ignore this email.`,
   };
@@ -64,8 +67,9 @@ export function passwordChangedEmail(when: Date) {
     subject: "Your droplr.fm password was changed",
     html: accountEmailShell(
       "Your password was changed",
-      `<p style="margin:0 0 16px">The password for your droplr.fm account was changed on ${stamp}. Every other device has been signed out.</p>
-<p style="margin:0">If this wasn't you, <a href="${SITE_URL}/forgot-password" style="color:#a78bfa">reset your password now</a> and tell us at ${CONTACT.security}.</p>`,
+      `${p(`The password for your droplr.fm account was changed on ${esc(stamp)}. Every other device has been signed out.`)}
+<div style="margin:24px 0">${button(`${SITE_URL}/forgot-password`, "This wasn't me", "#DC2626")}</div>
+${muted(`If this wasn&apos;t you, reset your password with the button above and tell us at ${CONTACT.security}.`)}`,
     ),
     text: `Your droplr.fm password was changed on ${stamp}. Every other device has been signed out.\n\nIf this wasn't you, reset it now: ${SITE_URL}/forgot-password and tell us at ${CONTACT.security}.`,
   };

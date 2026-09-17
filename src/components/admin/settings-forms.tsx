@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { LOCATIONS } from "@/lib/time";
 import { cn, slugify } from "@/lib/utils";
+import { DashboardGlow } from "./dashboard-glow";
 import { ASPECT_ORIGINAL, ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
 async function patchOrg(body: Record<string, unknown>) {
@@ -235,14 +236,15 @@ const THEMES = [
   { key: "system", label: "System", icon: Monitor },
 ] as const;
 
-function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel }: { theme: PublicTheme; applyPublic: boolean; accent: string | null; orgName: string; locationLabel: string }) {
+function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel, glow }: { theme: PublicTheme; applyPublic: boolean; accent: string | null; orgName: string; locationLabel: string; glow: boolean }) {
   const adminClass = theme === "light" ? "theme-light" : theme === "system" ? "theme-system" : "theme-dark";
   return (
     <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
       {/* Admin table in the chosen theme */}
-      <div className={cn(adminClass, "overflow-hidden rounded-xl border bg-background text-foreground")} style={accent ? { borderTop: `2px solid ${accent}` } : undefined}>
-        <div className="border-b px-3 py-2 text-xs font-semibold">{orgName} · Releases</div>
-        <table className="w-full text-xs">
+      <div className={cn(adminClass, "relative isolate overflow-hidden rounded-xl border bg-background text-foreground")} style={accent ? { borderTop: `2px solid ${accent}` } : undefined}>
+        {glow && <DashboardGlow accent={accent} className="absolute opacity-50" />}
+        <div className="relative border-b px-3 py-2 text-xs font-semibold">{orgName} · Releases</div>
+        <table className="relative w-full text-xs">
           <thead>
             <tr className="border-b text-left text-[10px] uppercase tracking-wide text-muted-foreground">
               <th className="px-3 py-1.5">Release</th><th className="px-3 py-1.5">Date ({locationLabel.toUpperCase()})</th><th className="px-3 py-1.5 text-right">Clicks</th>
@@ -274,12 +276,13 @@ function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel }: { 
   );
 }
 
-export function AppearanceForm({ initial, orgName, locationLabel, accent }: { initial: { themePreference: string; themePublic: boolean }; orgName: string; locationLabel: string; accent: string | null }) {
+export function AppearanceForm({ initial, orgName, locationLabel, accent }: { initial: { themePreference: string; themePublic: boolean; dashboardGlow: boolean }; orgName: string; locationLabel: string; accent: string | null }) {
   const [theme, setTheme] = useState<PublicTheme>((["dark", "light", "system"].includes(initial.themePreference) ? initial.themePreference : "dark") as PublicTheme);
   const [applyPublic, setApplyPublic] = useState(initial.themePublic);
+  const [glow, setGlow] = useState(initial.dashboardGlow);
   const { busy, msg, save } = useSave();
   return (
-    <form className="space-y-5" onSubmit={async (e) => { e.preventDefault(); await save({ themePreference: theme, themePublic: applyPublic }); }}>
+    <form className="space-y-5" onSubmit={async (e) => { e.preventDefault(); await save({ themePreference: theme, themePublic: applyPublic, dashboardGlow: glow }); }}>
       <fieldset>
         <legend className="mb-2 text-sm font-medium">Theme</legend>
         <div role="radiogroup" className="grid grid-cols-3 gap-2 sm:max-w-md">
@@ -300,6 +303,14 @@ export function AppearanceForm({ initial, orgName, locationLabel, accent }: { in
       </fieldset>
 
       <label className="flex min-h-[44px] items-start gap-3 rounded-lg border p-3 text-sm">
+        <input type="checkbox" checked={glow} onChange={(e) => setGlow(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
+        <span>
+          <span className="font-medium">Accent glow on dashboards</span>
+          <span className="block text-muted-foreground">A soft gradient in your accent colour behind the dashboard, in dark and light. Change the colour under Identity.</span>
+        </span>
+      </label>
+
+      <label className="flex min-h-[44px] items-start gap-3 rounded-lg border p-3 text-sm">
         <input type="checkbox" checked={applyPublic} onChange={(e) => setApplyPublic(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
         <span>
           <span className="font-medium">Apply theme to public smart links</span>
@@ -309,7 +320,7 @@ export function AppearanceForm({ initial, orgName, locationLabel, accent }: { in
 
       <div>
         <div className="mb-2 text-sm font-medium">Preview</div>
-        <ThemePreview theme={theme} applyPublic={applyPublic} accent={accent} orgName={orgName} locationLabel={locationLabel} />
+        <ThemePreview theme={theme} applyPublic={applyPublic} accent={accent} orgName={orgName} locationLabel={locationLabel} glow={glow} />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">
