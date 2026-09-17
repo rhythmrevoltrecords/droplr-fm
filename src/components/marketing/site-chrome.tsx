@@ -4,10 +4,12 @@ import { Button } from "@/components/ui/button";
 import { ctaCopy } from "@/lib/launch";
 import { copyrightLine } from "@/lib/legal";
 import { Logo } from "./logo";
+import { SectionLink } from "./section-link";
 
-const NAV = [
-  { href: "/#product", label: "Product" },
-  { href: "/#roadmap", label: "Roadmap" },
+// Homepage sections jump without a "#product" in the URL (SectionLink).
+const NAV: { href: string; label: string; section?: string }[] = [
+  { href: "/", section: "product", label: "Product" },
+  { href: "/", section: "roadmap", label: "Roadmap" },
   { href: "/pricing", label: "Pricing" },
   { href: "/demo/demo-track", label: "Demo" },
 ];
@@ -21,7 +23,9 @@ export function SiteHeader() {
         <Logo priority />
         <nav aria-label="Main" className="hidden gap-5 text-sm text-muted-foreground md:flex">
           {NAV.map((n) => (
-            <Link key={n.href} href={n.href} className="transition-colors hover:text-foreground">{n.label}</Link>
+            n.section
+              ? <SectionLink key={n.label} section={n.section} className="transition-colors hover:text-foreground">{n.label}</SectionLink>
+              : <Link key={n.label} href={n.href} className="transition-colors hover:text-foreground">{n.label}</Link>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
@@ -36,7 +40,9 @@ export function SiteHeader() {
             </summary>
             <nav aria-label="Mobile" className="absolute right-0 top-10 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-white/10 bg-[#15121f] p-1.5 text-sm shadow-[0_24px_60px_-12px_rgba(0,0,0,.8)]">
               {NAV.map((n) => (
-                <Link key={n.href} href={n.href} className="block rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">{n.label}</Link>
+                n.section
+                  ? <SectionLink key={n.label} section={n.section} className="block rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">{n.label}</SectionLink>
+                  : <Link key={n.label} href={n.href} className="block rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">{n.label}</Link>
               ))}
               <div className="my-1.5 h-px bg-white/10" />
               <Link href="/docs/spotify-byo" className="block rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">Docs</Link>
@@ -55,8 +61,8 @@ export function SiteFooter() {
       <div className="container flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <Logo />
         <div className="flex flex-wrap gap-x-5 gap-y-2">
-          <Link href="/#product" className="hover:text-foreground">Product</Link>
-          <Link href="/#roadmap" className="hover:text-foreground">Roadmap</Link>
+          <SectionLink section="product" className="hover:text-foreground">Product</SectionLink>
+          <SectionLink section="roadmap" className="hover:text-foreground">Roadmap</SectionLink>
           <Link href="/pricing" className="hover:text-foreground">Pricing</Link>
           <Link href="/demo/demo-track" className="hover:text-foreground">Demo</Link>
           <Link href="/docs/custom-domain" className="hover:text-foreground">Custom domains</Link>

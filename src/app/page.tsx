@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, BarChart3, CalendarCheck, ChevronDown, Globe, Image as ImageIcon, Mail, Users } from "lucide-react";
 import { AudiencePricing, AudienceStory } from "@/components/marketing/audience-pricing";
 import { RevealOnScroll } from "@/components/marketing/reveal";
+import { SectionScrollTarget } from "@/components/marketing/section-link";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
@@ -258,6 +259,7 @@ export default function Landing() {
   return (
     <MarketingShell>
       <RevealOnScroll />
+      <SectionScrollTarget />
 
       {/* Hero */}
       <section className="relative overflow-hidden">
