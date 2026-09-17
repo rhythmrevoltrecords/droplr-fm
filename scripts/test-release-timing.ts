@@ -10,6 +10,7 @@ import { statsRange } from "../src/lib/analytics";
 import { freeMonthPercent, runReferralChecks } from "../src/lib/referrals";
 import { notifyPresaveMilestone, setPushSenderForTests } from "../src/lib/push";
 import { notifyLiveReleases } from "../src/lib/push-live";
+import { claimInvite, createInvite, normaliseInvite } from "../src/lib/signup-invites";
 import { dateToZonedLocal, releaseEmailDueFor, releaseInstantFor, releaseWindow, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL"]) {
@@ -51,7 +52,8 @@ async function main() {
   globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
     const u = String(url);
     if (u.includes("api.resend.com")) {
-      for (const m of JSON.parse(String(init?.body)) as { to: string[]; html: string }[]) sent.push({ to: m.to[0], html: m.html });
+      const body = JSON.parse(String(init?.body)) as { to: string[] | string; html: string } | { to: string[] | string; html: string }[];
+      for (const m of Array.isArray(body) ? body : [body]) sent.push({ to: Array.isArray(m.to) ? m.to[0] : m.to, html: m.html });
       await new Promise((r) => setTimeout(r, 300)); // slow enough for the overlap check
       return new Response("{}", { status: 200 });
     }
@@ -221,6 +223,13 @@ async function main() {
     await notifyPresaveMilestone(pRel.id);
     check("a subscription the push service says is gone (410) is deleted", (await prisma.pushSubscription.count({ where: { user: { organizationId: pOrg.id } } })) === 2);
     setPushSenderForTests(null);
+    console.log("\n7. Owner invite links");
+    check("invite settings: email invites are single-use, bad type ignored, expiry capped at 180 days", (() => { const a = normaliseInvite({ email: "X@Y.co", maxUses: 40, kind: "admin", expiresInDays: 999 }); const b = normaliseInvite({ email: "nope" }); const c = normaliseInvite({ maxUses: 9999, kind: "artist" }); return a.ok && a.data.maxUses === 1 && a.data.email === "x@y.co" && a.data.kind === null && a.data.expiresInDays === 180 && !b.ok && c.ok && c.data.maxUses === 500 && c.data.kind === "artist"; })());
+    const open = await createInvite({ maxUses: 2, note: `timing-${tag}` }, "t@t.test");
+    if (!open.ok) throw new Error("invite");
+    const claims = await Promise.all([1, 2, 3, 4, 5].map(() => claimInvite(open.invite.id)));
+    check("five racing sign-ups on a 2-use link: exactly two get in", claims.filter(Boolean).length === 2 && (await prisma.signupInvite.findUnique({ where: { id: open.invite.id } }))?.uses === 2, `${claims.filter(Boolean).length}`);
+    await prisma.signupInvite.deleteMany({ where: { note: `timing-${tag}` } });
   } finally {
     await prisma.organization.deleteMany({ where: { id: { in: refOrgs } } }).catch(() => {});
     globalThis.fetch = realFetch;

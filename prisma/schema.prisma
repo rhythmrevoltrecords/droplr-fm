@@ -40,6 +40,8 @@ model Organization {
   compNote      String?
   compSetAt     DateTime?
   compSetBy     String?
+  signupInviteId String? // the owner invite this account signed up with
+  signupInvite  SignupInvite? @relation(fields: [signupInviteId], references: [id], onDelete: SetNull)
   // Refer a friend: this account's share code, and who referred it (if anyone).
   referralCode  String?  @unique
 
@@ -479,4 +481,29 @@ model PushSubscription {
   createdAt  DateTime  @default(now())
 
   @@index([userId])
+}
+
+/**
+ * Platform-owner invite to create an account while signups are closed. Either for one email (single use)
+ * or an open link with a use limit. Optional free trial of a paid plan (a comp plan with an expiry).
+ */
+model SignupInvite {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique // sha256 of the code in the link
+  tokenEncrypted String // so the owner can copy the link again (ENCRYPTION_KEY)
+  email          String? // null = open link anyone with it can use
+  kind           String? // artist | label | null (they choose)
+  maxUses        Int       @default(1)
+  uses           Int       @default(0)
+  expiresAt      DateTime
+  revokedAt      DateTime?
+  note           String?
+  createdBy      String
+  emailedAt      DateTime?
+  lastUsedAt     DateTime?
+  createdAt      DateTime  @default(now())
+  organizations  Organization[]
+
+  @@index([email])
+  @@index([createdAt])
 }
