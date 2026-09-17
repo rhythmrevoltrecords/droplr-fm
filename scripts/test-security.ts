@@ -773,6 +773,38 @@ async function main() {
         console.log("  (skipped platform feedback reply checks: needs PLATFORM_TEST_ADMIN)");
       }
     }
+    console.log("\n15. Push notifications");
+    const pushSub = (host: string, n = "1") => ({ subscription: { endpoint: `${host}/push/${n}-${RUN}`, keys: { p256dh: "B".repeat(87), auth: "A".repeat(22) } } });
+    const subAnon = await http(null, "POST", "/api/push/subscribe", pushSub("https://fcm.googleapis.com/fcm/send"));
+    check("push subscribe needs a login", subAnon.status === 401, `${subAnon.status}`);
+    const probe = await http(ownerA, "POST", "/api/push/subscribe", pushSub("https://fcm.googleapis.com/fcm/send", "probe"));
+    if (probe.status === 503) {
+      console.log("  (skipped push checks: start the server with VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY)");
+    } else {
+      const evil = await http(ownerA, "POST", "/api/push/subscribe", pushSub("https://evil.example"));
+      const plainHttp = await http(ownerA, "POST", "/api/push/subscribe", pushSub("http://fcm.googleapis.com/fcm/send"));
+      const internal = await http(ownerA, "POST", "/api/push/subscribe", pushSub("https://fcm.googleapis.com.evil.example"));
+      check("only real push services are accepted as endpoints (no SSRF)", evil.status === 400 && plainHttp.status === 400 && internal.status === 400 && (await prisma.pushSubscription.count({ where: { endpoint: { contains: "evil" } } })) === 0, `${evil.status}/${plainHttp.status}/${internal.status}`);
+      const apple = await http(ownerA, "POST", "/api/push/subscribe", pushSub("https://web.push.apple.com", "ios"));
+      const mine = await prisma.pushSubscription.findMany({ where: { userId: A.owner.id } });
+      check("Apple and Google push endpoints save to the login", probe.status === 200 && apple.status === 200 && mine.length === 2, `${probe.status}/${apple.status}/${mine.length}`);
+      const otherRemove = await http(ownerB, "DELETE", "/api/push/devices", { id: mine[0].id });
+      const otherUnsub = await http(ownerB, "DELETE", "/api/push/subscribe", { endpoint: mine[0].endpoint });
+      check("nobody else can remove your devices", otherRemove.status === 404 && JSON.parse(otherUnsub.text).removed === 0 && (await prisma.pushSubscription.count({ where: { userId: A.owner.id } })) === 2, `${otherRemove.status}`);
+      const prefs = await http(ownerA, "PATCH", "/api/push/prefs", { milestones: false, bogus: true, feedback: "yes" });
+      const saved = (await prisma.user.findUnique({ where: { id: A.owner.id } }))?.pushPrefs as Record<string, unknown> | null;
+      check("notification preferences save booleans for known kinds only", prefs.status === 200 && saved?.milestones === false && !("bogus" in (saved ?? {})) && !("feedback" in (saved ?? {})), JSON.stringify(saved));
+      const acct = await http(ownerA, "GET", "/admin/settings/account");
+      check("account page shows App & notifications with the device list", acct.status === 200 && acct.text.includes("App &amp; notifications") && acct.text.includes("Notify me about"), `${acct.status}`);
+      const mine2 = await http(ownerA, "DELETE", "/api/push/devices", { id: mine[0].id });
+      check("you can remove your own device", mine2.status === 200 && (await prisma.pushSubscription.count({ where: { userId: A.owner.id } })) === 1);
+      await prisma.pushSubscription.deleteMany({ where: { userId: A.owner.id } });
+    }
+    const sw = await fetch(`${BASE}/sw.js`);
+    const manifest = await fetch(`${BASE}/app/manifest.webmanifest`);
+    const mj = await manifest.json().catch(() => ({}));
+    check("service worker and app manifest are served", sw.status === 200 && (sw.headers.get("service-worker-allowed") ?? "") === "/" && (await sw.text()).includes("showNotification") && manifest.status === 200 && mj.display === "standalone", `${sw.status}/${manifest.status}`);
+
     const refOwnPage = await http(ownerA, "GET", "/admin/referrals");
     check("referral page shows the account's link", refOwnPage.status === 200 && refOwnPage.text.includes("/join/"), `${refOwnPage.status}`);
     const refPlat = await http(ownerA, "POST", "/api/platform/referrals");

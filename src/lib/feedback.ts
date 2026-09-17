@@ -4,6 +4,8 @@ import { button, quote } from "./email-design";
 import { isLabelRole } from "./auth";
 import { SITE_URL } from "./env";
 import { platformAdminEmails } from "./platform";
+import { prisma } from "./db";
+import { sendPush } from "./push";
 
 export const FEEDBACK_CATEGORIES = { idea: "Idea", bug: "Something's broken", question: "Question", other: "Other" } as const;
 export type FeedbackCategory = keyof typeof FEEDBACK_CATEGORIES;
@@ -31,6 +33,8 @@ const cta = (url: string, label: string) => `<div style="margin:24px 0 4px">${bu
 
 /** Best-effort: a failed email never blocks the message being saved. */
 export async function notifyTeam(t: { id: string; subject: string; category: string }, from: { email: string; orgName: string; plan: string }, body: string, isNew: boolean) {
+  const admins = await prisma.user.findMany({ where: { email: { in: platformAdminEmails() }, role: "owner", emailVerifiedAt: { not: null } }, select: { id: true } });
+  await sendPush(admins.map((a) => a.id), "feedback", { title: isNew ? `New feedback from ${from.orgName}` : `${from.orgName} replied`, body: body.slice(0, 140), url: `/platform/feedback/${t.id}`, tag: `feedback-${t.id}` }).catch((e) => console.error("[push feedback team]", e));
   if (!accountEmailConfigured()) return;
   const url = `${SITE_URL}/platform/feedback/${t.id}`;
   const title = isNew ? `New feedback: ${t.subject}` : `Reply on: ${t.subject}`;
@@ -46,7 +50,8 @@ export async function notifyTeam(t: { id: string; subject: string; category: str
   ).then((r) => r.forEach((x) => x.status === "rejected" && console.error("[feedback notify team]", x.reason)));
 }
 
-export async function notifyUser(t: { id: string; subject: string }, user: { email: string; role: string }, body: string) {
+export async function notifyUser(t: { id: string; subject: string }, user: { id?: string; email: string; role: string }, body: string) {
+  if (user.id) await sendPush([user.id], "feedback", { title: "The droplr.fm team replied", body: body.slice(0, 140), url: `/admin/feedback/${t.id}`, artistUrl: `/dashboard/feedback/${t.id}`, tag: `feedback-${t.id}` }).catch((e) => console.error("[push feedback user]", e));
   if (!accountEmailConfigured()) return;
   const url = `${SITE_URL}${feedbackBase(user.role)}/${t.id}`;
   try {

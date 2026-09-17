@@ -28,11 +28,14 @@ const nextConfig = {
           { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
         ],
       },
+      // Service worker: always fresh, allowed to control the whole site (dashboards live under /admin, /dashboard, /platform).
+      { source: "/sw.js", headers: [{ key: "Cache-Control", value: "no-cache, no-store, must-revalidate" }, { key: "Service-Worker-Allowed", value: "/" }, { key: "Content-Type", value: "application/javascript; charset=utf-8" }] },
+      { source: "/app/manifest.webmanifest", headers: [{ key: "Content-Type", value: "application/manifest+json" }, { key: "Cache-Control", value: "public, max-age=3600" }] },
       // Logged-in and credential pages can't be framed (clickjacking).
       ...["/admin", "/admin/:path*", "/dashboard", "/dashboard/:path*", "/platform", "/platform/:path*", "/login", "/signup", "/forgot-password", "/reset-password"].map((source) => ({ source, headers: noFrame })),
     ];
   },
-  serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "@netlify/blobs"],
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "@netlify/blobs", "web-push"],
   // Share graphics read the Geist font files at runtime: make sure they ship with that route.
   outputFileTracingIncludes: {
     "/api/admin/releases/[id]/share": ["./node_modules/geist/dist/fonts/geist-sans/Geist-Bold.ttf", "./node_modules/geist/dist/fonts/geist-sans/Geist-Medium.ttf"],

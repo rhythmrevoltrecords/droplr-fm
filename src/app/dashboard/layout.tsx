@@ -5,7 +5,13 @@ import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 // Signed-in pages: a plain tab title instead of the marketing tagline, and never indexed.
-export const metadata = { title: { default: "Dashboard · droplr.fm", template: "%s · droplr.fm" }, robots: { index: false, follow: false } };
+export const metadata = {
+  title: { default: "Dashboard · droplr.fm", template: "%s · droplr.fm" },
+  robots: { index: false, follow: false },
+  // Installable as an app (Home Screen / Android install) for push notifications.
+  manifest: "/app/manifest.webmanifest",
+  appleWebApp: { capable: true, title: "droplr", statusBarStyle: "black-translucent" as const },
+};
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser("artist");

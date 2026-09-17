@@ -3,6 +3,7 @@ import { randomBytes } from "node:crypto";
 import type Stripe from "stripe";
 import { prisma } from "./db";
 import { SITE_URL } from "./env";
+import { sendPush, teamUserIds } from "./push";
 import { getStripe, stripeConfigured } from "./stripe";
 
 /** Free months one account can earn from referrals in any rolling 12 months. */
@@ -112,7 +113,10 @@ export async function runReferralChecks(opts: { deadline?: number; now?: Date; s
         note = full ? `already earned ${REFERRAL_CAP} in 12 months` : null;
       }
       await prisma.referral.update({ where: { id: r.id }, data: { status, note, checkedAt: now, ...(status === "earned" ? { earnedAt: now } : {}) } });
-      if (status === "earned") out.earned++;
+      if (status === "earned") {
+        out.earned++;
+        await sendPush(await teamUserIds(r.referrerOrgId), "referrals", { title: "You earned a free month", body: "Someone you referred has been on a paid plan for 30 days. It comes off your next bill.", url: "/admin/referrals", tag: `referral-${r.id}` }).catch(() => {});
+      }
       if (status === "capped" && r.status !== "capped") out.capped++;
     } catch (err) {
       out.errors++;

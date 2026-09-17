@@ -95,6 +95,9 @@ model User {
   releases       Release[]    @relation("ArtistReleases")
   artistProfile  Artist? // roster profile this login belongs to (role artist)
   feedbackThreads FeedbackThread[]
+  pushSubscriptions PushSubscription[]
+  // Which push notifications this login wants: { milestones, releaseLive, feedback, referrals } (missing = on).
+  pushPrefs      Json?
 }
 
 model Invite {
@@ -157,6 +160,8 @@ model Release {
   @@index([artistId])
   @@index([artistProfileId])
   @@index([releaseDate])
+  liveNotifiedAt        DateTime? // push "is live" sent to the team
+  presaveMilestoneNotified Int   @default(0) // highest pre-save milestone already pushed
 }
 
 // Roster profile. Exists with or without a login; userId links the artist's login when they have one.
@@ -458,4 +463,20 @@ model Referral {
 
   @@index([referrerOrgId, status])
   @@index([status, checkedAt])
+}
+
+/** A browser / installed app that accepted push notifications for one login (Web Push, VAPID). */
+model PushSubscription {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint   String    @unique
+  p256dh     String
+  auth       String
+  label      String? // "iPhone", "Android", "Mac · Chrome" (from the user agent, for the device list)
+  failures   Int       @default(0)
+  lastSentAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
 }

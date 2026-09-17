@@ -1,0 +1,22 @@
+{
+  "id": "/admin",
+  "name": "droplr.fm",
+  "short_name": "droplr",
+  "description": "Pre-saves, fans and releases for artists and labels.",
+  "start_url": "/admin?source=app",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c0a14",
+  "theme_color": "#0c0a14",
+  "categories": ["music", "business", "productivity"],
+  "icons": [
+    { "src": "/app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/app/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Releases", "url": "/admin", "icons": [{ "src": "/app/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Fans", "url": "/admin/fans", "icons": [{ "src": "/app/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

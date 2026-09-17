@@ -1,4 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
+import { notifyPresaveMilestone } from "@/lib/push";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
@@ -43,6 +44,7 @@ export async function GET(req: NextRequest) {
     const ps = existing
       ? await prisma.preSave.update({ where: { id: existing.id }, data: { ...data, status: existing.status === "completed" ? "completed" : "pending" } })
       : await prisma.preSave.create({ data: { ...data, releaseId: release.id, platform: "spotify", spotifyUserId: me.id, status: "pending" } });
+    if (!existing) after(() => notifyPresaveMilestone(release.id).catch((e) => console.error("[push milestone]", e)));
 
     // Attribute the most recent click from this visitor as converted
     if (state.anon) {
