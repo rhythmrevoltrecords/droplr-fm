@@ -22,7 +22,8 @@ export function AppShell({ user, nav, children, billingHref, accountHref, feedba
     <div className={cn(themeClass(org.themePreference), "relative isolate min-h-dvh bg-background text-foreground", org.dashboardGlow !== false && "glow-on")}>
       {org.dashboardGlow !== false && <DashboardGlow accent={org.accentColor} />}
       <header
-        className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur"
+        // Home Screen app (status bar is translucent): keep the header below the clock / Dynamic Island.
+        className="sticky top-0 z-30 border-b bg-background/80 pt-[env(safe-area-inset-top)] backdrop-blur"
         style={org.accentColor ? { borderTop: `2px solid ${org.accentColor}` } : undefined}
       >
         <div className="container flex h-14 items-center gap-4">
@@ -57,7 +58,7 @@ export function AppShell({ user, nav, children, billingHref, accountHref, feedba
         <MobileNav nav={nav} />
       </header>
       <main className="container relative py-6 sm:py-8">{children}</main>
-      <footer className="container relative flex flex-col gap-2 border-t py-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <footer className="container relative flex flex-col gap-2 border-t pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>{copyrightLine()}</span>
         <nav aria-label="Legal" className="flex flex-wrap gap-4">
           <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>

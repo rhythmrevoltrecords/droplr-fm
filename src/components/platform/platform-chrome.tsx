@@ -19,7 +19,7 @@ export async function PlatformChrome({ email, active, children }: { email: strin
   ] as const;
   return (
     <div className="theme-dark min-h-dvh bg-background text-foreground">
-      <header className="border-b">
+      <header className="border-b pt-[env(safe-area-inset-top)]">
         <div className="container flex h-14 items-center gap-4">
           <Logo href="/platform" />
           <Badge variant="warning">Platform owner</Badge>
@@ -39,7 +39,7 @@ export async function PlatformChrome({ email, active, children }: { email: strin
           ))}
         </nav>
       </header>
-      <main className="container space-y-6 py-8">{children}</main>
+      <main className="container space-y-6 pb-[max(2rem,env(safe-area-inset-bottom))] pt-8">{children}</main>
     </div>
   );
 }
