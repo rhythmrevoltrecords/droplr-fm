@@ -1,4 +1,5 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
+import { notifyPresaveMilestone } from "@/lib/push";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { deezerGloballyEnabled } from "@/lib/env";
@@ -20,7 +21,10 @@ export async function GET(req: NextRequest) {
     const existing = userId ? await prisma.preSave.findFirst({ where: { releaseId: state.rid, platform: "deezer", deezerUserId: userId } }) : null;
     const data = { refreshTokenEncrypted: encrypt(token), email: state.em ?? null, emailConsent: !!state.em, sourceVariantId: state.vid ?? null, source: state.src ?? null, anonId: state.anon ?? null };
     if (existing) await prisma.preSave.update({ where: { id: existing.id }, data });
-    else await prisma.preSave.create({ data: { ...data, releaseId: state.rid, platform: "deezer", deezerUserId: userId, status: "pending" } });
+    else {
+      await prisma.preSave.create({ data: { ...data, releaseId: state.rid, platform: "deezer", deezerUserId: userId, status: "pending" } });
+      after(() => notifyPresaveMilestone(state.rid).catch((e) => console.error("[push milestone]", e)));
+    }
     return NextResponse.redirect(withParam(state.ret, "done", "deezer"));
   } catch (e) {
     console.error("[deezer callback]", e);

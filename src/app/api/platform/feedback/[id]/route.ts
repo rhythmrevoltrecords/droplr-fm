@@ -11,7 +11,7 @@ export async function POST(req: NextRequest, props: { params: Promise<{ id: stri
   const { id } = await props.params;
   const admin = await platformAdmin();
   if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  const thread = await prisma.feedbackThread.findUnique({ where: { id }, include: { user: { select: { email: true, role: true } } } });
+  const thread = await prisma.feedbackThread.findUnique({ where: { id }, include: { user: { select: { id: true, email: true, role: true } } } });
   if (!thread) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const b = (await req.json().catch(() => ({}))) as { body?: unknown; status?: unknown };
   const body = typeof b.body === "string" ? b.body.trim() : "";

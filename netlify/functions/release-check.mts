@@ -1,10 +1,13 @@
 import type { Config } from "@netlify/functions";
 import { findDueReleases } from "../../src/lib/presave-processor";
+import { notifyLiveReleases } from "../../src/lib/push-live";
 
 // Every 15 minutes: find releases with work due somewhere in the world (store scans before/after release,
 // Spotify saves at each fan's local release moment, release-day emails at the label's hour in each fan's timezone)
 // and hand them to the 15-minute background function.
 export default async () => {
+  // Push "X is out" to each team once its release moment passes (cheap: an indexed query + claim).
+  await notifyLiveReleases().catch((e) => console.error("[release-check] live push", e));
   const due = await findDueReleases();
   if (!due.length) return new Response(JSON.stringify({ due: 0 }), { status: 200 });
 

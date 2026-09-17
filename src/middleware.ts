@@ -4,14 +4,14 @@ import { isPlatformHost, platformSubdomain, SITE_URL } from "./lib/env";
 
 const ANON_COOKIE = "dfm_anon";
 // Whole path segments only, so a release slug like "iconic-dubplate" or "logo-riddim" still reaches the tenant rewrite.
-const PASSTHROUGH = /^\/(api|_next|uploads|logo|platforms|host|r)(\/|$)|^\/(favicon\.ico|robots\.txt|icon|apple-icon)$/;
+const PASSTHROUGH = /^\/(api|_next|uploads|logo|platforms|app|host|r)(\/|$)|^\/(favicon\.ico|robots\.txt|icon|apple-icon|sw\.js)$/;
 /**
  * droplr.fm's own pages on the platform host that never read x-anon-id / x-host: marketing, docs, auth,
  * the dashboards, static assets, and every API except the tracking / pre-save ones (/api/r, /api/b, /api/presave, /api/spotify, /api/deezer).
  * Anything else on the platform host is a public release, org or bio page (/{org}/{slug}, /b/*, /r/*) and still gets a visitor id.
  */
 const PLATFORM_NO_VISITOR_ID =
-  /^\/(?:$|(?:pricing|docs|legal|demo|login|signup|join|forgot-password|reset-password|invite|admin|dashboard|platform|platforms|logo|uploads|_next|opengraph-image|twitter-image|icon|apple-icon)(?:[/.]|$)|(?:favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest)$|api\/(?!(?:r|b|presave|spotify|deezer)(?:\/|$)))/;
+  /^\/(?:$|(?:pricing|docs|legal|demo|login|signup|join|forgot-password|reset-password|invite|admin|dashboard|platform|platforms|app|logo|uploads|_next|opengraph-image|twitter-image|icon|apple-icon)(?:[/.]|$)|(?:favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest|sw\.js)$|api\/(?!(?:r|b|presave|spotify|deezer)(?:\/|$)))/;
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;

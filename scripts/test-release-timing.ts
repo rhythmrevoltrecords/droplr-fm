@@ -8,6 +8,8 @@ import { prisma } from "../src/lib/db";
 import { findDueReleases, processRelease } from "../src/lib/presave-processor";
 import { statsRange } from "../src/lib/analytics";
 import { freeMonthPercent, runReferralChecks } from "../src/lib/referrals";
+import { notifyPresaveMilestone, setPushSenderForTests } from "../src/lib/push";
+import { notifyLiveReleases } from "../src/lib/push-live";
 import { dateToZonedLocal, releaseEmailDueFor, releaseInstantFor, releaseWindow, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL"]) {
@@ -187,6 +189,38 @@ async function main() {
     const before6 = coupons.length;
     await runReferralChecks({ stripe: fakeStripe });
     check("once they subscribe yearly, it's applied as 1/12 off", (await prisma.referral.findUnique({ where: { referredOrgId: r6.id } }))?.status === "applied" && coupons.length === before6 + 1 && coupons.at(-1)!.percent_off === 8.33);
+
+    console.log("\n6. Push notifications (push service mocked)");
+    const pushed: { endpoint: string; payload: { title: string; url: string } }[] = [];
+    let failNext: number | null = null;
+    setPushSenderForTests(async (sub, payload) => {
+      if (failNext) { const code = failNext; failNext = null; throw Object.assign(new Error("gone"), { statusCode: code }); }
+      pushed.push({ endpoint: sub.endpoint, payload: JSON.parse(payload) });
+    });
+    const pOrg = await prisma.organization.create({ data: { name: `Push ${tag}`, slug: `timing-push-${tag}`, plan: "label" } });
+    refOrgs.push(pOrg.id);
+    const owner = await prisma.user.create({ data: { email: `push-owner-${tag}@t.test`, passwordHash: "x", role: "owner", organizationId: pOrg.id } });
+    const artistLogin = await prisma.user.create({ data: { email: `push-artist-${tag}@t.test`, passwordHash: "x", role: "artist", organizationId: pOrg.id } });
+    const quiet = await prisma.user.create({ data: { email: `push-quiet-${tag}@t.test`, passwordHash: "x", role: "admin", organizationId: pOrg.id, pushPrefs: { milestones: false } } });
+    for (const [u, n] of [[owner, "o"], [artistLogin, "a"], [quiet, "q"]] as const) await prisma.pushSubscription.create({ data: { userId: u.id, endpoint: `https://fcm.googleapis.com/fcm/send/${n}-${tag}`, p256dh: "B".repeat(87), auth: "A".repeat(22) } });
+    const pRel = await prisma.release.create({ data: { organizationId: pOrg.id, artistId: artistLogin.id, slug: `timing-push-rel-${tag}`, title: "Push Song", artistName: "P", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() - 60_000) } });
+    await prisma.preSave.createMany({ data: Array.from({ length: 24 }, (_, i) => ({ releaseId: pRel.id, platform: "email", email: `p${i}-${tag}@fans.test` })) });
+    await notifyPresaveMilestone(pRel.id);
+    check("no push before the first milestone (24 pre-saves)", pushed.length === 0);
+    await prisma.preSave.create({ data: { releaseId: pRel.id, platform: "email", email: `p24-${tag}@fans.test` } });
+    await Promise.all([notifyPresaveMilestone(pRel.id), notifyPresaveMilestone(pRel.id)]);
+    const ms = pushed.filter((x) => x.payload.title.startsWith("25 pre-saves"));
+    check("25th pre-save pushes once to owner and the release's artist; muted admin skipped", ms.length === 2 && ms.some((x) => x.endpoint.includes(`/o-${tag}`)) && ms.some((x) => x.endpoint.includes(`/a-${tag}`)) && !ms.some((x) => x.endpoint.includes(`/q-${tag}`)), `${ms.length}`);
+    check("owners open the release, artist logins open their dashboard", ms.find((x) => x.endpoint.includes("/o-"))?.payload.url === `/admin/releases/${pRel.id}?tab=share` && ms.find((x) => x.endpoint.includes("/a-"))?.payload.url === "/dashboard");
+    pushed.length = 0;
+    await notifyLiveReleases(new Date(), true);
+    await notifyLiveReleases(new Date(), true);
+    check("'is out' pushes once per release (owner, admin, artist)", pushed.filter((x) => x.payload.title === "Push Song is out").length === 3, `${pushed.length}`);
+    failNext = 410;
+    await prisma.preSave.createMany({ data: Array.from({ length: 25 }, (_, i) => ({ releaseId: pRel.id, platform: "email", email: `pp${i}-${tag}@fans.test` })) });
+    await notifyPresaveMilestone(pRel.id);
+    check("a subscription the push service says is gone (410) is deleted", (await prisma.pushSubscription.count({ where: { user: { organizationId: pOrg.id } } })) === 2);
+    setPushSenderForTests(null);
   } finally {
     await prisma.organization.deleteMany({ where: { id: { in: refOrgs } } }).catch(() => {});
     globalThis.fetch = realFetch;

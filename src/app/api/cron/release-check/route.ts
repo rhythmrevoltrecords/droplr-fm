@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { safeEqual } from "@/lib/crypto";
 import { findDueReleases, processRelease } from "@/lib/presave-processor";
+import { notifyLiveReleases } from "@/lib/push-live";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -14,6 +15,7 @@ export async function POST(req: NextRequest) {
   if (!process.env.CRON_SECRET || !safeEqual(req.headers.get("x-cron-secret") ?? "", process.env.CRON_SECRET)) {
     return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   }
+  const live = await notifyLiveReleases().catch(() => 0);
   const due = await findDueReleases();
   const deadline = Date.now() + 50_000;
   const results = [];
@@ -21,5 +23,5 @@ export async function POST(req: NextRequest) {
     if (Date.now() > deadline) break;
     results.push(await processRelease(r.id, deadline));
   }
-  return NextResponse.json({ due: due.length, results });
+  return NextResponse.json({ due: due.length, live, results });
 }

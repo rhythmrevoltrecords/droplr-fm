@@ -1,15 +1,21 @@
 import Link from "next/link";
 import { ChangePasswordForm, SignOutEverywhereButton } from "@/components/admin/account-forms";
+import { PushSettings } from "@/components/admin/push-settings";
+import { prisma } from "@/lib/db";
+import { PUSH_KINDS } from "@/lib/push";
+import { timeAgo } from "@/lib/utils";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MIN_PASSWORD } from "@/lib/auth";
 import { CONTACT } from "@/lib/legal";
 import { formatInTz } from "@/lib/time";
 
-type AccountUser = { email: string; role: string; artistName: string | null; createdAt: Date; termsAcceptedAt: Date | null; organization: { name: string; timezone: string; kind?: string | null } };
+type AccountUser = { id: string; pushPrefs?: unknown; email: string; role: string; artistName: string | null; createdAt: Date; termsAcceptedAt: Date | null; organization: { name: string; timezone: string; kind?: string | null } };
 
 /** Shared by /admin/settings/account (label team) and /dashboard/account (artists). */
-export function AccountPage({ user, back }: { user: AccountUser; back?: { href: string; label: string } }) {
+export async function AccountPage({ user, back }: { user: AccountUser; back?: { href: string; label: string } }) {
   const tz = user.organization.timezone;
+  const devices = await prisma.pushSubscription.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
+  const kinds = PUSH_KINDS.filter((k) => user.role !== "artist" || k.key !== "referrals");
   return (
     <div className="space-y-6">
       <div>
@@ -27,6 +33,18 @@ export function AccountPage({ user, back }: { user: AccountUser; back?: { href: 
             <dt className="text-muted-foreground">Member since</dt><dd>{formatInTz(user.createdAt, tz, { dateStyle: "medium" })}</dd>
           </dl>
           <p className="mt-4 text-xs text-muted-foreground">To change your login email, email <a className="underline" href={`mailto:${CONTACT.support}`}>{CONTACT.support}</a> from your current address.</p>
+        </CardContent>
+      </Card>
+
+      <Card id="notifications" className="scroll-mt-24">
+        <CardHeader><CardTitle>App &amp; notifications</CardTitle><CardDescription>Install droplr on your phone and get notified about milestones, releases going live and replies. Set per login and per device.</CardDescription></CardHeader>
+        <CardContent>
+          <PushSettings
+            vapidKey={process.env.VAPID_PUBLIC_KEY || null}
+            kinds={kinds}
+            prefs={(user.pushPrefs ?? {}) as Record<string, boolean>}
+            devices={devices.map((d) => ({ id: d.id, label: d.label ?? "Browser", endpoint: d.endpoint, added: formatInTz(d.createdAt, tz, { dateStyle: "medium" }), lastSent: d.lastSentAt ? timeAgo(d.lastSentAt) : null }))}
+          />
         </CardContent>
       </Card>
 
