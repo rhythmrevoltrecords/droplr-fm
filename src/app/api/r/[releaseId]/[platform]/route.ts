@@ -5,8 +5,8 @@ import { deezerGloballyEnabled, SITE_URL } from "@/lib/env";
 import { deezerAuthorizeUrl } from "@/lib/deezer";
 import { packState, releasePageUrl, requestOrigin, safeReturnUrl, spotifyRedirectUri, withParam } from "@/lib/oauth";
 import { getSpotifyCreds, spotifyAuthorizeUrl } from "@/lib/spotify";
-import { capText, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
-import { isReleased } from "@/lib/time";
+import { capText, fanTimezone, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
+import { isListenChoice } from "@/lib/platforms";
 import { planOf } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
@@ -93,12 +93,17 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   // 2) Pre-save flows
   if (q.get("mode") === "presave") {
     let email: string | null = null;
+    let tz: string | null = meta.timezone;
+    let listenOn: string | null = null;
     if (method === "POST") {
       const form = await req.formData().catch(() => null);
       const e = String(form?.get("email") ?? "").trim().toLowerCase();
       if (form?.get("consent") === "yes" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) email = e;
+      tz = fanTimezone(form?.get("tz"), req.headers);
+      const lo = form?.get("listenOn");
+      if (isListenChoice(lo)) listenOn = lo;
     }
-    const baseState = { rid: release.id, org: release.organizationId, vid: variant?.id ?? req.cookies.get(SRC_COOKIE)?.value ?? null, anon: anonId, em: email, src: source, ret: pageUrl };
+    const baseState = { rid: release.id, org: release.organizationId, vid: variant?.id ?? req.cookies.get(SRC_COOKIE)?.value ?? null, anon: anonId, em: email, src: source, tz, lo: listenOn, ret: pageUrl };
 
     if (params.platform === "spotify") {
       const creds = planOf(release.organization.plan).byoSpotify || process.env.SPOTIFY_PLATFORM_FALLBACK === "true" ? await getSpotifyCreds(release.organizationId) : null;
@@ -111,8 +116,9 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
       return finish(deezerAuthorizeUrl(packState({ ...baseState, ru: process.env.DEEZER_REDIRECT_URI ?? "" })));
     }
     if (params.platform === "appleMusic") {
+      // Apple Music's own album page has a Pre-add button for upcoming releases, so send fans there whenever a link exists.
       const apple = release.links.find((l) => l.platform === "appleMusic");
-      if (apple && isReleased(release.releaseDate)) return finish(apple.url);
+      if (apple && /^https:\/\/(music|itunes)\.apple\.com\//i.test(apple.url)) return finish(apple.url);
       return finish(withParam(pageUrl, "notice", "apple-soon"));
     }
   }

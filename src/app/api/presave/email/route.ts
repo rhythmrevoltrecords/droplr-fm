@@ -4,8 +4,9 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { releasePageUrl, requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
 import { allow, emailKey, ipKey } from "@/lib/throttle";
-import { isReleased } from "@/lib/time";
-import { clientIp, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
+import { isListenChoice } from "@/lib/platforms";
+import { isReleasedFor } from "@/lib/time";
+import { clientIp, fanTimezone, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -26,8 +27,12 @@ export async function POST(req: NextRequest) {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const consent = form.get("consent") === "yes";
   if (!EMAIL_RE.test(email) || email.length > 254 || !consent) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
+  const timezone = fanTimezone(form.get("tz"), req.headers);
+  const listenOnRaw = form.get("listenOn");
+  const listenOn = isListenChoice(listenOnRaw) ? listenOnRaw : null;
   // Hidden or already-out releases don't take pre-saves (stops this being an open mailing-list signup).
-  if (!release.isPublic || isReleased(release.releaseDate)) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
+  // "Out" is per fan: someone in Los Angeles can still pre-save after it's out in Brisbane.
+  if (!release.isPublic || isReleasedFor(release, release.organization.timezone, timezone)) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
   // 10 per IP per hour, 5 per address per day. Same generic error as bad input: don't reveal the limit.
   const okIp = await allow(ipKey("presave-email", clientIp(req.headers)), 10, 60 * 60 * 1000);
   if (!okIp || !(await allow(emailKey("presave-email", email), 5, 24 * 60 * 60 * 1000))) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
@@ -43,7 +48,7 @@ export async function POST(req: NextRequest) {
 
   const existing = await prisma.preSave.findFirst({ where: { releaseId, email, platform: "email" } });
   if (existing) {
-    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION } });
+    await prisma.preSave.update({ where: { id: existing.id }, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, ...(timezone && { timezone }), ...(listenOn && { listenOn }) } });
   } else {
     await prisma.preSave.create({
       data: {
@@ -58,6 +63,8 @@ export async function POST(req: NextRequest) {
         source,
         anonId: req.cookies.get(ANON_COOKIE)?.value ?? null,
         country: meta.country,
+        timezone,
+        listenOn,
       },
     });
   }

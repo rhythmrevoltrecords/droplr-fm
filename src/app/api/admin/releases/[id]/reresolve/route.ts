@@ -3,7 +3,7 @@ import { labelRelease } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
 import { reResolveRelease } from "@/lib/presave-processor";
 
-/** "Find Apple Music & Deezer" button: UPC/ISRC lookup now, same logic as the release-day job. */
+/** "Find store links" button: UPC/ISRC lookup now (Apple Music, Deezer, Spotify, TIDAL), same logic as the scheduled job. */
 export async function POST(_: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const g = await labelRelease(params.id);
@@ -15,6 +15,6 @@ export async function POST(_: NextRequest, props: { params: Promise<{ id: string
     ? log.join(" · ")
     : !fresh?.upc && !fresh?.isrc
       ? "Add the UPC or ISRC in Settings first (DistroKid shows both on the release page)."
-      : "Nothing new found. Apple Music and Deezer only list a release once it's live, and it can take a few hours.";
+      : "Nothing new found yet. Most stores only list a release once it's live (Apple Music pre-orders can appear earlier). droplr keeps checking daily before release and hourly after.";
   return NextResponse.json({ added, note, log });
 }

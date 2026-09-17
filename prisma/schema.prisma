@@ -52,6 +52,7 @@ model Organization {
   // Release-day email
   emailFromName String?
   emailReplyTo  String?
+  releaseEmailHour Int? @default(9) // fan's local hour for the release-day email; null = as soon as it's out for them
 
   // Label identity + appearance
   previousSlugs   String[] @default([]) // old slugs keep redirecting after a rename
@@ -125,6 +126,11 @@ model Release {
   upc            String?
   isrc           String?
   releaseDate    DateTime
+  // local: unlocks at the same wall-clock time in every fan's timezone (stores release at midnight per country).
+  // global: one instant worldwide. releaseDate is always the label's own moment (its org timezone).
+  rollout        String       @default("local")
+  linksCheckedAt DateTime? // last store-link scan (pre-release daily, then hourly after release)
+  processingUntil DateTime? // lease held by the release-day processor (no two runs on one release)
   status         String       @default("upcoming") // upcoming | live
   isPublic       Boolean      @default(true)
   autoReResolve  Boolean      @default(true)
@@ -269,6 +275,8 @@ model PreSave {
   source                String?
   anonId                String?
   country               String?
+  timezone              String? // fan's IANA zone (browser, else Netlify geo); null → label's timezone
+  listenOn              String? // platform the fan said they listen on (leads their release-day email)
   attempts              Int       @default(0)
   lastError             String?
   emailSentAt           DateTime?
@@ -277,6 +285,7 @@ model PreSave {
   createdAt             DateTime  @default(now())
 
   @@index([releaseId, status])
+  @@index([releaseId, timezone])
   @@index([email])
 }
 

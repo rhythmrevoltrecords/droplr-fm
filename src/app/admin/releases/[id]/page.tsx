@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { ExternalLink } from "lucide-react";
 import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
+import { StoreFinder } from "@/components/admin/store-finder";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
@@ -82,12 +83,21 @@ export default async function ReleaseDetail(
         <Card>
           <CardHeader>
             <CardTitle>Platform links</CardTitle>
-            <CardDescription>Drag to reorder, rename, change button text, or hide a link without deleting it. DJ stores sit alongside the streaming majors. {release.autoReResolve && !release.resolvedAt && (release.upc || release.isrc ? "Apple Music and Deezer fill in automatically from the UPC/ISRC on release day." : "Add the UPC or ISRC in Settings so Apple Music and Deezer can be found automatically.")}</CardDescription>
+            <CardDescription>Drag to reorder, rename, change button text, or hide a link without deleting it. DJ stores sit alongside the streaming majors. {release.autoReResolve && !release.resolvedAt && (release.upc || release.isrc ? "Apple Music, Deezer, Spotify and TIDAL fill in automatically from the UPC/ISRC: checked daily in the two weeks before release, then hourly once it's out." : "Add the UPC or ISRC in Settings so store links can be found automatically.")}</CardDescription>
           </CardHeader>
           <CardContent>
             <LinkEditor saveUrl={`/api/admin/releases/${release.id}/links`} reresolveUrl={`/api/admin/releases/${release.id}/reresolve`} initial={release.links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.title, buttonText: l.buttonText, icon: l.icon, visible: l.visible }))} />
           </CardContent>
         </Card>
+      )}
+      {tab === "links" && (
+        <StoreFinder
+          query={`${release.artistName} ${release.title.replace(/\s*-\s*(single|ep)$/i, "")}`}
+          have={release.links.map((l) => l.platform)}
+          demand={Object.fromEntries(
+            (await prisma.preSave.groupBy({ by: ["listenOn"], where: { releaseId: release.id, listenOn: { not: null } }, _count: { _all: true } })).map((g) => [g.listenOn!, g._count._all]),
+          )}
+        />
       )}
 
       {tab === "variants" && (
@@ -143,7 +153,7 @@ export default async function ReleaseDetail(
               initial={{
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
                 releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistProfileId: release.artistProfileId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
-                spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic,
+                spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic, rollout: release.rollout === "global" ? "global" : "local",
               }}
             />
           </CardContent>

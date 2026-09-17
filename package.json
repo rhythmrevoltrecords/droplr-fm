@@ -12,6 +12,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "test:security": "tsx scripts/test-security.ts",
+    "test:timing": "tsx scripts/test-release-timing.ts",
     "postinstall": "prisma generate"
   },
   "prisma": {

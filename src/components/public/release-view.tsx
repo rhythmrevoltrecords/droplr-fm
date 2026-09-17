@@ -1,8 +1,10 @@
 import { SITE_URL } from "@/lib/env";
+import { LISTEN_CHOICES, platformMeta } from "@/lib/platforms";
 import { formatInTz } from "@/lib/time";
 import { Countdown } from "./countdown";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme } from "./artwork-shell";
 import { PlatformIcon } from "./platform-icon";
+import { TimezoneField } from "./timezone-field";
 
 export type ReleaseViewData = {
   id: string;
@@ -10,7 +12,8 @@ export type ReleaseViewData = {
   artistName: string;
   coverUrl: string;
   accentColor: string | null;
-  releaseDate: string; // ISO
+  releaseDate: string; // ISO: when it unlocks for this visitor (their local midnight on a local rollout)
+  spotifyArtistId?: string | null;
   links: { id: string; platform: string; label: string | null; url: string; buttonText?: string | null; icon?: string | null }[];
   org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null; timezone?: string | null };
 };
@@ -28,7 +31,7 @@ export type ReleaseViewProps = {
 };
 
 const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
-  email: { tone: "ok", text: "You're on the list. We'll email you the second it drops." },
+  email: { tone: "ok", text: "You're on the list. We'll email you on release day, in your own timezone." },
   spotify: { tone: "ok", text: "Pre-saved on Spotify. It'll be in your library on release day." },
   "spotify-saved": { tone: "ok", text: "Saved to your Spotify library." },
   deezer: { tone: "ok", text: "Pre-saved on Deezer." },
@@ -98,11 +101,12 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
 
             <form method="post" action={demo ? undefined : "/api/presave/email"} className="glass space-y-3 rounded-2xl p-4">
               <input type="hidden" name="releaseId" value={release.id} />
+              <TimezoneField />
               {variantId && <input type="hidden" name="variantId" value={variantId} />}
               {query.utm_source && <input type="hidden" name="utm_source" value={query.utm_source} />}
               <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden className="absolute -left-[9999px] h-0 w-0 opacity-0" />
 
-              <label htmlFor="email" className="block text-sm font-semibold">Get it the second it drops</label>
+              <label htmlFor="email" className="block text-sm font-semibold">Get it on release day</label>
               <input
                 id="email"
                 name="email"
@@ -114,6 +118,19 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
                 className="h-12 w-full rounded-xl border border-white/15 bg-black/40 px-4 text-base placeholder:text-white/40 focus:outline-none focus:ring-2"
                 style={{ ["--tw-ring-color" as string]: accent }}
               />
+              <fieldset className="space-y-2">
+                <legend className="text-xs text-white/60">Where do you listen? <span className="text-white/40">(optional)</span></legend>
+                <div className="flex flex-wrap gap-1.5">
+                  {LISTEN_CHOICES.map((p) => (
+                    <label key={p} className="cursor-pointer">
+                      <input type="radio" name="listenOn" value={p} className="peer sr-only" />
+                      <span className="inline-flex h-8 items-center rounded-full border border-white/15 bg-black/30 px-3 text-xs text-white/80 transition peer-checked:border-white peer-checked:bg-white peer-checked:text-black peer-focus-visible:ring-2 peer-focus-visible:ring-white/60">
+                        {platformMeta(p).name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </fieldset>
               <label className="flex items-start gap-2.5 text-xs leading-relaxed text-white/70">
                 <input type="checkbox" name="consent" value="yes" required className="mt-0.5 h-4 w-4 accent-white" />
                 <span>Email me on release day. {release.org.name} can send me updates about this release. Unsubscribe anytime. <a href={`${SITE_URL}/legal/privacy`} target="_blank" rel="noreferrer" className="underline decoration-white/30 underline-offset-2 hover:text-white">Privacy</a></span>
@@ -150,8 +167,17 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
             <a href={r("appleMusic", { mode: "presave" })} data-track="appleMusic" data-kind="presave" className="glass flex items-center gap-3 rounded-2xl p-2.5 pr-3 text-sm">
               <PlatformIcon platform="appleMusic" />
               <span className="flex-1">Pre-add on Apple Music</span>
-              <span className="text-xs text-white/50">Soon</span>
+              {!release.links.some((l) => l.platform === "appleMusic") && <span className="text-xs text-white/50">Soon</span>}
             </a>
+
+            {release.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(release.spotifyArtistId) && (
+              // A plain link to the artist page works for every fan (the in-app follow during Spotify pre-save is limited to allowlisted accounts).
+              <a href={`https://open.spotify.com/artist/${release.spotifyArtistId}`} target="_blank" rel="noreferrer" data-track="spotifyFollow" data-kind="follow" className="glass flex items-center gap-3 rounded-2xl p-2.5 pr-3 text-sm">
+                <PlatformIcon platform="spotify" />
+                <span className="flex-1">Follow {release.artistName} on Spotify</span>
+                <span className="text-xs text-white/50">↗</span>
+              </a>
+            )}
           </div>
         )}
 

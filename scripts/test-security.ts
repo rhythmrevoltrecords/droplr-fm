@@ -16,6 +16,7 @@
  *      Netlify alias add/remove against a mock API (start the server with NETLIFY_API_URL=http://127.0.0.1:4777
  *      NETLIFY_API_TOKEN=test NETLIFY_SITE_ID=test-site to include those).
  *   9. Spotify pre-save button: hidden from the public unless switched on or opened via ?spotify=1; owner-only toggle.
+ *  11. Local release time: fan timezone + store pick saved on pre-save, per-fan "out" check, Spotify follow link.
  *  10. Email verification: unconfirmed accounts can't invite / connect domains or Spotify; links are single-use,
  *      expire and die if the address changes; invites don't count as proof; a password reset by email does.
  * Everything it creates is deleted at the end. Never point it at production.
@@ -586,6 +587,31 @@ async function main() {
     await prisma.passwordResetToken.create({ data: { userId: uv3.id, tokenHash: createHash("sha256").update(rt).digest("hex"), expiresAt: new Date(Date.now() + 3600_000) } });
     await http({ cookie: "" }, "POST", "/api/auth/reset", undefined, { token: rt, password: PW + "x", confirm: PW + "x" });
     check("resetting the password by email confirms the address", !!(await prisma.user.findUnique({ where: { id: uv3.id } }))?.emailVerifiedAt);
+
+    console.log("\n11. Local release time and fan store choice");
+    await prisma.release.update({ where: { id: A.release.id }, data: { spotifyArtistId: "70Xz86ytGtHqZfHFEZ4w0V" } });
+    const pre = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+    check("pre-save page asks where the fan listens and links Spotify follow", pre.text.includes("Where do you listen?") && pre.text.includes("open.spotify.com/artist/70Xz86ytGtHqZfHFEZ4w0V"), `${pre.status}`);
+    const fanEmail = `tzfan-${RUN}@fans.dev`;
+    await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: fanEmail, consent: "yes", tz: "America/Los_Angeles", listenOn: "beatport" });
+    const tzRow = await prisma.preSave.findFirst({ where: { releaseId: A.release.id, email: fanEmail } });
+    check("email pre-save stores the fan's timezone and store", tzRow?.timezone === "America/Los_Angeles" && tzRow?.listenOn === "beatport", JSON.stringify(tzRow && { tz: tzRow.timezone, lo: tzRow.listenOn }));
+    const junkEmail = `tzjunk-${RUN}@fans.dev`;
+    await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: junkEmail, consent: "yes", tz: "Mars/Olympus_Mons", listenOn: "myspace" });
+    const junk = await prisma.preSave.findFirst({ where: { releaseId: A.release.id, email: junkEmail } });
+    check("invalid timezone and store are dropped", !!junk && junk.timezone === null && junk.listenOn === null);
+    // Out in the label's timezone (Brisbane) 3h ago, but not yet in Los Angeles: an LA fan can still pre-save.
+    await prisma.organization.update({ where: { id: A.org.id }, data: { timezone: "Australia/Brisbane" } });
+    await prisma.release.update({ where: { id: A.release.id }, data: { releaseDate: new Date(Date.now() - 3 * 3600_000), rollout: "local" } });
+    const laLate = `tzla-${RUN}@fans.dev`;
+    const brLate = `tzbr-${RUN}@fans.dev`;
+    await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: laLate, consent: "yes", tz: "America/Los_Angeles" });
+    await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: brLate, consent: "yes", tz: "Australia/Brisbane" });
+    check("LA fan can pre-save after it's out in Brisbane; Brisbane fan can't", !!(await prisma.preSave.findFirst({ where: { email: laLate } })) && !(await prisma.preSave.findFirst({ where: { email: brLate } })));
+    const releaseSet = await http(ownerA, "PATCH", `/api/admin/releases/${A.release.id}`, { rollout: "everywhere" });
+    const hourSet = await http(ownerA, "PATCH", "/api/admin/org", { releaseEmailHour: 25 });
+    const hourOk = await http(ownerA, "PATCH", "/api/admin/org", { releaseEmailHour: null });
+    check("rollout and email hour are validated", releaseSet.status === 400 && hourSet.status === 400 && hourOk.status === 200, `${releaseSet.status}/${hourSet.status}/${hourOk.status}`);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

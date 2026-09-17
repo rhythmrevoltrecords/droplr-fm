@@ -9,6 +9,8 @@ export type OAuthState = {
   anon?: string | null;
   em?: string | null; // email (only if consented)
   src?: string | null;
+  tz?: string | null; // fan's timezone: Spotify saves wait for their local release moment
+  lo?: string | null; // "where do you listen" pick
   ret: string; // absolute return URL (release page)
   ru: string; // redirect_uri used for the authorize call
   exp: number;

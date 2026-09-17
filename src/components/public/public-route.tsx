@@ -7,7 +7,7 @@ import { labelDuplicateLinks } from "@/lib/link-labels";
 import { publicTheme } from "./artwork-shell";
 import { planOf } from "@/lib/plans";
 import type { Resolution } from "@/lib/releases";
-import { isReleased } from "@/lib/time";
+import { isReleased, isReleasedFor, releaseInstantFor } from "@/lib/time";
 import { requestMeta, resolveSource } from "@/lib/tracking";
 import { OrgView } from "./org-view";
 import { ReleaseView } from "./release-view";
@@ -68,7 +68,10 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
   }
 
   const org = release.organization;
-  const live = isReleased(release.releaseDate);
+  // Local rollout: the page flips to "Out now" at the visitor's own midnight, like the stores do.
+  const viewerTz = meta.timezone;
+  const live = isReleasedFor(release, org.timezone, viewerTz);
+  const unlockAt = releaseInstantFor(release, org.timezone, viewerTz);
   return (
     <ReleaseView
       release={{
@@ -77,9 +80,10 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         artistName: release.artistName,
         coverUrl: release.coverUrl,
         accentColor: release.accentColor ?? org.accentColor,
-        releaseDate: release.releaseDate.toISOString(),
+        releaseDate: unlockAt.toISOString(),
+        spotifyArtistId: release.spotifyArtistId,
         links: labelDuplicateLinks(release.links).map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url, buttonText: l.buttonText, icon: l.icon })),
-        org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, timezone: org.timezone },
+        org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, timezone: release.rollout === "global" || !viewerTz ? org.timezone : viewerTz },
       }}
       live={live}
       variantId={variant?.id}

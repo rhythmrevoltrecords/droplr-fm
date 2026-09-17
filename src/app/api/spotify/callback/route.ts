@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/crypto";
 import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
 import { exchangeCode, getMe, getSpotifyCreds, saveToLibrary } from "@/lib/spotify";
-import { isReleased } from "@/lib/time";
+import { isReleasedFor, isValidTimeZone } from "@/lib/time";
 import { requestMeta } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 
   // Multi-tenant: state carries the org → decrypt THAT org's client secret.
   const creds = await getSpotifyCreds(state.org);
-  const release = await prisma.release.findUnique({ where: { id: state.rid } });
+  const release = await prisma.release.findUnique({ where: { id: state.rid }, include: { organization: { select: { timezone: true } } } });
   if (!creds || !release || release.organizationId !== state.org) return NextResponse.redirect(withParam(state.ret, "notice", "spotify-unavailable"));
 
   try {
@@ -37,6 +37,8 @@ export async function GET(req: NextRequest) {
       source: state.src ?? existing?.source ?? null,
       anonId: state.anon ?? null,
       country: requestMeta(req.headers).country ?? me.country ?? null,
+      timezone: isValidTimeZone(state.tz) ? state.tz : existing?.timezone ?? null,
+      listenOn: state.lo ?? existing?.listenOn ?? null,
     };
     const ps = existing
       ? await prisma.preSave.update({ where: { id: existing.id }, data: { ...data, status: existing.status === "completed" ? "completed" : "pending" } })
@@ -48,8 +50,8 @@ export async function GET(req: NextRequest) {
       if (click) await prisma.clickEvent.update({ where: { id: click.id }, data: { convertedToPreSave: true } });
     }
 
-    // Already out? Save right now.
-    if (isReleased(release.releaseDate)) {
+    // Already out where this fan is? Save right now.
+    if (isReleasedFor(release, release.organization.timezone, state.tz)) {
       try {
         await saveToLibrary(token.access_token, { albumId: release.spotifyAlbumId, trackId: release.spotifyTrackId, artistId: release.spotifyArtistId });
         await prisma.preSave.update({ where: { id: ps.id }, data: { status: "completed", completedAt: new Date(), attempts: { increment: 1 } } });

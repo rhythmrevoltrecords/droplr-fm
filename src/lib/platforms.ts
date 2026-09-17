@@ -42,6 +42,31 @@ export const PLATFORM_KEYS = Object.keys(PLATFORMS) as PlatformKey[];
 /** Platforms an admin adds by hand (UPC/ISRC lookups only cover Apple Music and Deezer). */
 export const MANUAL_PLATFORMS: PlatformKey[] = ["beatport", "traxsource", "bandcamp", "juno", "audius", "soundcloud", "tiktokSound", "youtube", "custom"];
 
+/** "Where do you listen?" on the email pre-save. Their pick leads the release-day email. */
+export const LISTEN_CHOICES: PlatformKey[] = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "soundcloud", "tidal", "deezer", "beatport", "bandcamp", "traxsource", "juno"];
+export const isListenChoice = (v: unknown): v is PlatformKey => typeof v === "string" && (LISTEN_CHOICES as string[]).includes(v);
+
+/** Store search pages, so a label can find a link the lookups can't (no public API: Beatport, Bandcamp, Amazon…). */
+export function storeSearchUrl(key: string, query: string): string | null {
+  const q = encodeURIComponent(query);
+  const urls: Partial<Record<PlatformKey, string>> = {
+    spotify: `https://open.spotify.com/search/${q}`,
+    appleMusic: `https://music.apple.com/search?term=${q}`,
+    beatport: `https://www.beatport.com/search?q=${q}`,
+    traxsource: `https://www.traxsource.com/search?term=${q}`,
+    bandcamp: `https://bandcamp.com/search?q=${q}`,
+    youtubeMusic: `https://music.youtube.com/search?q=${q}`,
+    soundcloud: `https://soundcloud.com/search?q=${q}`,
+    juno: `https://www.junodownload.com/search/?q%5Ball%5D%5B%5D=${q}`,
+    amazonMusic: `https://music.amazon.com/search/${q}`,
+    deezer: `https://www.deezer.com/search/${q}`,
+    tidal: `https://tidal.com/search?q=${q}`,
+    audius: `https://audius.co/search/${q}`,
+    youtube: `https://www.youtube.com/results?search_query=${q}`,
+  };
+  return urls[key as PlatformKey] ?? null;
+}
+
 export function platformMeta(key: string): PlatformMeta {
   return PLATFORMS[key as PlatformKey] ?? { ...PLATFORMS.custom, name: key };
 }

@@ -24,6 +24,7 @@ const schema = z.object({
   themePublic: z.boolean().optional(),
   accentColor: z.string().regex(/^$|^#[0-9a-fA-F]{6}$/, "Accent colour must be a hex like #8B5CF6").optional(),
   logoUrl: z.string().url().or(z.literal("")).optional(),
+  releaseEmailHour: z.number().int().min(0).max(23).nullable().optional(),
 });
 
 export async function PATCH(req: NextRequest) {
@@ -90,6 +91,7 @@ export async function PATCH(req: NextRequest) {
       ...domainData,
       ...(d.emailFromName !== undefined && { emailFromName: d.emailFromName || null }),
       ...(d.emailReplyTo !== undefined && { emailReplyTo: d.emailReplyTo || null }),
+      ...(d.releaseEmailHour !== undefined && { releaseEmailHour: d.releaseEmailHour }),
     },
   });
   // The old domain's Netlify alias goes (retried by the domain cron if Netlify is unavailable).

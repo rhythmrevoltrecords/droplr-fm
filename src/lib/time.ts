@@ -67,6 +67,52 @@ export function isReleased(releaseDate: Date, now = new Date()) {
   return releaseDate.getTime() <= now.getTime();
 }
 
+// --- Releasing in each fan's own timezone -------------------------------------------------------------------------
+// Stores unlock a release at midnight local time in each country. A release set for 25 Sept 00:00 in Brisbane
+// is out in Brisbane at that moment, but a fan in Los Angeles can't play it until 25 Sept 00:00 Los Angeles time.
+// rollout "local" follows that; "global" means one instant everywhere (surprise drops at a fixed time).
+
+export type RolloutRelease = { releaseDate: Date; rollout?: string | null };
+
+const HOUR = 3600_000;
+
+/** When the release unlocks for someone in viewerTz. Unknown/invalid viewer zone → the label's own moment. */
+export function releaseInstantFor(release: RolloutRelease, orgTz: string | null | undefined, viewerTz?: string | null) {
+  if (release.rollout === "global" || !isValidTimeZone(viewerTz)) return release.releaseDate;
+  return zonedLocalToDate(dateToZonedLocal(release.releaseDate, orgTz), viewerTz);
+}
+
+/** Out yet for this viewer? */
+export function isReleasedFor(release: RolloutRelease, orgTz: string | null | undefined, viewerTz?: string | null, now = new Date()) {
+  return releaseInstantFor(release, orgTz, viewerTz).getTime() <= now.getTime();
+}
+
+/** First and last moment the release unlocks anywhere (UTC+14 … UTC−12). */
+export function releaseWindow(release: RolloutRelease, orgTz: string | null | undefined) {
+  if (release.rollout === "global") return { earliest: release.releaseDate, latest: release.releaseDate };
+  const wall = zonedLocalToDate(dateToZonedLocal(release.releaseDate, orgTz), "UTC").getTime();
+  return { earliest: new Date(wall - 14 * HOUR), latest: new Date(wall + 12 * HOUR) };
+}
+
+/**
+ * When a fan's release-day email should go: `hour`:00 their time on the day it unlocks for them.
+ * If it unlocks after that hour (e.g. a 5pm drop), send when it unlocks, unless that's late evening (after 9pm),
+ * then `hour`:00 the next morning. hour null = the moment it unlocks.
+ */
+export function releaseEmailDueFor(release: RolloutRelease, orgTz: string | null | undefined, fanTz: string | null | undefined, hour: number | null | undefined) {
+  const tz = isValidTimeZone(fanTz) ? fanTz : isValidTimeZone(orgTz) ? orgTz : DEFAULT_TZ;
+  const unlock = releaseInstantFor(release, orgTz, tz);
+  if (hour == null || hour < 0 || hour > 23) return unlock;
+  const hh = String(hour).padStart(2, "0");
+  const day = zonedDay(unlock, tz);
+  const atHour = zonedLocalToDate(`${day}T${hh}:00`, tz);
+  if (atHour.getTime() >= unlock.getTime()) return atHour;
+  const unlockHour = +dateToZonedLocal(unlock, tz).slice(11, 13);
+  if (unlockHour < 21) return unlock;
+  const next = new Date(zonedLocalToDate(`${day}T12:00`, tz).getTime() + 24 * HOUR); // noon tomorrow, DST-safe day step
+  return zonedLocalToDate(`${zonedDay(next, tz)}T${hh}:00`, tz);
+}
+
 /** Curated label locations (searchable in settings); any IANA zone is accepted. */
 export const LOCATIONS: { label: string; tz: string; region: string }[] = [
   { label: "Brisbane", tz: "Australia/Brisbane", region: "Australia" },

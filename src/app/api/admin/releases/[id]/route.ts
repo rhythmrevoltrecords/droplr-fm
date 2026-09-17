@@ -23,6 +23,7 @@ const schema = z.object({
   isrc: z.string().max(20).optional(),
   autoReResolve: z.boolean().optional(),
   isPublic: z.boolean().optional(),
+  rollout: z.enum(["local", "global"]).optional(),
 });
 
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -33,7 +34,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message }, { status: 400 });
   const d = parsed.data;
   const data: Record<string, unknown> = {};
-  for (const k of ["title", "artistName", "coverUrl", "accentColor", "autoReResolve", "isPublic"] as const) if (d[k] !== undefined) data[k] = d[k];
+  for (const k of ["title", "artistName", "coverUrl", "accentColor", "autoReResolve", "isPublic", "rollout"] as const) if (d[k] !== undefined) data[k] = d[k];
   for (const k of ["spotifyAlbumId", "spotifyTrackId", "spotifyArtistId"] as const) if (d[k] !== undefined) data[k] = d[k] || null;
   if (d.upc !== undefined) {
     if (d.upc && !normaliseUpc(d.upc)) return NextResponse.json({ error: "UPC should be 12–14 digits" }, { status: 400 });

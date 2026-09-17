@@ -1,3 +1,4 @@
+import { isValidTimeZone } from "./time";
 import { hashIp } from "./crypto";
 
 export const ANON_COOKIE = "dfm_anon";
@@ -37,6 +38,25 @@ export function countryFrom(headers: Headers) {
   return cc && cc !== "XX" ? cc : null;
 }
 
+/** Netlify geo timezone (x-nf-geo … "timezone": "America/Los_Angeles"), if present and valid. */
+export function timezoneFrom(headers: Headers) {
+  const nf = headers.get("x-nf-geo");
+  if (!nf) return null;
+  for (const raw of [() => Buffer.from(nf, "base64").toString("utf8"), () => nf]) {
+    try {
+      const tz = JSON.parse(raw())?.timezone;
+      if (typeof tz === "string" && isValidTimeZone(tz)) return tz;
+    } catch {}
+  }
+  return null;
+}
+
+/** The fan's zone: what their browser said (form field), else Netlify geo, else null. */
+export function fanTimezone(formValue: unknown, headers: Headers) {
+  const v = typeof formValue === "string" ? formValue.trim().slice(0, 64) : "";
+  return isValidTimeZone(v) ? v : timezoneFrom(headers);
+}
+
 export function clientIp(headers: Headers) {
   return headers.get("x-nf-client-connection-ip") || headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
 }
@@ -74,6 +94,7 @@ export function requestMeta(headers: Headers) {
     bot: isBot(ua),
     deviceType: deviceType(ua),
     country: countryFrom(headers),
+    timezone: timezoneFrom(headers),
     ipHash: hashIp(clientIp(headers)),
     referrer: capText(headers.get("referer")),
   };

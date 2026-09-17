@@ -1,8 +1,8 @@
 import type { Config } from "@netlify/functions";
 import { findDueReleases } from "../../src/lib/presave-processor";
 
-// Hourly: find releases that are live (releaseDate <= now) with outstanding work
-// (status flip + Apple Music/Deezer lookup by UPC/ISRC, pending BYO Spotify saves, unsent release-day emails)
+// Every 15 minutes: find releases with work due somewhere in the world (store scans before/after release,
+// Spotify saves at each fan's local release moment, release-day emails at the label's hour in each fan's timezone)
 // and hand them to the 15-minute background function.
 export default async () => {
   const due = await findDueReleases();
@@ -18,4 +18,4 @@ export default async () => {
   return new Response(JSON.stringify({ due: due.length, background: res.status }), { status: 200 });
 };
 
-export const config: Config = { schedule: "@hourly" };
+export const config: Config = { schedule: "*/15 * * * *" };

@@ -9,31 +9,37 @@ import { getSpotifyCreds, refreshAccessToken, saveToLibrary, SpotifyError } from
 import { deezerSaveAlbum, parseDeezerAlbumId } from "./deezer";
 import { emailConfigured, releaseDayEmail, sendBatch } from "./email";
 import { linkCustomDomain } from "./plans";
+import { isReleased, isValidTimeZone, releaseEmailDueFor, releaseInstantFor, releaseWindow } from "./time";
+import { tidalConfigured } from "./odesli";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const MIN = 60_000;
+const HOUR = 60 * MIN;
+const DAY = 24 * HOUR;
+/** A fan who picked a store with no link yet waits this long past their send time for the link to turn up. */
+const LISTEN_ON_WAIT_MS = 6 * HOUR;
 
 export type ProcessResult = { releaseId: string; resolvedLinks: number; spotifyDone: number; spotifyFailed: number; deezerDone: number; emailed: number; stoppedEarly: boolean; notes: string[] };
 
-const AUTO_PLATFORMS = [
-  { key: "appleMusic", label: "Apple" },
-  { key: "deezer", label: "Deezer" },
-] as const;
+type AutoKey = "appleMusic" | "deezer" | "spotify" | "tidal";
+const AUTO_LABEL: Record<AutoKey, string> = { appleMusic: "Apple Music", deezer: "Deezer", spotify: "Spotify", tidal: "TIDAL" };
 
 /**
- * Step 1: fill Apple Music + Deezer links from UPC/ISRC (iTunes Lookup + Deezer API).
+ * Step 1: fill store links from UPC/ISRC: Apple Music (iTunes Lookup), Deezer, Spotify (label's app), TIDAL (env keys).
  * - Only creates a link when there's no row for that platform at all. A hidden row means the
  *   label hid it on purpose, and an existing visible row is left untouched.
  * - If the release has no UPC/ISRC yet, asks Spotify for external_ids first.
  * - New rows go to the end of the list so the label's order (Beatport up top etc.) is kept.
+ * Runs daily in the fortnight before release (pre-orders often show up early) and hourly after it unlocks.
  */
 export async function reResolveRelease(releaseId: string, log: (msg: string) => void = console.log) {
   const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { links: true } });
   if (!release) return 0;
+  const creds = await getSpotifyCreds(release.organizationId).catch(() => null);
 
   let upc = normaliseUpc(release.upc);
   let isrc = normaliseIsrc(release.isrc);
   if (!upc && !isrc && (release.spotifyAlbumId || release.spotifyTrackId)) {
-    const creds = await getSpotifyCreds(release.organizationId).catch(() => null);
     const meta = await resolveFromSpotifyUri(
       release.spotifyAlbumId ? { type: "album", id: release.spotifyAlbumId } : { type: "track", id: release.spotifyTrackId! },
       creds,
@@ -45,34 +51,58 @@ export async function reResolveRelease(releaseId: string, log: (msg: string) => 
       log(`[resolve] ${release.slug}: got ${upc ? `UPC ${upc}` : `ISRC ${isrc}`} from Spotify`);
     }
   }
-  if (!upc && !isrc) return 0;
 
-  const missing = AUTO_PLATFORMS.filter((p) => !release.links.some((l) => l.platform === p.key));
-  if (!missing.length) {
-    if (!release.resolvedAt) await prisma.release.update({ where: { id: releaseId }, data: { resolvedAt: new Date() } });
-    return 0;
-  }
-
-  const found = await resolveStores({ upc, isrc });
+  const auto: AutoKey[] = ["appleMusic", "deezer", ...(creds || release.spotifyAlbumId || release.spotifyTrackId ? (["spotify"] as const) : []), ...(tidalConfigured() ? (["tidal"] as const) : [])];
+  let missing = auto.filter((k) => !release.links.some((l) => l.platform === k));
   let position = release.links.reduce((m, l) => Math.max(m, l.position), -1) + 1;
   let added = 0;
-  for (const p of missing) {
-    const url = found[p.key];
+  const now = new Date();
+
+  // Spotify straight from the IDs the label already gave us: no lookup needed.
+  if (missing.includes("spotify") && (release.spotifyAlbumId || release.spotifyTrackId)) {
+    const url = release.spotifyAlbumId ? `https://open.spotify.com/album/${release.spotifyAlbumId}` : `https://open.spotify.com/track/${release.spotifyTrackId}`;
+    await prisma.releaseLink.create({ data: { releaseId, platform: "spotify", url, visible: true, position: position++ } });
+    log("Added Spotify from the release's Spotify ID");
+    added++;
+    missing = missing.filter((k) => k !== "spotify");
+  }
+
+  if (!missing.length || (!upc && !isrc)) {
+    await prisma.release.update({ where: { id: releaseId }, data: { linksCheckedAt: now, ...(!missing.length && !release.resolvedAt ? { resolvedAt: now } : {}) } });
+    return added;
+  }
+
+  const found = await resolveStores({ upc, isrc }, { spotifyCreds: creds, want: missing });
+  for (const k of missing) {
+    const url = found[k];
     if (!url) continue;
-    await prisma.releaseLink.create({ data: { releaseId, platform: p.key, url, visible: true, position: position++ } });
-    log(`Auto-resolved ${p.label} via ${found.via[p.key]}`);
+    await prisma.releaseLink.create({ data: { releaseId, platform: k, url, visible: true, position: position++ } });
+    log(`Auto-resolved ${AUTO_LABEL[k]} via ${found.via[k]}`);
     added++;
   }
 
-  const stillMissing = missing.filter((p) => !found[p.key]).length;
+  const stillMissing = missing.filter((k) => !found[k]).length;
   await prisma.release.update({
     where: { id: releaseId },
     data: {
-      resolvedAt: stillMissing ? release.resolvedAt : new Date(),
+      linksCheckedAt: now,
+      resolvedAt: stillMissing ? release.resolvedAt : now,
       coverUrl: release.coverUrl || found.artwork || release.coverUrl,
     },
   });
   return added;
+}
+
+/** Group pending rows by fan timezone and return the zones whose moment has come. null zone = the label's timezone. */
+async function dueZones(where: Record<string, unknown>, dueAt: (tz: string | null) => Date, extraMs = 0) {
+  const groups = await prisma.preSave.groupBy({ by: ["timezone"], where: where as never });
+  const now = Date.now();
+  return groups.map((g) => g.timezone).filter((tz) => dueAt(isValidTimeZone(tz) ? tz : null).getTime() + extraMs <= now);
+}
+
+function inZones(zones: (string | null)[]) {
+  const named = zones.filter((z): z is string => !!z);
+  return { OR: [...(zones.includes(null) ? [{ timezone: null }] : []), ...(named.length ? [{ timezone: { in: named } }] : [])] };
 }
 
 async function pool<T>(items: T[], concurrency: number, fn: (item: T) => Promise<void>, shouldStop: () => boolean) {
@@ -89,20 +119,43 @@ async function pool<T>(items: T[], concurrency: number, fn: (item: T) => Promise
 /** Step 2+3: process true saves (BYO Spotify / Deezer) then release-day emails. Resumable: only touches pending rows. */
 export async function processRelease(releaseId: string, deadlineMs = Date.now() + 14 * 60 * 1000): Promise<ProcessResult> {
   const out: ProcessResult = { releaseId, resolvedLinks: 0, spotifyDone: 0, spotifyFailed: 0, deezerDone: 0, emailed: 0, stoppedEarly: false, notes: [] };
+  // Take the lease (expires on its own if a run dies) so an overlapping run can't send the same emails twice.
+  const leaseUntil = new Date(Math.max(deadlineMs, Date.now()) + 2 * MIN);
+  const leased = await prisma.release.updateMany({
+    where: { id: releaseId, OR: [{ processingUntil: null }, { processingUntil: { lt: new Date() } }] },
+    data: { processingUntil: leaseUntil },
+  });
+  if (leased.count !== 1) {
+    out.notes.push("already being processed by another run");
+    return out;
+  }
+  try {
+    return await processReleaseLeased(releaseId, deadlineMs, out);
+  } finally {
+    await prisma.release.updateMany({ where: { id: releaseId, processingUntil: leaseUntil }, data: { processingUntil: null } }).catch(() => {});
+  }
+}
+
+async function processReleaseLeased(releaseId: string, deadlineMs: number, out: ProcessResult): Promise<ProcessResult> {
   const release = await prisma.release.findUnique({
     where: { id: releaseId },
     include: { organization: true, links: { where: { visible: true }, orderBy: { position: "asc" } } },
   });
   if (!release) return out;
-  if (release.releaseDate.getTime() > Date.now()) {
-    out.notes.push("not released yet");
-    return out;
-  }
+  const orgTz = release.organization.timezone;
+  const now = Date.now();
+  const win = releaseWindow(release, orgTz);
+  const started = now >= win.earliest.getTime();
+  const orgLive = isReleased(release.releaseDate);
+  const scanStale = (ms: number) => !release.linksCheckedAt || now - release.linksCheckedAt.getTime() > ms;
 
-  // Apple Music / Deezer from UPC/ISRC: on the flip to live, then hourly for 72h until both are found
-  // (stores often publish a few hours after midnight).
-  const retryWindow = Date.now() - release.releaseDate.getTime() < 72 * 3600_000;
-  if (release.autoReResolve && (release.status !== "live" || (!release.resolvedAt && retryWindow))) {
+  // Store links: daily in the fortnight before, on the flip to live, then hourly until 72h after it's out everywhere.
+  const scan =
+    release.autoReResolve &&
+    ((orgLive && release.status !== "live") ||
+      (!release.resolvedAt &&
+        (started ? now < win.latest.getTime() + 72 * HOUR && scanStale(50 * MIN) : release.releaseDate.getTime() - now < 14 * DAY && scanStale(20 * HOUR))));
+  if (scan) {
     out.resolvedLinks = await reResolveRelease(releaseId, (m) => {
       console.log(`[process-presaves] ${release.slug}: ${m}`);
       out.notes.push(m);
@@ -114,7 +167,11 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
       release.links = await prisma.releaseLink.findMany({ where: { releaseId, visible: true }, orderBy: { position: "asc" } });
     }
   }
-  if (release.status !== "live") {
+  if (!started) {
+    out.notes.push("not out anywhere yet");
+    return out;
+  }
+  if (orgLive && release.status !== "live") {
     await prisma.release.update({ where: { id: releaseId }, data: { status: "live" } });
   }
 
@@ -124,10 +181,13 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
   // --- Spotify true saves (only rows created via a BYO app OAuth) ---
   const creds = await getSpotifyCreds(release.organizationId);
   if (creds) {
+    // Each fan's library save waits for the release to unlock in their own timezone.
+    const spotifyWhere = { releaseId, platform: "spotify", status: "pending", refreshTokenEncrypted: { not: null }, attempts: { lt: 5 } };
+    const spotifyZones = await dueZones(spotifyWhere, (tz) => releaseInstantFor(release, orgTz, tz ?? orgTz));
     for (;;) {
-      if (stop()) break;
+      if (stop() || !spotifyZones.length) break;
       const batch = await prisma.preSave.findMany({
-        where: { releaseId, platform: "spotify", status: "pending", refreshTokenEncrypted: { not: null }, attempts: { lt: 5 } },
+        where: { ...spotifyWhere, ...inZones(spotifyZones) },
         take: 500,
         orderBy: { createdAt: "asc" },
       });
@@ -206,11 +266,26 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
     const publicUrl = domain ? `${origin}/${release.slug}` : `${SITE_URL}/${org.slug}/${release.slug}`;
     const platforms = [...new Set(release.links.map((l) => l.platform).filter((p) => p !== "custom"))];
     const topPlatforms = platforms.length ? platforms : ["spotify"];
+    const hour = org.releaseEmailHour;
+    const emailWhere = { releaseId, email: { not: null }, emailConsent: true, emailSentAt: null, status: { not: "unsubscribed" } };
+    // 9am (or the label's hour) in each fan's timezone on the day it unlocks for them.
+    const emailDue = (tz: string | null) => releaseEmailDueFor(release, orgTz, tz, hour);
+    const zonesDue = await dueZones(emailWhere, emailDue);
+    const zonesPastWait = await dueZones(emailWhere, emailDue, LISTEN_ON_WAIT_MS);
+    // Fans who picked a store with no link yet wait (up to LISTEN_ON_WAIT_MS) for it to be found; everyone else goes now.
+    const readyWhere = {
+      ...emailWhere,
+      OR: [
+        ...(zonesDue.length ? [{ AND: [inZones(zonesDue), { OR: [{ listenOn: null }, { listenOn: { in: platforms } }] }] }] : []),
+        ...(zonesPastWait.length ? [inZones(zonesPastWait)] : []),
+      ],
+    };
+    const orderFor = (listenOn: string | null) => (listenOn && platforms.includes(listenOn) ? [listenOn, ...topPlatforms.filter((p) => p !== listenOn)] : topPlatforms);
 
     for (;;) {
-      if (Date.now() > deadlineMs) break;
+      if (Date.now() > deadlineMs || !readyWhere.OR.length) break;
       let rows = await prisma.preSave.findMany({
-        where: { releaseId, email: { not: null }, emailConsent: true, emailSentAt: null, status: { not: "unsubscribed" } },
+        where: readyWhere,
         take: 100,
         orderBy: { createdAt: "asc" },
       });
@@ -246,7 +321,7 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
         unique.map(async (r) => {
           const tpl = await releaseDayEmail({
             preSaveId: r.id, releaseId, title: release.title, artistName: release.artistName, coverUrl: release.coverUrl,
-            accentColor: release.accentColor, publicUrl, linkBase: origin, platforms: topPlatforms, orgName: org.emailFromName || org.name,
+            accentColor: release.accentColor, publicUrl, linkBase: origin, platforms: orderFor(r.listenOn), orgName: org.emailFromName || org.name,
           });
           return { to: r.email!, fromName: org.emailFromName || org.name, replyTo: org.emailReplyTo, ...tpl };
         }),
@@ -290,6 +365,11 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
         where: { id: { in: rows.map((r) => r.id) } },
         data: { emailSentAt: now },
       });
+      // Same address pre-saved twice (e.g. email + Spotify, different browser timezone): that one email covers both.
+      await prisma.preSave.updateMany({
+        where: { releaseId, emailSentAt: null, email: { in: [...new Set(rows.map((r) => r.email!))] } },
+        data: { emailSentAt: now },
+      });
       for (const r of rows.filter((x) => rejected.has(x.email!.toLowerCase()))) {
         await prisma.preSave.update({ where: { id: r.id }, data: { lastError: `release-day email rejected: ${rejected.get(r.email!.toLowerCase())}` } });
       }
@@ -310,24 +390,39 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
   return out;
 }
 
-/** Hourly: which releases need work? */
+/** Every 15 minutes: which releases need work (store scans, saves or emails due somewhere in the world)? */
 export async function findDueReleases() {
-  const now = new Date();
-  const releases = await prisma.release.findMany({
-    where: {
-      releaseDate: { lte: now },
-      OR: [
-        { status: "upcoming" },
-        // store-link retry window: live < 72h, auto re-resolve on, Apple/Deezer not both found yet
-        { autoReResolve: true, resolvedAt: null, releaseDate: { gte: new Date(now.getTime() - 72 * 3600_000) } },
-        { preSaves: { some: { status: "pending", platform: { in: ["spotify", "deezer"] }, attempts: { lt: 5 } } } },
-        { preSaves: { some: { emailConsent: true, emailSentAt: null, email: { not: null }, status: { not: "unsubscribed" } } } },
-      ],
-    },
-    select: { id: true, slug: true },
-    take: 200,
-  });
-  return releases;
+  const now = Date.now();
+  const select = { id: true, slug: true, releaseDate: true, rollout: true, status: true, autoReResolve: true, resolvedAt: true, linksCheckedAt: true, organization: { select: { timezone: true } } } as const;
+  const [work, scans] = await Promise.all([
+    // Unlocks can start up to 26h before the label's own moment (UTC+14 fan, UTC−12 label).
+    prisma.release.findMany({
+      where: {
+        releaseDate: { lte: new Date(now + 26 * HOUR) },
+        OR: [
+          { status: "upcoming" },
+          { preSaves: { some: { status: "pending", platform: { in: ["spotify", "deezer"] }, attempts: { lt: 5 } } } },
+          { preSaves: { some: { emailConsent: true, emailSentAt: null, email: { not: null }, status: { not: "unsubscribed" } } } },
+        ],
+      },
+      select,
+      take: 300,
+    }),
+    prisma.release.findMany({
+      where: { autoReResolve: true, resolvedAt: null, releaseDate: { gte: new Date(now - 5 * DAY), lte: new Date(now + 14 * DAY) } },
+      select,
+      take: 300,
+    }),
+  ]);
+  const due = new Map<string, { id: string; slug: string }>();
+  for (const r of work) if (now >= releaseWindow(r, r.organization.timezone).earliest.getTime()) due.set(r.id, { id: r.id, slug: r.slug });
+  for (const r of scans) {
+    const win = releaseWindow(r, r.organization.timezone);
+    const stale = (ms: number) => !r.linksCheckedAt || now - r.linksCheckedAt.getTime() > ms;
+    const started = now >= win.earliest.getTime();
+    if (started ? now < win.latest.getTime() + 72 * HOUR && stale(50 * MIN) : stale(20 * HOUR)) due.set(r.id, { id: r.id, slug: r.slug });
+  }
+  return [...due.values()].slice(0, 200);
 }
 
 export { platformMeta };

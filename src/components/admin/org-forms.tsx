@@ -67,6 +67,26 @@ export function SpotifyConnectForm({ status, canEdit, planAllows }: { status: st
   );
 }
 
+export function EmailHourForm({ initial }: { initial: number | null }) {
+  const [hour, setHour] = useState<string>(initial == null ? "now" : String(initial));
+  const { busy, msg, submit } = useSubmit();
+  const label = (h: number) => `${h % 12 === 0 ? 12 : h % 12}:00 ${h < 12 ? "am" : "pm"}`;
+  return (
+    <form className="space-y-2" onSubmit={(e) => { e.preventDefault(); submit("/api/admin/org", "PATCH", { releaseEmailHour: hour === "now" ? null : Number(hour) }); }}>
+      <Label htmlFor="release-email-hour">Send the release-day email at</Label>
+      <div className="flex flex-wrap items-center gap-3">
+        <Select id="release-email-hour" value={hour} onChange={(e) => setHour(e.target.value)} className="w-auto">
+          {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{label(h)} in each fan&apos;s timezone</option>)}
+          <option value="now">As soon as it&apos;s out for them</option>
+        </Select>
+        <Button type="submit" disabled={busy}>{busy && <Loader2 className="animate-spin" />} Save</Button>
+        <Msg msg={msg} />
+      </div>
+      <p className="text-xs text-muted-foreground">On release day, in the fan&apos;s own timezone. A fan in Los Angeles gets it at that time in LA, after the release has unlocked there.</p>
+    </form>
+  );
+}
+
 export function SpotifyButtonToggle({ initial, canEdit }: { initial: boolean; canEdit: boolean }) {
   const [on, setOn] = useState(initial);
   const { busy, msg, submit } = useSubmit();

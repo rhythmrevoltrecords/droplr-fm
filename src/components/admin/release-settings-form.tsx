@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import type { ArtistOption } from "./release-create-form";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global" };
 
 export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane" }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string }) {
   const router = useRouter();
@@ -42,12 +42,20 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
         {field("artistName", "Artist name")}
         {field("slug", "Slug")}
         {field("releaseDateLocal", `Release date & time (${locationLabel})`, "datetime-local")}
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Worldwide release</Label>
+          <Select value={f.rollout} onChange={(e) => set("rollout", e.target.value)}>
+            <option value="local">At this time in each fan&apos;s country (like the stores: midnight Brisbane, then midnight London, midnight LA…)</option>
+            <option value="global">At the same moment everywhere (surprise drop)</option>
+          </Select>
+          <p className="text-xs text-muted-foreground">Controls when the page switches to &quot;Out now&quot;, when Spotify pre-saves land and when release-day emails go out for each fan.</p>
+        </div>
         {field("coverUrl", "Cover URL")}
         {field("accentColor", "Accent colour")}
         {field("spotifyAlbumId", "Spotify album ID")}
         {field("spotifyTrackId", "Spotify track ID")}
         {field("spotifyArtistId", "Spotify artist ID (follow)")}
-        {field("upc", "UPC (finds Apple Music + Deezer)")}
+        {field("upc", "UPC (finds Apple Music, Deezer, Spotify, TIDAL)")}
         {field("isrc", "ISRC")}
         <div className="space-y-2">
           <Label>Roster artist</Label>

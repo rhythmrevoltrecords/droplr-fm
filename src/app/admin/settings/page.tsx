@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { DomainSetup } from "@/components/admin/domain-setup";
-import { OrgFieldsForm } from "@/components/admin/org-forms";
+import { EmailHourForm, OrgFieldsForm } from "@/components/admin/org-forms";
 import { AppearanceForm, IdentityForm } from "@/components/admin/settings-forms";
 import { SITE_HOST } from "@/lib/env";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +65,7 @@ export default async function SettingsPage() {
         </CardHeader>
         <CardContent>
           <OrgFieldsForm fields={[{ key: "emailFromName", label: "Sender name", placeholder: org.name }, { key: "emailReplyTo", label: "Reply-to email", placeholder: "hello@yourlabel.com" }]} initial={{ emailFromName: org.emailFromName ?? "", emailReplyTo: org.emailReplyTo ?? "" }} />
+          <div className="mt-6 border-t pt-6"><EmailHourForm initial={org.releaseEmailHour} /></div>
         </CardContent>
       </Card>
 

@@ -200,7 +200,7 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
         <Button onClick={save} disabled={!!busy}>{busy === "save" && <Loader2 className="animate-spin" />} Save links</Button>
         {reresolveUrl && (
           <Button variant="outline" onClick={reresolve} disabled={!!busy}>
-            {busy === "resolve" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Find Apple Music &amp; Deezer
+            {busy === "resolve" ? <Loader2 className="animate-spin" /> : <RefreshCw />} Find store links
           </Button>
         )}
         {hidden > 0 && <span className="text-xs text-muted-foreground">{hidden} hidden from fans</span>}
