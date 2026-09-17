@@ -35,7 +35,7 @@ export default async function IntegrationsPage() {
             <li>Add these Redirect URIs exactly:
               <div className="mt-2 space-y-2">
                 {redirectUris.map((u) => (
-                  <div key={u} className="flex flex-wrap items-center gap-2"><code className="rounded bg-secondary px-2 py-1 text-xs text-foreground">{u}</code><CopyButton value={u} /></div>
+                  <div key={u} className="flex min-w-0 flex-wrap items-center gap-2"><code className="min-w-0 max-w-full break-all rounded bg-secondary px-2 py-1 text-xs text-foreground">{u}</code><CopyButton value={u} /></div>
                 ))}
               </div>
             </li>

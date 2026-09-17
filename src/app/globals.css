@@ -336,3 +336,7 @@
 }
 /* Cards float on the glow: a touch of translucency + blur so the colour reads through without hurting text contrast. */
 .glow-on .bg-card { background-color: hsl(var(--card) / 0.78); backdrop-filter: blur(12px); }
+
+/* Sideways scrollers (mobile nav, tabs): swipe without a visible scrollbar. */
+.no-scrollbar { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
