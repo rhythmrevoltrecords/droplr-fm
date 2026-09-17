@@ -809,6 +809,70 @@ async function main() {
     check("referral page shows the account's link", refOwnPage.status === 200 && refOwnPage.text.includes("/join/"), `${refOwnPage.status}`);
     const refPlat = await http(ownerA, "POST", "/api/platform/referrals");
     check("only the platform owner can run the referral check", refPlat.status === 404, `${refPlat.status}`);
+    console.log("\n16. Owner signup invites");
+    await prisma.authThrottle.deleteMany({}); // sign-ups are 5 per IP per hour
+    const invByOwner = await http(ownerA, "POST", "/api/platform/invites", { open: true, maxUses: 5 });
+    const invPage = await http(ownerA, "GET", "/platform/access");
+    const invAnon = await http(null, "POST", "/api/platform/invites", { open: true });
+    check("only the platform owner can make invites or see Access", invByOwner.status === 404 && invAnon.status === 404 && invPage.status !== 200 && (await prisma.signupInvite.count({ where: { createdBy: A.owner.email } })) === 0, `${invByOwner.status}/${invAnon.status}/${invPage.status}`);
+    const garbage = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Nope ${RUN}`, email: `nocode-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: "A".repeat(32) });
+    check("a made-up invite code doesn't open sign-up", !garbage.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: `nocode-${RUN}@sectest.dev` } })), garbage.location);
+    const platUser2 = adminEmail ? await prisma.user.findUnique({ where: { email: adminEmail } }) : null;
+    if (platUser2?.role === "owner") {
+      const pa = await login(adminEmail);
+      const note = `sec-${RUN}`;
+      const bound = `inv-bound-${RUN}@sectest.dev`;
+      const mk = await http(pa, "POST", "/api/platform/invites", { emails: `${bound}, ${A.owner.email}`, kind: "artist", expiresInDays: 7, note });
+      const mkj = JSON.parse(mk.text) as { created: { url: string; email: string }[]; skipped: { email: string }[] };
+      const boundUrl = mkj.created[0]?.url ?? "";
+      const code = new URL(boundUrl || "http://x/").searchParams.get("code") ?? "";
+      check("owner makes a single-use invite per email; existing accounts are skipped", mk.status === 200 && mkj.created.length === 1 && mkj.created[0].email === bound && mkj.skipped[0]?.email === A.owner.email && code.length === 32, mk.text.slice(0, 160));
+      const stored = await prisma.signupInvite.findFirst({ where: { email: bound } });
+      const dupe = JSON.parse((await http(pa, "POST", "/api/platform/invites", { emails: bound, note })).text) as { created: unknown[]; skipped: { email: string }[] };
+      check("inviting someone who already has an active invite is skipped", dupe.created.length === 0 && dupe.skipped[0]?.email === bound && (await prisma.signupInvite.count({ where: { email: bound } })) === 1);
+      check("invite codes are stored hashed and encrypted, never in plain text", !!stored && stored.tokenHash !== code && !stored.tokenEncrypted.includes(code));
+      const page = await http(null, "GET", `/signup?code=${code}`);
+      check("invite link opens the sign-up form on the Free plan with the email and type locked", page.status === 200 && page.text.includes("invited to droplr.fm") && page.text.includes("Free plan") && page.text.includes(bound) && /readonly/i.test(page.text) && !page.text.includes("I run a label"), `${page.status}`);
+      const wrong = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Wrong ${RUN}`, email: `someone-else-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: code });
+      check("an email-bound invite doesn't work for another address", wrong.location.includes("different%20email") && !(await prisma.user.findUnique({ where: { email: `someone-else-${RUN}@sectest.dev` } })), wrong.location);
+      const jarI: Jar = { cookie: "" };
+      const ok = await http(jarI, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Invited ${RUN}`, email: bound, password: PW, terms: "yes", inviteCode: code });
+      const invUser = await prisma.user.findUnique({ where: { email: bound }, include: { organization: true } });
+      if (invUser) extraOrgs.push(invUser.organizationId);
+      const o = invUser?.organization;
+      check("invite works while signups are closed (email not in the allowlist)", ok.location.includes("/admin?welcome=1") && !!invUser, `${ok.status} ${ok.location}`);
+      check("invited account: type fixed by the invite (form can't override), Free plan, no comp", o?.kind === "artist" && o.plan === "free" && o.compPlan === null && o.signupInviteId === stored?.id, JSON.stringify({ kind: o?.kind, plan: o?.plan }));
+      const again = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Again ${RUN}`, email: bound.replace("inv-", "inv2-"), password: PW, terms: "yes", inviteCode: code });
+      check("a used invite can't be used again", !again.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: bound.replace("inv-", "inv2-") } })), again.location);
+
+      const openMk = JSON.parse((await http(pa, "POST", "/api/platform/invites", { open: true, maxUses: 1, note })).text) as { created: { id: string; url: string }[] };
+      const openCode = new URL(openMk.created[0].url).searchParams.get("code")!;
+      const o1 = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Open1 ${RUN}`, email: `open1-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: openCode });
+      const o2 = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Open2 ${RUN}`, email: `open2-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: openCode });
+      const u1 = await prisma.user.findUnique({ where: { email: `open1-${RUN}@sectest.dev` }, include: { organization: true } });
+      if (u1) extraOrgs.push(u1.organizationId);
+      check("open link: works for anyone up to its limit, on the Free plan", o1.location.includes("/admin") && u1?.organization.kind === "label" && u1.organization.plan === "free" && u1.organization.compPlan === null && !o2.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: `open2-${RUN}@sectest.dev` } })), `${o1.location} / ${o2.location}`);
+
+      const rv = JSON.parse((await http(pa, "POST", "/api/platform/invites", { open: true, maxUses: 5, note })).text) as { created: { id: string; url: string }[] };
+      const rvByOwner = await http(ownerA, "POST", `/api/platform/invites/${rv.created[0].id}`, { action: "revoke" });
+      const rvOk = await http(pa, "POST", `/api/platform/invites/${rv.created[0].id}`, { action: "revoke" });
+      const rvUse = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Rv ${RUN}`, email: `revoked-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: new URL(rv.created[0].url).searchParams.get("code")! });
+      check("revoked links stop working; only the platform owner can revoke", rvByOwner.status === 404 && rvOk.status === 200 && !rvUse.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: `revoked-${RUN}@sectest.dev` } })), `${rvByOwner.status}/${rvOk.status} ${rvUse.location}`);
+      const ex = JSON.parse((await http(pa, "POST", "/api/platform/invites", { open: true, maxUses: 5, note })).text) as { created: { id: string; url: string }[] };
+      await prisma.signupInvite.update({ where: { id: ex.created[0].id }, data: { expiresAt: new Date(Date.now() - 1000) } });
+      const exCode = new URL(ex.created[0].url).searchParams.get("code")!;
+      const exUse = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Ex ${RUN}`, email: `expired-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: exCode });
+      const exPage = await http(null, "GET", `/signup?code=${exCode}`);
+      check("expired links stop working and say so", !exUse.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: `expired-${RUN}@sectest.dev` } })) && exPage.text.includes("expired, been used up"), exUse.location);
+
+      await prisma.waitlistFeature.upsert({ where: { email_featureName: { email: `wait-${RUN}@sectest.dev`, featureName: "launch" } }, update: {}, create: { email: `wait-${RUN}@sectest.dev`, featureName: "launch" } });
+      const access = await http(pa, "GET", "/platform/access");
+      check("Access page lists invites (with who joined) and the waitlist", access.status === 200 && access.text.includes(bound) && access.text.includes(`Invited ${RUN}`) && access.text.includes(`wait-${RUN}@sectest.dev`), `${access.status}`);
+      await prisma.waitlistFeature.deleteMany({ where: { email: `wait-${RUN}@sectest.dev` } });
+      await prisma.signupInvite.deleteMany({ where: { note } });
+    } else {
+      console.log("  (skipped platform invite checks: needs PLATFORM_TEST_ADMIN)");
+    }
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

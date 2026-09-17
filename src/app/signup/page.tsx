@@ -4,11 +4,12 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { signupsOpen } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
+import { findUsableInvite } from "@/lib/signup-invites";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Start free" };
 
-type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string; ref?: string };
+type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string; ref?: string; code?: string };
 
 /** Pre-launch: waitlist, with a small "have an invite?" route to the real form (the API still enforces the allowlist). */
 function InviteOnly({ searchParams }: { searchParams: SP }) {
@@ -26,6 +27,7 @@ function InviteOnly({ searchParams }: { searchParams: SP }) {
         <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden className="hidden" />
         <div className="space-y-2"><Label htmlFor="email">Your email</Label><Input id="email" name="email" type="email" required autoComplete="email" /></div>
         {searchParams.waitlist_error && <p className="text-sm text-red-400">Enter a valid email address.</p>}
+        {searchParams.code && <p className="text-sm text-amber-400">That invite link has expired, been used up or been switched off. Ask the person who sent it for a new one, or join the waitlist.</p>}
         {searchParams.closed && <p className="text-sm text-amber-400">That email doesn&apos;t have an early-access invite yet. Join the waitlist, or email {CONTACT.hello}.</p>}
         <p className="text-xs text-muted-foreground">We&apos;ll only use this to tell you when droplr.fm opens. <Link href="/legal/privacy" className="underline">Privacy</Link></p>
         <Button className="w-full" type="submit">Request early access</Button>
@@ -39,28 +41,37 @@ function InviteOnly({ searchParams }: { searchParams: SP }) {
 
 export default async function SignupPage(props: { searchParams: Promise<SP> }) {
   const searchParams = await props.searchParams;
-  if (!signupsOpen() && !searchParams.invite) return <InviteOnly searchParams={searchParams} />;
-  const kind = searchParams.type === "artist" || searchParams.plan?.startsWith("artist") ? "artist" : "label";
+  // Owner invite link (/signup?code=…): opens the form even while signups are closed.
+  const inv = searchParams.code ? await findUsableInvite(searchParams.code) : null;
+  const invite = inv?.ok ? inv.invite : null;
+  if (!signupsOpen() && !searchParams.invite && !invite) return <InviteOnly searchParams={searchParams} />;
+  const kind = invite?.kind === "artist" || invite?.kind === "label" ? invite.kind : searchParams.type === "artist" || searchParams.plan?.startsWith("artist") ? "artist" : "label";
   const planNames: Record<string, string> = { artist: "Artist", artist_pro: "Artist Pro", pro: "Pro", label: "Label" };
   const plan = searchParams.plan && planNames[searchParams.plan] && (kind === "artist" ? searchParams.plan.startsWith("artist") : !searchParams.plan.startsWith("artist")) ? searchParams.plan : null;
-  const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}${searchParams.ref ? "&ref=1" : ""}`;
+  const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}${searchParams.ref ? "&ref=1" : ""}${invite ? `&code=${searchParams.code}` : ""}`;
   return (
     <AuthShell
       title={plan ? "Create your account" : "Start free"}
       subtitle={plan ? `Create your ${kind} account, then choose ${planNames[plan]} billing on the next screen.` : kind === "artist" ? "Pre-saves, a fan list and promo tools for your own releases. 3 releases free, no card." : "Smart links, pre-saves and a roster for your label. 3 releases free, no card."}
     >
-      <div role="radiogroup" aria-label="Account type" className="mb-5 grid grid-cols-2 rounded-xl border p-1 text-sm">
+      {invite && (
+        <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
+          You&apos;re invited to droplr.fm. Your account starts on the Free plan (no card), and you can upgrade any time.
+        </p>
+      )}
+      {!invite?.kind && <div role="radiogroup" aria-label="Account type" className="mb-5 grid grid-cols-2 rounded-xl border p-1 text-sm">
         {(["artist", "label"] as const).map((k) => (
           <Link key={k} role="radio" aria-checked={kind === k} href={keep(k)} className={`rounded-lg px-3 py-2 text-center font-medium transition ${kind === k ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
             {k === "artist" ? "I'm an artist" : "I run a label"}
           </Link>
         ))}
-      </div>
+      </div>}
       {searchParams.ref && <p className="mb-4 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-sm">A friend invited you to droplr.fm. Sign up below and they&apos;re thanked once you&apos;re a paying member.</p>}
       <form method="post" action="/api/auth/signup" className="space-y-4">
         <input type="hidden" name="kind" value={kind} />
+        {invite && <input type="hidden" name="inviteCode" value={searchParams.code} />}
         <div className="space-y-2"><Label htmlFor="orgName">{kind === "artist" ? "Artist name" : "Label name"}</Label><Input id="orgName" name="orgName" required placeholder={kind === "artist" ? "Ototo" : "Rhythm Revolt Records"} /></div>
-        <div className="space-y-2"><Label htmlFor="email">Your email</Label><Input id="email" name="email" type="email" required autoComplete="email" /></div>
+        <div className="space-y-2"><Label htmlFor="email">Your email</Label><Input id="email" name="email" type="email" required autoComplete="email" defaultValue={invite?.email ?? undefined} readOnly={!!invite?.email} /></div>
         <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password" name="password" type="password" minLength={10} required autoComplete="new-password" /></div>
         {plan && <input type="hidden" name="plan" value={plan} />}
         <label className="flex items-start gap-2.5 text-sm text-muted-foreground">

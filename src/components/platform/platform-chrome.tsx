@@ -4,14 +4,15 @@ import { Badge } from "@/components/ui/badge";
 import { prisma } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
-/** Owner console chrome: Accounts / Feedback (unread count) / Referrals. */
-export async function PlatformChrome({ email, active, children }: { email: string; active: "accounts" | "feedback" | "referrals" | "emails"; children: React.ReactNode }) {
+/** Owner console chrome: Accounts / Access / Feedback (unread count) / Referrals / Emails. */
+export async function PlatformChrome({ email, active, children }: { email: string; active: "accounts" | "access" | "feedback" | "referrals" | "emails"; children: React.ReactNode }) {
   const [unread, toApply] = await Promise.all([
     prisma.feedbackThread.count({ where: { unreadByTeam: true } }),
     prisma.referral.count({ where: { status: "earned", note: { not: null } } }),
   ]);
   const tabs = [
     { key: "accounts", href: "/platform", label: "Accounts", count: 0 },
+    { key: "access", href: "/platform/access", label: "Access", count: 0 },
     { key: "feedback", href: "/platform/feedback", label: "Feedback", count: unread },
     { key: "referrals", href: "/platform/referrals", label: "Referrals", count: toApply },
     { key: "emails", href: "/platform/emails", label: "Emails", count: 0 },
