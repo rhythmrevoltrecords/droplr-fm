@@ -10,6 +10,7 @@
  *   3. Password change / reset revoke old sessions; reset links are single-use and expire.
  *   4. /platform is hidden from non-owners; platform admin emails can't be registered.
  *   5. Cover uploads, fan email pre-saves, token audiences and security headers.
+ *   6. Artist roster profiles: org scoping, artist self-service allowlist, hosted photos only, plan limits, invite → login linking.
  * Everything it creates is deleted at the end. Never point it at production.
  */
 import bcrypt from "bcryptjs";
@@ -93,6 +94,7 @@ async function main() {
   console.log(`Security tests against ${BASE} (run ${RUN})`);
   const A = await fixtures("a");
   const B = await fixtures("b");
+  const extraOrgs: string[] = [];
   try {
     const ownerA = await login(A.owner.email);
     const artistA = await login(A.artist.email);
@@ -286,13 +288,124 @@ async function main() {
       const bFanNow = await prisma.preSave.findUnique({ where: { id: bFan.id } });
       check("pst token can't unsubscribe", unsubWithPst.status === 400 && !!bFanNow?.emailConsent, `got ${unsubWithPst.status}`);
     }
+
+    console.log("\n6. Artist roster");
+    const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8888").replace(/\/$/, "");
+    const NOTE = `label-secret-note-${RUN}`;
+    const PHONE = `+61400${RUN}`;
+    const ownerB = await login(B.owner.email);
+    const artistA2 = await login(A.artist.email, "reset-password-" + RUN); // password was reset in section 3
+
+    const made = await http(ownerA, "POST", "/api/admin/roster", { name: `Roster A ${RUN}`, status: "prospect", genre: "UK garage" });
+    const profA = (() => { try { return JSON.parse(made.text).id as string; } catch { return ""; } })();
+    check("label creates a roster profile", made.status === 200 && !!profA, `${made.status} ${made.text.slice(0, 120)}`);
+    const upd = await http(ownerA, "PATCH", `/api/admin/roster/${profA}`, { bio: "Label bio", notes: NOTE, phone: PHONE, monthlyListeners: 1234, socialLinks: { instagram: "https://instagram.com/rostera", bogus: "https://x.dev" } });
+    const profRow = await prisma.artist.findUnique({ where: { id: profA } });
+    check("label updates the profile (stats timestamped, unknown social keys dropped)", upd.status === 200 && profRow?.notes === NOTE && profRow.monthlyListeners === 1234 && !!profRow.statsUpdatedAt && JSON.stringify(profRow.socialLinks) === JSON.stringify({ instagram: "https://instagram.com/rostera" }), `${upd.status} ${upd.text}`);
+
+    for (const [m, p, body] of [["PATCH", `/api/admin/roster/${profA}`, { name: "pwned", notes: "pwned" }], ["DELETE", `/api/admin/roster/${profA}`], ["POST", `/api/admin/roster/${profA}/invite`, { email: `steal-${RUN}@sectest.dev` }], ["POST", `/api/admin/roster/${profA}/revoke-login`]] as const) {
+      const r = await http(ownerB, m, p, body);
+      check(`label B ${m} ${p.replace(profA, "<A profile>")} → 404`, r.status === 404, `got ${r.status}`);
+    }
+    check("A profile untouched by B", (await prisma.artist.findUnique({ where: { id: profA } }))?.name === `Roster A ${RUN}` && (await prisma.invite.count({ where: { artistProfileId: profA } })) === 0);
+    const attach = await http(ownerB, "PATCH", `/api/admin/releases/${B.release.id}`, { artistProfileId: profA });
+    const attachLegacy = await http(ownerB, "PATCH", `/api/admin/releases/${B.release.id}`, { artistId: A.artist.id });
+    const bRel = await prisma.release.findUnique({ where: { id: B.release.id } });
+    check("label B can't attach A's profile (or A's login) to B's release", [400, 404].includes(attach.status) && [400, 404].includes(attachLegacy.status) && bRel?.artistProfileId === null && bRel?.artistId === B.artist.id, `${attach.status}/${attachLegacy.status}`);
+    const bProfile = await prisma.artist.create({ data: { organizationId: B.org.id, name: `Roster B ${RUN}` } });
+    check("A can't open B's profile page", (await http(ownerA, "GET", `/admin/artists/${bProfile.id}`)).status === 404);
+    const rosterA = await http(ownerA, "GET", "/admin/artists");
+    check("A's roster lists A's profile, not B's", rosterA.status === 200 && rosterA.text.includes(`Roster A ${RUN}`) && !rosterA.text.includes(`Roster B ${RUN}`));
+
+    // Hosted photos only
+    const ext = await http(ownerA, "PATCH", `/api/admin/roster/${profA}`, { photoUrl: "https://evil.example/photo.jpg" });
+    check("external photoUrl rejected", ext.status === 400, `got ${ext.status}`);
+    const lookalike = await http(ownerA, "PATCH", `/api/admin/roster/${profA}`, { pressPhotoUrls: [`${SITE}.evil.example/api/cover/x.jpg`] });
+    check("look-alike host in press photos rejected", lookalike.status === 400, `got ${lookalike.status}`);
+    const badSocial = await http(ownerA, "PATCH", `/api/admin/roster/${profA}`, { socialLinks: { instagram: "javascript:alert(1)" }, website: "http://insecure.example" });
+    check("non-https links rejected", badSocial.status === 400, `got ${badSocial.status}`);
+    const hosted = await http(ownerA, "PATCH", `/api/admin/roster/${profA}`, { photoUrl: `${SITE}/api/cover/123-abc.jpg`, pressPhotoUrls: [`${SITE}/api/cover/456-def.webp`] });
+    check("hosted photo URLs accepted", hosted.status === 200, `${hosted.status} ${hosted.text}`);
+
+    // Artist self-service (link A's artist login to the profile)
+    await prisma.artist.update({ where: { id: profA }, data: { userId: A.artist.id, email: A.artist.email } });
+    const selfUpd = await http(artistA2, "PATCH", "/api/artist/profile", { bio: `Artist wrote this ${RUN}`, name: "hacked", status: "alumni", notes: "hacked", userId: A.artist2.id, email: `evil-${RUN}@evil.example`, monthlyListeners: 999999, phone: "000" });
+    const afterSelf = await prisma.artist.findUnique({ where: { id: profA } });
+    check("artist can edit own bio", selfUpd.status === 200 && afterSelf?.bio === `Artist wrote this ${RUN}`, `${selfUpd.status} ${selfUpd.text}`);
+    check("artist can't change name/status/notes/userId/email/stats", !!afterSelf && afterSelf.name === `Roster A ${RUN}` && afterSelf.status === "prospect" && afterSelf.notes === NOTE && afterSelf.userId === A.artist.id && afterSelf.email === A.artist.email && afterSelf.monthlyListeners === 1234 && afterSelf.phone === PHONE);
+    check("artist external photo rejected", (await http(artistA2, "PATCH", "/api/artist/profile", { photoUrl: "https://evil.example/p.png" })).status === 400);
+    for (const [m, p] of [["PATCH", `/api/admin/roster/${profA}`], ["POST", "/api/admin/roster"], ["DELETE", `/api/admin/roster/${profA}`], ["POST", `/api/admin/roster/${profA}/invite`], ["POST", `/api/admin/roster/${profA}/revoke-login`]] as const) {
+      const r = await http(artistA2, m, p, { name: "hacked", notes: "hacked" });
+      check(`artist ${m} ${p.replace(profA, "<profile>")} blocked`, [401, 403, 404].includes(r.status), `got ${r.status}`);
+    }
+    check("profile still exists and unchanged after artist attempts", (await prisma.artist.findUnique({ where: { id: profA } }))?.name === `Roster A ${RUN}`);
+    const selfPage = await http(artistA2, "GET", "/dashboard/profile");
+    check("artist profile page shows their bio", selfPage.status === 200 && selfPage.text.includes(`Artist wrote this ${RUN}`), `status ${selfPage.status}`);
+    check("artist profile page never contains label notes or phone", !selfPage.text.includes(NOTE) && !selfPage.text.includes(PHONE));
+    check("artist dashboard never contains label notes", !(await http(artistA2, "GET", "/dashboard")).text.includes(NOTE));
+    check("artist of label B can't reach A's profile", (await http(await login(B.artist.email), "PATCH", "/api/artist/profile", { bio: "x" })).status === 404 && (await prisma.artist.findUnique({ where: { id: profA } }))?.bio === `Artist wrote this ${RUN}`);
+    check("owner can't delete a profile that has a login", (await http(ownerA, "DELETE", `/api/admin/roster/${profA}`)).status === 409);
+    const adminA = await prisma.user.create({ data: { email: `admin-a-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "admin", organizationId: A.org.id } });
+    const adminJar = await login(adminA.email);
+    const adminRevoke = await http(adminJar, "POST", `/api/admin/roster/${profA}/revoke-login`);
+    const adminDelete = await http(adminJar, "DELETE", `/api/admin/roster/${profA}`);
+    check("admin (non-owner) can't revoke a login or delete a profile", adminRevoke.status === 403 && adminDelete.status === 403 && !!(await prisma.user.findUnique({ where: { id: A.artist.id } })), `${adminRevoke.status}/${adminDelete.status}`);
+
+    // Plan limit (Free: 1 artist)
+    const freeOrg = await prisma.organization.create({ data: { name: `Sec Test Free ${RUN}`, slug: `sectest-free-${RUN}`, plan: "free" } });
+    extraOrgs.push(freeOrg.id);
+    const freeOwner = await prisma.user.create({ data: { email: `owner-free-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: freeOrg.id } });
+    const freeJar = await login(freeOwner.email);
+    const first = await http(freeJar, "POST", "/api/admin/roster", { name: "First" });
+    const secondProfile = await http(freeJar, "POST", "/api/admin/roster", { name: "Second" });
+    check("Free plan: first profile allowed, second → 402", first.status === 200 && secondProfile.status === 402 && (await prisma.artist.count({ where: { organizationId: freeOrg.id } })) === 1, `${first.status}/${secondProfile.status}`);
+    const genericOver = await http(freeJar, "POST", "/api/admin/artists", { email: `over-${RUN}@sectest.dev` });
+    check("Free plan: generic artist invite over the limit → 402", genericOver.status === 402, `got ${genericOver.status}`);
+
+    // Invite linked to a profile → accepting links the login and syncs release access
+    const linkedEmail = `linked-${RUN}@sectest.dev`;
+    const p2res = await http(ownerA, "POST", "/api/admin/roster", { name: `Linked ${RUN}`, email: linkedEmail });
+    const prof2 = JSON.parse(p2res.text).id as string;
+    const rel2 = await prisma.release.create({ data: { organizationId: A.org.id, slug: `sectest-rel3-a-${RUN}`, title: `Linked release ${RUN}`, artistName: "Z", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() + 86400_000) } });
+    const attachOwn = await http(ownerA, "PATCH", `/api/admin/releases/${rel2.id}`, { artistProfileId: prof2 });
+    const rel2a = await prisma.release.findUnique({ where: { id: rel2.id } });
+    check("label attaches own profile to release (no login → no artistId)", attachOwn.status === 200 && rel2a?.artistProfileId === prof2 && rel2a.artistId === null, `${attachOwn.status} ${attachOwn.text}`);
+    const inv2 = await http(ownerA, "POST", `/api/admin/roster/${prof2}/invite`, {});
+    const link2 = (() => { try { return JSON.parse(inv2.text).link as string; } catch { return ""; } })();
+    check("profile invite returns a link", inv2.status === 200 && link2.includes("/invite/"), `${inv2.status} ${inv2.text}`);
+    const newJar: Jar = { cookie: "" };
+    const acc2 = await http(newJar, "POST", "/api/auth/invite", undefined, { token: link2.split("/invite/")[1] ?? "", password: PW, terms: "yes" });
+    const newUser = await prisma.user.findUnique({ where: { email: linkedEmail } });
+    const prof2Row = await prisma.artist.findUnique({ where: { id: prof2 } });
+    const rel2b = await prisma.release.findUnique({ where: { id: rel2.id } });
+    check("accepting links the login to the profile", acc2.status === 303 && !!newUser && newUser.role === "artist" && prof2Row?.userId === newUser.id, `${acc2.status} ${acc2.location}`);
+    check("release access synced to the new login", !!newUser && rel2b?.artistId === newUser.id);
+    const newDash = await http(newJar, "GET", "/dashboard");
+    check("new artist sees the release on /dashboard", newDash.status === 200 && newDash.text.includes(`Linked release ${RUN}`) && !newDash.text.includes("Secret a"), `status ${newDash.status}`);
+    check("invite for a profile that has a login → 409", (await http(ownerA, "POST", `/api/admin/roster/${prof2}/invite`, { email: `again-${RUN}@sectest.dev` })).status === 409);
+    const revoke = await http(ownerA, "POST", `/api/admin/roster/${prof2}/revoke-login`);
+    const rel2c = await prisma.release.findUnique({ where: { id: rel2.id } });
+    check("owner removes login: user gone, profile kept, release access cleared", revoke.status === 200 && !(await prisma.user.findUnique({ where: { email: linkedEmail } })) && (await prisma.artist.findUnique({ where: { id: prof2 } }))?.userId === null && rel2c?.artistId === null && rel2c.artistProfileId === prof2, `${revoke.status} ${revoke.text}`);
+    const del2 = await http(ownerA, "DELETE", `/api/admin/roster/${prof2}`);
+    const rel2d = await prisma.release.findUnique({ where: { id: rel2.id } });
+    check("owner deletes profile without login; release kept, unassigned", del2.status === 200 && !(await prisma.artist.findUnique({ where: { id: prof2 } })) && !!rel2d && rel2d.artistProfileId === null, `${del2.status} ${del2.text}`);
+
+    // Generic invite → accepting creates a profile
+    const genericEmail = `generic-${RUN}@sectest.dev`;
+    const gInv = await http(ownerA, "POST", "/api/admin/artists", { email: genericEmail, artistName: `Generic ${RUN}` });
+    const gLink = (() => { try { return JSON.parse(gInv.text).link as string; } catch { return ""; } })();
+    await http({ cookie: "" }, "POST", "/api/auth/invite", undefined, { token: gLink.split("/invite/")[1] ?? "", password: PW, terms: "yes" });
+    const gUser = await prisma.user.findUnique({ where: { email: genericEmail }, include: { artistProfile: true } });
+    check("generic artist invite creates a linked profile on accept", !!gUser?.artistProfile && gUser.artistProfile.name === `Generic ${RUN}` && gUser.artistProfile.organizationId === A.org.id, gInv.text.slice(0, 120));
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();
       await prisma.user.deleteMany({ where: { email: e, organizationId: { in: [A.org.id, B.org.id] }, role: { not: "owner" } } }).catch(() => {});
     }
     await prisma.authThrottle.deleteMany({}).catch(() => {});
-    await prisma.organization.deleteMany({ where: { id: { in: [A.org.id, B.org.id] } } });
+    // Artist rows cascade with their org; the explicit delete keeps that true even if the FK ever changes.
+    await prisma.artist.deleteMany({ where: { organizationId: { in: [A.org.id, B.org.id, ...extraOrgs] } } }).catch(() => {});
+    await prisma.organization.deleteMany({ where: { id: { in: [A.org.id, B.org.id, ...extraOrgs] } } });
     await prisma.$disconnect();
   }
   console.log(`\n${passed} passed, ${failures.length} failed`);

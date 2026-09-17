@@ -32,3 +32,19 @@ export const RESERVED_SLUGS = new Set([
   // Look like official droplr.fm pages / subdomains: phishing bait if a label could claim them.
   "www", "mail", "email", "accounts", "app", "status", "help", "blog", "cdn", "static", "assets",
 ]);
+
+/** "3 days ago" for server-rendered labels (rendered once on the server, so no hydration drift). */
+export function timeAgo(d: Date, now = new Date()) {
+  const s = Math.max(0, Math.round((now.getTime() - d.getTime()) / 1000));
+  if (s < 60) return "just now";
+  const m = Math.round(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h} hour${h === 1 ? "" : "s"} ago`;
+  const days = Math.round(h / 24);
+  if (days < 45) return `${days} day${days === 1 ? "" : "s"} ago`;
+  const months = Math.round(days / 30);
+  if (months < 18) return `${months} month${months === 1 ? "" : "s"} ago`;
+  const years = Math.round(days / 365);
+  return `${years} year${years === 1 ? "" : "s"} ago`;
+}

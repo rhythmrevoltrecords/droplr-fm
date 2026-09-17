@@ -19,7 +19,8 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
   const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
   // Scoped strictly to releases assigned to this artist
   const releases = await prisma.release.findMany({
-    where: { organizationId: user.organizationId, artistId: user.id },
+    // artistId is derived from the profile; matching the profile too is belt and braces if a sync was missed.
+    where: { organizationId: user.organizationId, OR: [{ artistId: user.id }, { artistProfile: { userId: user.id } }] },
     orderBy: { releaseDate: "desc" },
     include: { linkVariants: { where: { isActive: true } } },
   });

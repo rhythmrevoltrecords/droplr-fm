@@ -28,7 +28,9 @@ type Resolved = {
   links: { platform: string; url: string }[];
 };
 
-export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisbane" }: { artists: { id: string; name: string }[]; defaultDate: string; locationLabel?: string }) {
+export type ArtistOption = { id: string; name: string; hasLogin: boolean };
+
+export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisbane" }: { artists: ArtistOption[]; defaultDate: string; locationLabel?: string }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [upcIn, setUpcIn] = useState("");
@@ -36,13 +38,15 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [r, setR] = useState<Resolved | null>(null);
-  const [form, setForm] = useState({ title: "", artistName: "", coverUrl: "", accentColor: "", slug: "", releaseDateLocal: defaultDate, artistId: "", spotifyAlbumId: "", spotifyTrackId: "", spotifyArtistId: "", upc: "", isrc: "", autoReResolve: true });
+  const [form, setForm] = useState({ title: "", artistName: "", coverUrl: "", accentColor: "", slug: "", releaseDateLocal: defaultDate, artistProfileId: "", spotifyAlbumId: "", spotifyTrackId: "", spotifyArtistId: "", upc: "", isrc: "", autoReResolve: true });
   const [links, setLinks] = useState<{ platform: string; url: string; visible: boolean }[]>([]);
   const [slugTouched, setSlugTouched] = useState(false);
   const set = (k: keyof typeof form, v: string | boolean) =>
     setForm((f) => {
       const next = { ...f, [k]: v };
-      if (!slugTouched && (k === "title" || k === "artistName")) next.slug = slugify(`${next.artistName} ${next.title}`.trim());
+      // Picking a roster artist fills an empty artist name (and the slug with it).
+      if (k === "artistProfileId" && !f.artistName.trim()) next.artistName = artists.find((a) => a.id === v)?.name ?? "";
+      if (!slugTouched && (k === "title" || k === "artistName" || k === "artistProfileId")) next.slug = slugify(`${next.artistName} ${next.title}`.trim());
       return next;
     });
 
@@ -86,7 +90,7 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
     const res = await fetch("/api/admin/releases", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, accentColor: form.accentColor || null, artistId: form.artistId || null, spotifyUrl: r?.spotifyUrl, upc: form.upc || null, isrc: form.isrc || null, links }),
+      body: JSON.stringify({ ...form, accentColor: form.accentColor || null, artistProfileId: form.artistProfileId || null, spotifyUrl: r?.spotifyUrl, upc: form.upc || null, isrc: form.isrc || null, links }),
     });
     const j = await res.json();
     setBusy(false);
@@ -140,10 +144,10 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
               <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} /></div>
               <div className="space-y-2"><Label>Release date &amp; time ({locationLabel})</Label><Input type="datetime-local" value={form.releaseDateLocal} onChange={(e) => set("releaseDateLocal", e.target.value)} /></div>
               <div className="space-y-2">
-                <Label>Assign to artist login</Label>
-                <Select value={form.artistId} onChange={(e) => set("artistId", e.target.value)}>
+                <Label>Roster artist</Label>
+                <Select value={form.artistProfileId} onChange={(e) => set("artistProfileId", e.target.value)}>
                   <option value="">— Label only —</option>
-                  {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {artists.map((a) => <option key={a.id} value={a.id}>{a.name}{a.hasLogin ? " (has login)" : ""}</option>)}
                 </Select>
               </div>
               <div className="space-y-2"><Label>Accent colour</Label><Input value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#8B5CF6" /></div>

@@ -57,6 +57,7 @@ model Organization {
   releases  Release[]
   invites   Invite[]
   bioPages  BioPage[]
+  artists   Artist[]
 }
 
 model User {
@@ -73,6 +74,7 @@ model User {
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   createdAt      DateTime     @default(now())
   releases       Release[]    @relation("ArtistReleases")
+  artistProfile  Artist? // roster profile this login belongs to (role artist)
 }
 
 model Invite {
@@ -82,6 +84,9 @@ model Invite {
   email          String
   artistName     String?
   role           String       @default("artist")
+  // Invite to log in for an existing roster profile. Null = generic invite (accepting creates a profile).
+  artistProfileId String?
+  artistProfile   Artist?     @relation(fields: [artistProfileId], references: [id], onDelete: SetNull)
   tokenHash      String       @unique
   expiresAt      DateTime
   acceptedAt     DateTime?
@@ -93,7 +98,10 @@ model Release {
   organizationId String
   organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   artistId       String?
+  // Login access. Derived from artistProfile.userId (lib/artists.ts syncReleaseAccess); access checks read this.
   artist         User?        @relation("ArtistReleases", fields: [artistId], references: [id], onDelete: SetNull)
+  artistProfileId String?
+  artistProfile  Artist?      @relation(fields: [artistProfileId], references: [id], onDelete: SetNull)
   slug           String       @unique
   title          String
   artistName     String
@@ -121,7 +129,41 @@ model Release {
 
   @@index([organizationId])
   @@index([artistId])
+  @@index([artistProfileId])
   @@index([releaseDate])
+}
+
+// Roster profile. Exists with or without a login; userId links the artist's login when they have one.
+model Artist {
+  id               String       @id @default(cuid())
+  organizationId   String
+  organization     Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  name             String
+  status           String       @default("active") // active | prospect | alumni
+  genre            String?
+  bio              String?
+  email            String? // label only
+  phone            String? // label only
+  location         String?
+  website          String?
+  socialLinks      Json? // { instagram, tiktok, spotify, … }: https URLs only
+  photoUrl         String?
+  pressPhotoUrls   String[]     @default([])
+  accentColor      String?
+  signedAt         DateTime?
+  notes            String? // label only, never shown to the artist
+  spotifyArtistId  String?
+  monthlyListeners Int?
+  followers        Int?
+  statsUpdatedAt   DateTime?
+  userId           String?      @unique
+  user             User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  createdAt        DateTime     @default(now())
+  updatedAt        DateTime     @updatedAt
+  releases         Release[]
+  invites          Invite[]
+
+  @@index([organizationId])
 }
 
 // Every button on a release page. Replaces PlatformLink (migration add_upc_and_release_links).

@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { syncReleaseAccess } from "@/lib/artists";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, isLabelRole, passwordProblem } from "@/lib/auth";
 import { sha256 } from "@/lib/crypto";
@@ -24,6 +25,23 @@ export async function POST(req: NextRequest) {
     data: { email: invite.email, passwordHash: await hashPassword(password), role: invite.role, artistName: invite.artistName, organizationId: invite.organizationId, termsAcceptedAt: new Date(), termsVersion: LEGAL.version },
   });
   await prisma.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });
+  if (user.role === "artist") await linkArtistProfile(invite, user);
   await createSessionCookie(user);
   return NextResponse.redirect(new URL(isLabelRole(user.role) ? "/admin" : "/dashboard", req.url), 303);
+}
+
+/** Every artist login belongs to a roster profile: link the invited one, or create one for a generic invite. */
+async function linkArtistProfile(
+  invite: { organizationId: string; email: string; artistName: string | null; artistProfileId: string | null },
+  user: { id: string },
+) {
+  if (invite.artistProfileId) {
+    // Only claim a profile that has no login yet: never move a profile away from an existing account.
+    const linked = await prisma.artist.updateMany({ where: { id: invite.artistProfileId, organizationId: invite.organizationId, userId: null }, data: { userId: user.id } });
+    if (linked.count) await syncReleaseAccess(invite.artistProfileId);
+    return;
+  }
+  await prisma.artist.create({
+    data: { organizationId: invite.organizationId, name: invite.artistName?.trim() || invite.email.split("@")[0], email: invite.email, userId: user.id },
+  });
 }

@@ -4,10 +4,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import type { ArtistOption } from "./release-create-form";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean };
 
-export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane" }: { releaseId: string; initial: Initial; artists: { id: string; name: string }[]; locationLabel?: string }) {
+export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane" }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string }) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -16,7 +17,10 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
 
   async function save() {
     setBusy(true);
-    const res = await fetch(`/api/admin/releases/${releaseId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...f, accentColor: f.accentColor || null, artistId: f.artistId || null }) });
+    // Only send the artist when it changed: a legacy release assigned to a login without a profile keeps its access.
+    const { artistProfileId, ...rest } = f;
+    const payload = { ...rest, accentColor: f.accentColor || null, ...(artistProfileId !== initial.artistProfileId ? { artistProfileId: artistProfileId || null } : {}) };
+    const res = await fetch(`/api/admin/releases/${releaseId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const j = await res.json();
     setBusy(false);
     setMsg(res.ok ? "Saved" : j.error);
@@ -46,10 +50,17 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
         {field("upc", "UPC (finds Apple Music + Deezer)")}
         {field("isrc", "ISRC")}
         <div className="space-y-2">
-          <Label>Artist login</Label>
-          <Select value={f.artistId} onChange={(e) => set("artistId", e.target.value)}>
+          <Label>Roster artist</Label>
+          <Select
+            value={f.artistProfileId}
+            onChange={(e) => {
+              const id = e.target.value;
+              // Picking a roster artist fills an empty artist name.
+              setF((x) => ({ ...x, artistProfileId: id, artistName: x.artistName.trim() ? x.artistName : artists.find((a) => a.id === id)?.name ?? "" }));
+            }}
+          >
             <option value="">— Label only —</option>
-            {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            {artists.map((a) => <option key={a.id} value={a.id}>{a.name}{a.hasLogin ? " (has login)" : ""}</option>)}
           </Select>
         </div>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.autoReResolve} onChange={(e) => set("autoReResolve", e.target.checked)} className="h-4 w-4" /> Auto re-resolve links on release day</label>

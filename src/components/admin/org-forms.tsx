@@ -67,27 +67,30 @@ export function SpotifyConnectForm({ status, canEdit, planAllows }: { status: st
   );
 }
 
-export function InviteForm({ allowAdmin }: { allowAdmin: boolean }) {
+/** adminOnly: the Team section invites admins; artists are added on the roster and invited from their profile. */
+export function InviteForm({ allowAdmin, adminOnly = false }: { allowAdmin: boolean; adminOnly?: boolean }) {
   const [email, setEmail] = useState("");
   const [artistName, setArtistName] = useState("");
-  const [role, setRole] = useState("artist");
+  const [role, setRole] = useState(adminOnly ? "admin" : "artist");
   const [link, setLink] = useState<string | null>(null);
   const { busy, msg, submit } = useSubmit();
   return (
     <form className="space-y-3" onSubmit={async (e) => { e.preventDefault(); const r = await submit("/api/admin/artists", "POST", { email, artistName, role }); if (r.ok) { setLink(r.data.link); setEmail(""); setArtistName(""); } }}>
-      <div className="grid gap-3 sm:grid-cols-[1fr_1fr_140px_auto]">
-        <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="artist@email.com" />
-        <Input value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Artist name" />
-        <Select value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="artist">Artist</option>
-          <option value="admin" disabled={!allowAdmin}>Admin{allowAdmin ? "" : " (Label plan)"}</option>
-        </Select>
+      <div className={`grid gap-3 ${adminOnly ? "sm:grid-cols-[1fr_auto]" : "sm:grid-cols-[1fr_1fr_140px_auto]"}`}>
+        <Input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder={adminOnly ? "teammate@label.com" : "artist@email.com"} />
+        {!adminOnly && <Input value={artistName} onChange={(e) => setArtistName(e.target.value)} placeholder="Artist name" />}
+        {!adminOnly && (
+          <Select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="artist">Artist</option>
+            <option value="admin" disabled={!allowAdmin}>Admin{allowAdmin ? "" : " (Label plan)"}</option>
+          </Select>
+        )}
         <Button type="submit" disabled={busy}>{busy && <Loader2 className="animate-spin" />} Invite</Button>
       </div>
       {link && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm">
           <span>Send this link to them (valid 14 days):</span>
-          <code className="truncate rounded bg-black/40 px-2 py-1 text-xs">{link}</code>
+          <code className="min-w-0 max-w-full truncate rounded bg-black/40 px-2 py-1 text-xs">{link}</code>
           <CopyButton value={link} />
         </div>
       )}

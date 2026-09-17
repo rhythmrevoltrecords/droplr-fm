@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { resolveReleaseArtist } from "@/lib/artists";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
@@ -15,7 +16,8 @@ const schema = z.object({
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   slug: z.string().min(1).max(60),
   releaseDateLocal: z.string().min(10), // Brisbane wall-clock
-  artistId: z.string().nullable().optional(),
+  artistProfileId: z.string().max(40).nullable().optional(),
+  artistId: z.string().nullable().optional(), // legacy: a User id, mapped to that login's profile
   spotifyUrl: z.string().nullable().optional(),
   spotifyAlbumId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
@@ -49,16 +51,15 @@ export async function POST(req: NextRequest) {
   if (await prisma.release.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug already taken — try adding the artist name" }, { status: 409 });
   if (await prisma.organization.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug clashes with a label name" }, { status: 409 });
 
-  if (d.artistId) {
-    const a = await prisma.user.findFirst({ where: { id: d.artistId, organizationId: user.organizationId } });
-    if (!a) return NextResponse.json({ error: "Artist not in your roster" }, { status: 400 });
-  }
+  const assigned = await resolveReleaseArtist(user.organizationId, { artistProfileId: d.artistProfileId, artistId: d.artistId });
+  if (!assigned.ok) return NextResponse.json({ error: assigned.error }, { status: 400 });
   const releaseDate = zonedLocalToDate(d.releaseDateLocal, user.organization.timezone);
 
   const release = await prisma.release.create({
     data: {
       organizationId: user.organizationId,
-      artistId: d.artistId || null,
+      artistId: assigned.data?.artistId ?? null,
+      artistProfileId: assigned.data?.artistProfileId ?? null,
       slug,
       title: d.title,
       artistName: d.artistName,

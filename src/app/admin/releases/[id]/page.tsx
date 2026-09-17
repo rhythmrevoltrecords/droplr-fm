@@ -139,10 +139,10 @@ export default async function ReleaseDetail(
             <ReleaseSettingsForm
               releaseId={release.id}
               locationLabel={release.organization.locationLabel}
-              artists={(await prisma.user.findMany({ where: { organizationId: user.organizationId, role: "artist" } })).map((a) => ({ id: a.id, name: a.artistName ?? a.email }))}
+              artists={(await prisma.artist.findMany({ where: { organizationId: user.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, userId: true } })).map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))}
               initial={{
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
-                releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistId: release.artistId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
+                releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistProfileId: release.artistProfileId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
                 spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic,
               }}
             />

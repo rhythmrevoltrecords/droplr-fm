@@ -5,5 +5,5 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser("artist");
-  return <AppShell user={user} nav={[{ href: "/dashboard", label: "My releases" }, { href: "/dashboard/account", label: "Account" }]} accountHref="/dashboard/account">{children}</AppShell>;
+  return <AppShell user={user} nav={[{ href: "/dashboard", label: "My releases" }, { href: "/dashboard/profile", label: "Profile" }, { href: "/dashboard/account", label: "Account" }]} accountHref="/dashboard/account">{children}</AppShell>;
 }

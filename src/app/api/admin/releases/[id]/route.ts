@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { labelRelease } from "@/lib/admin-guard";
+import { resolveReleaseArtist } from "@/lib/artists";
 import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { isReleased, zonedLocalToDate } from "@/lib/time";
@@ -13,7 +14,8 @@ const schema = z.object({
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional(),
   slug: z.string().min(1).max(60).optional(),
   releaseDateLocal: z.string().optional(),
-  artistId: z.string().nullable().optional(),
+  artistProfileId: z.string().max(40).nullable().optional(),
+  artistId: z.string().nullable().optional(), // legacy: a User id, mapped to that login's profile
   spotifyAlbumId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyArtistId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
@@ -56,13 +58,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     data.releaseDate = rd;
     data.status = isReleased(rd) ? g.release.status : "upcoming";
   }
-  if (d.artistId !== undefined) {
-    if (d.artistId) {
-      const a = await prisma.user.findFirst({ where: { id: d.artistId, organizationId: g.user.organizationId } });
-      if (!a) return NextResponse.json({ error: "Artist not in roster" }, { status: 400 });
-    }
-    data.artistId = d.artistId || null;
-  }
+  // artistId (login access) is always derived from the chosen profile.
+  const assigned = await resolveReleaseArtist(g.user.organizationId, { artistProfileId: d.artistProfileId, artistId: d.artistId });
+  if (!assigned.ok) return NextResponse.json({ error: assigned.error }, { status: 400 });
+  if (assigned.data) Object.assign(data, assigned.data);
   await prisma.release.update({ where: { id: g.release.id }, data });
   return NextResponse.json({ ok: true });
 }

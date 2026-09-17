@@ -81,7 +81,7 @@ export default async function BillingPage(
   const monthStart = zonedLocalToDate(`${zonedDay(new Date(), org.timezone).slice(0, 8)}01T00:00`, org.timezone);
   const [releaseCount, artistCount, clicks, prices, summary] = await Promise.all([
     prisma.release.count({ where: { organizationId: org.id } }),
-    prisma.user.count({ where: { organizationId: org.id, role: "artist" } }),
+    prisma.artist.count({ where: { organizationId: org.id } }), // roster profiles hold the artist seats
     prisma.clickEvent.count({ where: { release: { organizationId: org.id }, createdAt: { gte: monthStart } } }),
     getPriceTable(),
     getSubscriptionSummary(org.stripeSubscriptionId),
