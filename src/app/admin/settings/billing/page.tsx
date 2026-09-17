@@ -114,6 +114,10 @@ export default async function BillingPage(
         <Card className="border-amber-500/40 bg-amber-500/10 p-4 text-sm">Payment received. Your plan is still updating; refresh in a few seconds.</Card>
       )}
       {searchParams.canceled && <Card className="p-4 text-sm text-muted-foreground">Checkout cancelled. You haven&apos;t been charged.</Card>}
+      <Card className="flex flex-wrap items-center justify-between gap-3 p-4 text-sm">
+        <span><strong>Refer a friend, get a month free.</strong> <span className="text-muted-foreground">When someone you refer has paid for 30 days, your next bill is on us (up to 3 a year).</span></span>
+        <Link href="/admin/referrals" className="shrink-0 underline">Get your link</Link>
+      </Card>
       {stripeConfigured() && stripeTestMode() && (
         <Card className="border-sky-500/40 bg-sky-500/10 p-4 text-sm">
           Stripe test mode: no real charges. Pay with card <code className="font-mono">4242 4242 4242 4242</code>, any future expiry, any CVC.

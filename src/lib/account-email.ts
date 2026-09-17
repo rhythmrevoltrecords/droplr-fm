@@ -25,7 +25,7 @@ export async function sendAccountEmail(msg: { to: string; subject: string; html:
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
 }
 
-const shell = (title: string, body: string) => `<!doctype html><html><body style="margin:0;background:#0c0a14;padding:32px 16px;font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:#e4e4e7">
+export const accountEmailShell = (title: string, body: string) => `<!doctype html><html><body style="margin:0;background:#0c0a14;padding:32px 16px;font:15px/1.6 system-ui,-apple-system,Segoe UI,sans-serif;color:#e4e4e7">
 <table role="presentation" width="100%" style="max-width:480px;margin:0 auto;background:#16131f;border:1px solid #27233a;border-radius:16px"><tr><td style="padding:28px">
 <p style="margin:0 0 20px;font-weight:700;color:#fff">droplr.fm</p>
 <h1 style="margin:0 0 12px;font-size:20px;color:#fff">${title}</h1>${body}
@@ -35,7 +35,7 @@ const shell = (title: string, body: string) => `<!doctype html><html><body style
 export function resetPasswordEmail(url: string) {
   return {
     subject: "Reset your droplr.fm password",
-    html: shell(
+    html: accountEmailShell(
       "Reset your password",
       `<p style="margin:0 0 20px">Someone (hopefully you) asked to reset the password for this droplr.fm account. The link works once and expires in 60 minutes.</p>
 <p style="margin:0 0 20px"><a href="${url}" style="display:inline-block;background:#8b5cf6;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Choose a new password</a></p>
@@ -48,7 +48,7 @@ export function resetPasswordEmail(url: string) {
 export function verifyEmailEmail(url: string) {
   return {
     subject: "Confirm your email for droplr.fm",
-    html: shell(
+    html: accountEmailShell(
       "Confirm your email",
       `<p style="margin:0 0 20px">Tap below to confirm this is your address. It keeps your account recoverable and unlocks inviting your team, custom domains and Spotify. The link expires in 48 hours.</p>
 <p style="margin:0 0 20px"><a href="${url}" style="display:inline-block;background:#8b5cf6;color:#fff;text-decoration:none;padding:12px 20px;border-radius:10px;font-weight:600">Confirm my email</a></p>
@@ -62,7 +62,7 @@ export function passwordChangedEmail(when: Date) {
   const stamp = when.toUTCString();
   return {
     subject: "Your droplr.fm password was changed",
-    html: shell(
+    html: accountEmailShell(
       "Your password was changed",
       `<p style="margin:0 0 16px">The password for your droplr.fm account was changed on ${stamp}. Every other device has been signed out.</p>
 <p style="margin:0">If this wasn't you, <a href="${SITE_URL}/forgot-password" style="color:#a78bfa">reset your password now</a> and tell us at ${CONTACT.security}.</p>`,

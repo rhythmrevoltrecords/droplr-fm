@@ -662,13 +662,22 @@ async function main() {
     const artistSignupEmail = "artist-signup-test@sectest.dev";
     const stale = await prisma.user.findUnique({ where: { email: artistSignupEmail } });
     if (stale) await prisma.organization.delete({ where: { id: stale.organizationId } }).catch(() => {});
-    const signupJar: Jar = { cookie: "" };
+    // Refer a friend: org A's link → cookie → the sign-up is recorded as A's referral.
+    const refCode = `k${RUN.replace(/[^a-hjkmnp-z2-9]/g, "a")}zzzz`.slice(0, 8);
+    await prisma.organization.update({ where: { id: A.org.id }, data: { referralCode: refCode } });
+    const joinRes = await fetch(`${BASE}/join/${refCode}`, { redirect: "manual" });
+    const joinCookie = (joinRes.headers.getSetCookie?.() ?? []).find((c) => c.startsWith("dfm_ref=")) ?? "";
+    const joinBad = await fetch(`${BASE}/join/nope`, { redirect: "manual" });
+    check("referral link sets a 30-day cookie and goes to sign-up; unknown codes set nothing", joinRes.status === 307 && (joinRes.headers.get("location") ?? "").startsWith("/signup") && joinCookie.includes(refCode) && /max-age=2592000/i.test(joinCookie) && /httponly/i.test(joinCookie) && !(joinBad.headers.getSetCookie?.() ?? []).some((c) => c.startsWith("dfm_ref=")), `${joinRes.status} ${joinCookie}`);
+    const signupJar: Jar = { cookie: `dfm_ref=${refCode}` };
     const su = await http(signupJar, "POST", "/api/auth/signup", undefined, { kind: "artist", orgName: `Solo Artist ${RUN}`, email: artistSignupEmail, password: PW, terms: "yes" });
     const artistUser = await prisma.user.findUnique({ where: { email: artistSignupEmail }, include: { organization: { include: { artists: true } } } });
     if (!artistUser) {
       console.log(`  (skipped artist sign-up checks: start the server with SIGNUP_ALLOWLIST=${artistSignupEmail}) ${su.status} ${su.location}`);
     } else {
       extraOrgs.push(artistUser.organizationId);
+      const ref = await prisma.referral.findUnique({ where: { referredOrgId: artistUser.organizationId } });
+      check("sign-up through a referral link is recorded as pending for the referrer", ref?.referrerOrgId === A.org.id && ref.status === "pending");
       check("artist sign-up creates an artist account with its own profile", artistUser.organization.kind === "artist" && artistUser.role === "owner" && artistUser.organization.artists.length === 1 && artistUser.organization.artists[0].name === `Solo Artist ${RUN}`);
       const nav = await http(signupJar, "GET", "/admin");
       check("artist admin shows Fans and Profile, not Roster", nav.status === 200 && nav.text.includes(">Profile<") && nav.text.includes(">Fans<") && !nav.text.includes(">Roster<"), `${nav.status}`);
@@ -727,6 +736,47 @@ async function main() {
     const badKey = await http(fansOwnerB, "POST", `/api/admin/releases/${B.release.id}/promo`, { key: "hack", done: true });
     const crossTick = await http(ownerA, "POST", `/api/admin/releases/${B.release.id}/promo`, { key: "teaser", done: true });
     check("promo steps tick per release; unknown step 400, other label 404", tick.status === 200 && badKey.status === 400 && crossTick.status === 404 && (await prisma.promoTaskDone.count({ where: { releaseId: B.release.id } })) === 1, `${tick.status}/${badKey.status}/${crossTick.status}`);
+
+    console.log("\n14. Feedback conversations and referral page");
+    const fbNew = await http(ownerA, "POST", "/api/feedback", { category: "bug", body: `<img src=x onerror=alert(1)> fb-${RUN}`, page: "//evil.example/x" });
+    const fbThread = await prisma.feedbackThread.findFirst({ where: { organizationId: A.org.id, userId: A.owner.id }, include: { messages: true }, orderBy: { createdAt: "desc" } });
+    check("feedback starts a conversation for the sender (off-site page ignored)", fbNew.status === 200 && !!fbThread && fbThread.category === "bug" && fbThread.unreadByTeam && fbThread.page === null && fbThread.messages.length === 1, `${fbNew.status} ${fbNew.text.slice(0, 80)}`);
+    if (fbThread) {
+      const mine = await http(ownerA, "GET", `/admin/feedback/${fbThread.id}`);
+      check("sender sees their conversation, escaped", mine.status === 200 && mine.text.includes(`fb-${RUN}`) && !mine.text.includes("<img src=x"), `${mine.status}`);
+      const otherLabel = await http(ownerB, "GET", `/admin/feedback/${fbThread.id}`);
+      const otherReply = await http(ownerB, "POST", `/api/feedback/${fbThread.id}`, { body: "hijack" });
+      const fbArtist = await login(A.artist2.email); // a fresh session: earlier sections sign artistA out
+      const sameOrgArtist = await http(fbArtist, "POST", `/api/feedback/${fbThread.id}`, { body: "hijack" });
+      check("nobody else can read or reply to someone's feedback (other label, same-label artist)", otherLabel.status === 404 && otherReply.status === 404 && sameOrgArtist.status === 404, `${otherLabel.status}/${otherReply.status}/${sameOrgArtist.status}`);
+      const teamReplyByOwner = await http(ownerA, "POST", `/api/platform/feedback/${fbThread.id}`, { body: "I'm the team now" });
+      check("a normal account can't post as the droplr team", teamReplyByOwner.status === 404 && (await prisma.feedbackMessage.count({ where: { threadId: fbThread.id, fromTeam: true } })) === 0, `${teamReplyByOwner.status}`);
+      const tooLong = await http(ownerA, "POST", `/api/feedback/${fbThread.id}`, { body: "x".repeat(4001) });
+      check("feedback over 4000 characters is refused", tooLong.status === 400, `${tooLong.status}`);
+      const artistPage = await http(fbArtist, "GET", "/dashboard/feedback");
+      check("artist logins have their own feedback page", artistPage.status === 200 && artistPage.text.includes("Your conversations"), `${artistPage.status}`);
+      const platUser = adminEmail ? await prisma.user.findUnique({ where: { email: adminEmail } }) : null;
+      if (platUser?.role === "owner") {
+        const pa = await login(adminEmail);
+        const inbox = await http(pa, "GET", "/platform/feedback?show=unread");
+        const reply = await http(pa, "POST", `/api/platform/feedback/${fbThread.id}`, { body: `team-reply-${RUN}`, status: "closed" });
+        const after = await prisma.feedbackThread.findUnique({ where: { id: fbThread.id } });
+        check("platform owner sees it, replies and closes; the sender gets an unread reply", inbox.status === 200 && inbox.text.includes(`fb-${RUN}`) && reply.status === 200 && !!after?.unreadByUser && after.status === "closed" && !after.unreadByTeam, `${inbox.status}/${reply.status}`);
+        const badge = await http(ownerA, "GET", "/admin");
+        check("the header shows a new-reply dot", badge.text.includes("New reply"));
+        const reopen = await http(ownerA, "POST", `/api/feedback/${fbThread.id}`, { body: "thanks" });
+        const reopened = await prisma.feedbackThread.findUnique({ where: { id: fbThread.id } });
+        check("replying reopens a closed conversation for the team", reopen.status === 200 && reopened?.status === "open" && !!reopened.unreadByTeam && !reopened.unreadByUser, `${reopen.status}`);
+        const refPage = await http(pa, "GET", "/platform/referrals");
+        check("platform referrals page lists referrals", refPage.status === 200 && refPage.text.includes("Referrals"), `${refPage.status}`);
+      } else {
+        console.log("  (skipped platform feedback reply checks: needs PLATFORM_TEST_ADMIN)");
+      }
+    }
+    const refOwnPage = await http(ownerA, "GET", "/admin/referrals");
+    check("referral page shows the account's link", refOwnPage.status === 200 && refOwnPage.text.includes("/join/"), `${refOwnPage.status}`);
+    const refPlat = await http(ownerA, "POST", "/api/platform/referrals");
+    check("only the platform owner can run the referral check", refPlat.status === 404, `${refPlat.status}`);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

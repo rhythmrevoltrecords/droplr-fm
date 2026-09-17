@@ -1,5 +1,6 @@
 import { Sparkles } from "lucide-react";
 import Link from "next/link";
+import { FeedbackButton } from "@/components/feedback/feedback-forms";
 import { Logo } from "@/components/marketing/logo";
 import { Badge } from "@/components/ui/badge";
 import { copyrightLine } from "@/lib/legal";
@@ -13,7 +14,7 @@ export function themeClass(pref: string | null | undefined) {
 }
 
 /** Admin + artist dashboard chrome. Theme follows Organization.themePreference (dark by default). */
-export function AppShell({ user, nav, children, billingHref, accountHref }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string }[]; children: React.ReactNode; /** Label admins only: plan badge links here, and Free shows an Upgrade button. */ billingHref?: string; /** Account page (password, sessions); the name in the header links here. */ accountHref?: string }) {
+export function AppShell({ user, nav, children, billingHref, accountHref, feedbackHref, feedbackUnread = false }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string }[]; children: React.ReactNode; /** Label admins only: plan badge links here, and Free shows an Upgrade button. */ billingHref?: string; /** Account page (password, sessions); the name in the header links here. */ accountHref?: string; /** Feedback page; the dot shows when the droplr.fm team has replied. */ feedbackHref?: string; feedbackUnread?: boolean }) {
   const org = user.organization;
   return (
     <div className={cn(themeClass(org.themePreference), "min-h-dvh bg-background text-foreground")}>
@@ -50,6 +51,7 @@ export function AppShell({ user, nav, children, billingHref, accountHref }: { us
             ) : (
               <Badge variant="secondary">{planOf(org.plan).name}</Badge>
             )}
+            {feedbackHref && <FeedbackButton href={feedbackHref} unread={feedbackUnread} />}
             <form method="post" action="/api/auth/logout"><button className="text-muted-foreground hover:text-foreground">Log out</button></form>
           </div>
         </div>

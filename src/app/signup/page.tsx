@@ -8,7 +8,7 @@ import { CONTACT } from "@/lib/legal";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Start free" };
 
-type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string };
+type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string; ref?: string };
 
 /** Pre-launch: waitlist, with a small "have an invite?" route to the real form (the API still enforces the allowlist). */
 function InviteOnly({ searchParams }: { searchParams: SP }) {
@@ -43,7 +43,7 @@ export default async function SignupPage(props: { searchParams: Promise<SP> }) {
   const kind = searchParams.type === "artist" || searchParams.plan?.startsWith("artist") ? "artist" : "label";
   const planNames: Record<string, string> = { artist: "Artist", artist_pro: "Artist Pro", pro: "Pro", label: "Label" };
   const plan = searchParams.plan && planNames[searchParams.plan] && (kind === "artist" ? searchParams.plan.startsWith("artist") : !searchParams.plan.startsWith("artist")) ? searchParams.plan : null;
-  const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}`;
+  const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}${searchParams.ref ? "&ref=1" : ""}`;
   return (
     <AuthShell
       title={plan ? "Create your account" : "Start free"}
@@ -56,6 +56,7 @@ export default async function SignupPage(props: { searchParams: Promise<SP> }) {
           </Link>
         ))}
       </div>
+      {searchParams.ref && <p className="mb-4 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-sm">A friend invited you to droplr.fm. Sign up below and they&apos;re thanked once you&apos;re a paying member.</p>}
       <form method="post" action="/api/auth/signup" className="space-y-4">
         <input type="hidden" name="kind" value={kind} />
         <div className="space-y-2"><Label htmlFor="orgName">{kind === "artist" ? "Artist name" : "Label name"}</Label><Input id="orgName" name="orgName" required placeholder={kind === "artist" ? "Ototo" : "Rhythm Revolt Records"} /></div>

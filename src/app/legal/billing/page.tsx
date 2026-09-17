@@ -16,6 +16,7 @@ const toc = [
   { id: "failed", title: "Failed payments" },
   { id: "free", title: "What happens on the Free plan" },
   { id: "prices", title: "Price changes" },
+  { id: "referrals", title: "Refer a friend" },
   { id: "disputes", title: "Billing questions and disputes" },
 ];
 const s = tocHelper(toc);
@@ -108,6 +109,16 @@ export default function BillingPolicyPage() {
 
       <Section {...s("prices")}>
         <p>We may change plan prices. We&apos;ll email the account owner at least 30 days before a new price applies to your subscription. The new price starts from your next renewal after that notice, and you can cancel before then if you don&apos;t want to continue.</p>
+      </Section>
+
+      <Section {...s("referrals")}>
+        <ul>
+          <li>Each account has a referral link. An account is referred when it is created through that link within 30 days of opening it. Existing accounts can&apos;t be referred later.</li>
+          <li>You earn one free month when the referred account has been on a paid plan for 30 days, is still subscribed, and has paid at least one invoice. You can earn up to 3 free months in any 12 months; referrals over the limit don&apos;t carry over.</li>
+          <li>A free month is a discount on your next invoice: 100% of a monthly invoice, or one twelfth of a yearly invoice. One free month applies per invoice. If you don&apos;t have a paid plan, earned months wait until you subscribe.</li>
+          <li>Free months have no cash value, can&apos;t be transferred or refunded, and don&apos;t change your plan&apos;s renewal date.</li>
+          <li>Referring yourself, accounts you control, or accounts created only to earn rewards isn&apos;t allowed. We may withhold or remove rewards obtained that way, and we may change or end the programme with notice; months already applied stay applied.</li>
+        </ul>
       </Section>
 
       <Section {...s("disputes")}>

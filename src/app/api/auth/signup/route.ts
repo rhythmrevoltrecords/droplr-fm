@@ -9,6 +9,7 @@ import { allow, ipKey } from "@/lib/throttle";
 import { clientIp } from "@/lib/tracking";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 import { redirectTo } from "@/lib/redirect";
+import { attachReferral, REFERRAL_COOKIE } from "@/lib/referrals";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -47,7 +48,11 @@ export async function POST(req: NextRequest) {
     },
     include: { users: true },
   });
+  // Refer a friend: the code from droplr.fm/join/{code} (cookie). Rewards only count once this account pays.
+  if (await attachReferral(org.id, req.cookies.get(REFERRAL_COOKIE)?.value)) console.info("[referral] signup", { org: org.id });
   await sendVerificationEmail(org.users[0]);
   await createSessionCookie(org.users[0]);
-  return redirectTo(plan ? `/admin/settings/billing?plan=${plan}` : "/admin?welcome=1");
+  const res = redirectTo(plan ? `/admin/settings/billing?plan=${plan}` : "/admin?welcome=1");
+  res.cookies.delete(REFERRAL_COOKIE);
+  return res;
 }

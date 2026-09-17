@@ -11,7 +11,7 @@ const PASSTHROUGH = /^\/(api|_next|uploads|logo|host|r)(\/|$)|^\/(favicon\.ico|r
  * Anything else on the platform host is a public release, org or bio page (/{org}/{slug}, /b/*, /r/*) and still gets a visitor id.
  */
 const PLATFORM_NO_VISITOR_ID =
-  /^\/(?:$|(?:pricing|docs|legal|demo|login|signup|forgot-password|reset-password|invite|admin|dashboard|platform|logo|uploads|_next|opengraph-image|twitter-image|icon|apple-icon)(?:[/.]|$)|(?:favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest)$|api\/(?!(?:r|b|presave|spotify|deezer)(?:\/|$)))/;
+  /^\/(?:$|(?:pricing|docs|legal|demo|login|signup|join|forgot-password|reset-password|invite|admin|dashboard|platform|logo|uploads|_next|opengraph-image|twitter-image|icon|apple-icon)(?:[/.]|$)|(?:favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest)$|api\/(?!(?:r|b|presave|spotify|deezer)(?:\/|$)))/;
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;

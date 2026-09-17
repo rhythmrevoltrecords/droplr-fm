@@ -40,6 +40,8 @@ model Organization {
   compNote      String?
   compSetAt     DateTime?
   compSetBy     String?
+  // Refer a friend: this account's share code, and who referred it (if anyone).
+  referralCode  String?  @unique
 
   // BYO Spotify app (encrypted with ENCRYPTION_KEY)
   spotifyClientIdEncrypted     String?
@@ -69,6 +71,9 @@ model Organization {
   invites   Invite[]
   bioPages  BioPage[]
   artists   Artist[]
+  feedbackThreads  FeedbackThread[]
+  referralsMade    Referral[] @relation("ReferralReferrer")
+  referredBy       Referral?  @relation("ReferralReferred")
 }
 
 model User {
@@ -88,6 +93,7 @@ model User {
   createdAt      DateTime     @default(now())
   releases       Release[]    @relation("ArtistReleases")
   artistProfile  Artist? // roster profile this login belongs to (role artist)
+  feedbackThreads FeedbackThread[]
 }
 
 model Invite {
@@ -395,4 +401,60 @@ model PromoTaskDone {
   doneAt    DateTime @default(now())
 
   @@unique([releaseId, key])
+}
+
+/** Feedback conversation between one user and the droplr.fm team (platform console). */
+model FeedbackThread {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category       String       @default("idea") // idea | bug | question | other
+  subject        String
+  page           String? // path they were on when they opened it
+  status         String       @default("open") // open | closed
+  unreadByUser   Boolean      @default(false) // the team replied and the user hasn't opened it since
+  unreadByTeam   Boolean      @default(true)
+  lastMessageAt  DateTime     @default(now())
+  createdAt      DateTime     @default(now())
+  messages       FeedbackMessage[]
+
+  @@index([userId, lastMessageAt])
+  @@index([unreadByTeam, lastMessageAt])
+}
+
+model FeedbackMessage {
+  id          String         @id @default(cuid())
+  threadId    String
+  thread      FeedbackThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  fromTeam    Boolean        @default(false)
+  authorEmail String // who wrote it (team replies: the platform admin's login)
+  body        String
+  createdAt   DateTime       @default(now())
+
+  @@index([threadId, createdAt])
+}
+
+/**
+ * Refer a friend. Created when a referred account signs up. The referrer earns one free month once the referred
+ * account has paid for 30+ days (max 3 earned per rolling 12 months). Rewards are applied as a one-invoice
+ * percent-off coupon on the referrer's subscription, one at a time; unapplied rewards wait until they subscribe.
+ */
+model Referral {
+  id             String       @id @default(cuid())
+  referrerOrgId  String
+  referrer       Organization @relation("ReferralReferrer", fields: [referrerOrgId], references: [id], onDelete: Cascade)
+  referredOrgId  String       @unique
+  referred       Organization @relation("ReferralReferred", fields: [referredOrgId], references: [id], onDelete: Cascade)
+  status         String       @default("pending") // pending | earned | applied | capped | void
+  earnedAt       DateTime?
+  appliedAt      DateTime?
+  stripeCouponId String?
+  note           String? // last reason (e.g. why it's void, Stripe error while applying)
+  checkedAt      DateTime?
+  createdAt      DateTime     @default(now())
+
+  @@index([referrerOrgId, status])
+  @@index([status, checkedAt])
 }

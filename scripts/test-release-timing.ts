@@ -7,6 +7,7 @@
 import { prisma } from "../src/lib/db";
 import { findDueReleases, processRelease } from "../src/lib/presave-processor";
 import { statsRange } from "../src/lib/analytics";
+import { freeMonthPercent, runReferralChecks } from "../src/lib/referrals";
 import { dateToZonedLocal, releaseEmailDueFor, releaseInstantFor, releaseWindow, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL"]) {
@@ -56,6 +57,7 @@ async function main() {
   }) as typeof fetch;
 
   const tag = Date.now().toString(36);
+  const refOrgs: string[] = [];
   // Label in Brisbane; release at Brisbane wall-clock now+2h. Kiritimati (UTC+14, 4h ahead of Brisbane) is already past it.
   const org = await prisma.organization.create({ data: { name: `Timing ${tag}`, slug: `timing-${tag}`, plan: "label", timezone: "Australia/Brisbane", releaseEmailHour: null } });
   try {
@@ -119,7 +121,74 @@ async function main() {
     await processRelease(soon.id, Date.now() + 60_000);
     const soon2 = await prisma.release.findUniqueOrThrow({ where: { id: soon.id } });
     check("scan is recorded and not repeated within the day", !!soon2.linksCheckedAt && !(await findDueReleases()).some((r) => r.id === soon.id));
+
+    console.log("\n5. Refer a friend rewards (Stripe mocked)");
+    check("a free month is 100% of a monthly bill or 1/12 of a yearly one", freeMonthPercent({ recurring: { interval: "month", interval_count: 1 } }) === 100 && freeMonthPercent({ recurring: { interval: "year", interval_count: 1 } }) === 8.33 && freeMonthPercent({ recurring: null }) === null);
+    const DAYMS = 86_400_000;
+    const subs: Record<string, { status: string; start_date: number; interval: string; discounts: unknown[] }> = {};
+    const coupons: { id: string; percent_off: number; metadata: Record<string, string> }[] = [];
+    const updates: { id: string; discounts: unknown[] }[] = [];
+    const fakeStripe = {
+      subscriptions: {
+        retrieve: async (id: string) => {
+          const x = subs[id];
+          if (!x) throw new Error("No such subscription");
+          return { id, status: x.status, start_date: x.start_date, discounts: x.discounts, items: { data: [{ price: { recurring: { interval: x.interval, interval_count: 1 } } }] } };
+        },
+        update: async (id: string, p: { discounts: { coupon?: string; discount?: string }[] }) => {
+          updates.push({ id, discounts: p.discounts });
+          subs[id].discounts = p.discounts.map((d) => (d.coupon ? { id: `di_${d.coupon}`, source: { coupon: coupons.find((c) => c.id === d.coupon) } } : { id: d.discount, source: { coupon: null } }));
+          return {};
+        },
+      },
+      invoices: { list: async ({ subscription }: { subscription: string }) => ({ data: subs[subscription] ? [{ amount_paid: 1200 }] : [] }) },
+      coupons: { create: async (p: { percent_off: number; metadata: Record<string, string> }) => { const c = { id: `co_${coupons.length}`, ...p }; coupons.push(c); return c; } },
+    } as never;
+    const mk = async (name: string, sub?: { status?: string; days: number; interval?: string }) => {
+      const o = await prisma.organization.create({ data: { name, slug: `timing-ref-${name}-${tag}`, plan: sub ? "artist" : "free", stripeSubscriptionId: sub ? `sub_${name}_${tag}` : null } });
+      if (sub) subs[`sub_${name}_${tag}`] = { status: sub.status ?? "active", start_date: Math.floor((Date.now() - sub.days * DAYMS) / 1000), interval: sub.interval ?? "month", discounts: [] };
+      refOrgs.push(o.id);
+      return o;
+    };
+    const referrer = await mk("referrer", { days: 200 });
+    const r1 = await mk("paid40", { days: 40 });
+    const r2 = await mk("paid35", { days: 35 });
+    const r3 = await mk("new10", { days: 10 });
+    const r4 = await mk("free");
+    for (const o of [r1, r2, r3, r4]) await prisma.referral.create({ data: { referrerOrgId: referrer.id, referredOrgId: o.id } });
+    const run1 = await runReferralChecks({ stripe: fakeStripe });
+    const rows1 = await prisma.referral.findMany({ where: { referrerOrgId: referrer.id } });
+    const st = (id: string, rows: typeof rows1) => rows.find((r) => r.referredOrgId === id)?.status;
+    check("30+ days paying earns; under 30 days or not subscribed stays pending", st(r3.id, rows1) === "pending" && st(r4.id, rows1) === "pending" && [st(r1.id, rows1), st(r2.id, rows1)].filter((x) => x === "applied" || x === "earned").length === 2, JSON.stringify(run1));
+    check("only one free month goes on the next bill, at 100% for monthly", run1.applied === 1 && coupons.length === 1 && coupons[0].percent_off === 100 && updates.length === 1 && updates[0].id === `sub_referrer_${tag}`);
+    await prisma.referral.updateMany({ where: { referrerOrgId: referrer.id }, data: { checkedAt: null } });
+    const run2 = await runReferralChecks({ stripe: fakeStripe });
+    check("the second month waits while the first is still unused", run2.applied === 0 && coupons.length === 1);
+    subs[`sub_referrer_${tag}`].discounts = []; // invoice paid: the once-off discount is gone
+    const run3 = await runReferralChecks({ stripe: fakeStripe });
+    check("after the invoice, the next earned month is applied", run3.applied === 1 && coupons.length === 2);
+    // Cap: 3 earned in 12 months, the 4th is capped.
+    subs[`sub_new10_${tag}`].start_date = Math.floor((Date.now() - 45 * DAYMS) / 1000);
+    const r5 = await mk("paid60", { days: 60 });
+    await prisma.referral.create({ data: { referrerOrgId: referrer.id, referredOrgId: r5.id } });
+    await prisma.referral.updateMany({ where: { referrerOrgId: referrer.id }, data: { checkedAt: null } });
+    await runReferralChecks({ stripe: fakeStripe });
+    const rows4 = await prisma.referral.findMany({ where: { referrerOrgId: referrer.id } });
+    const earnedCount = rows4.filter((r) => r.status === "earned" || r.status === "applied").length;
+    check("no more than 3 free months in 12 months; the rest are capped", earnedCount === 3 && rows4.filter((r) => r.status === "capped").length === 1, rows4.map((r) => r.status).join(","));
+    // Free referrer: earned months wait until they subscribe; yearly subscribers get 1/12.
+    const freeRef = await mk("freereferrer");
+    const r6 = await mk("paid31", { days: 31 });
+    await prisma.referral.create({ data: { referrerOrgId: freeRef.id, referredOrgId: r6.id } });
+    await runReferralChecks({ stripe: fakeStripe });
+    check("a referrer without a subscription keeps the month waiting", (await prisma.referral.findUnique({ where: { referredOrgId: r6.id } }))?.status === "earned");
+    await prisma.organization.update({ where: { id: freeRef.id }, data: { stripeSubscriptionId: `sub_freereferrer_${tag}` } });
+    subs[`sub_freereferrer_${tag}`] = { status: "active", start_date: Math.floor(Date.now() / 1000), interval: "year", discounts: [] };
+    const before6 = coupons.length;
+    await runReferralChecks({ stripe: fakeStripe });
+    check("once they subscribe yearly, it's applied as 1/12 off", (await prisma.referral.findUnique({ where: { referredOrgId: r6.id } }))?.status === "applied" && coupons.length === before6 + 1 && coupons.at(-1)!.percent_off === 8.33);
   } finally {
+    await prisma.organization.deleteMany({ where: { id: { in: refOrgs } } }).catch(() => {});
     globalThis.fetch = realFetch;
     await prisma.organization.delete({ where: { id: org.id } });
     await prisma.$disconnect();

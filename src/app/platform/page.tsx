@@ -1,6 +1,5 @@
-import Link from "next/link";
 import { AccountKindControl, CompPlanControl } from "@/components/admin/comp-plan-control";
-import { Logo } from "@/components/marketing/logo";
+import { PlatformChrome } from "@/components/platform/platform-chrome";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -30,15 +29,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
   const counts = { total: orgs.length, paid: orgs.filter((o) => o.stripeSubscriptionId).length, comp: orgs.filter((o) => o.compPlan).length };
 
   return (
-    <div className="theme-dark min-h-dvh bg-background text-foreground">
-      <header className="border-b">
-        <div className="container flex h-14 items-center gap-4">
-          <Logo href="/platform" />
-          <Badge variant="warning">Platform owner</Badge>
-          <span className="ml-auto text-sm text-muted-foreground">{admin.email} · <Link href="/admin" className="underline">Back to my label</Link></span>
-        </div>
-      </header>
-      <main className="container space-y-6 py-8">
+    <PlatformChrome email={admin.email} active="accounts">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Accounts</h1>
@@ -72,7 +63,6 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
             </TBody>
           </Table>
         </Card>
-      </main>
-    </div>
+    </PlatformChrome>
   );
 }
