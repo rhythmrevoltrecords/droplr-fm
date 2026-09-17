@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { SITE_URL } from "@/lib/env";
+import { portalConfigurationFor } from "@/lib/billing-portal";
 import { getStripe, stripeConfigured } from "@/lib/stripe";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +14,8 @@ export async function POST() {
   const customer = user.organization.stripeCustomerId;
   if (!customer) return NextResponse.json({ error: "No billing account yet. Upgrade first." }, { status: 400 });
   try {
-    const portal = await getStripe().billingPortal.sessions.create({ customer, return_url: `${SITE_URL}/admin/settings/billing` });
+    const configuration = await portalConfigurationFor(user.organization.kind);
+    const portal = await getStripe().billingPortal.sessions.create({ customer, return_url: `${SITE_URL}/admin/settings/billing`, ...(configuration ? { configuration } : {}) });
     return NextResponse.json({ url: portal.url });
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Stripe error";

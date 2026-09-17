@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { SITE_URL } from "@/lib/env";
 import { clearStaleStripeIds } from "@/lib/billing";
+import { portalConfigurationFor } from "@/lib/billing-portal";
 import { accountKind, PLANS_FOR } from "@/lib/plans";
 import { getStripe, isInterval, isPaidTier, priceIdFor, stripeConfigured } from "@/lib/stripe";
 
@@ -9,7 +10,7 @@ export const dynamic = "force-dynamic";
 
 const BILLING = `${SITE_URL}/admin/settings/billing`;
 
-/** POST { tier: "pro" | "label", interval: "monthly" | "yearly" } → { url } (Stripe Checkout, or the portal if already subscribed). */
+/** POST { tier: "artist" | "artist_pro" | "pro" | "label", interval: "monthly" | "yearly" } → { url } (Stripe Checkout, or the portal if already subscribed). */
 export async function POST(req: NextRequest) {
   const user = await apiUser("label");
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -28,7 +29,8 @@ export async function POST(req: NextRequest) {
     if (await clearStaleStripeIds(org)) Object.assign(org, { stripeCustomerId: null, stripeSubscriptionId: null, stripePriceId: null });
     // Already subscribed: plan changes go through the portal so nobody ends up with two subscriptions.
     if (org.stripeSubscriptionId && org.stripeCustomerId) {
-      const portal = await getStripe().billingPortal.sessions.create({ customer: org.stripeCustomerId, return_url: BILLING });
+      const configuration = await portalConfigurationFor(org.kind);
+      const portal = await getStripe().billingPortal.sessions.create({ customer: org.stripeCustomerId, return_url: BILLING, ...(configuration ? { configuration } : {}) });
       return NextResponse.json({ url: portal.url, portal: true });
     }
 
