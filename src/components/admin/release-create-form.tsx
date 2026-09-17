@@ -8,6 +8,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { platformMeta } from "@/lib/platforms";
 import { slugify } from "@/lib/utils";
 import { PlatformIcon } from "@/components/public/platform-icon";
+import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
 type Resolved = {
   appleFound: boolean;
@@ -73,16 +74,14 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
     }
   }
 
-  async function upload(file: File) {
-    setBusy(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/admin/upload-cover", { method: "POST", body: fd });
-    const j = await res.json();
-    setBusy(false);
-    if (!res.ok) return setError(j.error);
-    setForm((f) => ({ ...f, coverUrl: j.url, accentColor: j.accentColor ?? f.accentColor }));
-  }
+  const cover = useImageUpload({
+    endpoint: "/api/admin/upload-cover",
+    purpose: "cover",
+    aspects: [ASPECT_SQUARE],
+    maxEdge: 1600,
+    title: "Crop cover",
+    onUploaded: (img) => setForm((f) => ({ ...f, coverUrl: img.url, accentColor: img.accentColor ?? f.accentColor })),
+  });
 
   async function create() {
     setBusy(true);
@@ -155,11 +154,12 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
                 <Label>Cover image</Label>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   <Input value={form.coverUrl} onChange={(e) => set("coverUrl", e.target.value)} placeholder="https://…" />
-                  <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm hover:bg-accent">
-                    <Upload className="h-4 w-4" /> Upload
-                    <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-                  </label>
+                  <Button type="button" variant="outline" className="shrink-0" onClick={cover.pick} disabled={cover.busy}>
+                    {cover.uploading ? <Loader2 className="animate-spin" /> : <Upload />} Upload
+                  </Button>
+                  {cover.ui}
                 </div>
+                <p className="text-xs text-muted-foreground">{IMAGE_HINT}</p>
               </div>
               <div className="space-y-2"><Label>Spotify album ID</Label><Input value={form.spotifyAlbumId} onChange={(e) => set("spotifyAlbumId", e.target.value)} /></div>
               <div className="space-y-2"><Label>Spotify artist ID (for follow)</Label><Input value={form.spotifyArtistId} onChange={(e) => set("spotifyArtistId", e.target.value)} placeholder="optional" /></div>

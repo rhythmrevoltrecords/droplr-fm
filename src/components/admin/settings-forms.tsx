@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { LOCATIONS } from "@/lib/time";
 import { cn, slugify } from "@/lib/utils";
+import { ASPECT_ORIGINAL, ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
 async function patchOrg(body: Record<string, unknown>) {
   const res = await fetch("/api/admin/org", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -133,19 +134,17 @@ export function IdentityForm({ initial, siteHost }: { initial: { name: string; s
   const [loc, setLoc] = useState({ label: initial.locationLabel, tz: initial.timezone });
   const [accent, setAccent] = useState(initial.accentColor ?? "");
   const [logo, setLogo] = useState(initial.logoUrl ?? "");
-  const [uploading, setUploading] = useState(false);
   const { busy, msg, save } = useSave();
   const slugChanged = slugify(slug) !== initial.slug;
 
-  async function upload(file: File) {
-    setUploading(true);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/admin/upload-cover", { method: "POST", body: fd });
-    const j = await res.json();
-    setUploading(false);
-    if (res.ok) setLogo(j.url);
-  }
+  const logoUpload = useImageUpload({
+    endpoint: "/api/admin/upload-cover",
+    purpose: "logo",
+    aspects: [ASPECT_ORIGINAL, ASPECT_SQUARE],
+    maxEdge: 1200,
+    title: "Crop logo",
+    onUploaded: (img) => setLogo(img.url),
+  });
 
   return (
     <form
@@ -211,12 +210,13 @@ export function IdentityForm({ initial, siteHost }: { initial: { name: string; s
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {logo ? <img src={logo} alt="" className="h-10 w-10 rounded-lg object-cover ring-1 ring-border" /> : <div className="h-10 w-10 rounded-lg border border-dashed" />}
-            <label className="inline-flex h-10 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm hover:bg-accent">
-              {uploading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} Upload
-              <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-            </label>
+            <Button type="button" variant="outline" onClick={logoUpload.pick} disabled={logoUpload.busy}>
+              {logoUpload.uploading ? <Loader2 className="animate-spin" /> : <Upload />} Upload
+            </Button>
+            {logoUpload.ui}
             {logo && <Button type="button" variant="ghost" size="sm" onClick={() => setLogo("")}>Remove</Button>}
           </div>
+          <p className="text-xs text-muted-foreground">{IMAGE_HINT} Save identity to apply.</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-3">

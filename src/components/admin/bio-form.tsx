@@ -6,6 +6,7 @@ import { BioView } from "@/components/public/bio-view";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { slugify } from "@/lib/utils";
+import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
 type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; isPublic: boolean };
 
@@ -39,17 +40,18 @@ export function BioForm({
       return next;
     });
 
-  async function upload(file: File) {
-    setBusy(true);
-    setMsg(null);
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/admin/upload-cover", { method: "POST", body: fd });
-    const j = await res.json();
-    setBusy(false);
-    if (!res.ok) return setMsg({ ok: false, text: j.error });
-    setV((x) => ({ ...x, imageUrl: j.url, accentColor: j.accentColor ?? "" }));
-  }
+  const image = useImageUpload({
+    endpoint: "/api/admin/upload-cover",
+    purpose: "avatar",
+    aspects: [ASPECT_SQUARE],
+    maxEdge: 1600,
+    round: true,
+    title: "Crop image",
+    onUploaded: (img) => {
+      setMsg(null);
+      setV((x) => ({ ...x, imageUrl: img.url, accentColor: img.accentColor ?? "" }));
+    },
+  });
 
   async function save() {
     setBusy(true);
@@ -89,11 +91,12 @@ export function BioForm({
             <Label>Avatar / cover image</Label>
             <div className="flex flex-col gap-2 sm:flex-row">
               <Input value={v.imageUrl} onChange={(e) => set("imageUrl", e.target.value)} placeholder="https://…" />
-              <label className="inline-flex h-10 shrink-0 cursor-pointer items-center gap-2 rounded-lg border px-4 text-sm hover:bg-accent">
-                <Upload className="h-4 w-4" /> Upload
-                <input type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
-              </label>
+              <Button type="button" variant="outline" className="shrink-0" onClick={image.pick} disabled={image.busy}>
+                {image.uploading ? <Loader2 className="animate-spin" /> : <Upload />} Upload
+              </Button>
+              {image.ui}
             </div>
+            <p className="text-xs text-muted-foreground">{IMAGE_HINT}</p>
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               {v.accentColor ? (
                 <><span className="inline-block h-3 w-3 rounded-full ring-1 ring-white/20" style={{ background: v.accentColor }} /> Glow colour {v.accentColor}, pulled from the image</>

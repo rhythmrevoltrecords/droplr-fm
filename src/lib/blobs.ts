@@ -16,17 +16,16 @@ export function sniffImage(buf: Buffer): { type: CoverType; ext: string } | null
   return null;
 }
 
-/** Upload cover to Netlify Blobs. Under plain `next dev` (no Netlify context) falls back to public/uploads. */
-export async function uploadCover(file: File): Promise<string> {
-  if (file.size > 8 * 1024 * 1024) throw new Error("Cover must be under 8MB");
-  const buf = Buffer.from(await file.arrayBuffer());
-  const kind = sniffImage(buf);
-  if (!kind) throw new Error(COVER_TYPE_ERROR);
-  const key = `${Date.now()}-${randomToken(8)}.${kind.ext}`;
+/**
+ * Store an already-validated, already-processed image (see processUpload) in Netlify Blobs.
+ * Under plain `next dev` (no Netlify context) falls back to public/uploads.
+ */
+export async function storeImage(buf: Buffer, type: CoverType, ext: string): Promise<string> {
+  const key = `${Date.now()}-${randomToken(8)}.${ext}`;
   try {
     const { getStore } = await import("@netlify/blobs");
     const store = getStore(STORE);
-    await store.set(key, new Blob([buf], { type: kind.type }), { metadata: { contentType: kind.type } });
+    await store.set(key, new Blob([buf], { type }), { metadata: { contentType: type } });
     return `${SITE_URL}/api/cover/${key}`;
   } catch (err) {
     if (process.env.NODE_ENV === "production") throw err;

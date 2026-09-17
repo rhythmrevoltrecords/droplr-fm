@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input, Label, Select } from "@/components/ui/input";
 import { ARTIST_BIO_MAX, ARTIST_STATUS_LABELS, ARTIST_STATUSES, initials, PRESS_PHOTOS_MAX, SOCIAL_KEYS, SOCIAL_LABELS, type SocialKey } from "@/lib/artist-fields";
 import { CopyButton } from "./copy-button";
+import { ASPECT_16_9, ASPECT_4_5, ASPECT_ORIGINAL, ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
 type Msg = { ok: boolean; text: string } | null;
 const MsgText = ({ msg }: { msg: Msg }) => (msg ? <span className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</span> : null);
@@ -112,52 +113,36 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
   const [v, setV] = useState(initial);
   const [saved, setSaved] = useState(initial);
   const [busy, setBusy] = useState(false);
-  const [uploading, setUploading] = useState<"photo" | "press" | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const dirty = useMemo(() => JSON.stringify(v) !== JSON.stringify(saved), [v, saved]);
   const set = <K extends keyof ArtistEditorValues>(k: K, val: ArtistEditorValues[K]) => setV((x) => ({ ...x, [k]: val }));
   const uploadUrl = label ? "/api/admin/upload-cover" : "/api/artist/upload-photo";
 
-  async function upload(file: File) {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch(uploadUrl, { method: "POST", body: fd });
-    const j = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(j.error ?? "Upload failed");
-    return j as { url: string; accentColor?: string | null };
-  }
-
-  async function uploadPhoto(file: File) {
-    setUploading("photo");
-    setMsg(null);
-    try {
-      const j = await upload(file);
-      setV((x) => ({ ...x, photoUrl: j.url, accentColor: j.accentColor ?? x.accentColor }));
-    } catch (e) {
-      setMsg({ ok: false, text: (e as Error).message });
-    } finally {
-      setUploading(null);
-    }
-  }
-
-  async function uploadPress(files: FileList) {
-    setUploading("press");
-    setMsg(null);
-    try {
-      // One at a time, stopping at the cap, so a failed file doesn't lose the ones before it.
-      let count = v.pressPhotoUrls.length;
-      for (const file of Array.from(files)) {
-        if (count >= PRESS_PHOTOS_MAX) break;
-        const j = await upload(file);
-        count++;
-        setV((x) => (x.pressPhotoUrls.length >= PRESS_PHOTOS_MAX ? x : { ...x, pressPhotoUrls: [...x.pressPhotoUrls, j.url] }));
-      }
-    } catch (e) {
-      setMsg({ ok: false, text: (e as Error).message });
-    } finally {
-      setUploading(null);
-    }
-  }
+  const photo = useImageUpload({
+    endpoint: uploadUrl,
+    purpose: "avatar",
+    aspects: [ASPECT_SQUARE],
+    maxEdge: 1600,
+    round: true,
+    title: "Crop photo",
+    onUploaded: (img) => {
+      setMsg(null);
+      setV((x) => ({ ...x, photoUrl: img.url, accentColor: img.accentColor ?? x.accentColor }));
+    },
+  });
+  const press = useImageUpload({
+    endpoint: uploadUrl,
+    purpose: "press",
+    aspects: [ASPECT_ORIGINAL, ASPECT_SQUARE, ASPECT_4_5, ASPECT_16_9],
+    maxEdge: 2400,
+    title: "Crop press photo",
+    multiple: true,
+    allowSkip: true,
+    maxFiles: PRESS_PHOTOS_MAX - v.pressPhotoUrls.length,
+    // Each file lands as soon as it uploads, so cancelling later ones doesn't lose earlier ones.
+    onUploaded: (img) => setV((x) => (x.pressPhotoUrls.length >= PRESS_PHOTOS_MAX ? x : { ...x, pressPhotoUrls: [...x.pressPhotoUrls, img.url] })),
+  });
+  const uploading = photo.busy || press.busy;
 
   async function save() {
     setMsg(null);
@@ -197,12 +182,12 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
               <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <ArtistAvatar name={v.name || "?"} photoUrl={v.photoUrl} accentColor={v.accentColor} size={96} />
                 <div className="flex flex-wrap items-center gap-2">
-                  <label className="inline-flex h-9 cursor-pointer items-center gap-2 rounded-lg border px-3 text-sm hover:bg-accent">
-                    {uploading === "photo" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />} {v.photoUrl ? "Replace photo" : "Upload photo"}
-                    <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" disabled={!!uploading} onChange={(e) => { if (e.target.files?.[0]) uploadPhoto(e.target.files[0]); e.target.value = ""; }} />
-                  </label>
+                  <Button type="button" variant="outline" className="h-9 px-3 text-sm" onClick={photo.pick} disabled={uploading}>
+                    {photo.uploading ? <Loader2 className="animate-spin" /> : <Upload />} {v.photoUrl ? "Replace photo" : "Upload photo"}
+                  </Button>
+                  {photo.ui}
                   {v.photoUrl && <Button type="button" size="sm" variant="ghost" onClick={() => set("photoUrl", "")}>Remove</Button>}
-                  <p className="w-full text-xs text-muted-foreground">JPG, PNG or WebP, under 8MB. Square works best.</p>
+                  <p className="w-full text-xs text-muted-foreground">{IMAGE_HINT}</p>
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">
@@ -261,15 +246,16 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
                   </div>
                 ))}
                 {v.pressPhotoUrls.length < PRESS_PHOTOS_MAX && (
-                  <label className="grid aspect-square cursor-pointer place-items-center rounded-lg border border-dashed text-sm text-muted-foreground hover:bg-accent">
+                  <button type="button" onClick={press.pick} disabled={uploading} className="grid aspect-square place-items-center rounded-lg border border-dashed text-sm text-muted-foreground hover:bg-accent disabled:opacity-50">
                     <span className="flex flex-col items-center gap-1">
-                      {uploading === "press" ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
-                      {uploading === "press" ? "Uploading" : "Add photos"}
+                      {press.uploading ? <Loader2 className="h-5 w-5 animate-spin" /> : <ImagePlus className="h-5 w-5" />}
+                      {press.uploading ? "Uploading" : "Add photos"}
                     </span>
-                    <input type="file" multiple accept="image/jpeg,image/png,image/webp" className="hidden" disabled={!!uploading} onChange={(e) => { if (e.target.files?.length) uploadPress(e.target.files); e.target.value = ""; }} />
-                  </label>
+                  </button>
                 )}
               </div>
+              {press.ui}
+              <p className="mt-3 text-xs text-muted-foreground">{IMAGE_HINT}</p>
             </CardContent>
           </Card>
         </div>
@@ -307,7 +293,7 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
       </div>
 
       <div className="sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center gap-3 border-t bg-background/90 px-4 py-3 backdrop-blur sm:mx-0 sm:rounded-xl sm:border">
-        <Button onClick={save} disabled={busy || !!uploading || (label && !v.name.trim())}>{busy && <Loader2 className="animate-spin" />} Save profile</Button>
+        <Button onClick={save} disabled={busy || uploading || (label && !v.name.trim())}>{busy && <Loader2 className="animate-spin" />} Save profile</Button>
         {msg ? <MsgText msg={msg} /> : dirty ? <span className="text-sm text-muted-foreground">Unsaved changes</span> : null}
       </div>
     </div>
