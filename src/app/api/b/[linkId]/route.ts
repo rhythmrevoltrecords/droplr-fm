@@ -5,7 +5,8 @@ import { isBot } from "@/lib/tracking";
 export const dynamic = "force-dynamic";
 
 /** Bio link click: count server-side, then redirect. Works with JS off. */
-export async function GET(req: NextRequest, { params }: { params: { linkId: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ linkId: string }> }) {
+  const params = await props.params;
   const link = await prisma.bioLink.findUnique({ where: { id: params.linkId }, include: { bioPage: { select: { isPublic: true } } } });
   if (!link || !link.isActive || !link.bioPage.isPublic || !/^https?:\/\//i.test(link.url)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });

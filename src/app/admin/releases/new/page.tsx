@@ -3,7 +3,8 @@ import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { dateToZonedLocal, zonedDay, zonedLocalToDate } from "@/lib/time";
 
-export default async function NewRelease({ searchParams }: { searchParams: { type?: string } }) {
+export default async function NewRelease(props: { searchParams: Promise<{ type?: string }> }) {
+  const searchParams = await props.searchParams;
   const smart = searchParams.type === "smartlink";
   const user = await requireUser("label");
   const artists = await prisma.user.findMany({ where: { organizationId: user.organizationId, role: "artist" }, orderBy: { artistName: "asc" } });

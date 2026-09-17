@@ -2,12 +2,17 @@ import { PublicRoute, releaseMetadata, type SearchParams } from "@/components/pu
 import { resolvePlatformPath } from "@/lib/releases";
 
 export const dynamic = "force-dynamic";
-type P = { params: { slug: string; second: string }; searchParams: SearchParams };
-const resolve = ({ params, searchParams }: P) => resolvePlatformPath([params.slug, params.second], typeof searchParams.v === "string" ? searchParams.v : null);
+type P = { params: Promise<{ slug: string; second: string }>; searchParams: Promise<SearchParams> };
+const resolve = async (p: P) => {
+  const params = await p.params; const searchParams = await p.searchParams;
+  return resolvePlatformPath([params.slug, params.second], typeof searchParams.v === "string" ? searchParams.v : null);
+};
 
 export async function generateMetadata(p: P) {
   return releaseMetadata(await resolve(p));
 }
 export default async function Page(p: P) {
-  return <PublicRoute resolution={await resolve(p)} searchParams={p.searchParams} orgHrefBase={(s) => `/${s}`} />;
+  return (
+    <PublicRoute resolution={await resolve(p)} searchParams={(await p.searchParams)} orgHrefBase={(s) => `/${s}`} />
+  );
 }

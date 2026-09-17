@@ -12,7 +12,8 @@ async function guard(id: string) {
   return page ? { user, page } : null;
 }
 
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard(params.id);
   if (!g) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const parsed = bioSchema.partial().safeParse(await req.json());
@@ -40,7 +41,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   return NextResponse.json({ ok: true });
 }
 
-export async function DELETE(_: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(_: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await guard(params.id);
   if (!g) return NextResponse.json({ error: "Not found" }, { status: 404 });
   await prisma.bioPage.delete({ where: { id: g.page.id } });

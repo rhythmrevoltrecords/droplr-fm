@@ -5,7 +5,8 @@ import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 
 /** CSV export. Label users: any release in org. Artists: presaves for their own releases only. */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await apiUser();
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const release = await prisma.release.findFirst({

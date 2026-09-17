@@ -32,8 +32,6 @@ const nextConfig = {
       ...["/admin", "/admin/:path*", "/dashboard", "/dashboard/:path*", "/platform", "/platform/:path*", "/login", "/signup", "/forgot-password", "/reset-password"].map((source) => ({ source, headers: noFrame })),
     ];
   },
-  experimental: {
-    serverComponentsExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "@netlify/blobs"],
-  },
+  serverExternalPackages: ["@prisma/client", "bcryptjs", "sharp", "@netlify/blobs"],
 };
 export default nextConfig;

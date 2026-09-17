@@ -3,7 +3,8 @@ import { labelRelease } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
 import { slugify } from "@/lib/utils";
 
-export async function POST(req: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await labelRelease(params.id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const body = (await req.json()) as { slug?: string; source?: string; utm_campaign?: string };
@@ -17,7 +18,8 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json(v);
 }
 
-export async function DELETE(req: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await labelRelease(params.id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const variantId = req.nextUrl.searchParams.get("variantId") ?? "";

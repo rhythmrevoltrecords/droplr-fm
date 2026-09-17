@@ -122,9 +122,17 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   return finish(link.url);
 }
 
-export async function GET(req: NextRequest, { params }: { params: { releaseId: string; platform: string } }) {
+export async function GET(
+  req: NextRequest,
+  props: { params: Promise<{ releaseId: string; platform: string }> }
+) {
+  const params = await props.params;
   return handle(req, params, "GET");
 }
-export async function POST(req: NextRequest, { params }: { params: { releaseId: string; platform: string } }) {
+export async function POST(
+  req: NextRequest,
+  props: { params: Promise<{ releaseId: string; platform: string }> }
+) {
+  const params = await props.params;
   return handle(req, params, "POST");
 }

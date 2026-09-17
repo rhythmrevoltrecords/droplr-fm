@@ -7,7 +7,8 @@ import { isPlanKey } from "@/lib/plans";
 export const dynamic = "force-dynamic";
 
 /** PATCH { compPlan: "pro" | "label" | "enterprise" | null, compNote?: string } — platform owner only. */
-export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const admin = await platformAdmin();
   if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

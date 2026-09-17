@@ -4,7 +4,7 @@ import { MarketingShell } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { ctaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
-import { artistsLine, clicksLine, planPrice, releasesLine } from "@/lib/plan-copy";
+import { artistsLine, clicksLine, planPrice, priceSuffix, releasesLine } from "@/lib/plan-copy";
 import { PLAN_LIMITS, type PlanKey } from "@/lib/plans";
 
 export const metadata = { title: "Pricing" };
@@ -68,7 +68,7 @@ export default function PricingPage() {
               <div key={t.key} className={`relative flex flex-col rounded-2xl border p-6 ${t.highlight ? "border-violet-500 bg-violet-500/[0.08] shadow-[0_0_80px_-20px_rgba(124,58,237,0.6)]" : "border-white/10 bg-white/[0.03]"}`}>
                 {t.highlight && <span className="absolute -top-3 left-6 rounded-full bg-violet-500 px-3 py-0.5 text-xs font-semibold text-white">Most Popular</span>}
                 <h2 className="text-lg font-semibold">{p.name}</h2>
-                <p className="mt-3"><span className="text-4xl font-bold">{planPrice(t.key)}</span><span className="text-muted-foreground">/mo</span></p>
+                <p className="mt-3"><span className="text-4xl font-bold">{planPrice(t.key)}</span><span className="text-muted-foreground">{priceSuffix(t.key)}</span></p>
                 <ul className="mt-6 flex-1 space-y-2.5 text-sm">
                   {t.features.map((f) => (
                     <li key={f} className="flex gap-2"><Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-400" /><span>{f}</span></li>

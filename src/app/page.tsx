@@ -5,7 +5,7 @@ import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
-import { artistsLine, clicksLine, planPrice, releasesLine } from "@/lib/plan-copy";
+import { artistsLine, clicksLine, planPrice, priceSuffix, releasesLine } from "@/lib/plan-copy";
 import { platformMeta } from "@/lib/platforms";
 import { PLAN_LIMITS, PLAN_ORDER } from "@/lib/plans";
 import { cn } from "@/lib/utils";
@@ -350,10 +350,10 @@ export default function Landing() {
                   <span className="text-sm font-medium text-muted-foreground">{p.name}</span>
                   <span className="mt-1 text-2xl font-bold">
                     {planPrice(k)}
-                    <span className="text-sm font-normal text-muted-foreground">/mo</span>
+                    <span className="text-sm font-normal text-muted-foreground">{priceSuffix(k)}</span>
                   </span>
                   <span className="mt-2 text-xs leading-relaxed text-muted-foreground">
-                    {k === "enterprise" ? clicksLine(k) : `${releasesLine(k)} · ${artistsLine(k)}`}
+                    {k === "enterprise" ? "Contact us for a quote" : `${releasesLine(k)} · ${artistsLine(k)}`}
                   </span>
                 </Link>
               </li>

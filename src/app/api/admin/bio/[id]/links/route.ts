@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { blankToNull, linksPayloadSchema } from "@/lib/link-input";
 
 /** Same editor payload as release links; stored on BioLink (title→label, visible→isActive). Ids and click counts are kept. */
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const user = await apiUser("label");
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   const page = await prisma.bioPage.findFirst({ where: { id: params.id, organizationId: user.organizationId }, include: { links: { select: { id: true } } } });

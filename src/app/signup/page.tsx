@@ -37,7 +37,8 @@ function InviteOnly({ searchParams }: { searchParams: SP }) {
   );
 }
 
-export default function SignupPage({ searchParams }: { searchParams: SP }) {
+export default async function SignupPage(props: { searchParams: Promise<SP> }) {
+  const searchParams = await props.searchParams;
   if (!signupsOpen() && !searchParams.invite) return <InviteOnly searchParams={searchParams} />;
   const plan = searchParams.plan === "pro" || searchParams.plan === "label" ? searchParams.plan : null;
   return (

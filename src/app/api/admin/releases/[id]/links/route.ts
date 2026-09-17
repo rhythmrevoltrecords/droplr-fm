@@ -8,7 +8,8 @@ import { blankToNull, linksPayloadSchema } from "@/lib/link-input";
  * Rows keep their ids when edited, so custom-link URLs already shared (/api/r/…?l={id}) keep working.
  * Hidden rows (visible=false) stay in the editor and are skipped on the public page.
  */
-export async function PUT(req: NextRequest, { params }: { params: { id: string } }) {
+export async function PUT(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await labelRelease(params.id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const parsed = linksPayloadSchema.safeParse(await req.json());

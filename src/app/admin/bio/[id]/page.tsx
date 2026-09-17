@@ -12,7 +12,11 @@ import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 import { fmtNum } from "@/lib/utils";
 
-export default async function EditBio({ params, searchParams }: { params: { id: string }; searchParams: { created?: string } }) {
+export default async function EditBio(
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const user = await requireUser("label");
   const page = await prisma.bioPage.findFirst({ where: { id: params.id, organizationId: user.organizationId }, include: { links: { orderBy: { order: "asc" } } } });
   if (!page) notFound();

@@ -6,7 +6,8 @@ import { CONTACT } from "@/lib/legal";
 
 export const metadata = { title: "Reset password", robots: { index: false } };
 
-export default function ForgotPasswordPage({ searchParams }: { searchParams: { sent?: string; error?: string } }) {
+export default async function ForgotPasswordPage(props: { searchParams: Promise<{ sent?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   if (searchParams.sent) {
     return (
       <AuthShell title="Check your email" subtitle="If there's a droplr.fm account for that address, we've sent a link to reset the password. It expires in 60 minutes.">

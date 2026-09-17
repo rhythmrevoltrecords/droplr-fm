@@ -228,7 +228,7 @@ model PreSave {
 }
 
 // Bio link page (/b/{slug}). Uses the same artwork system as releases:
-// avatar/cover → node-vibrant accentColor → blurred background + glow.
+// avatar/cover → sharp accentColor → accent gradient background + glow.
 model BioPage {
   id             String       @id @default(cuid())
   organizationId String

@@ -4,7 +4,8 @@ import { prisma } from "@/lib/db";
 import { reResolveRelease } from "@/lib/presave-processor";
 
 /** "Find Apple Music & Deezer" button: UPC/ISRC lookup now, same logic as the release-day job. */
-export async function POST(_: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(_: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const g = await labelRelease(params.id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
   const log: string[] = [];

@@ -13,7 +13,8 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Platform", robots: { index: false, follow: false } };
 
 /** droplr.fm owner console: every label, its plan, and complimentary plans. Hidden (404) unless your email is in PLATFORM_ADMIN_EMAILS. */
-export default async function PlatformPage({ searchParams }: { searchParams: { q?: string } }) {
+export default async function PlatformPage(props: { searchParams: Promise<{ q?: string }> }) {
+  const searchParams = await props.searchParams;
   const admin = await requirePlatformAdmin();
   const q = (searchParams.q ?? "").trim();
   const orgs = await prisma.organization.findMany({

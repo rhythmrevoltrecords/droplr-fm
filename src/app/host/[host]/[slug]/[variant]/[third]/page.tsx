@@ -3,12 +3,17 @@ import { resolveTenantPath } from "@/lib/releases";
 
 export const dynamic = "force-dynamic";
 // Only exists so presave.label.com/{orgSlug}/{release}/{variant} can redirect to the short /{release}/{variant}.
-type P = { params: { host: string; slug: string; variant: string; third: string }; searchParams: SearchParams };
-const resolve = ({ params }: P) => resolveTenantPath(decodeURIComponent(params.host), [params.slug, params.variant, params.third]);
+type P = { params: Promise<{ host: string; slug: string; variant: string; third: string }>; searchParams: Promise<SearchParams> };
+const resolve = async (p: P) => {
+  const params = await p.params;
+  return resolveTenantPath(decodeURIComponent(params.host), [params.slug, params.variant, params.third]);
+};
 
 export async function generateMetadata(p: P) {
   return releaseMetadata(await resolve(p));
 }
 export default async function Page(p: P) {
-  return <PublicRoute resolution={await resolve(p)} searchParams={p.searchParams} orgHrefBase={() => ""} />;
+  return (
+    <PublicRoute resolution={await resolve(p)} searchParams={(await p.searchParams)} orgHrefBase={() => ""} />
+  );
 }

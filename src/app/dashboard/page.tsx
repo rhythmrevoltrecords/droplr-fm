@@ -13,7 +13,8 @@ import { publicReleaseUrl } from "@/lib/releases";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
-export default async function ArtistDashboard({ searchParams }: { searchParams: { days?: string; password?: string } }) {
+export default async function ArtistDashboard(props: { searchParams: Promise<{ days?: string; password?: string }> }) {
+  const searchParams = await props.searchParams;
   const user = await requireUser("artist");
   const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
   // Scoped strictly to releases assigned to this artist

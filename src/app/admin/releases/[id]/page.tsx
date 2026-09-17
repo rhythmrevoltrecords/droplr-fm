@@ -26,7 +26,11 @@ const TABS = [
   { key: "settings", label: "Settings" },
 ];
 
-export default async function ReleaseDetail({ params, searchParams }: { params: { id: string }; searchParams: { tab?: string; days?: string; created?: string } }) {
+export default async function ReleaseDetail(
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ tab?: string; days?: string; created?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const user = await requireUser("label");
   const release = await prisma.release.findFirst({
     where: { id: params.id, organizationId: user.organizationId },

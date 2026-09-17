@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { notFound, permanentRedirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { deezerGloballyEnabled } from "@/lib/env";
@@ -32,22 +33,23 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
   if (resolution.kind === "org") return <OrgView org={resolution.org} hrefBase={orgHrefBase(resolution.org.slug)} />;
 
   const { release, variant } = resolution;
-  const h = headers();
+  const h = await headers();
   const meta = requestMeta(h);
   const query = Object.fromEntries(Object.entries(searchParams).map(([k, v]) => [k, one(v)]));
 
   if (!meta.bot && h.get("purpose") !== "prefetch" && h.get("next-router-prefetch") !== "1" && query.preview !== "1") {
     const host = h.get("x-host") ?? "";
-    // Not awaited: the view log shouldn't hold up the page. The write starts immediately; errors are logged, never thrown.
-    void prisma.pageView
+    // after(): the page streams first, then the view is logged; Netlify keeps the function alive until it finishes.
+    after(() =>
+      prisma.pageView
       .create({
         data: {
           releaseId: release.id,
           variantId: variant?.id,
           source: resolveSource({ variantSource: variant?.source, utmSource: query.utm_source, referrer: meta.referrer, selfHosts: [host] }),
-          utm_source: query.utm_source,
-          utm_medium: query.utm_medium,
-          utm_campaign: query.utm_campaign ?? variant?.utm_campaign,
+          utm_source: query.utm_source?.slice(0, 200),
+          utm_medium: query.utm_medium?.slice(0, 200),
+          utm_campaign: (query.utm_campaign ?? variant?.utm_campaign)?.slice(0, 200),
           referrer: meta.referrer?.slice(0, 500),
           country: meta.country,
           deviceType: meta.deviceType,
@@ -55,7 +57,8 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
           anonId: h.get("x-anon-id"),
         },
       })
-      .catch((e) => console.error("pageview log failed", e));
+      .catch((e) => console.error("pageview log failed", e)),
+    );
   }
 
   const org = release.organization;

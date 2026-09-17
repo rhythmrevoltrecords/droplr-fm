@@ -27,7 +27,7 @@ export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, h
 
 export async function createSessionCookie(user: { id: string; organizationId: string; role: string }) {
   const token = await signToken({ sub: user.id, org: user.organizationId, role: user.role }, "30d", "session");
-  cookies().set(SESSION_COOKIE, token, {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
@@ -36,12 +36,12 @@ export async function createSessionCookie(user: { id: string; organizationId: st
   });
 }
 
-export function clearSession() {
-  cookies().delete(SESSION_COOKIE);
+export async function clearSession() {
+  (await cookies()).delete(SESSION_COOKIE);
 }
 
 export async function getSession() {
-  return verifyToken<SessionPayload>(cookies().get(SESSION_COOKIE)?.value, "session");
+  return verifyToken<SessionPayload>((await cookies()).get(SESSION_COOKIE)?.value, "session");
 }
 
 /**

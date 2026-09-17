@@ -9,7 +9,8 @@ import { prisma } from "@/lib/db";
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Choose a new password", robots: { index: false } };
 
-export default async function ResetPasswordPage({ searchParams }: { searchParams: { token?: string; error?: string } }) {
+export default async function ResetPasswordPage(props: { searchParams: Promise<{ token?: string; error?: string }> }) {
+  const searchParams = await props.searchParams;
   const token = searchParams.token ?? "";
   const valid =
     /^[A-Za-z0-9_-]{20,100}$/.test(token) &&

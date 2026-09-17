@@ -9,7 +9,7 @@ import { PlatformIcon } from "./platform-icon";
  * The artwork-driven page system shared by every public droplr.fm page
  * (pre-save, smart link, bio link, and the coming-soon previews).
  *
- * accentColor is extracted from the artwork with node-vibrant at upload/resolve time
+ * accentColor is extracted from the artwork with sharp at upload/resolve time
  * (src/lib/color.ts) and stored on the record — pages never render a flat colour.
  */
 export const DEFAULT_ACCENT = "#8B5CF6";

@@ -12,7 +12,10 @@ import { planOf } from "@/lib/plans";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
-export default async function AdminHome({ searchParams }: { searchParams: { days?: string; welcome?: string; password?: string } }) {
+export default async function AdminHome(
+  props: { searchParams: Promise<{ days?: string; welcome?: string; password?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const user = await requireUser("label");
   const days = ([14, 30, 90].includes(Number(searchParams.days)) ? Number(searchParams.days) : 30) as StatsRange;
   const releases = await prisma.release.findMany({

@@ -6,7 +6,8 @@ import { isAllowedReturnUrl, requestOrigin } from "@/lib/oauth";
 export const dynamic = "force-dynamic";
 
 /** Short link by release id: /r/{id} → 301 /{orgSlug}/{releaseSlug} (query string kept). */
-export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const release = await prisma.release.findUnique({ where: { id: params.id }, select: { slug: true, isPublic: true, organization: { select: { slug: true } } } });
   if (!release || !release.isPublic) return NextResponse.json({ error: "Not found" }, { status: 404 });
   // On a label's custom domain the short form is canonical: presave.label.com/{releaseSlug}

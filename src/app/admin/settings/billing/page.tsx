@@ -62,7 +62,10 @@ function Meter({ label, used, limit }: { label: string; used: number; limit: num
   );
 }
 
-export default async function BillingPage({ searchParams }: { searchParams: { upgraded?: string; canceled?: string; session_id?: string; plan?: string } }) {
+export default async function BillingPage(
+  props: { searchParams: Promise<{ upgraded?: string; canceled?: string; session_id?: string; plan?: string }> }
+) {
+  const searchParams = await props.searchParams;
   const user = await requireUser("label");
   // Stripe returns here with ?session_id=cs_…: apply the subscription, then redirect so the ID never sits in the address bar or history.
   if (searchParams.session_id) {
@@ -88,7 +91,7 @@ export default async function BillingPage({ searchParams }: { searchParams: { up
     const p = prices[t][i];
     if (!priceIdFor(t, i)) return null;
     // Price exists but Stripe didn't answer: still purchasable, amount shows on the checkout page.
-    return (p && formatMoney(p.amount, p.currency)) ?? (i === "monthly" ? `$${PLAN_LIMITS[t].price} AUD` : "Price shown at checkout");
+    return (p && formatMoney(p.amount, p.currency)) ?? (i === "monthly" && PLAN_LIMITS[t].price !== null ? `$${PLAN_LIMITS[t].price} AUD` : "Price shown at checkout");
   };
   const plans: PlanCard[] = (["free", "pro", "label", "enterprise"] as const).map((t) => ({
     tier: t,

@@ -2,7 +2,9 @@ import { PLAN_LIMITS, PLAN_ORDER, type PlanKey } from "./plans";
 
 /** Marketing strings derived from PLAN_LIMITS, so the homepage and /pricing never drift from what billing enforces. */
 
-export const planPrice = (k: PlanKey) => `$${PLAN_LIMITS[k].price}`;
+export const planPrice = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "Custom" : `$${PLAN_LIMITS[k].price}`);
+/** "/mo" suffix only for plans with a listed price. */
+export const priceSuffix = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "" : "/mo");
 
 const compact = (n: number) => (n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : n.toLocaleString("en-AU"));
 

@@ -7,7 +7,8 @@ const SAFE_HEADERS = {
   "Content-Security-Policy": "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
 };
 
-export async function GET(_: Request, { params }: { params: { key: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ key: string }> }) {
+  const params = await props.params;
   if (!/^[\w.-]+$/.test(params.key)) return new NextResponse("Bad key", { status: 400, headers: SAFE_HEADERS });
   try {
     const blob = await readCover(params.key);

@@ -2,7 +2,8 @@ export type PlanKey = "free" | "pro" | "label" | "enterprise";
 
 export const PLAN_LIMITS: Record<PlanKey, {
   name: string;
-  price: number;
+  /** Monthly AUD incl. tax. null = not self-serve (Enterprise: contact us). */
+  price: number | null;
   releases: number;
   clicksPerMonth: number;
   artists: number;
@@ -17,7 +18,7 @@ export const PLAN_LIMITS: Record<PlanKey, {
   free: { name: "Free", price: 0, releases: 3, clicksPerMonth: 1_000, artists: 1, customDomain: false, pixels: false, byoSpotify: false, csvExport: false, qr: false, removeBranding: false, whiteLabel: false },
   pro: { name: "Pro", price: 29, releases: Infinity, clicksPerMonth: 50_000, artists: 5, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false },
   label: { name: "Label", price: 79, releases: Infinity, clicksPerMonth: 250_000, artists: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
-  enterprise: { name: "Enterprise", price: 199, releases: Infinity, clicksPerMonth: Infinity, artists: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
+  enterprise: { name: "Enterprise", price: null, releases: Infinity, clicksPerMonth: Infinity, artists: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true },
 };
 
 export function planOf(plan: string | null | undefined) {

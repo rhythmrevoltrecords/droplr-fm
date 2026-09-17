@@ -7,7 +7,11 @@ import { sha256 } from "@/lib/crypto";
 
 export const dynamic = "force-dynamic";
 
-export default async function InvitePage({ params, searchParams }: { params: { token: string }; searchParams: { error?: string } }) {
+export default async function InvitePage(
+  props: { params: Promise<{ token: string }>; searchParams: Promise<{ error?: string }> }
+) {
+  const searchParams = await props.searchParams;
+  const params = await props.params;
   const invite = await prisma.invite.findUnique({ where: { tokenHash: sha256(params.token) }, include: { organization: true } });
   const valid = invite && !invite.acceptedAt && invite.expiresAt > new Date();
   if (!valid) return <AuthShell title="Invite expired" subtitle="Ask your label to send a new invite link." ><span /></AuthShell>;

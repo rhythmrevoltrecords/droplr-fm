@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
@@ -38,10 +39,10 @@ export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata
 
 export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadBio>> }) {
   if (!page) notFound();
-  const h = headers();
+  const h = await headers();
   if (!isBot(h.get("user-agent")) && h.get("purpose") !== "prefetch") {
-    // Not awaited: counting the view shouldn't hold up the page.
-    void prisma.bioPage.update({ where: { id: page.id }, data: { views: { increment: 1 } } }).catch(() => {});
+    // Counted after the response so it doesn't hold up the page.
+    after(() => prisma.bioPage.update({ where: { id: page.id }, data: { views: { increment: 1 } } }).catch(() => {}));
   }
   const plan = planOf(page.organization.plan);
   return (

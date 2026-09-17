@@ -6,7 +6,8 @@ import { ctaCopy } from "@/lib/launch";
 
 export const metadata = { title: "Log in" };
 
-export default function LoginPage({ searchParams }: { searchParams: { error?: string; next?: string } }) {
+export default async function LoginPage(props: { searchParams: Promise<{ error?: string; next?: string }> }) {
+  const searchParams = await props.searchParams;
   return (
     <AuthShell title="Log in" subtitle="Label owners land in Admin. Artists land in their Dashboard.">
       <form method="post" action="/api/auth/login" className="space-y-4">
