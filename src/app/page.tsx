@@ -32,18 +32,20 @@ const FOR_LABELS = [
   { title: "See what works across releases", body: "Busiest hours, top countries, best sources and the stores fans actually use." },
 ];
 
-type Status = "Live now" | "In build" | "Next" | "Later";
+type Status = "Live now" | "Next" | "Later";
 const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = [
-  { status: "In build", items: [
-    { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans." },
-    { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders." },
+  { status: "Live now", items: [
+    { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
+    { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
+    { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
   { status: "Next", items: [
-    { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply." },
-    { title: "Royalties and splits", body: "Import distributor statements, set splits and send artists clear statements." },
     { title: "Fan updates", body: "Email fans who opted in to news, straight from droplr." },
+    { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders." },
+    { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply." },
   ] },
   { status: "Later", items: [
+    { title: "Royalties and splits", body: "Import distributor statements, set splits and send artists clear statements." },
     { title: "Unsigned pool", body: "Artists opt in unreleased tracks; labels discover them by genre, BPM and traction." },
     { title: "Contracts", body: "Agreements kept next to the roster and the releases they cover." },
   ] },
@@ -251,6 +253,10 @@ export default function Landing() {
       q: "Can a label's artists log in?",
       a: <p>Yes. Labels invite artists from the roster; artists get their own login to copy their links and see stats for their releases. Pro includes up to {PLAN_LIMITS.pro.artists} artists, Label has no limit.</p>,
     },
+    {
+      q: "Is there a phone app?",
+      a: <p>Yes, without the App Store. Open your dashboard on your phone and add it to your Home Screen (Safari or Chrome on iPhone, Chrome on Android). It opens full screen and can notify you about pre-save milestones, release day and replies from the droplr team.</p>,
+    },
     ...(cta.open
       ? []
       : [{ q: "Can anyone sign up?", a: <p>Not yet. We&apos;re onboarding a small group of artists and labels first. <Link href={cta.primary.href} className="text-foreground underline underline-offset-4">Request early access</Link>, or email {CONTACT.hello}. Have an invite? <Link href={cta.hint!.link.href} className="text-foreground underline underline-offset-4">Sign up</Link>.</p> }]),
@@ -321,14 +327,14 @@ export default function Landing() {
       <section id="roadmap" className="container scroll-mt-16 py-24">
         <div className="mk-reveal max-w-2xl">
           <Eyebrow>Where it&apos;s going</Eyebrow>
-          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">From your first pre-save to getting signed.</h2>
-          <p className="mt-4 text-lg text-white/60">The order we&apos;re building in. Dates when things ship, not before.</p>
+          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">From your first <span className="whitespace-nowrap">pre-save</span> to getting signed.</h2>
+          <p className="mt-4 text-lg text-white/60">What&apos;s shipped, and the order we&apos;re building the rest in. Dates when things ship, not before.</p>
         </div>
         <div className="mt-12 grid gap-4 lg:grid-cols-3">
           {ROADMAP.map((col) => (
-            <div key={col.status} className={cn("mk-card mk-reveal p-6", col.status === "In build" && "border-violet-400/40 bg-[linear-gradient(180deg,rgba(139,92,246,.12),rgba(139,92,246,.02))]")}>
-              <span className={cn("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium", col.status === "In build" ? "border-violet-300/40 text-violet-100" : "border-white/15 text-white/70")}>
-                <span className={cn("h-1.5 w-1.5 rounded-full", col.status === "In build" ? "mk-sweep bg-violet-300" : col.status === "Next" ? "bg-sky-400" : "bg-white/40")} aria-hidden />
+            <div key={col.status} className={cn("mk-card mk-reveal p-6", col.status === "Live now" && "border-emerald-400/30 bg-[linear-gradient(180deg,rgba(52,211,153,.10),rgba(52,211,153,.015))]", col.status === "Next" && "border-violet-400/40 bg-[linear-gradient(180deg,rgba(139,92,246,.12),rgba(139,92,246,.02))]")}>
+              <span className={cn("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium", col.status === "Live now" ? "border-emerald-300/40 text-emerald-100" : col.status === "Next" ? "border-violet-300/40 text-violet-100" : "border-white/15 text-white/70")}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", col.status === "Live now" ? "bg-emerald-400" : col.status === "Next" ? "mk-sweep bg-violet-300" : "bg-white/40")} aria-hidden />
                 {col.status}
               </span>
               <ul className="mt-5 space-y-5">
