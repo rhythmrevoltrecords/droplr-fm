@@ -25,7 +25,7 @@ const TIERS: { key: PlanKey; highlight: boolean; features: string[] }[] = [
       artistsLine("pro"),
       "Custom domain (presave.yourlabel.com), connected for you",
       "Custom pixels: Meta, TikTok, GA4",
-      "BYO Spotify app for true auto-saves*",
+      "Spotify library pre-save for your team and VIPs (your own Spotify app, 5 fans)*",
       "Email capture + CSV export",
       "QR codes",
       "Remove droplr.fm branding",
@@ -85,7 +85,7 @@ export default function PricingPage() {
           <p>All plans include email pre-saves and a release-day email to every fan who opted in. No per-release fees.</p>
           <p>Already have an account? Upgrade from <Link href="/admin/settings/billing" className="underline">Settings → Plan &amp; billing</Link>. Paid plans renew automatically; cancel any time. <Link href="/legal/billing" className="underline">Billing &amp; refunds</Link></p>
           <p>
-            * True auto-saves run through a Spotify developer app you create and own. Spotify limits Development Mode apps to 5 allowlisted users. Going past that needs Spotify&apos;s Extended Quota approval, which is up to Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
+            * Spotify only allows library saves through a developer app you create and own, and limits it to 5 Spotify accounts you allowlist by hand. Spotify reserves more than that (Extended Quota) for businesses with 250,000+ monthly users. Every other fan pre-saves by email, picks their store and can follow the artist on Spotify. <Link href="/docs/spotify-byo" className="underline">How it works</Link>
           </p>
         </div>
       </section>

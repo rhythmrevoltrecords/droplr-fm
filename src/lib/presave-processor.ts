@@ -52,6 +52,15 @@ export async function reResolveRelease(releaseId: string, log: (msg: string) => 
     }
   }
 
+  // Follow button needs the artist: fill it from the Spotify album/track when the label didn't.
+  if (!release.spotifyArtistId && (release.spotifyAlbumId || release.spotifyTrackId)) {
+    const meta = await resolveFromSpotifyUri(release.spotifyAlbumId ? { type: "album", id: release.spotifyAlbumId } : { type: "track", id: release.spotifyTrackId! }, creds).catch(() => null);
+    if (meta?.artistId && /^[A-Za-z0-9]{22}$/.test(meta.artistId)) {
+      await prisma.release.update({ where: { id: releaseId }, data: { spotifyArtistId: meta.artistId } });
+      log("Filled the Spotify artist for the Follow button");
+    }
+  }
+
   const auto: AutoKey[] = ["appleMusic", "deezer", ...(creds || release.spotifyAlbumId || release.spotifyTrackId ? (["spotify"] as const) : []), ...(tidalConfigured() ? (["tidal"] as const) : [])];
   let missing = auto.filter((k) => !release.links.some((l) => l.platform === k));
   let position = release.links.reduce((m, l) => Math.max(m, l.position), -1) + 1;
@@ -321,7 +330,7 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
         unique.map(async (r) => {
           const tpl = await releaseDayEmail({
             preSaveId: r.id, releaseId, title: release.title, artistName: release.artistName, coverUrl: release.coverUrl,
-            accentColor: release.accentColor, publicUrl, linkBase: origin, platforms: orderFor(r.listenOn), orgName: org.emailFromName || org.name,
+            accentColor: release.accentColor, publicUrl, linkBase: origin, platforms: orderFor(r.listenOn), orgName: org.emailFromName || org.name, spotifyArtistId: release.spotifyArtistId,
           });
           return { to: r.email!, fromName: org.emailFromName || org.name, replyTo: org.emailReplyTo, ...tpl };
         }),

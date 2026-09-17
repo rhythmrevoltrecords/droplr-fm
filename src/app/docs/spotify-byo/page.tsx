@@ -5,10 +5,11 @@ export const metadata = { title: "Bring your own Spotify app" };
 export default function SpotifyByoDocs() {
   return (
     <DocShell title="Bring your own Spotify app">
+      <p><strong>Short version:</strong> a Spotify library pre-save works for 5 fans per Spotify app. It&apos;s a VIP extra, not the main pre-save, so the button is hidden from the public unless you switch it on.</p>
       <p>droplr.fm has two kinds of pre-save:</p>
       <ul>
-        <li><strong>Email pre-save (every plan).</strong> The fan leaves an email. On release day they get a &quot;it&apos;s out, save it&quot; email with one-tap platform buttons. We track who opened the link through and which platform they chose. This works for every fan and doesn&apos;t touch Spotify&apos;s API.</li>
-        <li><strong>True auto-save (Pro+, your own Spotify app).</strong> The fan logs in with Spotify and the release is added to their library automatically on release day.</li>
+        <li><strong>Email pre-save (every plan, every fan).</strong> The fan leaves an email and picks where they listen. At your send hour (9am by default) in their own timezone on release day, they get an email that leads with their store. The page also has a Follow on Spotify button, which works for everyone and puts future releases in front of them in Spotify. None of this is limited by Spotify&apos;s API.</li>
+        <li><strong>Spotify library pre-save (Pro+, your own Spotify app, 5 fans).</strong> The fan logs in with Spotify and the release is added to their library, and the artist followed, when it unlocks in their timezone.</li>
       </ul>
 
       <h2>The limit you need to know</h2>

@@ -68,6 +68,8 @@ export function storeSearchUrl(key: string, query: string): string | null {
 }
 
 export function platformMeta(key: string): PlatformMeta {
+  // Follow-on-Spotify clicks are logged under their own key so analytics can show follows separately.
+  if (key === "spotifyFollow") return { ...PLATFORMS.spotify, name: "Spotify follow", action: "Follow" };
   return PLATFORMS[key as PlatformKey] ?? { ...PLATFORMS.custom, name: key };
 }
 

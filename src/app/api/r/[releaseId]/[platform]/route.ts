@@ -123,7 +123,12 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
     }
   }
 
-  // 3) Smart link redirect
+  // 3) Follow on Spotify: a plain link to the artist page (works for every fan; logged above as a click).
+  if (params.platform === "spotifyFollow") {
+    return finish(release.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(release.spotifyArtistId) ? `https://open.spotify.com/artist/${release.spotifyArtistId}` : pageUrl);
+  }
+
+  // 4) Smart link redirect
   if (!link || !/^https?:\/\//i.test(link.url)) return finish(pageUrl);
   return finish(link.url);
 }

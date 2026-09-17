@@ -50,6 +50,7 @@ export async function releaseDayEmail(args: {
   linkBase: string; // absolute origin that serves /api/r
   platforms: string[];
   orgName: string;
+  spotifyArtistId?: string | null;
 }) {
   const pst = await signToken({ ps: args.preSaveId }, "60d", "pst");
   const unsub = await signToken({ ps: args.preSaveId, act: "unsub" }, "365d", "unsub");
@@ -77,7 +78,8 @@ ${cover}
 <p style="margin:0 0 16px;color:#a1a1aa;font:400 14px system-ui,sans-serif">You pre-saved this one. It just dropped. Save it now:</p>
 </td></tr>
 <tr><td style="padding:0 24px"><table role="presentation" width="100%">${buttons}</table></td></tr>
-<tr><td style="padding:12px 24px 28px;text-align:center"><a href="${esc(allLink)}" style="color:${accent};font:600 14px system-ui,sans-serif">All platforms</a></td></tr>
+<tr><td style="padding:12px 24px ${args.spotifyArtistId ? "8px" : "28px"};text-align:center"><a href="${esc(allLink)}" style="color:${accent};font:600 14px system-ui,sans-serif">All platforms</a></td></tr>
+${args.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(args.spotifyArtistId) ? `<tr><td style="padding:0 24px 28px;text-align:center"><a href="${esc(`${args.linkBase}/api/r/${encodeURIComponent(args.releaseId)}/spotifyFollow?${utm}&pst=${pst}`)}" style="color:#1ED760;font:600 14px system-ui,sans-serif">Follow ${esc(args.artistName)} on Spotify</a></td></tr>` : ""}
 <tr><td style="padding:16px 24px;border-top:1px solid #1f1f23;color:#71717a;font:400 12px system-ui,sans-serif;text-align:center">
 Sent by ${esc(args.orgName)} because you asked to be emailed when this release came out.<br/>
 <a href="${esc(unsubUrl)}" style="color:#a1a1aa">Unsubscribe</a></td></tr>

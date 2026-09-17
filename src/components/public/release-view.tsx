@@ -62,6 +62,18 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
   const notice = NOTICES[query.done ?? query.notice ?? ""];
   const r = (platform: string, extra: Record<string, string | undefined> = {}) =>
     demo ? "#" : buildHref(`/api/r/${release.id}/${platform}`, { ...passthrough, ...extra });
+  // A plain link to the artist on Spotify works for every fan (Spotify only allows in-app saves/follows for 5 allowlisted
+  // accounts per app). Following is what gets future releases in front of them inside Spotify.
+  const followButton = release.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(release.spotifyArtistId) ? (
+    <a href={r("spotifyFollow")} target="_blank" rel="noreferrer" className="flex items-center gap-3 rounded-2xl border border-[#1ED760]/40 bg-[#1ED760]/10 p-2.5 pr-4 text-sm transition hover:bg-[#1ED760]/15">
+      <PlatformIcon platform="spotify" />
+      <span className="flex-1">
+        <span className="block font-semibold">Follow {release.artistName} on Spotify</span>
+        <span className="block text-xs text-white/60">New releases from artists you follow show up for you in Spotify</span>
+      </span>
+      <span className="text-xs font-semibold text-[#1ED760]">Follow ↗</span>
+    </a>
+  ) : null;
 
   return (
     <ArtworkPageShell
@@ -94,6 +106,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
               </li>
             ))}
             {release.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links are landing shortly. Check back in a few minutes.</li>}
+            {followButton && <li className="pt-2">{followButton}</li>}
           </ul>
         ) : (
           <div className="mt-7 space-y-5">
@@ -170,14 +183,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
               {!release.links.some((l) => l.platform === "appleMusic") && <span className="text-xs text-white/50">Soon</span>}
             </a>
 
-            {release.spotifyArtistId && /^[A-Za-z0-9]{22}$/.test(release.spotifyArtistId) && (
-              // A plain link to the artist page works for every fan (the in-app follow during Spotify pre-save is limited to allowlisted accounts).
-              <a href={`https://open.spotify.com/artist/${release.spotifyArtistId}`} target="_blank" rel="noreferrer" data-track="spotifyFollow" data-kind="follow" className="glass flex items-center gap-3 rounded-2xl p-2.5 pr-3 text-sm">
-                <PlatformIcon platform="spotify" />
-                <span className="flex-1">Follow {release.artistName} on Spotify</span>
-                <span className="text-xs text-white/50">↗</span>
-              </a>
-            )}
+            {followButton}
           </div>
         )}
 

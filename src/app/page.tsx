@@ -30,7 +30,7 @@ const AVAILABLE: { icon: typeof Disc3; title: string; body: string; pro?: string
   {
     icon: Mail,
     title: "Email pre-save + release-day email",
-    body: "Fans leave their email before the drop. On release day they get a one-tap link to listen, and you see who clicked through.",
+    body: "Fans leave their email and pick where they listen. At 9am their time on release day they get a one-tap link to that store, plus a Follow on Spotify button so Spotify tells them about the next one.",
   },
   {
     icon: AtSign,
@@ -175,10 +175,10 @@ export default function Landing() {
       a: (
         <>
           <p>
-            They can, but under Spotify&apos;s 2026 API rules that needs a Spotify developer app your label creates and owns. You connect it on Pro and above. Spotify limits an app in Development Mode to 5 users you allowlist by hand, and the app owner needs Spotify Premium. Going past 5 needs Spotify&apos;s Extended Quota approval, which is up to Spotify.
+            Not for most fans, and we&apos;d rather tell you now than have you find out on release day. Since February 2026, Spotify only lets a new app save music for 5 people you allowlist by hand. Lifting that needs Spotify&apos;s Extended Quota, which is only for registered businesses with 250,000+ monthly users. Any newer pre-save service without that approval has the same limit.
           </p>
           <p className="mt-3">
-            So for most labels, auto-save is for your team and VIPs, and email is the pre-save for everyone else. Any fan who isn&apos;t allowlisted is sent back to the email option. <Link href="/docs/spotify-byo" className="text-foreground underline underline-offset-4">How it works</Link>
+            So droplr.fm is built around what works for every fan: an email pre-save where they choose their store, a release-day email at 9am in their own timezone once the track has unlocked there, and a Follow on Spotify button so new releases show up for them in Spotify. You can still connect your own Spotify app on Pro for your team and VIPs. <Link href="/docs/spotify-byo" className="text-foreground underline underline-offset-4">How it works</Link>
           </p>
         </>
       ),
