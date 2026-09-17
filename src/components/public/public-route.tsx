@@ -16,8 +16,12 @@ export type SearchParams = Record<string, string | string[] | undefined>;
 
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v);
 
-export function spotifyEnabledFor(org: { plan: string; spotifyAppStatus: string; spotifyClientIdEncrypted: string | null }) {
-  const byo = !!org.spotifyClientIdEncrypted && org.spotifyAppStatus === "active" && planOf(org.plan).byoSpotify;
+/**
+ * Show the Spotify pre-save button? Needs a working app, and either the label has switched the button on for everyone
+ * or the visitor came through a ?spotify=1 VIP link (Development Mode apps only work for 5 allowlisted Spotify users).
+ */
+export function spotifyEnabledFor(org: { plan: string; spotifyAppStatus: string; spotifyClientIdEncrypted: string | null; spotifyPublicButton: boolean }, vip = false) {
+  const byo = !!org.spotifyClientIdEncrypted && org.spotifyAppStatus === "active" && planOf(org.plan).byoSpotify && (org.spotifyPublicButton || vip);
   const platform = process.env.SPOTIFY_PLATFORM_FALLBACK === "true" && !!process.env.SPOTIFY_CLIENT_ID;
   return byo || platform;
 }
@@ -80,7 +84,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       live={live}
       variantId={variant?.id}
       query={query}
-      spotifyEnabled={spotifyEnabledFor(org)}
+      spotifyEnabled={spotifyEnabledFor(org, query.spotify === "1")}
       deezerEnabled={deezerGloballyEnabled() && org.deezerEnabled}
       showBranding={!planOf(org.plan).removeBranding}
       theme={publicTheme(org)}

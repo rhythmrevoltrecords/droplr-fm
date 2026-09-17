@@ -251,28 +251,55 @@ export async function processRelease(releaseId: string, deadlineMs = Date.now() 
           return { to: r.email!, fromName: org.emailFromName || org.name, replyTo: org.emailReplyTo, ...tpl };
         }),
       );
+      // Rows Resend refused individually (bad address etc.): stamped so they don't block everyone else every hour.
+      const rejected = new Map<string, string>();
+      const unsent = new Set<string>();
       try {
         await sendBatch(messages);
       } catch (e) {
-        const retry = (e as { retryAfter?: number }).retryAfter;
-        if (retry) {
-          await sleep(retry * 1000);
+        const { retryAfter, status } = e as { retryAfter?: number; status?: number };
+        if (retryAfter) {
+          await sleep(retryAfter * 1000);
           continue;
         }
-        out.notes.push(`email batch failed: ${String(e).slice(0, 200)}`);
-        break;
+        if (!status || status >= 500 || status === 401 || status === 403) {
+          // Resend down or misconfigured: leave everything pending for the next hourly run.
+          out.notes.push(`email batch failed: ${String(e).slice(0, 200)}`);
+          break;
+        }
+        // One invalid message fails the whole batch: send one by one so the rest still go out.
+        for (const m of messages) {
+          const key = m.to.toLowerCase();
+          if (Date.now() > deadlineMs) { unsent.add(key); continue; }
+          if (unsent.size) { unsent.add(key); continue; } // Resend went down mid-way: the rest wait for the next run
+          try {
+            await sendBatch([m]);
+          } catch (single) {
+            const s = single as { retryAfter?: number; status?: number };
+            if (s.status && s.status < 500 && s.status !== 429 && s.status !== 401 && s.status !== 403) rejected.set(key, String(single).slice(0, 300));
+            else unsent.add(key);
+          }
+          await sleep(600);
+        }
+        if (rejected.size) out.notes.push(`${rejected.size} release-day email(s) rejected by Resend`);
+        if (unsent.size) out.notes.push(`${unsent.size} release-day email(s) left for the next run`);
       }
       const now = new Date();
+      rows = rows.filter((r) => !unsent.has(r.email!.toLowerCase()));
       await prisma.preSave.updateMany({
         where: { id: { in: rows.map((r) => r.id) } },
         data: { emailSentAt: now },
       });
+      for (const r of rows.filter((x) => rejected.has(x.email!.toLowerCase()))) {
+        await prisma.preSave.update({ where: { id: r.id }, data: { lastError: `release-day email rejected: ${rejected.get(r.email!.toLowerCase())}` } });
+      }
       // email-only rows move to "emailed"; spotify rows keep their own completed/failed status
       await prisma.preSave.updateMany({
-        where: { id: { in: rows.map((r) => r.id) }, platform: "email", status: "pending" },
+        where: { id: { in: rows.filter((r) => !rejected.has(r.email!.toLowerCase())).map((r) => r.id) }, platform: "email", status: "pending" },
         data: { status: "emailed" },
       });
-      out.emailed += unique.length;
+      out.emailed += unique.length - rejected.size - unsent.size;
+      if (unsent.size) break;
       await sleep(600); // stay under Resend's default 2 req/s
     }
     const remaining = await prisma.preSave.count({ where: { releaseId, email: { not: null }, emailConsent: true, emailSentAt: null, status: { not: "unsubscribed" } } });

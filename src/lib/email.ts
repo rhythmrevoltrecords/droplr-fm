@@ -33,7 +33,7 @@ export async function sendBatch(messages: SendArgs[]) {
     err.retryAfter = retry;
     throw err;
   }
-  if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
+  if (!res.ok) throw Object.assign(new Error(`Resend ${res.status}: ${(await res.text()).slice(0, 300)}`), { status: res.status });
   return res.json();
 }
 

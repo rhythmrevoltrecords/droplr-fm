@@ -44,6 +44,7 @@ model Organization {
   spotifyClientIdEncrypted     String?
   spotifyClientSecretEncrypted String?
   spotifyAppStatus             String  @default("none") // none | pending | active
+  spotifyPublicButton          Boolean @default(false) // show "Pre-save on Spotify" to everyone (Development Mode apps: 5 allowlisted users), else only on ?spotify=1 links
 
   // Deezer (gated by DEEZER_ENABLED env + this flag)
   deezerEnabled Boolean @default(false)

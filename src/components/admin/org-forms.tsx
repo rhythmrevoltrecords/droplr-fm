@@ -67,6 +67,34 @@ export function SpotifyConnectForm({ status, canEdit, planAllows }: { status: st
   );
 }
 
+export function SpotifyButtonToggle({ initial, canEdit }: { initial: boolean; canEdit: boolean }) {
+  const [on, setOn] = useState(initial);
+  const { busy, msg, submit } = useSubmit();
+  return (
+    <div className="space-y-2">
+      <label className="flex items-start gap-2.5 text-sm">
+        <input
+          type="checkbox"
+          className="mt-0.5 h-4 w-4"
+          checked={on}
+          disabled={!canEdit || busy}
+          onChange={async (e) => {
+            const next = e.target.checked;
+            setOn(next);
+            const r = await submit("/api/admin/org/spotify", "PATCH", { publicButton: next });
+            if (!r.ok) setOn(!next);
+          }}
+        />
+        <span>
+          <strong>Show &quot;Pre-save on Spotify&quot; to everyone</strong>
+          <span className="block text-muted-foreground">Leave off while your app is in Development Mode: fans who aren&apos;t allowlisted would get a Spotify error. When off, the button only appears on links ending in <code>?spotify=1</code>, for the people you&apos;ve allowlisted.</span>
+        </span>
+      </label>
+      <Msg msg={msg} />
+    </div>
+  );
+}
+
 /** adminOnly: the Team section invites admins; artists are added on the roster and invited from their profile. */
 export function InviteForm({ allowAdmin, adminOnly = false }: { allowAdmin: boolean; adminOnly?: boolean }) {
   const [email, setEmail] = useState("");

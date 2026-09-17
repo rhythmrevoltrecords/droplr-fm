@@ -15,12 +15,13 @@
  *   8. Self-serve custom domains: TXT token, validation, check-now auth + rate limit, links only on live domains,
  *      Netlify alias add/remove against a mock API (start the server with NETLIFY_API_URL=http://127.0.0.1:4777
  *      NETLIFY_API_TOKEN=test NETLIFY_SITE_ID=test-site to include those).
+ *   9. Spotify pre-save button: hidden from the public unless switched on or opened via ?spotify=1; owner-only toggle.
  * Everything it creates is deleted at the end. Never point it at production.
  */
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
-import { signToken } from "../src/lib/crypto";
+import { encrypt, signToken } from "../src/lib/crypto";
 import { prisma } from "../src/lib/db";
 import { linkCustomDomain } from "../src/lib/plans";
 
@@ -520,6 +521,20 @@ async function main() {
       await new Promise<void>((r) => mockServer.close(() => r()));
       await prisma.domainDetach.deleteMany({ where: { domain: { endsWith: `${RUN}.sectest.dev` } } }).catch(() => {});
     }
+
+    console.log("\n9. Spotify pre-save button visibility");
+    await prisma.organization.update({ where: { id: A.org.id }, data: { spotifyClientIdEncrypted: encrypt("a".repeat(32)), spotifyClientSecretEncrypted: encrypt("b".repeat(32)), spotifyAppStatus: "active", spotifyPublicButton: false } });
+    const pagePath = `/${A.org.slug}/${A.release.slug}`;
+    const hidden = await http(null, "GET", pagePath);
+    const vip = await http(null, "GET", `${pagePath}?spotify=1`);
+    check("Spotify button hidden by default (Development Mode apps)", hidden.status === 200 && !hidden.text.includes("Pre-save on Spotify"), `${hidden.status}`);
+    check("?spotify=1 VIP link shows the Spotify button", vip.status === 200 && vip.text.includes("Pre-save on Spotify"), `${vip.status}`);
+    const artistToggle = await http(artistA, "PATCH", "/api/admin/org/spotify", { publicButton: true });
+    check("artist can't switch the Spotify button on", artistToggle.status === 401, `${artistToggle.status}`);
+    const badToggle = await http(ownerA, "PATCH", "/api/admin/org/spotify", { publicButton: "yes" });
+    const ownerToggle = await http(ownerA, "PATCH", "/api/admin/org/spotify", { publicButton: true });
+    const shown = await http(null, "GET", pagePath);
+    check("owner switches the Spotify button on for everyone", badToggle.status === 400 && ownerToggle.status === 200 && shown.text.includes("Pre-save on Spotify"), `${badToggle.status} ${ownerToggle.status}`);
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

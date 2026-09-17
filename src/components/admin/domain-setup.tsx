@@ -57,12 +57,23 @@ export function DomainSetup({ view }: { view: DomainSetupView }) {
       </div>
 
       {view.state === "live" ? (
-        <p className="text-sm text-muted-foreground">Connected. New links use <strong className="text-foreground">https://{view.domain}</strong>. Keep both DNS records in place; removing them breaks the domain and links go back to droplr.fm.</p>
+        <p className="text-sm text-muted-foreground">Connected. New links use <strong className="text-foreground">https://{view.domain}</strong>. Leave the DNS record that points it at droplr in place; if it&apos;s removed, links go back to droplr.fm.</p>
       ) : view.state !== "paused" ? (
         <p className="text-sm text-muted-foreground">Until this shows Live, your links keep using droplr.fm, so nothing you share is broken while you set it up.</p>
       ) : null}
 
-      {view.state !== "paused" && (
+      {view.state === "live" && (
+        <details className="text-sm text-muted-foreground">
+          <summary className="cursor-pointer">DNS records for a new setup</summary>
+          <p className="mt-2">Already connected, nothing to add. These are only needed if you move the domain to another DNS provider.</p>
+          <div className="mt-2 space-y-2">
+            <RecordRow {...view.txt} />
+            {view.point.map((r) => <RecordRow key={r.type} {...r} />)}
+          </div>
+        </details>
+      )}
+
+      {view.state !== "paused" && view.state !== "live" && (
         <>
           <div className="space-y-2">
             <h3 className="text-sm font-medium">1. Prove you own the domain</h3>

@@ -26,6 +26,16 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ status: token ? "active" : "pending", message: token ? "Credentials verified with Spotify." : "Saved, but Spotify rejected a test token request. Check the secret." });
 }
 
+/** PATCH { publicButton: boolean }: show "Pre-save on Spotify" to every visitor, or only on ?spotify=1 links. */
+export async function PATCH(req: NextRequest) {
+  const user = await apiUser("label");
+  if (!user || user.role !== "owner") return NextResponse.json({ error: "Only the label owner can change this" }, { status: 401 });
+  const body = (await req.json().catch(() => ({}))) as { publicButton?: unknown };
+  if (typeof body.publicButton !== "boolean") return NextResponse.json({ error: "publicButton must be true or false" }, { status: 400 });
+  await prisma.organization.update({ where: { id: user.organizationId }, data: { spotifyPublicButton: body.publicButton } });
+  return NextResponse.json({ ok: true, message: body.publicButton ? "Spotify button shown to everyone" : "Spotify button only on ?spotify=1 links" });
+}
+
 export async function DELETE() {
   const user = await apiUser("label");
   if (!user || user.role !== "owner") return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
