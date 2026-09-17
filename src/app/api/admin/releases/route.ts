@@ -52,7 +52,14 @@ export async function POST(req: NextRequest) {
   if (await prisma.release.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug already taken — try adding the artist name" }, { status: 409 });
   if (await prisma.organization.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug clashes with a label name" }, { status: 409 });
 
-  const assigned = await resolveReleaseArtist(user.organizationId, { artistProfileId: d.artistProfileId, artistId: d.artistId });
+  // An artist account's releases are always its own: attach its single profile (made on first use).
+  let profileId = d.artistProfileId;
+  if (user.organization.kind === "artist" && !profileId) {
+    const own = (await prisma.artist.findFirst({ where: { organizationId: user.organizationId }, orderBy: { createdAt: "asc" }, select: { id: true } }))
+      ?? (await prisma.artist.create({ data: { organizationId: user.organizationId, name: user.organization.name, email: user.email }, select: { id: true } }));
+    profileId = own.id;
+  }
+  const assigned = await resolveReleaseArtist(user.organizationId, { artistProfileId: profileId, artistId: d.artistId });
   if (!assigned.ok) return NextResponse.json({ error: assigned.error }, { status: 400 });
   const releaseDate = zonedLocalToDate(d.releaseDateLocal, user.organization.timezone);
 

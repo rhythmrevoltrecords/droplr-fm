@@ -26,32 +26,36 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
   ]);
   const state: LoginState = login ? { kind: "login", email: login.email } : invite ? { kind: "invited", email: invite.email, expires: formatInTz(invite.expiresAt, tz, { dateStyle: "medium" }) } : { kind: "none" };
   const isOwner = user.role === "owner";
+  // An artist account has exactly one profile: its own. No roster, status, login invites or delete.
+  const own = user.organization.kind === "artist";
 
   return (
     <div className="space-y-6">
       <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
         <ArtistAvatar name={artist.name} photoUrl={artist.photoUrl} accentColor={artist.accentColor} size={72} />
         <div className="min-w-0 flex-1">
-          <p className="text-sm text-muted-foreground"><Link href="/admin/artists" className="hover:underline">Roster</Link> / Artist</p>
+          {own ? <p className="text-sm text-muted-foreground">Your profile</p> : <p className="text-sm text-muted-foreground"><Link href="/admin/artists" className="hover:underline">Roster</Link> / Artist</p>}
           <div className="flex min-w-0 flex-wrap items-center gap-2">
             <h1 className="min-w-0 truncate text-2xl font-semibold">{artist.name}</h1>
-            <Badge variant={artist.status === "active" ? "success" : artist.status === "prospect" ? "warning" : "secondary"}>{ARTIST_STATUS_LABELS[artist.status as keyof typeof ARTIST_STATUS_LABELS] ?? artist.status}</Badge>
+            {!own && <Badge variant={artist.status === "active" ? "success" : artist.status === "prospect" ? "warning" : "secondary"}>{ARTIST_STATUS_LABELS[artist.status as keyof typeof ARTIST_STATUS_LABELS] ?? artist.status}</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">{[artist.genre, artist.location].filter(Boolean).join(" · ") || "Add a genre and location below."}</p>
         </div>
       </div>
 
-      {searchParams.created && <Card className="border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">Artist added. Fill in their profile, then invite them to log in when you&apos;re ready.</Card>}
+      {searchParams.created && !own && <Card className="border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">Artist added. Fill in their profile, then invite them to log in when you&apos;re ready.</Card>}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader><CardTitle>Login access</CardTitle></CardHeader>
-          <CardContent><ArtistLoginAccess artistId={artist.id} state={state} isOwner={isOwner} defaultEmail={artist.email ?? ""} /></CardContent>
-        </Card>
+      <div className={own ? "grid gap-6" : "grid gap-6 lg:grid-cols-2"}>
+        {!own && (
+          <Card>
+            <CardHeader><CardTitle>Login access</CardTitle></CardHeader>
+            <CardContent><ArtistLoginAccess artistId={artist.id} state={state} isOwner={isOwner} defaultEmail={artist.email ?? ""} /></CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader>
             <CardTitle>Releases</CardTitle>
-            <CardDescription>{releases.length ? `${releases.length} release${releases.length === 1 ? "" : "s"}. Assign more from a release's Settings tab.` : "None yet. Pick this artist when creating a release, or in a release's Settings tab."}</CardDescription>
+            <CardDescription>{releases.length ? `${releases.length} release${releases.length === 1 ? "" : "s"}.${own ? "" : " Assign more from a release's Settings tab."}` : own ? "None yet. Create one from Releases." : "None yet. Pick this artist when creating a release, or in a release's Settings tab."}</CardDescription>
           </CardHeader>
           {releases.length > 0 && (
             <CardContent className="max-h-72 space-y-1 overflow-y-auto">
@@ -71,6 +75,7 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
 
       <ArtistProfileEditor
         mode="label"
+        own={own}
         artistId={artist.id}
         statsUpdated={artist.statsUpdatedAt ? timeAgo(artist.statsUpdatedAt) : null}
         initial={{
@@ -94,7 +99,7 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
         }}
       />
 
-      {isOwner && (
+      {isOwner && !own && (
         <Card className="border-red-500/30">
           <CardHeader><CardTitle>Danger zone</CardTitle><CardDescription>Deletes the profile, photos list and notes. Releases stay and become unassigned.</CardDescription></CardHeader>
           <CardContent><DeleteArtistButton artistId={artist.id} name={artist.name} hasLogin={!!artist.userId} /></CardContent>

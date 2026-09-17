@@ -107,7 +107,8 @@ function toNumber(raw: string): number | null | "invalid" {
   return /^\d+$/.test(t) ? Number(t) : "invalid";
 }
 
-export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: { mode: "label" | "artist"; artistId?: string; initial: ArtistEditorValues; statsUpdated?: string | null }) {
+/** `own`: an artist account editing its own profile (label mode endpoints, but no roster-only fields like status, contact, notes, signed). */
+export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated, own = false }: { mode: "label" | "artist"; artistId?: string; initial: ArtistEditorValues; statsUpdated?: string | null; own?: boolean }) {
   const router = useRouter();
   const label = mode === "label";
   const [v, setV] = useState(initial);
@@ -194,7 +195,7 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
                 {label ? field("name", "Name", { maxLength: 120, required: true }) : (
                   <div className="space-y-2"><Label>Name</Label><p className="flex h-10 items-center text-sm text-muted-foreground">{v.name} · set by your label</p></div>
                 )}
-                {label ? (
+                {label && !own ? (
                   <div className="space-y-2">
                     <Label htmlFor="f-status">Status</Label>
                     <Select id="f-status" value={v.status} onChange={(e) => set("status", e.target.value)}>
@@ -210,7 +211,7 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
                     <Label htmlFor="f-bio">Bio</Label>
                     <span className={`text-xs tabular-nums ${v.bio.length > ARTIST_BIO_MAX - 100 ? "text-amber-400" : "text-muted-foreground"}`}>{v.bio.length} / {ARTIST_BIO_MAX}</span>
                   </div>
-                  <textarea id="f-bio" value={v.bio} maxLength={ARTIST_BIO_MAX} rows={7} onChange={(e) => set("bio", e.target.value)} placeholder="Where they're from, what they sound like, recent wins." className={textareaClass} />
+                  <textarea id="f-bio" value={v.bio} maxLength={ARTIST_BIO_MAX} rows={7} onChange={(e) => set("bio", e.target.value)} placeholder={own ? "Where you're from, what you sound like, recent wins." : "Where they're from, what they sound like, recent wins."} className={textareaClass} />
                 </div>
               </div>
             </CardContent>
@@ -262,16 +263,16 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
 
         {label && (
           <div className="min-w-0 space-y-6">
-            <Card>
+            {!own && <Card>
               <CardHeader><CardTitle>Contact {labelOnly}</CardTitle><CardDescription>Never shown to the artist or fans.</CardDescription></CardHeader>
               <CardContent className="space-y-4">
                 {field("email", "Email", { type: "email", placeholder: "artist@email.com" })}
                 {field("phone", "Phone", { type: "tel", maxLength: 40 })}
               </CardContent>
-            </Card>
+            </Card>}
 
             <Card>
-              <CardHeader><CardTitle>Stats</CardTitle><CardDescription>{statsUpdated ? `Updated ${statsUpdated}` : "Not recorded yet"}</CardDescription></CardHeader>
+              <CardHeader><CardTitle>Stats</CardTitle><CardDescription>{own ? "Your Spotify artist link powers the Follow on Spotify button. " : ""}{statsUpdated ? `Updated ${statsUpdated}` : "Not recorded yet"}</CardDescription></CardHeader>
               <CardContent className="space-y-4">
                 {field("spotifyArtistId", "Spotify artist link or ID", { placeholder: "https://open.spotify.com/artist/…", maxLength: 200, inputMode: "url" })}
                 <div className="grid grid-cols-2 gap-3">
@@ -281,13 +282,13 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated }: {
               </CardContent>
             </Card>
 
-            <Card>
+            {!own && <Card>
               <CardHeader><CardTitle>Label notes {labelOnly}</CardTitle></CardHeader>
               <CardContent className="space-y-4">
                 <textarea aria-label="Label notes" value={v.notes} maxLength={5000} rows={5} onChange={(e) => set("notes", e.target.value)} placeholder="Deal terms, next steps, who manages them…" className={textareaClass} />
                 <div className="space-y-2"><Label htmlFor="f-signed">Signed</Label><Input id="f-signed" type="date" value={v.signedAt} onChange={(e) => set("signedAt", e.target.value)} /></div>
               </CardContent>
-            </Card>
+            </Card>}
           </div>
         )}
       </div>

@@ -1,14 +1,15 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { allow, ipKey } from "@/lib/throttle";
 import { clientIp } from "@/lib/tracking";
+import { redirectTo } from "@/lib/redirect";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 /** Form POST { email, label?, website(honeypot) } → pre-launch waitlist (waitlist_features, feature "launch"). */
 export async function POST(req: NextRequest) {
   const form = await req.formData();
-  const back = (q: string) => NextResponse.redirect(new URL(`/signup?${q}`, req.url), 303);
+  const back = (q: string) => redirectTo(`/signup?${q}`);
   if (form.get("website")) return back("waitlisted=1"); // bots
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   if (!EMAIL_RE.test(email) || email.length > 254) return back("waitlist_error=1");

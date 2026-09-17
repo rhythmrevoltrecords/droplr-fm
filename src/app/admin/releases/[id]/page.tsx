@@ -196,6 +196,7 @@ export default async function ReleaseDetail(
             <ReleaseSettingsForm
               releaseId={release.id}
               locationLabel={release.organization.locationLabel}
+              soloArtist={release.organization.kind === "artist"}
               artists={(await prisma.artist.findMany({ where: { organizationId: user.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, userId: true } })).map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))}
               initial={{
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,

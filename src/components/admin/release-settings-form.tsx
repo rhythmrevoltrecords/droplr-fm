@@ -8,7 +8,7 @@ import type { ArtistOption } from "./release-create-form";
 
 type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global" };
 
-export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane" }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string }) {
+export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane", soloArtist = false }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string; soloArtist?: boolean }) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -57,7 +57,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
         {field("spotifyArtistId", "Spotify artist ID (follow)")}
         {field("upc", "UPC (finds Apple Music, Deezer, Spotify, TIDAL)")}
         {field("isrc", "ISRC")}
-        <div className="space-y-2">
+        {!soloArtist && <div className="space-y-2">
           <Label>Roster artist</Label>
           <Select
             value={f.artistProfileId}
@@ -70,7 +70,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
             <option value="">— Label only —</option>
             {artists.map((a) => <option key={a.id} value={a.id}>{a.name}{a.hasLogin ? " (has login)" : ""}</option>)}
           </Select>
-        </div>
+        </div>}
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.autoReResolve} onChange={(e) => set("autoReResolve", e.target.checked)} className="h-4 w-4" /> Auto re-resolve links on release day</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
       </div>

@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { syncReleaseAccess } from "@/lib/artists";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, isLabelRole, passwordProblem } from "@/lib/auth";
@@ -6,6 +6,7 @@ import { sha256 } from "@/lib/crypto";
 import { sendVerificationEmail } from "@/lib/email-verification";
 import { LEGAL } from "@/lib/legal";
 import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
+import { redirectTo } from "@/lib/redirect";
 
 /** Accept an invite: set password → logged in as artist (or admin). */
 export async function POST(req: NextRequest) {
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   const token = String(form.get("token") ?? "");
   const password = String(form.get("password") ?? "");
   const invite = await prisma.invite.findUnique({ where: { tokenHash: sha256(token) } });
-  const back = (msg: string) => NextResponse.redirect(new URL(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent(msg)}`, req.url), 303);
+  const back = (msg: string) => redirectTo(`/invite/${encodeURIComponent(token)}?error=${encodeURIComponent(msg)}`);
   if (!invite || invite.acceptedAt || invite.expiresAt < new Date()) return back("This invite is invalid or expired");
   const problem = passwordProblem(password, invite.email);
   if (problem) return back(problem);
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   // The invite link was also shown to whoever sent it, so it doesn't prove this address: confirm by email.
   await sendVerificationEmail(user);
   await createSessionCookie(user);
-  return NextResponse.redirect(new URL(isLabelRole(user.role) ? "/admin" : "/dashboard", req.url), 303);
+  return redirectTo(isLabelRole(user.role) ? "/admin" : "/dashboard");
 }
 
 /** Every artist login belongs to a roster profile: link the invited one, or create one for a generic invite. */

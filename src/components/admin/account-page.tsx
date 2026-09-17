@@ -5,7 +5,7 @@ import { MIN_PASSWORD } from "@/lib/auth";
 import { CONTACT } from "@/lib/legal";
 import { formatInTz } from "@/lib/time";
 
-type AccountUser = { email: string; role: string; artistName: string | null; createdAt: Date; termsAcceptedAt: Date | null; organization: { name: string; timezone: string } };
+type AccountUser = { email: string; role: string; artistName: string | null; createdAt: Date; termsAcceptedAt: Date | null; organization: { name: string; timezone: string; kind?: string | null } };
 
 /** Shared by /admin/settings/account (label team) and /dashboard/account (artists). */
 export function AccountPage({ user, back }: { user: AccountUser; back?: { href: string; label: string } }) {
@@ -22,7 +22,7 @@ export function AccountPage({ user, back }: { user: AccountUser; back?: { href: 
         <CardContent>
           <dl className="grid gap-x-6 gap-y-2 text-sm sm:grid-cols-[140px_1fr]">
             <dt className="text-muted-foreground">Email</dt><dd className="break-all">{user.email}</dd>
-            <dt className="text-muted-foreground">Label</dt><dd>{user.organization.name}</dd>
+            <dt className="text-muted-foreground">{user.organization.kind === "artist" ? "Account" : "Label"}</dt><dd>{user.organization.name}</dd>
             <dt className="text-muted-foreground">Role</dt><dd className="capitalize">{user.role}{user.artistName ? ` · ${user.artistName}` : ""}</dd>
             <dt className="text-muted-foreground">Member since</dt><dd>{formatInTz(user.createdAt, tz, { dateStyle: "medium" })}</dd>
           </dl>

@@ -17,7 +17,7 @@ export default async function BioList() {
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Bio links</h1>
-          <p className="text-sm text-muted-foreground">One link for the label or each artist, themed from its image.</p>
+          <p className="text-sm text-muted-foreground">{user.organization.kind === "artist" ? "One link for everything you do, themed from its image." : "One link for the label or each artist, themed from its image."}</p>
         </div>
         <Button asChild><Link href="/admin/bio/new"><Plus /> New bio link</Link></Button>
       </div>

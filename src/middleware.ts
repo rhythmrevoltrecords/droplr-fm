@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
-import { isPlatformHost, platformSubdomain } from "./lib/env";
+import { isPlatformHost, platformSubdomain, SITE_URL } from "./lib/env";
 
 const ANON_COOKIE = "dfm_anon";
 // Whole path segments only, so a release slug like "iconic-dubplate" or "logo-riddim" still reaches the tenant rewrite.
@@ -28,7 +28,11 @@ export async function middleware(req: NextRequest) {
       } catch {}
     }
     if (!ok) {
-      const login = new URL("/login", url);
+      // Build from the host the browser used, not req.nextUrl: on Netlify that can be the internal deploy
+      // permalink (abc123…--droplr-fm.netlify.app), which Chrome flags as a lookalike and has no session cookie.
+      const proto = req.headers.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
+      const base = !host || /^[0-9a-f]{20,}--/i.test(host) ? SITE_URL : `${proto}://${host}`;
+      const login = new URL("/login", base);
       login.searchParams.set("next", url.pathname);
       return NextResponse.redirect(login);
     }

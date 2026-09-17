@@ -8,7 +8,7 @@ export default async function NewRelease(props: { searchParams: Promise<{ type?:
   const smart = searchParams.type === "smartlink";
   const user = await requireUser("label");
   const artists = await prisma.artist.findMany({ where: { organizationId: user.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, userId: true } });
-  // Default: next Friday 00:00 in the label's timezone
+  // Default: next Friday 00:00 in the account's timezone
   const tz = user.organization.timezone;
   const today = zonedDay(new Date(), tz);
   const [y, m, d] = today.split("-").map(Number);
@@ -26,7 +26,7 @@ export default async function NewRelease(props: { searchParams: Promise<{ type?:
             : "Paste an upcoming release. Fans pre-save until the release date, then the same link becomes a smart link."}
         </p>
       </div>
-      <ReleaseCreateForm artists={artists.map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))} defaultDate={dateToZonedLocal(smart ? new Date(Date.now() - 60_000) : friday, tz)} locationLabel={user.organization.locationLabel} />
+      <ReleaseCreateForm artists={artists.map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))} defaultDate={dateToZonedLocal(smart ? new Date(Date.now() - 60_000) : friday, tz)} locationLabel={user.organization.locationLabel} soloArtist={user.organization.kind === "artist"} />
     </div>
   );
 }

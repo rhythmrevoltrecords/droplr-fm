@@ -174,7 +174,7 @@ export function IdentityForm({ initial, siteHost, kind = "label" }: { initial: {
             <Button type="button" variant="outline" className="shrink-0" onClick={() => { setSlugTouched(false); setSlug(slugify(name)); }} title="Generate from name">From name</Button>
           </div>
           <p className="truncate text-xs text-muted-foreground">
-            Public URLs: <span className="font-mono text-foreground">{siteHost}/{slugify(slug) || "your-label"}/your-release</span>
+            Public URLs: <span className="font-mono text-foreground">{siteHost}/{slugify(slug) || (kind === "artist" ? "your-name" : "your-label")}/your-release</span>
             {slugChanged && <span className="text-amber-400"> · old links will redirect</span>}
           </p>
         </div>
@@ -206,7 +206,7 @@ export function IdentityForm({ initial, siteHost, kind = "label" }: { initial: {
         </div>
 
         <div className="space-y-2">
-          <Label>Label logo</Label>
+          <Label>{kind === "artist" ? "Logo or photo" : "Label logo"}</Label>
           <div className="flex items-center gap-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {logo ? <img src={logo} alt="" className="h-10 w-10 rounded-lg object-cover ring-1 ring-border" /> : <div className="h-10 w-10 rounded-lg border border-dashed" />}

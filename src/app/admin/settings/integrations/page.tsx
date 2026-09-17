@@ -27,7 +27,7 @@ export default async function IntegrationsPage() {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
-            <strong>Know the limit before you switch this on.</strong> Since February 2026, a Spotify app in Development Mode works for at most <strong>5 users</strong> that you allowlist by hand (Dashboard → your app → User Management). The app owner also needs Spotify Premium. Anyone else who taps &quot;Pre-save on Spotify&quot; gets sent back to the email option, so the button is hidden from the public unless you switch it on below. Past 5 users you need Spotify Extended Quota, which Spotify only grants to established businesses. For most labels this is a test and VIP tool, and email is the main pre-save.
+            <strong>Know the limit before you switch this on.</strong> Since February 2026, a Spotify app in Development Mode works for at most <strong>5 users</strong> that you allowlist by hand (Dashboard → your app → User Management). The app owner also needs Spotify Premium. Anyone else who taps &quot;Pre-save on Spotify&quot; gets sent back to the email option, so the button is hidden from the public unless you switch it on below. Past 5 users you need Spotify Extended Quota, which Spotify only grants to established businesses. For most accounts this is a test and VIP tool, and email is the main pre-save.
           </div>
 
           <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
@@ -43,7 +43,7 @@ export default async function IntegrationsPage() {
             <li>User Management → add the Spotify account emails that should be able to pre-save (max 5 in Development Mode).</li>
           </ol>
 
-          <SpotifyConnectForm status={org.spotifyAppStatus} canEdit={user.role === "owner"} planAllows={plan.byoSpotify} />
+          <SpotifyConnectForm status={org.spotifyAppStatus} canEdit={user.role === "owner"} planAllows={plan.byoSpotify} kind={org.kind === "artist" ? "artist" : "label"} />
           {plan.byoSpotify && org.spotifyAppStatus === "active" && <SpotifyButtonToggle initial={org.spotifyPublicButton} canEdit={user.role === "owner"} />}
           <p className="text-xs text-muted-foreground">Credentials are encrypted with AES-256-GCM before storage. <Link className="underline" href="/docs/spotify-byo">Full guide</Link></p>
         </CardContent>

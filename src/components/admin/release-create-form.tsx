@@ -31,7 +31,8 @@ type Resolved = {
 
 export type ArtistOption = { id: string; name: string; hasLogin: boolean };
 
-export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisbane" }: { artists: ArtistOption[]; defaultDate: string; locationLabel?: string }) {
+/** `soloArtist`: an artist account. No roster picker; the server attaches its own profile. */
+export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisbane", soloArtist = false }: { artists: ArtistOption[]; defaultDate: string; locationLabel?: string; soloArtist?: boolean }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [upcIn, setUpcIn] = useState("");
@@ -142,13 +143,13 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
               <div className="space-y-2"><Label>Artist name</Label><Input value={form.artistName} onChange={(e) => set("artistName", e.target.value)} /></div>
               <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} /></div>
               <div className="space-y-2"><Label>Release date &amp; time ({locationLabel})</Label><Input type="datetime-local" value={form.releaseDateLocal} onChange={(e) => set("releaseDateLocal", e.target.value)} /></div>
-              <div className="space-y-2">
+              {!soloArtist && <div className="space-y-2">
                 <Label>Roster artist</Label>
                 <Select value={form.artistProfileId} onChange={(e) => set("artistProfileId", e.target.value)}>
                   <option value="">— Label only —</option>
                   {artists.map((a) => <option key={a.id} value={a.id}>{a.name}{a.hasLogin ? " (has login)" : ""}</option>)}
                 </Select>
-              </div>
+              </div>}
               <div className="space-y-2"><Label>Accent colour</Label><Input value={form.accentColor} onChange={(e) => set("accentColor", e.target.value)} placeholder="#8B5CF6" /></div>
               <div className="space-y-2 sm:col-span-2">
                 <Label>Cover image</Label>

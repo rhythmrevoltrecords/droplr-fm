@@ -1,10 +1,11 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { accountEmailConfigured, resetPasswordEmail, sendAccountEmail } from "@/lib/account-email";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { allow, emailKey, ipKey } from "@/lib/throttle";
 import { clientIp } from "@/lib/tracking";
+import { redirectTo } from "@/lib/redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -18,8 +19,8 @@ const RESET_TTL_MS = 60 * 60 * 1000;
 export async function POST(req: NextRequest) {
   const form = await req.formData();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
-  const done = NextResponse.redirect(new URL("/forgot-password?sent=1", req.url), 303);
-  if (!EMAIL_RE.test(email) || email.length > 254) return NextResponse.redirect(new URL("/forgot-password?error=email", req.url), 303);
+  const done = redirectTo("/forgot-password?sent=1");
+  if (!EMAIL_RE.test(email) || email.length > 254) return redirectTo("/forgot-password?error=email");
 
   const okIp = await allow(ipKey("reset", clientIp(req.headers)), 10, RESET_TTL_MS);
   const okEmail = okIp && (await allow(emailKey("reset", email), 3, RESET_TTL_MS));

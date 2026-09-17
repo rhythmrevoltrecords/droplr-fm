@@ -46,11 +46,11 @@ export function OrgFieldsForm({ fields, initial, disabled, submitLabel = "Save" 
   );
 }
 
-export function SpotifyConnectForm({ status, canEdit, planAllows }: { status: string; canEdit: boolean; planAllows: boolean }) {
+export function SpotifyConnectForm({ status, canEdit, planAllows, kind = "label" }: { status: string; canEdit: boolean; planAllows: boolean; kind?: "label" | "artist" }) {
   const [clientId, setClientId] = useState("");
   const [clientSecret, setClientSecret] = useState("");
   const { busy, msg, submit } = useSubmit();
-  if (!planAllows) return <p className="text-sm text-muted-foreground">Bring-your-own Spotify app is on Artist Pro and the label plans.</p>;
+  if (!planAllows) return <p className="text-sm text-muted-foreground">Bring-your-own Spotify app is on {kind === "artist" ? "Artist Pro" : "Pro and Label"}.</p>;
   return (
     <form className="space-y-4" onSubmit={async (e) => { e.preventDefault(); const r = await submit("/api/admin/org/spotify", "POST", { clientId, clientSecret }); if (r.ok) { setClientId(""); setClientSecret(""); } }}>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -60,7 +60,7 @@ export function SpotifyConnectForm({ status, canEdit, planAllows }: { status: st
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={busy || !canEdit || !clientId || !clientSecret}>{busy && <Loader2 className="animate-spin" />} Save &amp; verify</Button>
         {status !== "none" && canEdit && <Button type="button" variant="outline" onClick={() => submit("/api/admin/org/spotify", "DELETE")}>Disconnect</Button>}
-        {!canEdit && <span className="text-sm text-muted-foreground">Only the label owner can change this.</span>}
+        {!canEdit && <span className="text-sm text-muted-foreground">Only the account owner can change this.</span>}
         <Msg msg={msg} />
       </div>
     </form>

@@ -1,8 +1,9 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, isLabelRole, verifyPassword } from "@/lib/auth";
 import { clear, emailKey, forget, hit, ipKey } from "@/lib/throttle";
 import { clientIp } from "@/lib/tracking";
+import { redirectTo } from "@/lib/redirect";
 
 const WINDOW = 15 * 60 * 1000;
 // bcrypt hash (cost 12, same as hashPassword) of a random string nobody knows.
@@ -13,7 +14,7 @@ export async function POST(req: NextRequest) {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const password = String(form.get("password") ?? "");
   const next = String(form.get("next") ?? "");
-  const fail = (code: string) => NextResponse.redirect(new URL(`/login?error=${code}${next ? `&next=${encodeURIComponent(next)}` : ""}`, req.url), 303);
+  const fail = (code: string) => redirectTo(`/login?error=${code}${next ? `&next=${encodeURIComponent(next)}` : ""}`);
 
   // 10 per account and 30 per IP in 15 minutes. Recorded BEFORE checking the password so parallel guesses
   // can't all slip past the count; a successful login removes its own attempt again (only failures count).
@@ -33,5 +34,5 @@ export async function POST(req: NextRequest) {
   // Only same-site relative paths, never "//evil.com".
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "";
   const dest = safeNext.startsWith("/admin") && isLabelRole(user.role) ? safeNext : safeNext.startsWith("/dashboard") && !isLabelRole(user.role) ? safeNext : home;
-  return NextResponse.redirect(new URL(dest, req.url), 303);
+  return redirectTo(dest);
 }

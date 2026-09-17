@@ -3,16 +3,17 @@ import { accountEmailConfigured } from "@/lib/account-email";
 import { getCurrentUser, isLabelRole } from "@/lib/auth";
 import { consumeVerificationToken, sendVerificationEmail } from "@/lib/email-verification";
 import { hit } from "@/lib/throttle";
+import { redirectTo } from "@/lib/redirect";
 
 export const dynamic = "force-dynamic";
 
 /** GET ?t=<token>: the link in the email. */
 export async function GET(req: NextRequest) {
   const result = await consumeVerificationToken(req.nextUrl.searchParams.get("t") ?? "");
-  if (!result.ok) return NextResponse.redirect(new URL("/login?verify=invalid", req.url), 303);
+  if (!result.ok) return redirectTo("/login?verify=invalid");
   const current = await getCurrentUser();
-  if (current?.id === result.userId) return NextResponse.redirect(new URL(`${isLabelRole(current.role) ? "/admin" : "/dashboard"}?verified=1`, req.url), 303);
-  return NextResponse.redirect(new URL("/login?verified=1", req.url), 303);
+  if (current?.id === result.userId) return redirectTo(`${isLabelRole(current.role) ? "/admin" : "/dashboard"}?verified=1`);
+  return redirectTo("/login?verified=1");
 }
 
 /** POST: resend the link to the signed-in account (3 per hour). */

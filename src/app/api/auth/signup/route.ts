@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, passwordProblem } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/email-verification";
@@ -8,6 +8,7 @@ import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
 import { allow, ipKey } from "@/lib/throttle";
 import { clientIp } from "@/lib/tracking";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
+import { redirectTo } from "@/lib/redirect";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -17,11 +18,11 @@ export async function POST(req: NextRequest) {
   const kind = form.get("kind") === "artist" ? "artist" : "label";
   const planParam = String(form.get("plan") ?? "");
   const plan = kind === "artist" ? (planParam === "artist" || planParam === "artist_pro" ? planParam : "") : planParam === "pro" || planParam === "label" ? planParam : "";
-  const fail = (msg: string) => NextResponse.redirect(new URL(`/signup?type=${kind}&invite=1&error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`, req.url), 303);
+  const fail = (msg: string) => redirectTo(`/signup?type=${kind}&invite=1&error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}`);
   if (name.length < 2 || name.length > 100) return fail(kind === "artist" ? "Artist name is required" : "Label name is required");
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");
   // Pre-launch: invite-only (SIGNUPS_OPEN / SIGNUP_ALLOWLIST).
-  if (!canSignUp(email)) return NextResponse.redirect(new URL("/signup?closed=1", req.url), 303);
+  if (!canSignUp(email)) return redirectTo("/signup?closed=1");
   const problem = passwordProblem(password, email);
   if (problem) return fail(problem);
   if (form.get("terms") !== "yes") return fail("Please agree to the Terms of Service and Privacy Policy");
@@ -48,5 +49,5 @@ export async function POST(req: NextRequest) {
   });
   await sendVerificationEmail(org.users[0]);
   await createSessionCookie(org.users[0]);
-  return NextResponse.redirect(new URL(plan ? `/admin/settings/billing?plan=${plan}` : "/admin?welcome=1", req.url), 303);
+  return redirectTo(plan ? `/admin/settings/billing?plan=${plan}` : "/admin?welcome=1");
 }

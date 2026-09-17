@@ -224,6 +224,11 @@ async function main() {
     check("login locks after 10 failures (even with right password)", locked.location.includes("error=locked"), locked.location);
     const safeNext = await http({ cookie: "" }, "POST", "/api/auth/login", undefined, { email: B.owner.email, password: PW, next: "//evil.example/admin" });
     check("login ignores off-site next", !safeNext.location.includes("evil"), safeNext.location);
+    // Netlify can hand route handlers its internal deploy host; redirects must never carry it.
+    const outLoc = (await http({ cookie: "" }, "POST", "/api/auth/logout")).location;
+    const badLogin = (await http({ cookie: "" }, "POST", "/api/auth/login", undefined, { email: `nobody-${RUN}@sectest.dev`, password: "x" })).location;
+    const permalink = await fetch(BASE + "/admin", { redirect: "manual", headers: { "x-forwarded-host": "6aab78e4c2bb350008b57737--droplr-fm.netlify.app" } });
+    check("auth redirects stay on the host the browser is using", outLoc === "/login" && badLogin.startsWith("/login?error=") && !(permalink.headers.get("location") ?? "").includes("netlify.app"), `${outLoc} | ${badLogin} | ${permalink.headers.get("location")}`);
 
     console.log("\n4. Platform console");
     const plat = await http(ownerA, "GET", "/platform");

@@ -65,7 +65,7 @@ export default async function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <OrgFieldsForm fields={[{ key: "emailFromName", label: "Sender name", placeholder: org.name }, { key: "emailReplyTo", label: "Reply-to email", placeholder: "hello@yourlabel.com" }]} initial={{ emailFromName: org.emailFromName ?? "", emailReplyTo: org.emailReplyTo ?? "" }} />
+          <OrgFieldsForm fields={[{ key: "emailFromName", label: "Sender name", placeholder: org.name }, { key: "emailReplyTo", label: "Reply-to email", placeholder: org.kind === "artist" ? "you@yourname.com" : "hello@yourlabel.com" }]} initial={{ emailFromName: org.emailFromName ?? "", emailReplyTo: org.emailReplyTo ?? "" }} />
           <div className="mt-6 border-t pt-6"><EmailHourForm initial={org.releaseEmailHour} /></div>
         </CardContent>
       </Card>
@@ -73,16 +73,16 @@ export default async function SettingsPage() {
       <Card id="domain" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Custom domain</CardTitle>
-          <CardDescription>Serve every release from your own domain, e.g. presave.yourlabel.com/track-name. <Link className="underline" href="/docs/custom-domain">Setup guide</Link></CardDescription>
+          <CardDescription>Serve every release from your own domain, e.g. {org.kind === "artist" ? "presave.yourname.com" : "presave.yourlabel.com"}/track-name. <Link className="underline" href="/docs/custom-domain">Setup guide</Link></CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <OrgFieldsForm disabled={plan.customDomain ? undefined : "Custom domains are on Artist Pro and the label plans"} fields={[{ key: "customDomain", label: "Domain", placeholder: "presave.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
+          <OrgFieldsForm disabled={plan.customDomain ? undefined : org.kind === "artist" ? "Custom domains are on Artist Pro" : "Custom domains are on Pro and Label"} fields={[{ key: "customDomain", label: "Domain", placeholder: org.kind === "artist" ? "presave.yourname.com" : "presave.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
           {org.customDomain && !plan.customDomain && (() => {
             const st = customDomainStatus(org);
             return (
               <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
                 {st.active && st.graceUntil
-                  ? <>Custom domains are on Artist Pro and the label plans. <strong>{org.customDomain}</strong> keeps working until {st.graceUntil.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}. After that, visitors are sent to the same pages on droplr.fm, so shared links keep working.</>
+                  ? <>Custom domains are on {org.kind === "artist" ? "Artist Pro" : "Pro and Label"}. <strong>{org.customDomain}</strong> keeps working until {st.graceUntil.toLocaleDateString("en-AU", { day: "numeric", month: "long", year: "numeric" })}. After that, visitors are sent to the same pages on droplr.fm, so shared links keep working.</>
                   : <><strong>{org.customDomain}</strong> is paused: visitors are sent to the same pages on droplr.fm/{org.slug}, and new links use droplr.fm.</>}{" "}
                 <Link className="underline" href="/admin/settings/billing">Upgrade to switch it back on</Link>
               </div>
