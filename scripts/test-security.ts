@@ -252,6 +252,28 @@ async function main() {
         const impPlat = await http(impostor, "GET", "/platform");
         const impPatch = await http(impostor, "PATCH", `/api/platform/orgs/${A.org.id}`, { compPlan: "enterprise" });
         check("platform admin email on a non-owner account isn't platform admin", impPatch.status === 404 && impPlat.status !== 200, `api ${impPatch.status}, page ${impPlat.status}`);
+
+        // Promote that address to a real owner (own org) and exercise the account-type switch.
+        const platOrg = await prisma.organization.create({ data: { name: `Sec Platform ${RUN}`, slug: `sectest-platform-${RUN}`, plan: "free" } });
+        extraOrgs.push(platOrg.id);
+        await prisma.user.update({ where: { email: adminEmail }, data: { role: "owner", organizationId: platOrg.id } });
+        const platAdmin = await login(adminEmail);
+        const toOrg = await prisma.organization.create({ data: { name: `Sec Kind ${RUN}`, slug: `sectest-kind-${RUN}`, plan: "free" } });
+        extraOrgs.push(toOrg.id);
+        const flip = await http(platAdmin, "PATCH", `/api/platform/orgs/${toOrg.id}`, { kind: "artist" });
+        check("platform owner can switch a label to artist", flip.status === 200 && (await prisma.organization.findUnique({ where: { id: toOrg.id } }))?.kind === "artist", `${flip.status} ${flip.text.slice(0, 120)}`);
+        const badComp = await http(platAdmin, "PATCH", `/api/platform/orgs/${toOrg.id}`, { compPlan: "label" });
+        const okComp = await http(platAdmin, "PATCH", `/api/platform/orgs/${toOrg.id}`, { compPlan: "artist_pro" });
+        check("artist accounts only take artist comps", badComp.status === 400 && okComp.status === 200 && (await prisma.organization.findUnique({ where: { id: toOrg.id } }))?.plan === "artist_pro", `${badComp.status}/${okComp.status}`);
+        const compBlocks = await http(platAdmin, "PATCH", `/api/platform/orgs/${toOrg.id}`, { kind: "label" });
+        const compAndKind = await http(platAdmin, "PATCH", `/api/platform/orgs/${toOrg.id}`, { kind: "label", compPlan: "pro" });
+        check("switching type needs a comp that fits the new type", compBlocks.status === 409 && compAndKind.status === 200 && (await prisma.organization.findUnique({ where: { id: toOrg.id } }))?.plan === "pro", `${compBlocks.status}/${compAndKind.status}`);
+        await prisma.organization.update({ where: { id: toOrg.id }, data: { compPlan: null, plan: "free", stripeSubscriptionId: `sub_sectest_${RUN}` } });
+        const subBlocks = await http(platAdmin, "PATCH", `/api/platform/orgs/${toOrg.id}`, { kind: "artist" });
+        check("can't switch type while a Stripe subscription is attached", subBlocks.status === 409 && (await prisma.organization.findUnique({ where: { id: toOrg.id } }))?.kind === "label", `${subBlocks.status}`);
+        const ownerFlip = await http(ownerA, "PATCH", `/api/platform/orgs/${A.org.id}`, { kind: "artist" });
+        check("a label owner can't switch their own type", ownerFlip.status === 404 && (await prisma.organization.findUnique({ where: { id: A.org.id } }))?.kind !== "artist", `${ownerFlip.status}`);
+        check("platform page lists account types", (await http(platAdmin, "GET", "/platform")).text.includes("Make artist"));
       } else {
         console.log("  (skipped invite-acceptance/impostor checks: a user with PLATFORM_TEST_ADMIN already exists locally)");
       }

@@ -82,3 +82,14 @@ export const activeCustomDomain = (org: DomainOrg) => (customDomainStatus(org).a
  * Needs the plan AND a passed HTTPS check, so nobody copies a link on a domain that isn't connected yet (or has broken).
  */
 export const linkCustomDomain = (org: DomainOrg) => (org.customDomainLiveAt ? activeCustomDomain(org) : null);
+
+/**
+ * Why an account can't switch between label and artist right now (null = it can).
+ * Plans are per kind, so anything that pins a plan from the other side has to go first.
+ */
+export function kindChangeBlocker(org: { kind: string | null; stripeSubscriptionId: string | null; compPlan: string | null }, to: AccountKind): string | null {
+  if (accountKind(org.kind) === to) return null;
+  if (org.stripeSubscriptionId) return "It has a Stripe subscription. Cancel it (and let it end) before switching, or the paid plan won't match the account type.";
+  if (org.compPlan && !PLANS_FOR[to].includes(org.compPlan as PlanKey)) return `Its complimentary ${planOf(org.compPlan).name} plan isn't available to ${to} accounts. Remove the comp first.`;
+  return null;
+}
