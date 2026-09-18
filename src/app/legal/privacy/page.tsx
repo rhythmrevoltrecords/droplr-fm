@@ -155,7 +155,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Access and correction.</strong> Customers can see and edit most of their information in the dashboard. Anyone can ask us for a copy of the personal information we hold about them, or to correct it. We don&apos;t charge for requests.</li>
           <li><strong>Deletion.</strong> Ask us to delete your information. We may need to keep some records for legal reasons, and we&apos;ll tell you if so.</li>
-          <li><strong>Unsubscribe.</strong> Every release-day email has a one-click unsubscribe link. It stops all droplr.fm emails from that label.</li>
+          <li><strong>Unsubscribe.</strong> Every release-day email has a one-click unsubscribe link. It stops all droplr.fm emails from that label. If you didn&apos;t mean to, the confirmation page has a link that turns release emails back on for 30 days. Only you can use it: a label can never re-subscribe you.</li>
           <li><strong>Revoke platform access</strong> in your Spotify or Deezer account settings under connected apps.</li>
           <li><strong>Notifications.</strong> Turn them off for a login or a single device in Account, or in your device&apos;s notification settings. Turning them off deletes that device&apos;s subscription.</li>
           <li><strong>EU and UK residents</strong> also have the right to data portability, to restrict or object to processing, and to complain to their local data protection authority.</li>

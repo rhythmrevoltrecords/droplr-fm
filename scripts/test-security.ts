@@ -325,7 +325,20 @@ async function main() {
         check(`${aud} token rejected as a session`, page.status === 307 && api.status === 401, `page ${page.status}, api ${api.status}`);
       }
       const bFan = await prisma.preSave.findFirstOrThrow({ where: { email: `fan-b-${RUN}@fans.dev` } });
-      const unsubWithPst = await http(null, "GET", `/api/unsubscribe?t=${await signToken({ ps: bFan.id, act: "unsub" }, "1h", "pst")}`);
+      // Unsubscribe, then the "didn't mean to" link on that page: only the fan can use it.
+    const unsubFan = await prisma.preSave.findFirst({ where: { releaseId: B.release.id, email: { not: null } } });
+    if (unsubFan) {
+      const unsubPage = await http(null, "GET", `/api/unsubscribe?t=${await signToken({ ps: unsubFan.id, act: "unsub" }, "1h", "unsub")}`);
+      const undoUrl = unsubPage.text.match(/\/api\/unsubscribe\/undo\?t=([\w.-]+)/)?.[1] ?? "";
+      const afterUnsub = await prisma.preSave.findUnique({ where: { id: unsubFan.id } });
+      const wrongAct = await http(null, "GET", `/api/unsubscribe/undo?t=${await signToken({ ps: unsubFan.id, act: "unsub" }, "1h", "unsub")}`);
+      const undo = await http(null, "GET", `/api/unsubscribe/undo?t=${undoUrl}`);
+      const afterUndo = await prisma.preSave.findUnique({ where: { id: unsubFan.id } });
+      check("unsubscribe offers a way back, and only a real re-subscribe token works", unsubPage.status === 200 && !!undoUrl && afterUnsub?.status === "unsubscribed" && wrongAct.status === 400 && undo.status === 200 && afterUndo?.emailConsent === true && afterUndo.status !== "unsubscribed" && !afterUndo.newsConsent, `${unsubPage.status}/${wrongAct.status}/${undo.status} ${afterUndo?.status}`);
+      const undoJunk = await http(null, "GET", "/api/unsubscribe/undo?t=nope");
+      check("a junk re-subscribe link is refused", undoJunk.status === 400);
+    }
+    const unsubWithPst = await http(null, "GET", `/api/unsubscribe?t=${await signToken({ ps: bFan.id, act: "unsub" }, "1h", "pst")}`);
       const bFanNow = await prisma.preSave.findUnique({ where: { id: bFan.id } });
       check("pst token can't unsubscribe", unsubWithPst.status === 400 && !!bFanNow?.emailConsent, `got ${unsubWithPst.status}`);
     }
