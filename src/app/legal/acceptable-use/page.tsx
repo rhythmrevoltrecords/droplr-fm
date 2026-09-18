@@ -61,6 +61,10 @@ export default function AcceptableUsePage() {
           <li>Overload the service, send automated traffic to your own pages to inflate stats, or scrape the service at scale.</li>
           <li>Resell or white-label droplr.fm to others without an agreement with us.</li>
           <li>Create accounts to evade a suspension, or create multiple Free accounts to avoid plan limits.</li>
+          <li>Refer yourself: signing up a second account you control, or paying for one, to earn referral rewards. See the <Link href="/legal/billing">Billing &amp; Refund Policy</Link>.</li>
+          <li>Share an invite link publicly when it was sent to you personally, or use one to create accounts for people who aren&apos;t real users.</li>
+          <li>Use the feedback channel to send abuse, threats, spam or other people&apos;s personal information.</li>
+          <li>Republish or resell our guides or templates as your own product. Using them for your own music business, including with your artists, is fine.</li>
         </ul>
       </Section>
 
