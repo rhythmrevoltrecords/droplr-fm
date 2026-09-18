@@ -14,7 +14,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown feature" }, { status: 400 });
   }
   const email = (user?.email ?? body.email ?? "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254) return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Valid email required" }, { status: 400 });
   // Anyone can post here (no login needed): 10 per IP per hour.
   if (!(await allow(ipKey("waitlist", clientIp(req.headers)), 10, 60 * 60 * 1000))) return NextResponse.json({ error: "Too many requests. Try again later." }, { status: 429 });
 

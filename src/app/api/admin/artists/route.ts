@@ -13,7 +13,8 @@ export async function POST(req: NextRequest) {
   if (!user.emailVerifiedAt) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
   const body = (await req.json()) as { email?: string; artistName?: string; role?: string };
   const email = (body.email ?? "").trim().toLowerCase();
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Valid email required" }, { status: 400 });
+  // Length first: the address pattern backtracks polynomially, so it must never see an unbounded string.
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return NextResponse.json({ error: "Valid email required" }, { status: 400 });
   const role = body.role === "admin" ? "admin" : "artist";
   const plan = planOf(user.organization.plan);
   if (role === "admin" && !plan.whiteLabel) return NextResponse.json({ error: "Team roles are on the Label plan" }, { status: 402 });

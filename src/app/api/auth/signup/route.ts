@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
   const plan = kind === "artist" ? (planParam === "artist" || planParam === "artist_pro" ? planParam : "") : planParam === "pro" || planParam === "label" ? planParam : "";
   const fail = (msg: string) => redirectTo(`/signup?type=${kind}&invite=1&error=${encodeURIComponent(msg)}${plan ? `&plan=${plan}` : ""}${preInvite?.ok ? `&code=${encodeURIComponent(String(inviteCode))}` : ""}`);
   if (name.length < 2 || name.length > 100) return fail(kind === "artist" ? "Artist name is required" : "Label name is required");
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return fail("Valid email required");
   // Pre-launch: env allowlist, or an owner invite (bound invites only work for their own address).
   const invite = typeof inviteCode === "string" && inviteCode ? await findUsableInvite(inviteCode, email) : null;
   if (invite && !invite.ok && invite.reason === "email") return fail("This invite is for a different email address. Use the address it was sent to.");

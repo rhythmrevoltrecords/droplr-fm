@@ -4,7 +4,8 @@ import { SITE_URL } from "./env";
 import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "./platform";
 
 export const INVITE_TTL_MS = 14 * 86400_000;
-export const isEmail = (e: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+// Length first: the pattern backtracks polynomially, so an unbounded string must never reach it.
+export const isEmail = (e: string) => e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
 
 type InviteResult = { ok: true; link: string; inviteId: string } | { ok: false; error: string; status: 400 | 409 };
 

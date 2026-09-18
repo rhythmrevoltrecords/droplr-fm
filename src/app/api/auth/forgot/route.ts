@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const done = redirectTo("/forgot-password?sent=1");
-  if (!EMAIL_RE.test(email) || email.length > 254) return redirectTo("/forgot-password?error=email");
+  if (email.length > 254 || !EMAIL_RE.test(email)) return redirectTo("/forgot-password?error=email");
 
   const okIp = await allow(ipKey("reset", clientIp(req.headers)), 10, RESET_TTL_MS);
   const okEmail = okIp && (await allow(emailKey("reset", email), 3, RESET_TTL_MS));
