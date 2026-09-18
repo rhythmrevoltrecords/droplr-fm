@@ -109,7 +109,7 @@ export function CreateLinkModal({ releaseLimitReached }: { releaseLimitReached: 
 
   return (
     <>
-      <Button onClick={() => setOpen(true)}><Plus /> Create link</Button>
+      <Button data-tour="create-link" onClick={() => setOpen(true)}><Plus /> Create link</Button>
 
       {open && (
         <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center" role="dialog" aria-modal="true" aria-labelledby="create-link-title">

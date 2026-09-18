@@ -809,6 +809,18 @@ async function main() {
     check("referral page shows the account's link", refOwnPage.status === 200 && refOwnPage.text.includes("/join/"), `${refOwnPage.status}`);
     const refPlat = await http(ownerA, "POST", "/api/platform/referrals");
     check("only the platform owner can run the referral check", refPlat.status === 404, `${refPlat.status}`);
+    console.log("\n15b. Walkthrough and press kit");
+    const tourAnon = await http(null, "POST", "/api/tour", { done: true });
+    const tourOwn = await http(ownerA, "POST", "/api/tour", { done: true });
+    const aAfter = await prisma.user.findUnique({ where: { id: A.owner.id } });
+    const bAfter = await prisma.user.findUnique({ where: { id: B.owner.id } });
+    check("the walkthrough is dismissed per login, and needs one", tourAnon.status === 401 && tourOwn.status === 200 && !!aAfter?.tourDoneAt && !bAfter?.tourDoneAt, `${tourAnon.status}/${tourOwn.status}`);
+    const tourAgain = await http(ownerA, "POST", "/api/tour", { done: false });
+    check("you can ask for the walkthrough again", tourAgain.status === 200 && !(await prisma.user.findUnique({ where: { id: A.owner.id } }))?.tourDoneAt);
+    const epkOwn = await http(ownerA, "GET", `/admin/artists/${(await prisma.artist.findFirst({ where: { organizationId: A.org.id } }))?.id}/epk`);
+    const epkCross = await http(ownerB, "GET", `/admin/artists/${(await prisma.artist.findFirst({ where: { organizationId: A.org.id } }))?.id}/epk`);
+    check("a press kit is only visible to its own label", epkOwn.status === 200 && epkCross.status === 404, `${epkOwn.status}/${epkCross.status}`);
+
     console.log("\n16. Owner signup invites");
     await prisma.authThrottle.deleteMany({}); // sign-ups are 5 per IP per hour
     const invByOwner = await http(ownerA, "POST", "/api/platform/invites", { open: true, maxUses: 5 });

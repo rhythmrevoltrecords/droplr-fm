@@ -1,3 +1,4 @@
+import { RestartTourButton } from "@/components/admin/restart-tour";
 import Link from "next/link";
 import { ChangePasswordForm, SignOutEverywhereButton } from "@/components/admin/account-forms";
 import { PushSettings } from "@/components/admin/push-settings";
@@ -34,6 +35,11 @@ export async function AccountPage({ user, back }: { user: AccountUser; back?: { 
           </dl>
           <p className="mt-4 text-xs text-muted-foreground">To change your login email, email <a className="underline" href={`mailto:${CONTACT.support}`}>{CONTACT.support}</a> from your current address.</p>
         </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader><CardTitle>Walkthrough</CardTitle><CardDescription>The quick tour of the dashboard you saw when you first logged in.</CardDescription></CardHeader>
+        <CardContent><RestartTourButton home={user.role === "artist" ? "/dashboard" : "/admin"} /></CardContent>
       </Card>
 
       <Card id="notifications" className="scroll-mt-24">

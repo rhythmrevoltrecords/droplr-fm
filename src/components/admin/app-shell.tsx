@@ -2,11 +2,13 @@ import { Sparkles } from "lucide-react";
 import Link from "next/link";
 import { DashboardGlow } from "@/components/admin/dashboard-glow";
 import { DesktopNav, MobileNav } from "@/components/admin/nav-links";
+import { ProductTour } from "@/components/admin/product-tour";
 import { FeedbackButton } from "@/components/feedback/feedback-forms";
 import { Logo } from "@/components/marketing/logo";
 import { Badge } from "@/components/ui/badge";
 import { copyrightLine } from "@/lib/legal";
 import { planOf } from "@/lib/plans";
+import type { TourStep } from "@/lib/tour";
 import { cn } from "@/lib/utils";
 
 export type ShellOrg = { name: string; plan: string; logoUrl?: string | null; themePreference?: string | null; accentColor?: string | null; dashboardGlow?: boolean | null };
@@ -16,7 +18,7 @@ export function themeClass(pref: string | null | undefined) {
 }
 
 /** Admin + artist dashboard chrome. Theme follows Organization.themePreference (dark by default). */
-export function AppShell({ user, nav, children, billingHref, accountHref, feedbackHref, feedbackUnread = false }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string; wide?: boolean }[]; children: React.ReactNode; /** Label admins only: plan badge links here, and Free shows an Upgrade button. */ billingHref?: string; /** Account page (password, sessions); the name in the header links here. */ accountHref?: string; /** Feedback page; the dot shows when the droplr.fm team has replied. */ feedbackHref?: string; feedbackUnread?: boolean }) {
+export function AppShell({ user, nav, children, billingHref, accountHref, feedbackHref, feedbackUnread = false, tour }: { user: { email: string; role: string; artistName: string | null; organization: ShellOrg }; nav: { href: string; label: string; wide?: boolean; tour?: string }[]; children: React.ReactNode; /** Label admins only: plan badge links here, and Free shows an Upgrade button. */ billingHref?: string; /** Account page (password, sessions); the name in the header links here. */ accountHref?: string; /** Feedback page; the dot shows when the droplr.fm team has replied. */ feedbackHref?: string; feedbackUnread?: boolean; /** First-login walkthrough: omit once the user has finished or skipped it. */ tour?: TourStep[] }) {
   const org = user.organization;
   return (
     <div className={cn(themeClass(org.themePreference), "relative isolate min-h-dvh bg-background text-foreground", org.dashboardGlow !== false && "glow-on")}>
@@ -58,6 +60,7 @@ export function AppShell({ user, nav, children, billingHref, accountHref, feedba
         <MobileNav nav={nav} />
       </header>
       <main className="container relative py-6 sm:py-8">{children}</main>
+      {tour && tour.length > 0 && <ProductTour steps={tour} />}
       <footer className="container relative flex flex-col gap-2 border-t pb-[max(1.5rem,env(safe-area-inset-bottom))] pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <span>{copyrightLine()}</span>
         <nav aria-label="Legal" className="flex flex-wrap gap-4">

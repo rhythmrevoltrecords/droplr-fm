@@ -1,5 +1,8 @@
+import { FileText } from "lucide-react";
+import Link from "next/link";
 import { ArtistProfileEditor } from "@/components/admin/artist-forms";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { ARTIST_STATUS_LABELS, readSocialLinks } from "@/lib/artist-fields";
 import { requireUser } from "@/lib/auth";
@@ -33,6 +36,7 @@ export default async function ArtistSelfProfilePage() {
           <Badge variant="secondary">{ARTIST_STATUS_LABELS[artist.status as keyof typeof ARTIST_STATUS_LABELS] ?? artist.status}</Badge>
         </div>
         <p className="text-sm text-muted-foreground">What {user.organization.name} uses for press and pitching. Your name and status are managed by the label.</p>
+        <Button asChild variant="outline" size="sm" className="mt-3"><Link href="/dashboard/profile/epk"><FileText /> Make my press kit</Link></Button>
       </div>
       <ArtistProfileEditor
         mode="artist"
