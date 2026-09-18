@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { verifyLegacyToken, verifyToken } from "@/lib/crypto";
+import { signToken, verifyLegacyToken, verifyToken } from "@/lib/crypto";
+import { prefsPage } from "@/lib/email-prefs";
 
 export const dynamic = "force-dynamic";
 
@@ -19,22 +20,24 @@ async function unsubscribe(t: string | null) {
     where: { email: ps.email, platform: "email", release: { organizationId: ps.release.organizationId } },
     data: { status: "unsubscribed" },
   });
-  return ps.release.organization.name;
+  return { org: ps.release.organization.name, presaveId: ps.id };
 }
 
 export async function GET(req: NextRequest) {
-  const org = await unsubscribe(req.nextUrl.searchParams.get("t"));
-  const body = org
-    ? `<h1>You're unsubscribed</h1><p>You won't get release emails or news from ${org.replace(/[<>&]/g, "")} anymore.</p>`
-    : `<h1>Link expired</h1><p>This unsubscribe link is invalid or expired.</p>`;
-  return new NextResponse(
-    `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><title>Unsubscribe</title><body style="background:#09090b;color:#fafafa;font:16px system-ui;display:grid;place-items:center;min-height:100vh;margin:0;text-align:center;padding:24px"><div>${body}</div></body>`,
-    { headers: { "Content-Type": "text/html; charset=utf-8" }, status: org ? 200 : 400 },
+  const done = await unsubscribe(req.nextUrl.searchParams.get("t"));
+  if (!done) return prefsPage(`<h1>Link expired</h1><p>This unsubscribe link is invalid or expired.</p>`, 400);
+  const name = done.org.replace(/[<>&]/g, "");
+  // One-tap way back for someone who didn't mean to unsubscribe. Only the fan can use it: the label can't
+  // re-subscribe anyone, and the link is tied to this address for 30 days.
+  const back = await signToken({ ps: done.presaveId, act: "resub" }, "30d", "unsub");
+  return prefsPage(
+    `<h1>You're unsubscribed</h1><p>You won't get release emails or news from ${name} anymore.</p>
+     <p style="color:#a1a1aa;font-size:14px;margin-top:28px">Didn't mean to? <a href="/api/unsubscribe/undo?t=${back}" style="color:#fafafa">Turn release emails back on</a>. This link works for 30 days.</p>`,
   );
 }
 
 // RFC 8058 one-click unsubscribe
 export async function POST(req: NextRequest) {
-  const org = await unsubscribe(req.nextUrl.searchParams.get("t"));
-  return NextResponse.json({ ok: !!org }, { status: org ? 200 : 400 });
+  const done = await unsubscribe(req.nextUrl.searchParams.get("t"));
+  return NextResponse.json({ ok: !!done }, { status: done ? 200 : 400 });
 }
