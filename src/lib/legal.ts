@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-18",
-  updated: "18 September 2026",
+  version: "2026-09-19",
+  updated: "19 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -48,6 +48,15 @@ export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optiona
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-19",
+    date: "19 September 2026",
+    summary: [
+      "Fan emails: you can now send your own email to fans who ticked the optional news box, and droplr.fm delivers it as you.",
+      "You write it and you're responsible for it; we only deliver it to fans who opted in to news, re-check that consent just before each batch, and put a working unsubscribe link on every message.",
+      "Privacy: what we record for each fan email — the address, which send it belonged to, when it went out and any delivery failure.",
+    ],
+  },
   {
     version: "2026-09-18",
     date: "18 September 2026",
