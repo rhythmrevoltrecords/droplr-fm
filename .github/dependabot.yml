@@ -38,6 +38,10 @@ updates:
         update-types: [version-update:semver-major]
       - dependency-name: tailwindcss
         update-types: [version-update:semver-major]
+      # tailwind-merge majors track Tailwind's: v3 dropped Tailwind CSS v3 support.
+      # It compiles clean and merges classes wrong at runtime, so CI can't catch it.
+      - dependency-name: tailwind-merge
+        update-types: [version-update:semver-major]
     commit-message:
       prefix: deps
 

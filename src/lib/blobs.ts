@@ -25,7 +25,9 @@ export async function storeImage(buf: Buffer, type: CoverType, ext: string): Pro
   try {
     const { getStore } = await import("@netlify/blobs");
     const store = getStore(STORE);
-    await store.set(key, new Blob([buf], { type }), { metadata: { contentType: type } });
+    // new Uint8Array(buf) copies into a plain ArrayBuffer: Node's Buffer is backed by
+    // ArrayBufferLike, which TypeScript 5.9+ no longer accepts as a BlobPart.
+    await store.set(key, new Blob([new Uint8Array(buf)], { type }), { metadata: { contentType: type } });
     return `${SITE_URL}/api/cover/${key}`;
   } catch (err) {
     if (process.env.NODE_ENV === "production") throw err;
