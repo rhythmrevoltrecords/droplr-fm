@@ -10,6 +10,7 @@ import { SectionLink } from "./section-link";
 const NAV: { href: string; label: string; section?: string }[] = [
   { href: "/", section: "product", label: "Product" },
   { href: "/", section: "roadmap", label: "Roadmap" },
+  { href: "/learn", label: "Knowledge" },
   { href: "/pricing", label: "Pricing" },
   { href: "/demo/demo-track", label: "Demo" },
 ];
@@ -63,6 +64,7 @@ export function SiteFooter() {
         <div className="flex flex-wrap gap-x-5 gap-y-2">
           <SectionLink section="product" className="hover:text-foreground">Product</SectionLink>
           <SectionLink section="roadmap" className="hover:text-foreground">Roadmap</SectionLink>
+          <Link href="/learn" className="hover:text-foreground">Knowledge</Link>
           <Link href="/pricing" className="hover:text-foreground">Pricing</Link>
           <Link href="/demo/demo-track" className="hover:text-foreground">Demo</Link>
           <Link href="/docs/custom-domain" className="hover:text-foreground">Custom domains</Link>
