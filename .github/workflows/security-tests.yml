@@ -101,6 +101,9 @@ jobs:
           RESEND_FROM_EMAIL: news@droplr.test
         run: npx tsx scripts/test-news.ts
 
+      - name: Release-tools suite
+        run: npx tsx scripts/test-release-tools.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

@@ -1,6 +1,7 @@
 import type { Config } from "@netlify/functions";
 import { findDueNewsEmails } from "../../src/lib/news";
 import { findDueReleases } from "../../src/lib/presave-processor";
+import { notifyDuePromoSteps } from "../../src/lib/promo-reminders";
 import { notifyLiveReleases } from "../../src/lib/push-live";
 
 // Every 15 minutes: find releases with work due somewhere in the world (store scans before/after release,
@@ -9,6 +10,8 @@ import { notifyLiveReleases } from "../../src/lib/push-live";
 export default async () => {
   // Push "X is out" to each team once its release moment passes (cheap: an indexed query + claim).
   await notifyLiveReleases().catch((e) => console.error("[release-check] live push", e));
+  // "This is due today" nudges for the promo plan. Claimed per step, so a 15-minute job never repeats one.
+  await notifyDuePromoSteps().catch((e) => console.error("[release-check] promo push", e));
   const [due, news] = await Promise.all([findDueReleases(), findDueNewsEmails()]);
   if (!due.length && !news.length) return new Response(JSON.stringify({ due: 0, news: 0 }), { status: 200 });
 
