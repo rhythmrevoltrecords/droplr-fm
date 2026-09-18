@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const email = String(form.get("email") ?? "").trim().toLowerCase();
   const consent = form.get("consent") === "yes";
   const news = form.get("news") === "yes";
-  if (!EMAIL_RE.test(email) || email.length > 254 || !consent) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
+  if (email.length > 254 || !EMAIL_RE.test(email) || !consent) return NextResponse.redirect(withParam(pageUrl, "notice", "error"), 303);
   const timezone = fanTimezone(form.get("tz"), req.headers);
   const listenOnRaw = form.get("listenOn");
   const listenOn = isListenChoice(listenOnRaw) ? listenOnRaw : null;

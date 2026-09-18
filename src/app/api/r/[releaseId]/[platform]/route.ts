@@ -99,7 +99,7 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
     if (method === "POST") {
       const form = await req.formData().catch(() => null);
       const e = String(form?.get("email") ?? "").trim().toLowerCase();
-      if (form?.get("consent") === "yes" && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) email = e;
+      if (form?.get("consent") === "yes" && e.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) email = e;
       tz = fanTimezone(form?.get("tz"), req.headers);
       const lo = form?.get("listenOn");
       if (isListenChoice(lo)) listenOn = lo;

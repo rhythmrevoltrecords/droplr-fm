@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
   const back = (q: string) => redirectTo(`/signup?${q}`);
   if (form.get("website")) return back("waitlisted=1"); // bots
   const email = String(form.get("email") ?? "").trim().toLowerCase();
-  if (!EMAIL_RE.test(email) || email.length > 254) return back("waitlist_error=1");
+  if (email.length > 254 || !EMAIL_RE.test(email)) return back("waitlist_error=1");
   if (!(await allow(ipKey("waitlist", clientIp(req.headers)), 10, 60 * 60 * 1000))) return back("waitlisted=1");
 
   await prisma.waitlistFeature.upsert({

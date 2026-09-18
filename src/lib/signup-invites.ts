@@ -15,7 +15,7 @@ export type InviteInput = { email?: string | null; kind?: string | null; maxUses
 /** Checks an owner's invite settings. Returns the cleaned values or an error. */
 export function normaliseInvite(input: InviteInput): { ok: true; data: { email: string | null; kind: AccountKind | null; maxUses: number; expiresInDays: number; note: string | null } } | { ok: false; error: string } {
   const email = input.email ? input.email.trim().toLowerCase() : null;
-  if (email && (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || email.length > 254)) return { ok: false, error: `Not an email address: ${input.email}` };
+  if (email && (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email))) return { ok: false, error: `Not an email address: ${input.email}` };
   const kind: AccountKind | null = isAccountKind(input.kind) ? input.kind : null;
   const maxUses = email ? 1 : Math.min(Math.max(Math.floor(input.maxUses ?? 10), 1), 500);
   const expiresInDays = Math.min(Math.max(Math.floor(input.expiresInDays ?? 14), 1), 180);
