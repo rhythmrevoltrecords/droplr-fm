@@ -69,6 +69,7 @@ export default function DataProcessingPage() {
 
       <Section {...s("requests")}>
         <p>You can view fan data and delete it (by deleting a release) from the dashboard on every plan, and export pre-saves as CSV on plans that include it. On any plan, email <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a> and we&apos;ll provide an export of your fan data within 30 days. If a fan contacts us directly, we&apos;ll pass the request to you without undue delay and won&apos;t respond ourselves except to redirect them, unless the law requires otherwise. We&apos;ll give you reasonable help with requests you can&apos;t handle in the dashboard, and with privacy impact assessments or consultations with regulators.</p>
+        <p>We also keep the consent record for you: when a fan ticked the box and the wording they saw, when they unsubscribed, and when they restored release emails themselves. Unsubscribes are enforced across your whole account, and we don&apos;t provide any way for you or us to re-subscribe a fan.</p>
       </Section>
 
       <Section {...s("breaches")}>
