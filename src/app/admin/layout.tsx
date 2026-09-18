@@ -1,7 +1,9 @@
 import { AppShell } from "@/components/admin/app-shell";
 import { tourSteps } from "@/lib/tour";
+import { LegalUpdateNotice } from "@/components/admin/legal-update-notice";
 import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
+import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -39,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin/settings/billing", label: "Billing", wide: true },
       ]}
     >
+      {needsReaccept(user.termsVersion) && <LegalUpdateNotice updates={updatesSince(user.termsVersion)} updated={LEGAL.updated} />}
       {!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}
       {children}
     </AppShell>

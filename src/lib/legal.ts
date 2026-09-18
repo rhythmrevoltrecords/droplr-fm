@@ -43,6 +43,34 @@ export const CONTACT = {
  */
 export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optional";
 
+/**
+ * What changed, newest first. The dashboard shows the entries newer than the version a login accepted,
+ * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
+ */
+export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-18",
+    date: "18 September 2026",
+    summary: [
+      "Notifications: how the installed app and push notifications work, and that they're off until you turn them on.",
+      "Feedback: we can act on ideas you send us, and what not to send through it.",
+      "Guides and templates: general information, not legal or financial advice, and what you may do with the templates.",
+      "Privacy: push subscriptions, feedback messages and invite records added to what we collect and how long we keep it.",
+      "Acceptable use: no self-referral, no sharing personal invite links, no reselling our templates.",
+    ],
+  },
+];
+
+/** True when this login agreed to an older version of the documents. */
+export const needsReaccept = (acceptedVersion: string | null | undefined) => !!acceptedVersion && acceptedVersion !== LEGAL.version;
+
+/** The changes since the version this login accepted (newest first). */
+export function updatesSince(acceptedVersion: string | null | undefined) {
+  if (!acceptedVersion) return [];
+  const i = LEGAL_UPDATES.findIndex((u) => u.version === acceptedVersion);
+  return i === -1 ? LEGAL_UPDATES : LEGAL_UPDATES.slice(0, i);
+}
+
 export const LEGAL_DOCS = [
   { slug: "terms", title: "Terms of Service", short: "Terms", blurb: "The agreement between your label and droplr.fm." },
   { slug: "privacy", title: "Privacy Policy", short: "Privacy", blurb: "What we collect from labels, artists and fans, and why." },

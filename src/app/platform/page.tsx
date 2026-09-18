@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { prisma } from "@/lib/db";
+import { LEGAL } from "@/lib/legal";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { accountKind, kindChangeBlocker, planOf } from "@/lib/plans";
 import { formatInTz } from "@/lib/time";
@@ -27,13 +28,15 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
     },
   });
   const counts = { total: orgs.length, paid: orgs.filter((o) => o.stripeSubscriptionId).length, comp: orgs.filter((o) => o.compPlan).length };
+  // Who still has to accept the current Terms (they see a notice in their dashboard until they do).
+  const staleTerms = await prisma.user.count({ where: { termsVersion: { not: LEGAL.version } } });
 
   return (
     <PlatformChrome email={admin.email} active="accounts">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold">Accounts</h1>
-            <p className="text-sm text-muted-foreground">{counts.total} shown · {orgs.filter((o) => o.kind === "artist").length} artist · {counts.paid} paying through Stripe · {counts.comp} complimentary</p>
+            <p className="text-sm text-muted-foreground">{counts.total} shown · {orgs.filter((o) => o.kind === "artist").length} artist · {counts.paid} paying through Stripe · {counts.comp} complimentary{staleTerms > 0 ? ` · ${staleTerms} login${staleTerms === 1 ? "" : "s"} yet to accept the ${LEGAL.version} terms` : ""}</p>
           </div>
           <form className="flex gap-2">
             <input name="q" defaultValue={q} placeholder="Search name, slug or owner email" className="h-9 w-64 rounded-lg border bg-transparent px-3 text-sm" />
