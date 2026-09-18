@@ -38,7 +38,7 @@
     "react": "19.3.0",
     "react-dom": "19.3.0",
     "react-easy-crop": "6.2.3",
-    "recharts": "2.15.4",
+    "recharts": "3.10.1",
     "server-only": "^0.0.1",
     "sharp": "0.35.4",
     "stripe": "^22.6.2",
