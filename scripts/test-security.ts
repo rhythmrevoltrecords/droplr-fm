@@ -106,6 +106,9 @@ async function fixtures(tag: "a" | "b") {
 
 async function main() {
   console.log(`Security tests against ${BASE} (run ${RUN})`);
+  // Start clean: rate-limit rows left by earlier runs (or by load testing against the same server)
+  // would make the pre-save and sign-up sections fail for reasons that have nothing to do with the code.
+  await prisma.authThrottle.deleteMany({}).catch(() => {});
   const A = await fixtures("a");
   const B = await fixtures("b");
   const extraOrgs: string[] = [];
