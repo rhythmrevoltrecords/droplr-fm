@@ -100,6 +100,7 @@ model User {
   pushSubscriptions PushSubscription[]
   // Which push notifications this login wants: { milestones, releaseLive, feedback, referrals } (missing = on).
   pushPrefs      Json?
+  tourDoneAt     DateTime? // finished or skipped the first-login walkthrough
 }
 
 model Invite {

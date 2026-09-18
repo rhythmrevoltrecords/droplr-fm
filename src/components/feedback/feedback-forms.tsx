@@ -20,7 +20,7 @@ export function FeedbackButton({ href, unread }: { href: string; unread: boolean
   const path = usePathname();
   const from = path && !path.includes("/feedback") ? `?from=${encodeURIComponent(path)}` : "";
   return (
-    <Link href={`${href}${from}`} className="relative inline-flex shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground" title={unread ? "The droplr.fm team replied" : "Send feedback"}>
+    <Link href={`${href}${from}`} data-tour="feedback" className="relative inline-flex shrink-0 items-center gap-1.5 text-muted-foreground hover:text-foreground" title={unread ? "The droplr.fm team replied" : "Send feedback"}>
       <MessageSquarePlus className="h-4 w-4" />
       <span className="hidden lg:inline">Feedback</span>
       {unread && <span className="absolute -right-1.5 -top-1 h-2.5 w-2.5 rounded-full bg-violet-500 ring-2 ring-background" aria-label="New reply" />}

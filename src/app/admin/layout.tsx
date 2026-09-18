@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/admin/app-shell";
+import { tourSteps } from "@/lib/tour";
 import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -24,14 +25,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       accountHref="/admin/settings/account"
       feedbackHref="/admin/feedback"
       feedbackUnread={feedbackUnread}
+      tour={user.tourDoneAt ? undefined : tourSteps(artist ? "artist" : "label")}
       nav={[
-        { href: "/admin", label: "Releases" },
+        { href: "/admin", label: "Releases", tour: "nav-releases" },
         { href: "/admin/fans", label: "Fans" },
         { href: "/admin/bio", label: "Bio links" },
         // An artist account has one profile (its own); a label manages a roster.
-        { href: "/admin/artists", label: artist ? "Profile" : "Roster" },
-        { href: "/admin/learn", label: "Knowledge" },
-        { href: "/admin/templates", label: "Templates" },
+        { href: "/admin/artists", label: artist ? "Profile" : "Roster", tour: "nav-profile" },
+        { href: "/admin/learn", label: "Knowledge", tour: "nav-knowledge" },
+        { href: "/admin/templates", label: "Templates", tour: "nav-templates" },
         { href: "/admin/settings", label: "Settings" },
         { href: "/admin/settings/integrations", label: "Integrations", wide: true },
         { href: "/admin/settings/billing", label: "Billing", wide: true },

@@ -1,7 +1,9 @@
+import { FileText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArtistAvatar, ArtistLoginAccess, ArtistProfileEditor, DeleteArtistButton, type LoginState } from "@/components/admin/artist-forms";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ARTIST_STATUS_LABELS, readSocialLinks } from "@/lib/artist-fields";
 import { labelArtist } from "@/lib/artists";
@@ -41,6 +43,7 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
           </div>
           <p className="text-sm text-muted-foreground">{[artist.genre, artist.location].filter(Boolean).join(" · ") || "Add a genre and location below."}</p>
         </div>
+        <Button asChild variant="outline" className="shrink-0"><Link href={`/admin/artists/${artist.id}/epk`}><FileText /> Press kit</Link></Button>
       </div>
 
       {searchParams.created && !own && <Card className="border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">Artist added. Fill in their profile, then invite them to log in when you&apos;re ready.</Card>}

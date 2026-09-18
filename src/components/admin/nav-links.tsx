@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-type Item = { href: string; label: string; /** Also reachable from Settings: hidden on narrower desktops so the bar never wraps. */ wide?: boolean };
+type Item = { href: string; label: string; /** data-tour hook for the first-login walkthrough. */ tour?: string; /** Also reachable from Settings: hidden on narrower desktops so the bar never wraps. */ wide?: boolean };
 
 /** The nav item for this page: the longest href the path starts with (so /admin/settings/billing is Billing, not Settings). */
 function activeHref(nav: Item[], path: string) {
@@ -25,9 +25,9 @@ export function ScrollActiveIntoView({ children, className }: { children: React.
 export function DesktopNav({ nav }: { nav: Item[] }) {
   const active = activeHref(nav, usePathname());
   return (
-    <nav className="hidden items-center gap-0.5 text-sm md:flex">
+    <nav className="hidden items-center gap-0.5 text-[13px] lg:text-sm md:flex">
       {nav.map((n) => (
-        <Link key={n.href} href={n.href} aria-current={active === n.href ? "page" : undefined} className={cn("rounded-md px-2.5 py-1.5 hover:bg-secondary hover:text-foreground", n.wide && "hidden xl:inline-flex", active === n.href ? "bg-secondary text-foreground" : "text-muted-foreground")}>{n.label}</Link>
+        <Link key={n.href} href={n.href} data-tour={n.tour} aria-current={active === n.href ? "page" : undefined} className={cn("rounded-md px-2.5 py-1.5 hover:bg-secondary hover:text-foreground", n.wide && "hidden 2xl:inline-flex", active === n.href ? "bg-secondary text-foreground" : "text-muted-foreground")}>{n.label}</Link>
       ))}
     </nav>
   );
@@ -39,7 +39,7 @@ export function MobileNav({ nav }: { nav: Item[] }) {
     <ScrollActiveIntoView className="md:hidden">
       <nav className="no-scrollbar container flex gap-1.5 overflow-x-auto pb-2 text-sm [mask-image:linear-gradient(to_right,black_85%,transparent)]">
         {nav.map((n) => (
-          <Link key={n.href} href={n.href} data-active={active === n.href} aria-current={active === n.href ? "page" : undefined} className={cn("shrink-0 rounded-full px-3.5 py-1.5", active === n.href ? "bg-foreground font-medium text-background" : "bg-secondary/60 text-muted-foreground")}>{n.label}</Link>
+          <Link key={n.href} href={n.href} data-tour={n.tour ? `${n.tour}-m` : undefined} data-active={active === n.href} aria-current={active === n.href ? "page" : undefined} className={cn("shrink-0 rounded-full px-3.5 py-1.5", active === n.href ? "bg-foreground font-medium text-background" : "bg-secondary/60 text-muted-foreground")}>{n.label}</Link>
         ))}
         <span aria-hidden className="w-6 shrink-0" />
       </nav>
