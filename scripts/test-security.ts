@@ -29,6 +29,7 @@ import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
 import { createVerificationToken } from "../src/lib/email-verification";
 import { prisma } from "../src/lib/db";
+import { LEGAL } from "../src/lib/legal";
 import { linkCustomDomain } from "../src/lib/plans";
 
 // The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
@@ -820,6 +821,14 @@ async function main() {
     const epkOwn = await http(ownerA, "GET", `/admin/artists/${(await prisma.artist.findFirst({ where: { organizationId: A.org.id } }))?.id}/epk`);
     const epkCross = await http(ownerB, "GET", `/admin/artists/${(await prisma.artist.findFirst({ where: { organizationId: A.org.id } }))?.id}/epk`);
     check("a press kit is only visible to its own label", epkOwn.status === 200 && epkCross.status === 404, `${epkOwn.status}/${epkCross.status}`);
+
+    const legalAnon = await http(null, "POST", "/api/legal/accept");
+    await prisma.user.update({ where: { id: A.owner.id }, data: { termsVersion: "2020-01-01" } });
+    const staleDash = await http(ownerA, "GET", "/admin");
+    const legalOk = await http(ownerA, "POST", "/api/legal/accept");
+    const afterAccept = await prisma.user.findUnique({ where: { id: A.owner.id } });
+    const freshDash = await http(ownerA, "GET", "/admin");
+    check("an old terms version shows the notice until the login accepts", legalAnon.status === 401 && staleDash.text.includes("updated our Terms") && legalOk.status === 200 && afterAccept?.termsVersion === LEGAL.version && !freshDash.text.includes("updated our Terms"), `${legalAnon.status}/${legalOk.status}`);
 
     console.log("\n16. Owner signup invites");
     await prisma.authThrottle.deleteMany({}); // sign-ups are 5 per IP per hour
