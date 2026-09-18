@@ -16,5 +16,5 @@ export const metadata = {
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser("artist");
   const feedbackUnread = (await prisma.feedbackThread.count({ where: { userId: user.id, unreadByUser: true } })) > 0;
-  return <AppShell user={user} nav={[{ href: "/dashboard", label: "My releases" }, { href: "/dashboard/profile", label: "Profile" }, { href: "/dashboard/learn", label: "Knowledge" }, { href: "/dashboard/account", label: "Account" }]} accountHref="/dashboard/account" feedbackHref="/dashboard/feedback" feedbackUnread={feedbackUnread}>{!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}{children}</AppShell>;
+  return <AppShell user={user} nav={[{ href: "/dashboard", label: "My releases" }, { href: "/dashboard/profile", label: "Profile" }, { href: "/dashboard/learn", label: "Knowledge" }, { href: "/dashboard/templates", label: "Templates" }, { href: "/dashboard/account", label: "Account" }]} accountHref="/dashboard/account" feedbackHref="/dashboard/feedback" feedbackUnread={feedbackUnread}>{!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}{children}</AppShell>;
 }
