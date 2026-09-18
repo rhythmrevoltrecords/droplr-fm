@@ -32,7 +32,8 @@ export async function GET(req: NextRequest) {
   const back = await signToken({ ps: done.presaveId, act: "resub" }, "30d", "unsub");
   return prefsPage(
     `<h1>You're unsubscribed</h1><p>You won't get release emails or news from ${name} anymore.</p>
-     <p style="color:#a1a1aa;font-size:14px;margin-top:28px">Didn't mean to? <a href="/api/unsubscribe/undo?t=${back}" style="color:#fafafa">Turn release emails back on</a>. This link works for 30 days.</p>`,
+     <p style="color:#a1a1aa;font-size:14px;margin-top:28px">Didn't mean to? <a href="/api/unsubscribe/undo?t=${back}" style="color:#fafafa">Turn release emails back on</a>. This link works for 30 days.</p>
+     <p style="color:#71717a;font-size:13px;margin-top:12px">You can get back to this page any time from the unsubscribe link in an earlier email. We won't email you to confirm this.</p>`,
   );
 }
 
