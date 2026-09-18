@@ -1,0 +1,125 @@
+# Runs the tenant-isolation / auth test suite on every push and pull request.
+# This is the net that stops one label ever seeing another label's releases, roster,
+# fans or settings, and stops an artist login seeing anything the label kept private.
+#
+# It needs no repository secrets: the suite runs against a throwaway Postgres that
+# lives and dies with the job, and the keys below are generated fresh each run.
+name: Security tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: security-tests-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  suite:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: droplr
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NETLIFY_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/droplr
+      NETLIFY_DATABASE_URL_UNPOOLED: postgresql://postgres:postgres@127.0.0.1:5432/droplr
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      PLATFORM_ADMIN_EMAILS: platform-test@example.com
+      PLATFORM_TEST_ADMIN: platform-test@example.com
+      SIGNUP_ALLOWLIST: artist-signup-test@sectest.dev
+      NETLIFY_API_URL: http://127.0.0.1:4777
+      NETLIFY_API_TOKEN: test
+      NETLIFY_SITE_ID: test-site
+      NETLIFY_MOCK: "1"
+      BASE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      # Throwaway keys: never the production ones, and never stored anywhere.
+      - name: Generate test keys
+        run: |
+          {
+            echo "ENCRYPTION_KEY=$(openssl rand -base64 32)"
+            echo "JWT_SECRET=$(openssl rand -hex 32)"
+            echo "CRON_SECRET=$(openssl rand -hex 16)"
+          } >> "$GITHUB_ENV"
+          node -e '
+            const k = require("web-push").generateVAPIDKeys();
+            require("fs").appendFileSync(process.env.GITHUB_ENV,
+              `VAPID_PUBLIC_KEY=${k.publicKey}\nVAPID_PRIVATE_KEY=${k.privateKey}\n`);
+          '
+
+      - name: Apply migrations
+        run: npx prisma migrate deploy
+
+      - name: Build
+        run: npm run build
+
+      - name: Start the app
+        run: |
+          npx next start -p 3000 > /tmp/next.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf -o /dev/null http://localhost:3000/ && exit 0
+            sleep 2
+          done
+          echo "server did not come up"; cat /tmp/next.log; exit 1
+
+      - name: Security suite
+        run: npx tsx scripts/test-security.ts
+
+      - name: Release-timing suite
+        run: npx tsx scripts/test-release-timing.ts
+
+      - name: Server log on failure
+        if: failure()
+        run: tail -100 /tmp/next.log
+
+  audit:
+    # Known vulnerabilities in dependencies. Separate job so a CVE report doesn't
+    # hide a real test failure (and the other way round).
+    #
+    # Fails the build only on critical. Today's high findings (postcss, and the
+    # deepmerge-ts pulled in by the Prisma CLI) are all build-tooling: postcss is
+    # not in the built server bundle, and nothing an attacker controls reaches it.
+    # They are still printed below so a genuinely new one gets noticed rather than
+    # buried under a permanently-red check.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Report high and critical advisories
+        run: npm audit --audit-level=high || true
+
+      - name: Fail on critical
+        run: npm audit --audit-level=critical

@@ -1,0 +1,25 @@
+# Free dependency updates. Dependabot opens a PR when a package this app depends
+# on ships a security fix, so known holes don't sit in the build for months.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: Australia/Brisbane
+    open-pull-requests-limit: 5
+    groups:
+      # One PR for routine bumps instead of twenty; security fixes still come through.
+      minor-and-patch:
+        update-types: [minor, patch]
+    commit-message:
+      prefix: deps
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: ci
