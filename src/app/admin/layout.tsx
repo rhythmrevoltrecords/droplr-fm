@@ -30,6 +30,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin/bio", label: "Bio links" },
         // An artist account has one profile (its own); a label manages a roster.
         { href: "/admin/artists", label: artist ? "Profile" : "Roster" },
+        { href: "/admin/learn", label: "Knowledge" },
         { href: "/admin/settings", label: "Settings" },
         { href: "/admin/settings/integrations", label: "Integrations" },
         { href: "/admin/settings/billing", label: "Billing" },

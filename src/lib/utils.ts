@@ -27,7 +27,7 @@ export function fmtNum(n: number) {
 export const RESERVED_SLUGS = new Set([
   "admin", "dashboard", "api", "login", "logout", "signup", "pricing", "docs", "demo",
   "host", "invite", "settings", "b", "r", "_next", "favicon.ico", "robots.txt", "sitemap.xml",
-  "legal", "terms", "privacy", "refunds", "cookies", "billing",
+  "learn", "legal", "terms", "privacy", "refunds", "cookies", "billing",
   "forgot-password", "reset-password", "platform", "account", "support", "copyright", "join", "feedback", "referrals", "platforms", "app", "sw.js",
   // Look like official droplr.fm pages / subdomains: phishing bait if a label could claim them.
   "www", "mail", "email", "accounts", "app", "status", "help", "blog", "cdn", "static", "assets",
