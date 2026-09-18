@@ -157,6 +157,14 @@ model Release {
   reportToken    String?   @unique
   reportSharedAt DateTime?
 
+  /**
+   * Intent only, captured ahead of the unreleased pool being built. Ticking it shares
+   * nothing with anyone: it records that this account would opt this release in when the
+   * pool exists, so the pool isn't empty on the day it launches.
+   */
+  poolOptIn   Boolean   @default(false)
+  poolOptInAt DateTime?
+
   links        ReleaseLink[]
   linkVariants  LinkVariant[]
   promoDone     PromoTaskDone[]
@@ -192,6 +200,13 @@ model Artist {
   accentColor      String?
   signedAt         DateTime?
   notes            String? // label only, never shown to the artist
+  /**
+   * Intent only, captured ahead of bookable profiles. Nothing is published or shown to
+   * anyone: it records that this artist would take booking enquiries when that exists.
+   */
+  bookingsOpen   Boolean   @default(false)
+  bookingsOpenAt DateTime?
+
   spotifyArtistId  String?
   monthlyListeners Int?
   followers        Int?

@@ -13,6 +13,7 @@ import { zonedDay } from "@/lib/time";
 import { MILESTONES } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
+import { InterestToggle } from "@/components/admin/interest-toggle";
 import { ReportShare } from "@/components/admin/report-share";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { VariantManager } from "@/components/admin/variant-manager";
@@ -193,6 +194,16 @@ export default async function ReleaseDetail(
         const count = await prisma.preSave.count({ where: { releaseId: release.id } });
         return <ShareGraphics releaseId={release.id} live={live} presaves={count} milestones={MILESTONES.filter((m) => m <= count).slice(-3).reverse()} />;
       })()}
+
+      {tab === "settings" && (
+        <InterestToggle
+          endpoint={`/api/admin/releases/${release.id}`}
+          field="poolOptIn"
+          initial={release.poolOptIn}
+          title="I'd let labels hear this"
+          description="We're looking at an opt-in pool where labels on droplr can hear unreleased tracks, with your pre-save numbers attached."
+        />
+      )}
 
       {tab === "settings" && (
         <Card>

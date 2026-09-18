@@ -13,6 +13,8 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
   const { socialLinks, ...rest } = parsed.data;
   const data: Prisma.ArtistUpdateInput = definedOnly(rest);
+  // Interest flag: stamp when it was ticked so we know who asked for bookings first.
+  if (rest.bookingsOpen !== undefined) data.bookingsOpenAt = rest.bookingsOpen ? new Date() : null;
   if (socialLinks !== undefined) data.socialLinks = socialLinks ?? Prisma.DbNull;
   // The editor sends every field on save: only a changed number counts as fresh stats.
   const statsChanged =

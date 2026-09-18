@@ -128,6 +128,8 @@ const selfShape = {
   pressPhotoUrls: z.array(hostedPhoto).max(PRESS_PHOTOS_MAX, `Up to ${PRESS_PHOTOS_MAX} press photos`).optional(),
   // Comes back from the photo upload; only a colour, so harmless to accept from the artist too.
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).or(z.literal("")).nullable().optional().transform(blank),
+  // Intent only: nothing is published or shown to anyone until bookable profiles exist.
+  bookingsOpen: z.boolean().optional(),
 };
 
 export const artistSelfInput = z.object(selfShape);

@@ -15,6 +15,8 @@ export async function PATCH(req: NextRequest) {
 
   const { socialLinks, ...rest } = parsed.data;
   const data: Prisma.ArtistUpdateInput = definedOnly(rest);
+  // Interest flag: stamp when it was ticked so we know who asked for bookings first.
+  if (rest.bookingsOpen !== undefined) data.bookingsOpenAt = rest.bookingsOpen ? new Date() : null;
   if (socialLinks !== undefined) data.socialLinks = socialLinks ?? Prisma.DbNull;
   await prisma.artist.update({ where: { id: artist.id }, data });
   return NextResponse.json({ ok: true });

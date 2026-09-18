@@ -24,6 +24,8 @@ const schema = z.object({
   autoReResolve: z.boolean().optional(),
   isPublic: z.boolean().optional(),
   rollout: z.enum(["local", "global"]).optional(),
+  // Intent only: nothing is shared with anyone until the unreleased pool exists.
+  poolOptIn: z.boolean().optional(),
 });
 
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -35,6 +37,11 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   const d = parsed.data;
   const data: Record<string, unknown> = {};
   for (const k of ["title", "artistName", "coverUrl", "accentColor", "autoReResolve", "isPublic", "rollout"] as const) if (d[k] !== undefined) data[k] = d[k];
+  // Interest flag: stamp when it was ticked so we know who asked for the pool first.
+  if (d.poolOptIn !== undefined) {
+    data.poolOptIn = d.poolOptIn;
+    data.poolOptInAt = d.poolOptIn ? new Date() : null;
+  }
   for (const k of ["spotifyAlbumId", "spotifyTrackId", "spotifyArtistId"] as const) if (d[k] !== undefined) data[k] = d[k] || null;
   if (d.upc !== undefined) {
     if (d.upc && !normaliseUpc(d.upc)) return NextResponse.json({ error: "UPC should be 12–14 digits" }, { status: 400 });

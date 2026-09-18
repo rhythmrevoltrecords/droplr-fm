@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-20",
-  updated: "20 September 2026",
+  version: "2026-09-21",
+  updated: "21 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -48,6 +48,13 @@ export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optiona
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-21",
+    date: "21 September 2026",
+    summary: [
+      "Some screens now have a tick box for something we haven't built yet. Ticking it shares nothing and shows nothing publicly — it records that you want the feature, and we'll tell you before anything you've ticked is used.",
+    ],
+  },
   {
     version: "2026-09-20",
     date: "20 September 2026",
