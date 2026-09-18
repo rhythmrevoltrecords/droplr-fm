@@ -17,7 +17,7 @@ export const metadata = { title: "Fans" };
 
 const PAGE = 100;
 
-export default async function FansPage(props: { searchParams: Promise<{ q?: string; news?: string; country?: string; store?: string; page?: string }> }) {
+export default async function FansPage(props: { searchParams: Promise<{ q?: string; show?: string; news?: string; country?: string; store?: string; page?: string }> }) {
   const sp = await props.searchParams;
   const user = await requireUser("label");
   const org = user.organization;
@@ -25,7 +25,9 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
   const page = Math.max(1, Math.min(1000, Number(sp.page) || 1));
   const filter = {
     q: sp.q?.trim().slice(0, 100) || undefined,
-    news: sp.news === "1",
+    // ?news=1 is the old link shape; keep it working.
+    news: sp.show === "news" || sp.news === "1",
+    unsubscribed: sp.show === "unsub",
     country: /^[A-Z]{2}$/.test(sp.country ?? "") ? sp.country : undefined,
     listenOn: isListenChoice(sp.store) ? sp.store : undefined,
   };
@@ -34,7 +36,7 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
   const rows = fans.slice(0, PAGE);
   const qs = (extra: Record<string, string | undefined>) => {
     const p = new URLSearchParams();
-    const merged = { q: filter.q, news: filter.news ? "1" : undefined, country: filter.country, store: filter.listenOn, ...extra };
+    const merged = { q: filter.q, show: filter.news ? "news" : filter.unsubscribed ? "unsub" : undefined, country: filter.country, store: filter.listenOn, ...extra };
     for (const [k, v] of Object.entries(merged)) if (v) p.set(k, v);
     return `/admin/fans${p.size ? `?${p}` : ""}`;
   };
@@ -56,17 +58,20 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Fans", value: summary.total, hint: "unique emails" },
-          { label: "Opted in to news", value: summary.news, hint: "you can email about anything" },
-          { label: "Came back", value: summary.returning, hint: "pre-saved 2+ releases" },
-          { label: "Unsubscribed", value: summary.unsubscribed, hint: "never email again" },
-        ].map((t) => (
-          <Card key={t.label} className="p-4">
-            <div className="text-xs uppercase tracking-wide text-muted-foreground">{t.label}</div>
-            <div className="mt-1 text-2xl font-semibold tabular-nums">{fmtNum(t.value)}</div>
-            <div className="text-xs text-muted-foreground">{t.hint}</div>
-          </Card>
-        ))}
+          { label: "Fans", value: summary.total, hint: "unique emails", href: "/admin/fans" },
+          { label: "Opted in to news", value: summary.news, hint: "you can email about anything", href: "/admin/fans?show=news" },
+          { label: "Came back", value: summary.returning, hint: "pre-saved 2+ releases", href: undefined },
+          { label: "Unsubscribed", value: summary.unsubscribed, hint: "never email again", href: "/admin/fans?show=unsub" },
+        ].map((t) => {
+          const card = (
+            <Card key={t.label} className={`p-4${t.href ? " transition-colors hover:border-violet-500/40" : ""}`}>
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">{t.label}</div>
+              <div className="mt-1 text-2xl font-semibold tabular-nums">{fmtNum(t.value)}</div>
+              <div className="text-xs text-muted-foreground">{t.hint}</div>
+            </Card>
+          );
+          return t.href ? <Link key={t.label} href={t.href}>{card}</Link> : card;
+        })}
       </div>
 
       <Card className="border-amber-500/30 bg-amber-500/5">
@@ -78,7 +83,7 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="text-base">Filter</CardTitle>
-          <CardDescription>Find fans by email, country, store or news opt-in.</CardDescription>
+          <CardDescription>Find fans by email, country, store, news opt-in or unsubscribed.</CardDescription>
         </CardHeader>
         <CardContent>
           <form method="get" className="grid gap-3 sm:grid-cols-[1fr_auto_auto_auto_auto] sm:items-center">
@@ -91,8 +96,12 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
               <option value="">Any store</option>
               {summary.stores.map((s) => <option key={s.value} value={s.value}>{platformMeta(s.value).name} ({s.fans})</option>)}
             </Select>
-            <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="news" value="1" defaultChecked={filter.news} className="h-4 w-4" /> News opt-ins only</label>
-            <div className="flex gap-2"><Button type="submit" variant="secondary">Apply</Button>{(filter.q || filter.news || filter.country || filter.listenOn) && <Button asChild variant="ghost"><Link href="/admin/fans">Clear</Link></Button>}</div>
+            <Select name="show" defaultValue={filter.news ? "news" : filter.unsubscribed ? "unsub" : ""} aria-label="Who to show">
+              <option value="">Everyone</option>
+              <option value="news">News opt-ins only</option>
+              <option value="unsub">Unsubscribed ({fmtNum(summary.unsubscribed)})</option>
+            </Select>
+            <div className="flex gap-2"><Button type="submit" variant="secondary">Apply</Button>{(filter.q || filter.news || filter.unsubscribed || filter.country || filter.listenOn) && <Button asChild variant="ghost"><Link href="/admin/fans">Clear</Link></Button>}</div>
           </form>
         </CardContent>
       </Card>

@@ -95,6 +95,12 @@ jobs:
       - name: Release-timing suite
         run: npx tsx scripts/test-release-timing.ts
 
+      - name: Fan-email suite
+        env:
+          RESEND_API_KEY: test
+          RESEND_FROM_EMAIL: news@droplr.test
+        run: npx tsx scripts/test-news.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

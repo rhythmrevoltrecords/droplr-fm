@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { findDueNewsEmails } from "../../src/lib/news";
 import { findDueReleases } from "../../src/lib/presave-processor";
 import { notifyLiveReleases } from "../../src/lib/push-live";
 
@@ -8,17 +9,17 @@ import { notifyLiveReleases } from "../../src/lib/push-live";
 export default async () => {
   // Push "X is out" to each team once its release moment passes (cheap: an indexed query + claim).
   await notifyLiveReleases().catch((e) => console.error("[release-check] live push", e));
-  const due = await findDueReleases();
-  if (!due.length) return new Response(JSON.stringify({ due: 0 }), { status: 200 });
+  const [due, news] = await Promise.all([findDueReleases(), findDueNewsEmails()]);
+  if (!due.length && !news.length) return new Response(JSON.stringify({ due: 0, news: 0 }), { status: 200 });
 
   const base = process.env.URL || process.env.NEXT_PUBLIC_SITE_URL;
   const res = await fetch(`${base}/.netlify/functions/process-presaves-background`, {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-cron-secret": process.env.CRON_SECRET ?? "" },
-    body: JSON.stringify({ releaseIds: due.map((r) => r.id) }),
+    body: JSON.stringify({ releaseIds: due.map((r) => r.id), newsEmailIds: news.map((n) => n.id) }),
   });
-  console.log(`[release-check] enqueued ${due.length} releases → background ${res.status}`);
-  return new Response(JSON.stringify({ due: due.length, background: res.status }), { status: 200 });
+  console.log(`[release-check] enqueued ${due.length} releases + ${news.length} news emails → background ${res.status}`);
+  return new Response(JSON.stringify({ due: due.length, news: news.length, background: res.status }), { status: 200 });
 };
 
 export const config: Config = { schedule: "*/15 * * * *" };

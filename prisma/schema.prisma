@@ -77,6 +77,7 @@ model Organization {
   feedbackThreads  FeedbackThread[]
   referralsMade    Referral[] @relation("ReferralReferrer")
   referredBy       Referral?  @relation("ReferralReferred")
+  newsEmails       NewsEmail[]
 }
 
 model User {
@@ -507,4 +508,63 @@ model SignupInvite {
 
   @@index([email])
   @@index([createdAt])
+}
+
+/**
+ * A one-off email from a label/artist to the fans who ticked the optional
+ * "news and new music" box. Release-day emails are a different thing entirely:
+ * those go to everyone who pre-saved, and cover only that release (Spam Act).
+ */
+model NewsEmail {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  subject     String
+  body        String  // plain text as typed; rendered to paragraphs, never raw HTML
+  buttonLabel String?
+  buttonUrl   String?
+
+  // Audience, mirroring the Fans page filters. Null = everyone opted in.
+  filterCountry   String?
+  filterListenOn  String?
+  filterReleaseId String?
+
+  status       String    @default("draft") // draft | scheduled | sending | sent | cancelled | failed
+  scheduledFor DateTime? // null with status "scheduled" means send at the next run
+  startedAt    DateTime?
+  sentAt       DateTime?
+  processingUntil DateTime? // lease, so two worker runs can't send the same batch twice
+
+  recipients Int     @default(0) // snapshot size when sending started
+  sent       Int     @default(0)
+  failed     Int     @default(0)
+  lastError  String?
+
+  createdById String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  deliveries NewsEmailDelivery[]
+
+  @@index([organizationId, createdAt])
+  @@index([status, scheduledFor])
+}
+
+/**
+ * One row per recipient, written before any sending starts. This is what makes a
+ * send resumable across worker runs and guarantees nobody is emailed twice.
+ */
+model NewsEmailDelivery {
+  id          String    @id @default(cuid())
+  newsEmailId String
+  newsEmail   NewsEmail @relation(fields: [newsEmailId], references: [id], onDelete: Cascade)
+  email       String
+  preSaveId   String // the row the unsubscribe token points at
+  sentAt      DateTime?
+  error       String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([newsEmailId, email])
+  @@index([newsEmailId, sentAt])
 }

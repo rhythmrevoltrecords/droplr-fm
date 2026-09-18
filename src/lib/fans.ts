@@ -18,7 +18,7 @@ export type FanRow = {
   clicked: boolean;
 };
 
-export type FanFilter = { q?: string; news?: boolean; country?: string; listenOn?: string };
+export type FanFilter = { q?: string; news?: boolean; unsubscribed?: boolean; country?: string; listenOn?: string };
 
 function where(orgId: string, f: FanFilter) {
   const parts = [Prisma.sql`r."organizationId" = ${orgId}`, Prisma.sql`p.email IS NOT NULL`];
@@ -29,6 +29,9 @@ function where(orgId: string, f: FanFilter) {
 function having(f: FanFilter) {
   const parts: Prisma.Sql[] = [];
   if (f.news) parts.push(Prisma.sql`bool_or(p."newsConsent") AND NOT bool_or(p.status = 'unsubscribed')`);
+  // A label can't re-subscribe anyone, but it should be able to see who is suppressed
+  // rather than think the addresses vanished.
+  if (f.unsubscribed) parts.push(Prisma.sql`bool_or(p.status = 'unsubscribed')`);
   if (f.country) parts.push(Prisma.sql`(array_agg(p.country ORDER BY p."createdAt" DESC) FILTER (WHERE p.country IS NOT NULL))[1] = ${f.country}`);
   if (f.listenOn) parts.push(Prisma.sql`(array_agg(p."listenOn" ORDER BY p."createdAt" DESC) FILTER (WHERE p."listenOn" IS NOT NULL))[1] = ${f.listenOn}`);
   return parts.length ? Prisma.sql`HAVING ${Prisma.join(parts, " AND ")}` : Prisma.empty;
