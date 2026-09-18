@@ -88,6 +88,7 @@ export default function TermsPage() {
         <ul>
           <li>comply with privacy and anti-spam laws that apply to you and your fans, including the <em>Privacy Act 1988</em> (Cth) and <em>Spam Act 2003</em> (Cth) in Australia, and the GDPR and UK GDPR where they apply;</li>
           <li>only email fans for the purpose they agreed to, and honour unsubscribe requests (droplr.fm release-day emails include an unsubscribe link that works automatically). A fan who only ticked the release-day box agreed to hear about that release; send news or other releases only to fans marked as opted in to news in your fan list;</li>
+          <li>accept that an unsubscribe applies to every release of your account, and that droplr.fm enforces it for you: an unsubscribed address stays suppressed, can&apos;t be re-added through a pre-save form, and can only be restored by the fan themselves from the link on the unsubscribe page. Neither you nor we can re-subscribe someone;</li>
           <li>not upload, import or use purchased, rented or scraped email lists with the service;</li>
           <li>keep any fan data you export secure and use it lawfully.</li>
         </ul>
