@@ -818,9 +818,9 @@ export const GUIDES: Guide[] = [
     member: [
       { h: "Arrangement timing, and when to ignore it" },
       { p: "Pop arranging conventions run roughly like this: intro under ten seconds or none at all, first chorus somewhere between fifty seconds and one minute ten, no instrumental wandering between verse and chorus, something new after the second chorus, whole thing under about four and a quarter minutes." },
-      { note: "Do not apply that to a club record. A garage or house track needs a DJ-friendly intro of eight to thirty-two bars with a stable beat, because the person playing it needs somewhere to mix. The pop rules are written for a listener pressing play, not a DJ finding a way in. Know which one you're making, and be consistent about it.", tone: "warn" },
+      { note: "One thing that gets repeated wrongly: that dance records need a long DJ-friendly intro. Most EDM, garage and dance releases have no intro at all — the hook or the vocal lands within two to five seconds, because that is what a listener pressing play needs. A DJ-friendly intro of eight to thirty-two bars is a deliberate choice for a club or DJ-mix version, not a property of the genre. If you are not cutting a version for the floor, do not put one on the release.", tone: "warn" },
       { ul: [
-        "If you're making both, make both: a full mix for DJs and a shorter edit for streaming. They're different jobs.",
+        "If the club version needs the long intro, make it as a separate version. The release version keeps the short start.",
         "Whatever the format, something should change every eight to sixteen bars, even slightly.",
         "Play it to someone on a phone speaker. Most of your listeners will hear it that way first.",
       ] },
