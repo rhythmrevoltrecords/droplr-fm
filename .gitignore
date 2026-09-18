@@ -5,3 +5,6 @@ node_modules
 .env.local
 *.tsbuildinfo
 .DS_Store
+
+# Screenshots and scratch output from Claude sessions — not part of the app.
+Claude outputs/
