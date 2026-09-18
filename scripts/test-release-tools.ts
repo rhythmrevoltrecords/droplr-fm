@@ -117,6 +117,24 @@ async function main() {
     check("due work excludes steps already done", !work.some((w) => w.key === storeCheck.key));
     check("due work is scoped to the org", (await duePromoWork(other.id)).length === 0);
 
+    // --- Interest flags (captured before the features exist) ---
+    const fresh = await prisma.release.findUnique({ where: { id: rel.id }, select: { poolOptIn: true, poolOptInAt: true } });
+    check("a release is not opted into the pool by default", fresh?.poolOptIn === false && fresh?.poolOptInAt === null);
+    await prisma.release.update({ where: { id: rel.id }, data: { poolOptIn: true, poolOptInAt: new Date() } });
+    const opted = await prisma.release.findUnique({ where: { id: rel.id }, select: { poolOptIn: true, poolOptInAt: true } });
+    check("opting in records when it was ticked", opted?.poolOptIn === true && !!opted?.poolOptInAt);
+
+    const prof = await prisma.artist.create({ data: { organizationId: org.id, name: `Flag Artist ${RUN}` } });
+    const p0 = await prisma.artist.findUnique({ where: { id: prof.id }, select: { bookingsOpen: true, bookingsOpenAt: true } });
+    check("an artist is not open to bookings by default", p0?.bookingsOpen === false && p0?.bookingsOpenAt === null);
+
+    // Ticking must not make anything visible: the report is still the only public surface,
+    // and it says nothing about either flag.
+    const flagToken = await enableReport(rel.id);
+    const flagReport = JSON.stringify(await reportByToken(flagToken));
+    check("the public report never mentions the pool or bookings flags", !flagReport.includes("poolOptIn") && !flagReport.includes("bookingsOpen"));
+    await disableReport(rel.id);
+
     // --- Release report ---
     check("a release has no report until asked", !(await prisma.release.findUnique({ where: { id: rel.id } }))?.reportToken);
     check("a junk token resolves to nothing", (await reportByToken("not-a-real-token-at-all")) === null);

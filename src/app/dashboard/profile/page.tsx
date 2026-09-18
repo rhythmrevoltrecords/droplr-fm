@@ -1,6 +1,7 @@
 import { FileText } from "lucide-react";
 import Link from "next/link";
 import { ArtistProfileEditor } from "@/components/admin/artist-forms";
+import { InterestToggle } from "@/components/admin/interest-toggle";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -16,7 +17,7 @@ export default async function ArtistSelfProfilePage() {
   // Select only what the artist may see: contacts, stats and label notes never reach this page's HTML.
   const artist = await prisma.artist.findFirst({
     where: { userId: user.id, organizationId: user.organizationId },
-    select: { name: true, status: true, genre: true, location: true, bio: true, website: true, socialLinks: true, photoUrl: true, accentColor: true, pressPhotoUrls: true },
+    select: { name: true, status: true, genre: true, location: true, bio: true, website: true, socialLinks: true, photoUrl: true, accentColor: true, pressPhotoUrls: true, bookingsOpen: true },
   });
 
   if (!artist) {
@@ -38,6 +39,13 @@ export default async function ArtistSelfProfilePage() {
         <p className="text-sm text-muted-foreground">What {user.organization.name} uses for press and pitching. Your name and status are managed by the label.</p>
         <Button asChild variant="outline" size="sm" className="mt-3"><Link href="/dashboard/profile/epk"><FileText /> Make my press kit</Link></Button>
       </div>
+      <InterestToggle
+        endpoint="/api/artist/profile"
+        field="bookingsOpen"
+        initial={artist.bookingsOpen}
+        title="I'd take booking enquiries"
+        description="We're looking at letting venues, promoters and festivals browse artist profiles and get in touch."
+      />
       <ArtistProfileEditor
         mode="artist"
         initial={{
