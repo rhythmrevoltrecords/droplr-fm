@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-19",
-  updated: "19 September 2026",
+  version: "2026-09-20",
+  updated: "20 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -48,6 +48,15 @@ export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optiona
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-20",
+    date: "20 September 2026",
+    summary: [
+      "Shared release reports: you can turn on a link showing one release's totals. It's off until you turn it on, shows counts only with no fan named, and turning it off or reissuing it kills the old link straight away.",
+      "The report link is unguessable but not password-protected — anyone you send it to can forward it, and the figures aren't audited.",
+      "Notifications: promo plan reminders added to the kinds you can turn on.",
+    ],
+  },
   {
     version: "2026-09-19",
     date: "19 September 2026",

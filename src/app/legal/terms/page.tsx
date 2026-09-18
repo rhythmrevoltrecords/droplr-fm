@@ -12,6 +12,7 @@ const toc = [
   { id: "plans", title: "Plans, payment and cancellation" },
   { id: "content", title: "Your content" },
   { id: "fans", title: "Fan data and email" },
+  { id: "reports", title: "Shared release reports" },
   { id: "platforms", title: "Spotify, Apple Music and other platforms" },
   { id: "use", title: "Acceptable use" },
   { id: "domains", title: "Custom domains and branding" },
@@ -95,6 +96,16 @@ export default function TermsPage() {
         </ul>
       </Section>
 
+      <Section {...s("reports")}>
+        <p>You can turn on a shareable report for a release: a page at a long, unguessable web address showing that release&apos;s totals — pre-saves, link clicks, page views, top stores, top countries and where the traffic came from.</p>
+        <ul>
+          <li>It is <strong>off until you turn it on</strong>, one release at a time, and you can turn it off or issue a new address at any time. Turning it off or reissuing makes the old address stop working straight away.</li>
+          <li>The page shows <strong>counts only</strong>. No fan is named, no email address appears, and nothing on it identifies an individual.</li>
+          <li>The address is unguessable but it is not password-protected: anyone you send it to can open it and can forward it. Treat it like a private link, and reissue it if it goes somewhere you didn&apos;t intend. We ask search engines not to index it, which most but not all of them honour.</li>
+          <li>The figures come from our own analytics and are provided as-is. They aren&apos;t audited, they won&apos;t match a streaming service&apos;s or distributor&apos;s own reporting, and you shouldn&apos;t present them as if they do.</li>
+        </ul>
+      </Section>
+
       <Section {...s("platforms")}>
         <p>droplr.fm links to and works with services we don&apos;t control, such as Spotify, Apple Music, Deezer, SoundCloud, YouTube, Beatport, Bandcamp, Stripe, and ad platforms like Meta, TikTok and Google. We aren&apos;t affiliated with or endorsed by them.</p>
         <ul>
@@ -115,7 +126,7 @@ export default function TermsPage() {
 
       <Section {...s("notifications")}>
         <ul>
-          <li>You can add droplr.fm to your phone&apos;s home screen and turn on notifications for things like pre-save milestones, a release going live and replies from us. Notifications are off until you switch them on for that login and that device.</li>
+          <li>You can add droplr.fm to your phone&apos;s home screen and turn on notifications for things like pre-save milestones, a release going live, a step on a release promo plan coming due, and replies from us. Notifications are off until you switch them on for that login and that device.</li>
           <li>To send them we store the push subscription your browser creates, and we pass the message to the push service your device uses (Apple, Google, Microsoft or Mozilla). We don&apos;t put fan email addresses or personal details in a notification.</li>
           <li>Turn them off any time in Account, or in your device settings. Removing the app from your home screen also ends them.</li>
           <li>Delivery isn&apos;t guaranteed: notifications depend on your device, your browser and the platform&apos;s push service. Don&apos;t rely on them as the only way you&apos;ll hear about something.</li>

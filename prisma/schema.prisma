@@ -153,9 +153,14 @@ model Release {
   emailsSentAt   DateTime?
   createdAt      DateTime     @default(now())
 
+  /** Shareable release report: off until the label turns it on, revocable by rotating the token. */
+  reportToken    String?   @unique
+  reportSharedAt DateTime?
+
   links        ReleaseLink[]
   linkVariants  LinkVariant[]
   promoDone     PromoTaskDone[]
+  promoReminders PromoStepReminder[]
   clickEvents   ClickEvent[]
   pageViews     PageView[]
   preSaves      PreSave[]
@@ -567,4 +572,18 @@ model NewsEmailDelivery {
 
   @@unique([newsEmailId, email])
   @@index([newsEmailId, sentAt])
+}
+
+/**
+ * One row per promo step we've already nudged about, so the 15-minute job can run
+ * as often as it likes without ever sending the same reminder twice.
+ */
+model PromoStepReminder {
+  id        String   @id @default(cuid())
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  key       String
+  sentAt    DateTime @default(now())
+
+  @@unique([releaseId, key])
 }

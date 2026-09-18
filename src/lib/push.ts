@@ -3,10 +3,11 @@
 import webpush from "web-push";
 import { prisma } from "./db";
 
-export type PushKind = "milestones" | "releaseLive" | "feedback" | "referrals";
+export type PushKind = "milestones" | "releaseLive" | "promoPlan" | "feedback" | "referrals";
 export const PUSH_KINDS: { key: PushKind; label: string; hint: string }[] = [
   { key: "milestones", label: "Pre-save milestones", hint: "25, 50, 100, 250… pre-saves on a release" },
   { key: "releaseLive", label: "Release is live", hint: "When a release unlocks and release-day emails start" },
+  { key: "promoPlan", label: "Promo plan reminders", hint: "When a step on a release plan comes due" },
   { key: "feedback", label: "Feedback replies", hint: "When the droplr.fm team answers your feedback" },
   { key: "referrals", label: "Free month earned", hint: "When someone you referred qualifies" },
 ];

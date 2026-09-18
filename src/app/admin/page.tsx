@@ -9,6 +9,7 @@ import { getStats, releaseTotals, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { planOf, releaseWindowStart } from "@/lib/plans";
+import { duePromoWork } from "@/lib/promo-reminders";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
 
@@ -25,7 +26,7 @@ export default async function AdminHome(
     include: { artist: { select: { artistName: true, email: true } } },
   });
   const ids = releases.map((r) => r.id);
-  const [totals, stats] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone)]);
+  const [totals, stats, dueWork] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone), duePromoWork(user.organizationId)]);
   const org = user.organization;
   const location = (org.locationLabel || "Local").toUpperCase();
   const plan = planOf(user.organization.plan);
@@ -43,6 +44,29 @@ export default async function AdminHome(
             : <>Welcome to droplr.fm. Paste a Spotify link to create your first release, then invite artists from <Link className="underline" href="/admin/artists">Roster</Link>.</>}
         </Card>
       )}
+      {dueWork.length > 0 && (
+        <Card className="border-violet-500/30 bg-violet-500/5 p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="text-sm font-medium">
+              {dueWork.length === 1 ? "One promo step is due" : `${dueWork.length} promo steps are due`}
+            </div>
+            <Link href={`/admin/releases/${dueWork[0].releaseId}?tab=promo`} className="text-sm text-violet-400 underline">
+              Open the plan
+            </Link>
+          </div>
+          <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
+            {dueWork.slice(0, 4).map((t) => (
+              <li key={`${t.releaseId}-${t.key}`} className="flex flex-wrap items-baseline gap-x-2">
+                <Link href={`/admin/releases/${t.releaseId}?tab=promo`} className="text-foreground hover:underline">{t.title}</Link>
+                <span className="text-xs">{t.releaseTitle}</span>
+                {t.overdue && <Badge variant="secondary">overdue</Badge>}
+              </li>
+            ))}
+            {dueWork.length > 4 && <li className="text-xs">and {dueWork.length - 4} more</li>}
+          </ul>
+        </Card>
+      )}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold">Releases</h1>

@@ -13,6 +13,7 @@ import { zonedDay } from "@/lib/time";
 import { MILESTONES } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
+import { ReportShare } from "@/components/admin/report-share";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { Badge } from "@/components/ui/badge";
@@ -131,6 +132,7 @@ export default async function ReleaseDetail(
             )}
           </div>
           <AnalyticsPanels perLink stats={await getStats([release.id], days, release.organization.timezone)} />
+          <ReportShare releaseId={release.id} url={release.reportToken ? `${SITE_URL}/report/${release.reportToken}` : null} />
         </div>
       )}
 
