@@ -340,3 +340,15 @@
 /* Sideways scrollers (mobile nav, tabs): swipe without a visible scrollbar. */
 .no-scrollbar { scrollbar-width: none; -webkit-overflow-scrolling: touch; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Printable templates: only the sheet goes on the paper. */
+@media print {
+  body > div > header,
+  body > div > footer,
+  .app-glow,
+  .no-print { display: none !important; }
+  body, .print-sheet { background: #fff !important; box-shadow: none !important; }
+  .print-sheet { max-width: none !important; padding: 0 !important; }
+  main { padding: 0 !important; }
+  @page { size: A4; margin: 14mm; }
+}
