@@ -10,6 +10,7 @@ const toc = [
   { id: "ours", title: "Cookies droplr.fm sets" },
   { id: "pixels", title: "Label pixels on public pages" },
   { id: "labels", title: "If you're a label using pixels" },
+  { id: "app", title: "The installed app and notifications" },
   { id: "control", title: "Controlling cookies" },
 ];
 const s = tocHelper(toc);
@@ -47,6 +48,15 @@ export default function CookiePolicyPage() {
 
       <Section {...s("labels")}>
         <p>Privacy laws in some places, including the EU, UK and parts of the US, require notice and sometimes <strong>prior consent</strong> before advertising or analytics pixels run. If you add pixels, you&apos;re responsible for meeting those requirements for your audience, as set out in the <Link href="/legal/terms">Terms</Link>. If you aren&apos;t sure, leave pixels off for campaigns aimed at those regions.</p>
+      </Section>
+
+      <Section {...s("app")}>
+        <p>If you add droplr.fm to your phone&apos;s home screen, your browser also stores things that aren&apos;t cookies:</p>
+        <ul>
+          <li>A <strong>service worker</strong> and a small cache, so the app opens quickly.</li>
+          <li>A <strong>push subscription</strong>, if you turn notifications on. That&apos;s an address at your device&apos;s push service plus the keys used to encrypt messages to it. We store it against your login so we can send you notifications, and delete it when you turn them off.</li>
+        </ul>
+        <p>Removing the app from your home screen, or clearing site data in your browser, clears these. None of it is used for advertising, and none of it runs on the public release or bio pages fans see.</p>
       </Section>
 
       <Section {...s("control")}>

@@ -53,7 +53,10 @@ export default function PrivacyPage() {
           <li><strong>Spotify developer credentials</strong>, if you connect your own Spotify app. These are encrypted with AES-256-GCM before storage.</li>
           <li><strong>Billing</strong>: your plan and the customer and subscription IDs Stripe gives us. Your card and billing details go directly to Stripe and Link; we never see or store your full card number.</li>
           <li><strong>Security records</strong>: when you agreed to the Terms, password reset requests (we store only a hash of the reset link, which expires after 60 minutes), and a record of failed logins and reset requests used for rate limiting. Those rate-limit records contain a hash of the email or IP address, not the address itself, and are deleted after a day.</li>
-          <li><strong>Support</strong>: what you tell us when you email us.</li>
+          <li><strong>Support and feedback</strong>: what you tell us when you email us, and the messages in any feedback conversation you start in the dashboard, with your account and login attached.</li>
+          <li><strong>Notifications</strong>: if you turn them on, the push subscription your browser creates for that device (an address at your device&apos;s push service, plus the keys needed to encrypt a message to it), which notification types you want, and when the device was added. We don&apos;t receive your phone number or device ID.</li>
+          <li><strong>Invitations and referrals</strong>: invite links we or a label create, the email address they were sent to, when they were used, and which account signed up through a referral link.</li>
+          <li><strong>Product state</strong>: small settings such as whether you&apos;ve finished the walkthrough, so we don&apos;t show it again.</li>
         </ul>
 
         <h3>From fans (on behalf of labels)</h3>
@@ -114,6 +117,7 @@ export default function PrivacyPage() {
               <tr><td>Stripe, including Link</td><td>Subscription checkout, payments, tax and invoices. Link is the merchant of record for paid plans and handles the details you give it at checkout under its own privacy policy.</td><td>United States and other countries</td></tr>
               <tr><td>Resend</td><td>Sending release-day emails and account emails such as password resets</td><td>United States</td></tr>
               <tr><td>Spotify, Deezer</td><td>Only when a fan chooses to connect their account</td><td>Per those providers</td></tr>
+              <tr><td>Apple, Google, Microsoft, Mozilla (push services)</td><td>Only if you turn on notifications: we hand the encrypted notification to the push service your device uses so it can deliver it</td><td>Per those providers</td></tr>
               <tr><td>Meta, TikTok, Google</td><td>Only on label pages where the label has added its own pixel</td><td>Per those providers</td></tr>
             </tbody>
           </table>
@@ -139,6 +143,9 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Customer accounts</strong>: kept while the account is open. We delete or de-identify account data within 90 days of closure. During the first 30 days you can ask for an export.</li>
           <li><strong>Fan data</strong>: kept until the label deletes the release (which deletes its pre-saves and analytics), closes its account (deleted within 90 days of closure), or asks us to delete it. If you unsubscribe, we keep your email address marked as unsubscribed so that label can&apos;t email you through droplr.fm again.</li>
+          <li><strong>Notification subscriptions</strong>: kept until you turn notifications off, remove that device, uninstall the app, or the push service tells us the subscription is dead, when we delete it. All of them are deleted when the account closes.</li>
+          <li><strong>Feedback conversations</strong>: kept while your account is open so we have the history of what you asked, and deleted with the account within 90 days of closure.</li>
+          <li><strong>Invites and referral records</strong>: kept while they can still be used and for our records of how an account was created; deleted with the account.</li>
           <li><strong>Billing records</strong>: kept for as long as tax law requires, generally five years in Australia.</li>
           <li><strong>Backups and logs</strong>: overwritten on our providers&apos; normal cycles.</li>
         </ul>
@@ -150,6 +157,7 @@ export default function PrivacyPage() {
           <li><strong>Deletion.</strong> Ask us to delete your information. We may need to keep some records for legal reasons, and we&apos;ll tell you if so.</li>
           <li><strong>Unsubscribe.</strong> Every release-day email has a one-click unsubscribe link. It stops all droplr.fm emails from that label.</li>
           <li><strong>Revoke platform access</strong> in your Spotify or Deezer account settings under connected apps.</li>
+          <li><strong>Notifications.</strong> Turn them off for a login or a single device in Account, or in your device&apos;s notification settings. Turning them off deletes that device&apos;s subscription.</li>
           <li><strong>EU and UK residents</strong> also have the right to data portability, to restrict or object to processing, and to complain to their local data protection authority.</li>
           <li><strong>US state privacy laws.</strong> Where they apply, you can request access or deletion in the same way. We don&apos;t sell or share personal information for cross-context behavioural advertising; label pixels are controlled by the label.</li>
         </ul>

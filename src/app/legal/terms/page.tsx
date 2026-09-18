@@ -15,6 +15,9 @@ const toc = [
   { id: "platforms", title: "Spotify, Apple Music and other platforms" },
   { id: "use", title: "Acceptable use" },
   { id: "domains", title: "Custom domains and branding" },
+  { id: "notifications", title: "Notifications and the installed app" },
+  { id: "feedback", title: "Feedback and messages to us" },
+  { id: "guides", title: "Guides and templates" },
   { id: "service", title: "Availability and changes to the service" },
   { id: "ip", title: "Our intellectual property" },
   { id: "termination", title: "Suspension and termination" },
@@ -106,6 +109,34 @@ export default function TermsPage() {
 
       <Section {...s("domains")}>
         <p>On plans that include custom domains, you&apos;re responsible for owning the domain and keeping its DNS pointed correctly. SSL certificates are issued by our hosting provider once DNS is correct, and we can&apos;t guarantee how long that takes. Removing droplr.fm branding is available only on plans that include it; if your plan changes, branding may reappear.</p>
+      </Section>
+
+      <Section {...s("notifications")}>
+        <ul>
+          <li>You can add droplr.fm to your phone&apos;s home screen and turn on notifications for things like pre-save milestones, a release going live and replies from us. Notifications are off until you switch them on for that login and that device.</li>
+          <li>To send them we store the push subscription your browser creates, and we pass the message to the push service your device uses (Apple, Google, Microsoft or Mozilla). We don&apos;t put fan email addresses or personal details in a notification.</li>
+          <li>Turn them off any time in Account, or in your device settings. Removing the app from your home screen also ends them.</li>
+          <li>Delivery isn&apos;t guaranteed: notifications depend on your device, your browser and the platform&apos;s push service. Don&apos;t rely on them as the only way you&apos;ll hear about something.</li>
+        </ul>
+      </Section>
+
+      <Section {...s("feedback")}>
+        <ul>
+          <li>The feedback button opens a conversation with us. We keep those messages with your account so we can answer them, and we may quote a message internally when fixing what it&apos;s about.</li>
+          <li>If you send us an idea or a suggestion, we can use it to improve droplr.fm without owing you anything for it. You keep whatever rights you already had in it; we just don&apos;t take on a confidentiality or payment obligation by reading it.</li>
+          <li>Don&apos;t send confidential material, passwords, or other people&apos;s personal information through feedback. If you need to send fan data for a support question, ask us first.</li>
+          <li>We answer feedback as people, not as lawyers or accountants. Anything we say about royalties, contracts or tax is general information, not advice.</li>
+        </ul>
+      </Section>
+
+      <Section {...s("guides")}>
+        <ul>
+          <li>The knowledge board, the guides and the templates are general information for independent artists and labels. They are not legal, tax, accounting or financial advice, and reading them doesn&apos;t make us your adviser.</li>
+          <li>Laws, prices, deadlines and third-party terms change. Each guide shows when its facts were last checked, and links to the official source. Check the source before you rely on it, and get advice for your own situation before you sign anything or rely on a deadline.</li>
+          <li>Templates (splits sheets, metadata sheets, checklists, press kits and onboarding sheets) are starting points you may use, edit and share for your own music business, including with your artists and collaborators. Don&apos;t resell them or pass them off as your own product.</li>
+          <li>We don&apos;t guarantee a template is suitable, complete or enforceable for your situation. A signed document is your responsibility, not ours.</li>
+          <li>Press kits are built from what you put in your profile: what they say is your content, and the rules in &ldquo;Your content&rdquo; apply to them.</li>
+        </ul>
       </Section>
 
       <Section {...s("service")}>
