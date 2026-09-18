@@ -469,8 +469,8 @@ export const GUIDES: Guide[] = [
     minutes: 9,
     checked: "21 September 2026",
     inside: [
-      "Current length limits on each platform, and why the limit isn't the target",
       "Seven ways to film a clip that don't need a crew",
+      "Why one platform being 40% of your income is a problem",
       "The comment work that actually moves a new account",
       "Filming a month of content in one afternoon",
       "How to tell which post actually brought pre-saves",
@@ -485,9 +485,6 @@ export const GUIDES: Guide[] = [
       ] },
       { h: "Document rather than produce" },
       { p: "The advice that has aged best here is Gary Vaynerchuk's: document what you are already doing instead of inventing content. You are writing, recording, rehearsing and playing shows. That is the material. It costs nothing to film, it is impossible for anyone else to copy, and it does not require you to become a different kind of person online." },
-      { note: "None of this replaces the songs. Short-form video decides how many people hear you; it does not decide whether they stay." },
-    ],
-    member: [
       { h: "Length limits, and why the limit is not the target" },
       { p: "Every platform has raised its ceiling, and none of them reward you for using it. Shorter clips get watched to the end, and watch-through is what the feeds actually measure." },
       { table: {
@@ -505,6 +502,9 @@ export const GUIDES: Guide[] = [
         "Captions towards the middle of the frame, not the bottom, where the interface covers them.",
         "One song can be cut for all three. Film once, post in three places.",
       ] },
+      { note: "None of this replaces the songs. Short-form video decides how many people hear you; it does not decide whether they stay." },
+    ],
+    member: [
       { h: "Seven ways to film without a crew" },
       { ol: [
         "Phone on a tripod, somewhere with a bit of character. Stairwell, car park, kitchen.",
@@ -592,6 +592,14 @@ export const GUIDES: Guide[] = [
         "Then video content. It's the thing most likely to put the song in front of strangers.",
         "Then a small, targeted ad spend — a few hundred dollars per single is a realistic starting point, not thousands.",
         "Not gear you don't need yet, and not looking successful. Money spent looking like it worked is money not spent making it work.",
+      ] },
+      { h: "Don't build the whole thing on one platform" },
+      { p: "It is normal for a single streaming service to be a large share of an independent artist's streaming income, and for its algorithm to be how most new listeners arrive. That is a single point of failure you do not control. Artists who have pulled their catalogue off a major platform on principle generally find they lose a serious share of streaming income, the discovery that came with it, their listener data and their follower notifications all at once." },
+      { ul: [
+        "You do not have to leave a platform to reduce the risk. You have to have somewhere else to reach people.",
+        "The only audience nobody can throttle is the one whose email address you hold. That is the whole reason droplr collects pre-saves and news opt-ins rather than just counting clicks.",
+        "Treat platform followers as rented and your fan list as owned. Rented is fine, as long as you know which is which.",
+        "Before you make a decision on principle about any platform, work out what share of your income and your discovery it actually is. Decide with the number in front of you.",
       ] },
       { h: "Reading your own numbers without losing the plot" },
       { ul: [
