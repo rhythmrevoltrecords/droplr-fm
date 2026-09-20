@@ -1,7 +1,7 @@
 import type { PriceTier } from "@/components/marketing/audience-pricing";
 import { ctaCopy } from "./launch";
 import { CONTACT } from "./legal";
-import { PLAN_BLURB, planFeatures, planPrice, priceSuffix, yearlyPrice } from "./plan-copy";
+import { PLAN_BLURB, planFeatures, planPrice, planPriceUsd, priceSuffix, yearlyPrice, yearlyPriceUsd } from "./plan-copy";
 import { type PlanKey } from "./plans";
 
 /** Marketing plan cards for both audiences, built from PLAN_LIMITS so prices never drift from billing. */
@@ -9,7 +9,7 @@ export function pricingTiers(): { artist: PriceTier[]; label: PriceTier[] } {
   const cta = ctaCopy();
   const card = (key: PlanKey, action: { label: string; href: string }, featured = false): PriceTier => ({
     key, name: nameOf(key), price: planPrice(key), suffix: priceSuffix(key), blurb: PLAN_BLURB[key], features: planFeatures(key), featured, cta: action,
-    yearly: yearlyPrice(key),
+    yearly: yearlyPrice(key), usd: planPriceUsd(key), usdYearly: yearlyPriceUsd(key),
   });
   return {
     artist: [

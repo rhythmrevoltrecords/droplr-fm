@@ -48,6 +48,7 @@ export default function BillingPolicyPage() {
       <Section {...s("tax")}>
         <p>Our prices are set in Australian dollars (AUD) and <strong>include tax</strong>. As merchant of record, Link works out whether GST, VAT or sales tax applies based on where you are, collects it from within the price, and pays it to the tax authority. The tax amount is shown on your receipt or tax invoice from Link.</p>
         <p>If you pay in another currency, or your card is issued outside Australia, your bank may charge currency conversion or international transaction fees. Those are between you and your bank.</p>
+        <p>Where we show a price in US dollars alongside the Australian price, that US figure is <strong>indicative only</strong>. It is a rough conversion published as a guide, not an offer or a quote, and it is not the amount charged. The amount charged is the Australian dollar price for your plan; the rate your bank or card issuer applies on the day decides what that costs you in your own currency. We update the published conversion periodically, so it will not match the live market rate.</p>
       </Section>
 
       <Section {...s("changes")}>

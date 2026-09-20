@@ -53,6 +53,7 @@ export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }
     date: "21 September 2026",
     summary: [
       "Some screens now have a tick box for something we haven't built yet. Ticking it shares nothing and shows nothing publicly — it records that you want the feature, and we'll tell you before anything you've ticked is used.",
+      "Pricing pages now show an approximate US dollar amount beside the Australian price. Billing is unchanged and still in Australian dollars — the US figure is a published guide, updated periodically, and never the amount charged.",
     ],
   },
   {
