@@ -1,8 +1,11 @@
 import { PLAN_LIMITS, PLAN_ORDER, type PlanKey } from "./plans";
+import { usdFromAud } from "./fx";
 
 /** Marketing strings derived from PLAN_LIMITS, so the homepage and /pricing never drift from what billing enforces. */
 
-export const planPrice = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "Custom" : `$${PLAN_LIMITS[k].price}`);
+export const planPrice = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "Custom" : `A$${PLAN_LIMITS[k].price}`);
+/** Indicative USD beside the AUD price. Billing is always AUD — see src/lib/fx.ts. */
+export const planPriceUsd = (k: PlanKey) => usdFromAud(PLAN_LIMITS[k].price);
 /** "/mo" suffix only for plans with a listed price. */
 export const priceSuffix = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "" : "/mo");
 
@@ -35,7 +38,8 @@ export function emailsLine(k: PlanKey) {
   return n === Infinity ? "Release-day email to every pre-saver" : `Release-day email to the first ${n} pre-savers per release`;
 }
 
-export const yearlyPrice = (k: PlanKey) => (PLAN_LIMITS[k].yearly === null ? null : `$${PLAN_LIMITS[k].yearly}`);
+export const yearlyPrice = (k: PlanKey) => (PLAN_LIMITS[k].yearly === null ? null : `A$${PLAN_LIMITS[k].yearly}`);
+export const yearlyPriceUsd = (k: PlanKey) => usdFromAud(PLAN_LIMITS[k].yearly);
 
 /** Feature bullets per plan, shared by /pricing, the homepage and Settings → Billing. */
 export function planFeatures(k: PlanKey): string[] {
