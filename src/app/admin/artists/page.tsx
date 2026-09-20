@@ -65,7 +65,7 @@ export default async function RosterPage(props: { searchParams: Promise<{ status
         </p>
       </div>
 
-      <Card>
+      <Card data-tour="profile-add">
         <CardHeader><CardTitle>Add artist</CardTitle><CardDescription>Start a profile now. Invite them to log in whenever you&apos;re ready.</CardDescription></CardHeader>
         <CardContent><AddArtistForm limitReached={atLimit ? artistLimitMessage(user.organization.plan) : undefined} /></CardContent>
       </Card>
