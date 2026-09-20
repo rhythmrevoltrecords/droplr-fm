@@ -104,6 +104,9 @@ jobs:
       - name: Release-tools suite
         run: npx tsx scripts/test-release-tools.ts
 
+      - name: Complimentary plans
+        run: npx tsx scripts/test-comp.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

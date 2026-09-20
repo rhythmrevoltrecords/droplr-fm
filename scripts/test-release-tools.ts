@@ -74,19 +74,23 @@ async function main() {
 
   try {
     // --- Promo reminders ---
-    const dueNow = stepDate(releaseDate, TZ, sevenOut.day).getTime() <= Date.now();
-    check("the -7 day step is due for this release", dueNow, new Date(stepDate(releaseDate, TZ, sevenOut.day)).toISOString());
+    // stepDate anchors to noon in the org's timezone, so "now" decides whether a step has landed.
+    // Drive the job from a fixed point an hour after the -7 step instead of the wall clock, or this
+    // whole section passes in the afternoon and fails every morning.
+    const sevenOutAt = stepDate(releaseDate, TZ, sevenOut.day);
+    const NOW = new Date(sevenOutAt.getTime() + 3600_000);
+    check("the -7 day step is due at the point we run the job", sevenOutAt.getTime() <= NOW.getTime(), sevenOutAt.toISOString());
 
     pushes = [];
     // The job is global, and a shared local database may hold other test releases, so assert
     // on what actually reached this org's device rather than on the global release count.
-    await notifyDuePromoSteps(new Date(), true);
+    await notifyDuePromoSteps(NOW, true);
     const mine = pushes.filter((p) => p.includes(rel.id));
     check("a due step sends exactly one push to this org", mine.length === 1, `${mine.length} of ${pushes.length}`);
     check("the push points at the promo tab", !!mine[0]?.includes(`/admin/releases/${rel.id}?tab=promo`), mine[0]?.slice(0, 120));
 
     pushes = [];
-    await notifyDuePromoSteps(new Date(), true);
+    await notifyDuePromoSteps(NOW, true);
     check("running again sends nothing for this release", pushes.filter((p) => p.includes(rel.id)).length === 0, String(pushes.length));
 
     check("the reminder was recorded once", (await prisma.promoStepReminder.count({ where: { releaseId: rel.id } })) >= 1);
@@ -96,7 +100,7 @@ async function main() {
     await prisma.promoTaskDone.create({ data: { releaseId: rel.id, key: storeCheck.key } });
     await prisma.promoStepReminder.deleteMany({ where: { releaseId: rel.id } });
     pushes = [];
-    await notifyDuePromoSteps(new Date(), true);
+    await notifyDuePromoSteps(NOW, true);
     const toldKeys = (await prisma.promoStepReminder.findMany({ where: { releaseId: rel.id }, select: { key: true } })).map((r) => r.key);
     check("a step already done is never nudged", !toldKeys.includes(storeCheck.key), toldKeys.join(","));
 
@@ -106,16 +110,16 @@ async function main() {
     // Two runs at once: the unique claim means only one can push.
     await prisma.promoStepReminder.deleteMany({ where: { releaseId: rel.id } });
     pushes = [];
-    await Promise.all([notifyDuePromoSteps(new Date(), true), notifyDuePromoSteps(new Date(), true)]);
+    await Promise.all([notifyDuePromoSteps(NOW, true), notifyDuePromoSteps(NOW, true)]);
     check("two concurrent runs push once between them", pushes.filter((p) => p.includes(rel.id)).length === 1, `${pushes.filter((p) => p.includes(rel.id)).length} pushes`);
 
     // The dashboard view is read-only.
     const before = await prisma.promoStepReminder.count({ where: { releaseId: rel.id } });
-    const work = await duePromoWork(org.id);
+    const work = await duePromoWork(org.id, NOW);
     check("due work lists something for this release", work.some((w) => w.releaseId === rel.id), String(work.length));
     check("listing due work claims nothing", (await prisma.promoStepReminder.count({ where: { releaseId: rel.id } })) === before);
     check("due work excludes steps already done", !work.some((w) => w.key === storeCheck.key));
-    check("due work is scoped to the org", (await duePromoWork(other.id)).length === 0);
+    check("due work is scoped to the org", (await duePromoWork(other.id, NOW)).length === 0);
 
     // --- Interest flags (captured before the features exist) ---
     const fresh = await prisma.release.findUnique({ where: { id: rel.id }, select: { poolOptIn: true, poolOptInAt: true } });

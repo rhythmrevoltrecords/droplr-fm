@@ -68,3 +68,25 @@ export const PLAN_BLURB: Record<PlanKey, string> = {
   label: "For a roster with a team behind it.",
   enterprise: "Distributors and big catalogues.",
 };
+
+/**
+ * Which complimentary-plan notice this account should see right now, if any.
+ *
+ *  - granted: a comp is running and this grant hasn't been acknowledged (compSetAt newer than compNoticeAt).
+ *  - ended:   a comp had an end date, that date has passed, and the ending hasn't been acknowledged.
+ *
+ * Both are stamped with the value they were about, so a later comp raises its own notice.
+ */
+export function compNoticeFor(
+  org: { compPlan: string | null; compSetAt: Date | null; compUntil: Date | null; compNoticeAt: Date | null; compEndedNoticeAt: Date | null },
+  now = new Date(),
+): "granted" | "ended" | null {
+  if (!org.compPlan || !org.compSetAt) return null;
+  const lapsed = !!org.compUntil && org.compUntil.getTime() <= now.getTime();
+  if (lapsed) {
+    const told = org.compEndedNoticeAt?.getTime() ?? 0;
+    return told >= org.compUntil!.getTime() ? null : "ended";
+  }
+  const told = org.compNoticeAt?.getTime() ?? 0;
+  return told >= org.compSetAt.getTime() ? null : "granted";
+}

@@ -143,10 +143,45 @@ export async function getSubscriptionSummary(subscriptionId: string | null): Pro
 }
 
 /**
- * Plan implied by what's stored (no Stripe call): the subscription's tier if one is on file, else free,
- * raised to the complimentary plan if set. Used when a comp plan is added or removed.
+ * The comp a account is actually entitled to right now. A comp whose compUntil has passed grants
+ * nothing, so recomputing a plan never re-grants a lapsed comp. Null compUntil means no end date.
+ *
+ * Enforcement is the sweep below, which runs with the release check: the stored `plan` column is what
+ * gates features everywhere, so a lapsed comp can linger for up to one job interval. That is fine —
+ * this is a generosity switch, not a security boundary.
  */
-export function storedPlan(org: { stripeSubscriptionId: string | null; stripePriceId: string | null; compPlan: string | null }) {
+export function effectiveComp(org: { compPlan: string | null; compUntil?: Date | null }, now = new Date()) {
+  if (!org.compPlan) return null;
+  if (org.compUntil && org.compUntil.getTime() <= now.getTime()) return null;
+  return org.compPlan;
+}
+
+/**
+ * Plan implied by what's stored (no Stripe call): the subscription's tier if one is on file, else free,
+ * raised to the complimentary plan if one is set and still running. Used when a comp is added or removed.
+ */
+export function storedPlan(org: { stripeSubscriptionId: string | null; stripePriceId: string | null; compPlan: string | null; compUntil?: Date | null }) {
   const paid = org.stripeSubscriptionId ? tierForPrice(org.stripePriceId)?.tier ?? null : null;
-  return higherPlan(paid ?? "free", org.compPlan);
+  return higherPlan(paid ?? "free", effectiveComp(org));
+}
+
+/**
+ * Drop accounts whose complimentary plan has lapsed back to what they actually pay for. Leaves
+ * compPlan/compUntil in place so the dashboard can say the comp ended and what happens next.
+ * Returns how many were changed.
+ */
+export async function sweepLapsedComps(now = new Date()) {
+  const { prisma } = await import("./db");
+  const lapsed = await prisma.organization.findMany({
+    where: { compPlan: { not: null }, compUntil: { not: null, lte: now } },
+    select: { id: true, plan: true, stripeSubscriptionId: true, stripePriceId: true, compPlan: true, compUntil: true },
+  });
+  let changed = 0;
+  for (const org of lapsed) {
+    const next = storedPlan(org);
+    if (next === org.plan) continue;
+    await prisma.organization.update({ where: { id: org.id }, data: { plan: next, planUpdatedAt: now } });
+    changed++;
+  }
+  return changed;
 }
