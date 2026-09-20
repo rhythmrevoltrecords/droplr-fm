@@ -1,9 +1,13 @@
 import { AppShell } from "@/components/admin/app-shell";
 import { tourSteps } from "@/lib/tour";
+import { CompNotice } from "@/components/admin/comp-notice";
 import { LegalUpdateNotice } from "@/components/admin/legal-update-notice";
 import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
 import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
+import { compNoticeFor } from "@/lib/plan-copy";
+import { planOf } from "@/lib/plans";
+import { formatInTz } from "@/lib/time";
 import { prisma } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -20,6 +24,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const user = await requireUser("label");
   const artist = user.organization.kind === "artist";
   const feedbackUnread = (await prisma.feedbackThread.count({ where: { userId: user.id, unreadByUser: true } })) > 0;
+  const org = await prisma.organization.findUnique({
+    where: { id: user.organizationId },
+    select: { compPlan: true, compNote: true, compSetAt: true, compUntil: true, compNoticeAt: true, compEndedNoticeAt: true, founderPrice: true, timezone: true },
+  });
+  const compNotice = org ? compNoticeFor(org) : null;
   return (
     <AppShell
       user={user}
@@ -43,6 +52,15 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ]}
     >
       {needsReaccept(user.termsVersion) && <LegalUpdateNotice updates={updatesSince(user.termsVersion)} updated={LEGAL.updated} />}
+      {compNotice && org?.compPlan && (
+        <CompNotice
+          kind={compNotice}
+          planName={planOf(org.compPlan).name}
+          until={org.compUntil ? formatInTz(org.compUntil, org.timezone, { dateStyle: "long" }) : null}
+          note={org.compNote}
+          founderPrice={org.founderPrice}
+        />
+      )}
       {!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}
       {children}
     </AppShell>

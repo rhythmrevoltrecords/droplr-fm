@@ -22,7 +22,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {
-      id: true, name: true, slug: true, kind: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true,
+      id: true, name: true, slug: true, kind: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, compUntil: true, founderPrice: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true,
       users: { where: { role: "owner" }, select: { email: true }, take: 1 },
       _count: { select: { releases: true, users: true } },
     },
@@ -60,7 +60,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
                   <TD className="text-right tabular-nums">{o._count.releases}</TD>
                   <TD className="text-right tabular-nums">{o._count.users}</TD>
                   <TD className="whitespace-nowrap text-xs text-muted-foreground">{formatInTz(o.createdAt, "Australia/Brisbane", { dateStyle: "medium" })}</TD>
-                  <TD><CompPlanControl orgId={o.id} kind={accountKind(o.kind)} compPlan={o.compPlan} compNote={o.compNote} /></TD>
+                  <TD><CompPlanControl orgId={o.id} kind={accountKind(o.kind)} compPlan={o.compPlan} compNote={o.compNote} compUntil={o.compUntil?.toISOString() ?? null} founderPrice={o.founderPrice} /></TD>
                 </TR>
               ))}
             </TBody>

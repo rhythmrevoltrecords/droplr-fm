@@ -16,20 +16,26 @@ const COMP_OPTIONS: Record<"label" | "artist", [string, string][]> = {
   artist: [["artist", "Artist (free)"], ["artist_pro", "Artist Pro (free)"]],
 };
 
-export function CompPlanControl({ orgId, kind, compPlan, compNote }: { orgId: string; kind: "label" | "artist"; compPlan: string | null; compNote: string | null }) {
+/** Comp lengths worth having a button for. 0 = no end date. */
+const DURATIONS: [number, string][] = [[0, "No end date"], [30, "30 days"], [60, "60 days"], [90, "90 days"], [180, "6 months"], [365, "12 months"]];
+
+export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, founderPrice }: { orgId: string; kind: "label" | "artist"; compPlan: string | null; compNote: string | null; compUntil?: string | null; founderPrice?: string | null }) {
   const router = useRouter();
   const [plan, setPlan] = useState(compPlan ?? "none");
   const [note, setNote] = useState(compNote ?? "");
+  const [days, setDays] = useState(0);
+  const [after, setAfter] = useState(founderPrice ?? "");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const dirty = plan !== (compPlan ?? "none") || note !== (compNote ?? "");
+  const dirty = plan !== (compPlan ?? "none") || note !== (compNote ?? "") || after !== (founderPrice ?? "") || (plan !== "none" && days !== 0);
 
   async function save() {
     setBusy(true);
     setErr(null);
-    const e = await patch(orgId, { compPlan: plan === "none" ? null : plan, compNote: note });
+    const e = await patch(orgId, { compPlan: plan === "none" ? null : plan, compNote: note, compDays: days, founderPrice: after });
     setBusy(false);
     if (e) return setErr(e);
+    setDays(0);
     router.refresh();
   }
 
@@ -42,7 +48,20 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote }: { orgId: st
         </Select>
         <Button size="sm" onClick={save} disabled={busy || !dirty}>{busy ? <Loader2 className="animate-spin" /> : "Save"}</Button>
       </div>
+      {plan !== "none" && (
+        <>
+          <Select aria-label="Comp length" value={days} onChange={(e) => setDays(Number(e.target.value))} className="h-8 text-xs">
+            {DURATIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+          </Select>
+          <Input aria-label="What they pay after" value={after} onChange={(e) => setAfter(e.target.value)} placeholder="After: A$17/mo, locked 24 months" className="h-8 text-xs" maxLength={120} />
+        </>
+      )}
       <Input aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. own label" className="h-8 text-xs" maxLength={200} />
+      {compPlan && (
+        <span className="text-[11px] text-muted-foreground">
+          {compUntil ? `Ends ${new Date(compUntil).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}` : "No end date"}
+        </span>
+      )}
       {err && <span className="text-xs text-red-400">{err}</span>}
     </div>
   );

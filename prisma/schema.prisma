@@ -40,6 +40,14 @@ model Organization {
   compNote      String?
   compSetAt     DateTime?
   compSetBy     String?
+  /// When the comp lapses. Null means no end date. A comp past this grants nothing, even before the sweep downgrades it.
+  compUntil     DateTime?
+  /// What the account pays once the comp lapses, in the owner's own words (e.g. "A$17/mo, locked for 24 months").
+  founderPrice  String?
+  /// compSetAt value already shown in the "you've been comped" notice, so it appears once per grant.
+  compNoticeAt  DateTime?
+  /// compUntil value already shown in the "your comp ended" notice.
+  compEndedNoticeAt DateTime?
   signupInviteId String? // the owner invite this account signed up with
   signupInvite  SignupInvite? @relation(fields: [signupInviteId], references: [id], onDelete: SetNull)
   // Refer a friend: this account's share code, and who referred it (if anyone).

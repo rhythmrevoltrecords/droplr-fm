@@ -1,4 +1,5 @@
 import type { Config } from "@netlify/functions";
+import { sweepLapsedComps } from "../../src/lib/billing";
 import { findDueNewsEmails } from "../../src/lib/news";
 import { findDueReleases } from "../../src/lib/presave-processor";
 import { notifyDuePromoSteps } from "../../src/lib/promo-reminders";
@@ -12,6 +13,10 @@ export default async () => {
   await notifyLiveReleases().catch((e) => console.error("[release-check] live push", e));
   // "This is due today" nudges for the promo plan. Claimed per step, so a 15-minute job never repeats one.
   await notifyDuePromoSteps().catch((e) => console.error("[release-check] promo push", e));
+  // Complimentary plans that have lapsed drop back to what the account actually pays for.
+  await sweepLapsedComps()
+    .then((n) => n && console.info("[release-check] comps lapsed", n))
+    .catch((e) => console.error("[release-check] comp sweep", e));
   const [due, news] = await Promise.all([findDueReleases(), findDueNewsEmails()]);
   if (!due.length && !news.length) return new Response(JSON.stringify({ due: 0, news: 0 }), { status: 200 });
 
