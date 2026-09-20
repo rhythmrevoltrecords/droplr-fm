@@ -1,6 +1,6 @@
 "use client";
 import { ArrowRight, X } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import type { TourStep } from "@/lib/tour";
@@ -13,34 +13,55 @@ type Box = { top: number; left: number; width: number; height: number };
  */
 export function ProductTour({ steps }: { steps: TourStep[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [i, setI] = useState(0);
   const [open, setOpen] = useState(true);
   const [box, setBox] = useState<Box | null>(null);
   const step = steps[i];
 
+  /** Returns whether the target was found, so the caller can keep retrying after a navigation. */
   const place = useCallback(() => {
-    if (!step?.target) return setBox(null);
+    if (!step?.target) {
+      setBox(null);
+      return true;
+    }
     // Desktop and mobile nav both carry hooks: point at whichever one is actually on screen.
     const el = [...document.querySelectorAll<HTMLElement>(`[data-tour="${step.target}"], [data-tour="${step.target}-m"]`)].find((e) => e.getBoundingClientRect().width > 0);
-    if (!el) return setBox(null);
+    if (!el) {
+      setBox(null);
+      return false;
+    }
     el.scrollIntoView({ block: "center", inline: "center", behavior: "auto" });
     const r = el.getBoundingClientRect();
     const pad = 8;
     setBox({ top: r.top - pad, left: r.left - pad, width: r.width + pad * 2, height: r.height + pad * 2 });
+    return true;
   }, [step]);
+
+  // A step names the page it lives on. Move there first, or the ring has nothing to point at —
+  // which is why steps for other pages used to show an unanchored card floating mid-screen.
+  useEffect(() => {
+    if (!open || !step?.href) return;
+    if (pathname !== step.href) router.push(step.href);
+  }, [open, step, pathname, router]);
 
   useLayoutEffect(() => {
     if (!open) return;
-    place();
-    const t = setTimeout(place, 120); // after any scrolling settles
+    // The target mounts some time after a navigation, so keep looking for a couple of seconds.
+    let tries = 0;
+    const attempt = () => {
+      if (place() || tries++ > 20) clearInterval(id);
+    };
+    const id = setInterval(attempt, 100);
+    attempt();
     window.addEventListener("resize", place);
     window.addEventListener("scroll", place, true);
     return () => {
-      clearTimeout(t);
+      clearInterval(id);
       window.removeEventListener("resize", place);
       window.removeEventListener("scroll", place, true);
     };
-  }, [open, place]);
+  }, [open, place, pathname]);
 
   const finish = useCallback(async () => {
     setOpen(false);
