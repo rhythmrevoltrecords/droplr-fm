@@ -20,12 +20,16 @@ export function CompNotice({
   until,
   note,
   founderPrice,
+  claimBy,
+  code,
 }: {
   kind: "granted" | "ended";
   planName: string;
   until?: string | null;
   note?: string | null;
   founderPrice?: string | null;
+  claimBy?: string | null;
+  code?: string | null;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -71,9 +75,14 @@ export function CompNotice({
               </p>
               <p className="text-sm text-muted-foreground">
                 {founderPrice
-                  ? `Your founding rate is ${founderPrice}. Add a card to stay on ${planName} — nothing has been charged, and nothing will be until you do.`
+                  ? `Your founding rate is ${founderPrice}.${claimBy ? ` It's yours to claim until ${claimBy}.` : ""} Nothing has been charged, and nothing will be until you add a card.`
                   : `Nothing has been charged. Add a card to stay on ${planName}, or carry on with the Free plan — your releases and fan list stay either way.`}
               </p>
+              {code && (
+                <p className="text-sm text-muted-foreground">
+                  Use code <strong className="font-mono text-foreground">{code}</strong> at checkout.
+                </p>
+              )}
               <p className="text-sm text-muted-foreground">
                 No minimum term: cancel any time and you keep your releases and your fan list.
               </p>

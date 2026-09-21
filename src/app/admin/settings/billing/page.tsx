@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { applySubscription, clearStaleStripeIds, formatMoney, getPriceTable, getSubscriptionSummary } from "@/lib/billing";
 import { prisma } from "@/lib/db";
 import { CONTACT } from "@/lib/legal";
+import { founderOffer } from "@/lib/comp-presets";
 import { PLAN_BLURB, planFeatures } from "@/lib/plan-copy";
 import { accountKind, PLAN_LIMITS, planOf, PLANS_FOR, releaseWindowStart, type PlanKey } from "@/lib/plans";
 import { getStripe, priceIdFor, stripeConfigured, stripeId, stripeTestMode } from "@/lib/stripe";
@@ -65,6 +66,8 @@ export default async function BillingPage(
   const org = user.organization;
   const tier = (org.plan in PLAN_LIMITS ? org.plan : "free") as PlanKey;
   const plan = planOf(tier);
+  // Shown for as long as it exists, expired or not: the notice is dismissible, this isn't.
+  const offer = founderOffer(org);
 
   const monthStart = zonedLocalToDate(`${zonedDay(new Date(), org.timezone).slice(0, 8)}01T00:00`, org.timezone);
   const [releaseCount, artistCount, clicks, prices, summary] = await Promise.all([
@@ -165,6 +168,32 @@ export default async function BillingPage(
             )}
           </CardContent>
         </Card>
+
+        {offer && (
+          <Card className={offer.expired ? undefined : "border-violet-500/40 bg-violet-500/[0.06]"}>
+            <CardHeader>
+              <CardTitle>Your founding rate</CardTitle>
+              <CardDescription>
+                {offer.expired
+                  ? "This offer has passed. Get in touch if you think it should still apply."
+                  : "Set aside for you as one of the first accounts on droplr."}
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <p className="text-sm"><strong>{offer.price}</strong></p>
+              {offer.until && (
+                <p className="text-sm text-muted-foreground">
+                  {offer.expired ? "Was claimable until " : "Yours to claim until "}
+                  {formatInTz(offer.until, org.timezone, { dateStyle: "long" })}.
+                </p>
+              )}
+              {offer.code && !offer.expired && (
+                <p className="text-sm text-muted-foreground">Use code <strong className="font-mono text-foreground">{offer.code}</strong> at checkout.</p>
+              )}
+              <p className="text-sm text-muted-foreground">No minimum term — cancel any time, and your releases and fan list stay yours.</p>
+            </CardContent>
+          </Card>
+        )}
 
         <Card>
           <CardHeader><CardTitle>Usage</CardTitle><CardDescription>This month ({org.locationLabel} time).</CardDescription></CardHeader>

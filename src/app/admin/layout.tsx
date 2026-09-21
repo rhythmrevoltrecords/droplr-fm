@@ -26,7 +26,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const feedbackUnread = (await prisma.feedbackThread.count({ where: { userId: user.id, unreadByUser: true } })) > 0;
   const org = await prisma.organization.findUnique({
     where: { id: user.organizationId },
-    select: { compPlan: true, compNote: true, compSetAt: true, compUntil: true, compNoticeAt: true, compEndedNoticeAt: true, founderPrice: true, timezone: true },
+    select: { compPlan: true, compNote: true, compSetAt: true, compUntil: true, compNoticeAt: true, compEndedNoticeAt: true, founderPrice: true, founderOfferUntil: true, founderCode: true, timezone: true },
   });
   const compNotice = org ? compNoticeFor(org) : null;
   return (
@@ -59,6 +59,8 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           until={org.compUntil ? formatInTz(org.compUntil, org.timezone, { dateStyle: "long" }) : null}
           note={org.compNote}
           founderPrice={org.founderPrice}
+          claimBy={org.founderOfferUntil ? formatInTz(org.founderOfferUntil, org.timezone, { dateStyle: "long" }) : null}
+          code={org.founderCode}
         />
       )}
       {!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}

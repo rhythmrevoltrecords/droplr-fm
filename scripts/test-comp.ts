@@ -11,7 +11,7 @@
  */
 import { prisma } from "../src/lib/db";
 import { effectiveComp, storedPlan, sweepLapsedComps } from "../src/lib/billing";
-import { afterOptions } from "../src/lib/comp-presets";
+import { afterOptions, founderOffer } from "../src/lib/comp-presets";
 import { compNoticeFor } from "../src/lib/plan-copy";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -90,6 +90,16 @@ async function main() {
     check("Pro never offers A$17", !smallLabel.some((o) => o.includes("A$17")), smallLabel.join(" | "));
 
     check("no plan, no options", afterOptions("none").length === 0);
+
+    // --- founding offer deadline ---
+    check("no founding price, no offer", founderOffer({ founderPrice: null, founderOfferUntil: null, founderCode: null }) === null);
+    const open = founderOffer({ founderPrice: "A$17/mo", founderOfferUntil: future, founderCode: "FOUNDING" });
+    check("an offer inside its window is claimable", open?.expired === false && open?.code === "FOUNDING");
+    const gone = founderOffer({ founderPrice: "A$17/mo", founderOfferUntil: past, founderCode: "FOUNDING" });
+    check("an offer past its date reads as expired", gone?.expired === true);
+    check("an expired offer still reports the price, so the page can explain it", gone?.price === "A$17/mo");
+    const forever = founderOffer({ founderPrice: "A$17/mo", founderOfferUntil: null, founderCode: null });
+    check("no deadline never expires", forever?.expired === false && forever?.until === null);
     check("free has no founding rate to quote", !afterOptions("free").some((o) => o.includes("price held")), afterOptions("free").join(" | "));
 
     // There is no minimum term, so nothing offered here may imply one.

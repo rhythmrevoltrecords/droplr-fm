@@ -46,3 +46,27 @@ export function afterOptions(plan: PlanKey | "none"): string[] {
   out.push("whatever you'd like to pay — get in touch and we'll sort it");
   return out;
 }
+
+/**
+ * Whether a founding rate can still be claimed, and how long is left.
+ *
+ * This is what the account is *told*. The thing that actually stops a late claim is the Stripe
+ * coupon's own redeem_by date, which has to be set to match — droplr never applies the discount
+ * itself, it points at a promotion code.
+ */
+export function founderOffer(
+  org: { founderPrice: string | null; founderOfferUntil: Date | null; founderCode: string | null },
+  now = new Date(),
+): { price: string; until: Date | null; code: string | null; expired: boolean } | null {
+  if (!org.founderPrice) return null;
+  const expired = !!org.founderOfferUntil && org.founderOfferUntil.getTime() <= now.getTime();
+  return { price: org.founderPrice, until: org.founderOfferUntil, code: org.founderCode, expired };
+}
+
+/** How long after a comp ends the founding rate stays claimable. 0 = no deadline. */
+export const CLAIM_WINDOWS: [number, string][] = [
+  [30, "Claim within 30 days of it ending"],
+  [60, "Claim within 60 days"],
+  [90, "Claim within 90 days"],
+  [0, "No deadline to claim"],
+];
