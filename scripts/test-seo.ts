@@ -32,7 +32,10 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 let pass = 0; const fails: string[] = [];
 const check = (n: string, ok: boolean, d = "") => { ok ? pass++ : fails.push(`${n}${d ? ` — ${d}` : ""}`); console.log(`${ok ? "  ✓" : "  ✗"} ${n}${!ok && d ? ` (${d})` : ""}`); };
-const get = async (p: string) => { const r = await fetch(`${BASE}${p}`, { redirect: "manual" }); return { status: r.status, body: await r.text() }; };
+const get = async (p: string, host?: string) => {
+  const r = await fetch(`${BASE}${p}`, { redirect: "manual", headers: host ? { "x-forwarded-host": host } : {} });
+  return { status: r.status, body: await r.text() };
+};
 const withEnv = <T,>(vars: Record<string, string | undefined>, fn: () => T): T => {
   const old = Object.fromEntries(Object.keys(vars).map((k) => [k, process.env[k]]));
   for (const [k, v] of Object.entries(vars)) v === undefined ? delete process.env[k] : (process.env[k] = v);
@@ -88,10 +91,43 @@ async function main() {
     check(`sitemap never lists ${p}`, !sm.body.includes(`${p}`), "leaked");
   }
 
-  // --- release sitemap ---
+  // --- an empty sitemap is a 404, never an empty urlset ---
+  // sitemaps.org requires at least one <url>; Google reports an empty urlset as malformed
+  // rather than "nothing yet", which is exactly what droplr.fm's release sitemap did on the
+  // day it was submitted, because the only release on the platform was still upcoming.
   const rel = await get("/sitemap-releases.xml");
-  check("release sitemap is served", rel.status === 200, String(rel.status));
-  check("release sitemap is XML", rel.body.includes("<urlset"), rel.body.slice(0, 120));
+  check("release sitemap is 200 or 404, never empty", rel.status === 200 || rel.status === 404, String(rel.status));
+  check("release sitemap never serves an empty urlset", !(rel.status === 200 && !rel.body.includes("<url>")), rel.body.slice(0, 200));
+  if (rel.status === 200) check("release sitemap is XML", rel.body.includes("<urlset"), rel.body.slice(0, 120));
+  check("sitemap.xml is never an empty urlset", sm.body.includes("<url>"));
+
+  // --- a sitemap only ever lists URLs on its own host ---
+  for (const [name, r] of [["sitemap.xml", sm], ["sitemap-releases.xml", rel]] as const) {
+    if (r.status !== 200) continue;
+    const locs = [...r.body.matchAll(/<loc>([^<]+)<\/loc>/g)].map((m) => m[1]);
+    const foreign = locs.filter((l) => !l.startsWith(BASE));
+    check(`${name} lists only ${BASE} URLs`, foreign.length === 0, foreign.slice(0, 3).join(", "));
+  }
+
+  // --- a tenant custom domain gets its own answers, never droplr.fm's ---
+  const tenantHost = "presave.somelabel.example";
+  const tRobots = await get("/robots.txt", tenantHost);
+  check("tenant robots.txt is served", tRobots.status === 200, String(tRobots.status));
+  check("tenant robots.txt never offers droplr.fm's sitemap", !tRobots.body.includes(`${BASE}/sitemap`), tRobots.body);
+  check("tenant robots.txt points at its own sitemap", tRobots.body.includes(`${tenantHost}/sitemap-releases.xml`), tRobots.body);
+  check("tenant robots.txt still hides the app", tRobots.body.includes("Disallow: /admin"));
+  const tSitemap = await get("/sitemap.xml", tenantHost);
+  check("tenant /sitemap.xml is a 404, not droplr.fm's pages", tSitemap.status === 404, String(tSitemap.status));
+  const tRel = await get("/sitemap-releases.xml", tenantHost);
+  check("tenant release sitemap never lists another host", tRel.status !== 200 || !tRel.body.includes(BASE), String(tRel.status));
+
+  // --- a Netlify preview host refuses everything ---
+  const pHost = "abc123--droplr-fm.netlify.app";
+  const pRobots = await get("/robots.txt", pHost);
+  check("preview robots.txt disallows everything", /^Disallow: \/$/m.test(pRobots.body), pRobots.body);
+  check("preview robots.txt offers no sitemap", !pRobots.body.includes("Sitemap:"), pRobots.body);
+  check("preview /sitemap.xml is a 404", (await get("/sitemap.xml", pHost)).status === 404);
+  check("preview release sitemap is a 404", (await get("/sitemap-releases.xml", pHost)).status === 404);
 
   // --- what the pages themselves say ---
   const noindexed = /<meta[^>]+name="robots"[^>]+content="[^"]*noindex/i;
