@@ -42,8 +42,13 @@ model Organization {
   compSetBy     String?
   /// When the comp lapses. Null means no end date. A comp past this grants nothing, even before the sweep downgrades it.
   compUntil     DateTime?
-  /// What the account pays once the comp lapses, in the owner's own words (e.g. "A$17/mo, locked for 24 months").
+  /// What the account pays once the comp lapses, in the owner's own words (e.g. "A$17/mo, and that price held for 24 months").
   founderPrice  String?
+  /// Last day that rate can be claimed. Null means no deadline. The real enforcement is the
+  /// Stripe coupon's redeem_by — this is what the account is told, and what /platform lists.
+  founderOfferUntil DateTime?
+  /// Stripe promotion code that applies the founding rate at checkout, shown on the billing page.
+  founderCode   String?
   /// compSetAt value already shown in the "you've been comped" notice, so it appears once per grant.
   compNoticeAt  DateTime?
   /// compUntil value already shown in the "your comp ended" notice.
