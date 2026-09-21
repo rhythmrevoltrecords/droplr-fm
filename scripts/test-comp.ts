@@ -11,6 +11,7 @@
  */
 import { prisma } from "../src/lib/db";
 import { effectiveComp, storedPlan, sweepLapsedComps } from "../src/lib/billing";
+import { afterOptions } from "../src/lib/comp-presets";
 import { compNoticeFor } from "../src/lib/plan-copy";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -73,6 +74,23 @@ async function main() {
     const newer = new Date(Date.now() + 1000);
     check("a second comp raises its own notice", compNoticeFor({ ...granted, compSetAt: newer, compNoticeAt: setAt }) === "granted");
     check("no comp, no notice", compNoticeFor({ compPlan: null, compSetAt: null, compUntil: null, compNoticeAt: null, compEndedNoticeAt: null }) === null);
+
+    // --- "what they pay after" presets ---
+    // The founding rates differ per plan, and the artist rate must never be offered for a label.
+    const proAfter = afterOptions("artist_pro");
+    check("Artist Pro offers the A$17 founding rate first", proAfter[0] === "A$17/mo, locked for 24 months", proAfter[0]);
+    check("Artist Pro quotes its own normal price", proAfter.some((o) => o.includes("A$25/mo")), proAfter.join(" | "));
+
+    const labelAfter = afterOptions("label");
+    check("Label offers A$55, not the artist rate", labelAfter[0] === "A$55/mo, locked for 24 months", labelAfter[0]);
+    check("Label never offers A$17", !labelAfter.some((o) => o.includes("A$17")), labelAfter.join(" | "));
+
+    const smallLabel = afterOptions("pro");
+    check("Pro offers A$19", smallLabel[0] === "A$19/mo, locked for 24 months", smallLabel[0]);
+    check("Pro never offers A$17", !smallLabel.some((o) => o.includes("A$17")), smallLabel.join(" | "));
+
+    check("no plan, no options", afterOptions("none").length === 0);
+    check("free has no founding rate to quote", !afterOptions("free").some((o) => o.includes("locked")), afterOptions("free").join(" | "));
   } finally {
     await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
     await prisma.$disconnect();

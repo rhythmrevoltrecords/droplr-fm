@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { afterOptions, COMP_NOTES } from "@/lib/comp-presets";
+import type { PlanKey } from "@/lib/plans";
 
 async function patch(orgId: string, body: unknown): Promise<string | null> {
   const res = await fetch(`/api/platform/orgs/${orgId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
@@ -16,6 +18,8 @@ const COMP_OPTIONS: Record<"label" | "artist", [string, string][]> = {
   artist: [["artist", "Artist (free)"], ["artist_pro", "Artist Pro (free)"]],
 };
 
+const CUSTOM = "__custom__";
+
 /** Comp lengths worth having a button for. 0 = no end date. */
 const DURATIONS: [number, string][] = [[0, "No end date"], [30, "30 days"], [60, "60 days"], [90, "90 days"], [180, "6 months"], [365, "12 months"]];
 
@@ -25,6 +29,10 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, fo
   const [note, setNote] = useState(compNote ?? "");
   const [days, setDays] = useState(0);
   const [after, setAfter] = useState(founderPrice ?? "");
+  // "" means the preset list is showing; CUSTOM swaps in the free text box.
+  const [noteMode, setNoteMode] = useState<string>(compNote && !COMP_NOTES.includes(compNote as (typeof COMP_NOTES)[number]) ? CUSTOM : compNote ?? "");
+  const [afterMode, setAfterMode] = useState<string>(founderPrice ? CUSTOM : "");
+  const afters = afterOptions(plan as PlanKey | "none");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const dirty = plan !== (compPlan ?? "none") || note !== (compNote ?? "") || after !== (founderPrice ?? "") || (plan !== "none" && days !== 0);
@@ -53,10 +61,40 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, fo
           <Select aria-label="Comp length" value={days} onChange={(e) => setDays(Number(e.target.value))} className="h-8 text-xs">
             {DURATIONS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
           </Select>
-          <Input aria-label="What they pay after" value={after} onChange={(e) => setAfter(e.target.value)} placeholder="After: A$17/mo, locked 24 months" className="h-8 text-xs" maxLength={120} />
+          <Select
+            aria-label="What they pay after"
+            value={afterMode}
+            onChange={(e) => {
+              setAfterMode(e.target.value);
+              setAfter(e.target.value === CUSTOM || e.target.value === "" ? "" : e.target.value);
+            }}
+            className="h-8 text-xs"
+          >
+            <option value="">After: don&apos;t say</option>
+            {afters.map((a) => <option key={a} value={a}>After: {a}</option>)}
+            <option value={CUSTOM}>After: custom…</option>
+          </Select>
+          {afterMode === CUSTOM && (
+            <Input aria-label="Custom price after" value={after} onChange={(e) => setAfter(e.target.value)} placeholder="Your own words" className="h-8 text-xs" maxLength={120} />
+          )}
         </>
       )}
-      <Input aria-label="Note" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Note, e.g. own label" className="h-8 text-xs" maxLength={200} />
+      <Select
+        aria-label="Message"
+        value={noteMode}
+        onChange={(e) => {
+          setNoteMode(e.target.value);
+          setNote(e.target.value === CUSTOM || e.target.value === "" ? "" : e.target.value);
+        }}
+        className="h-8 text-xs"
+      >
+        <option value="">No message</option>
+        {COMP_NOTES.map((n) => <option key={n} value={n}>{n}</option>)}
+        <option value={CUSTOM}>Custom…</option>
+      </Select>
+      {noteMode === CUSTOM && (
+        <Input aria-label="Custom message" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Your own words" className="h-8 text-xs" maxLength={200} />
+      )}
       {compPlan && (
         <span className="text-[11px] text-muted-foreground">
           {compUntil ? `Ends ${new Date(compUntil).toLocaleDateString("en-AU", { day: "numeric", month: "short", year: "numeric" })}` : "No end date"}
