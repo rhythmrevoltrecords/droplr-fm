@@ -11,7 +11,7 @@
  */
 import { prisma } from "../src/lib/db";
 import { effectiveComp, storedPlan, sweepLapsedComps } from "../src/lib/billing";
-import { afterOptions, founderOffer } from "../src/lib/comp-presets";
+import { afterOptions, FOUNDER_CODES, founderAmountOff, founderOffer } from "../src/lib/comp-presets";
 import { compNoticeFor } from "../src/lib/plan-copy";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -34,6 +34,8 @@ const check = (n: string, ok: boolean, d = "") => { ok ? pass++ : fails.push(`${
 
 const future = new Date(Date.now() + 60 * 86400000);
 const past = new Date(Date.now() - 86400000);
+
+const plansWithRates = ["artist", "artist_pro", "pro", "label"] as const;
 
 async function main() {
   const org = await prisma.organization.create({ data: { name: "Comp Test", slug: `comp-test-${Date.now()}`, plan: "free", kind: "artist", timezone: "Australia/Brisbane" } });
@@ -100,6 +102,15 @@ async function main() {
     check("an expired offer still reports the price, so the page can explain it", gone?.price === "A$17/mo");
     const forever = founderOffer({ founderPrice: "A$17/mo", founderOfferUntil: null, founderCode: null });
     check("no deadline never expires", forever?.expired === false && forever?.until === null);
+
+    // --- Stripe coupon spec ---
+    // amount_off must land exactly on the rate we're telling people, per plan.
+    check("Artist Pro coupon is A$8 off (25 → 17)", founderAmountOff("artist_pro") === 8, String(founderAmountOff("artist_pro")));
+    check("Pro coupon is A$10 off (29 → 19)", founderAmountOff("pro") === 10, String(founderAmountOff("pro")));
+    check("Label coupon is A$24 off (79 → 55)", founderAmountOff("label") === 24, String(founderAmountOff("label")));
+    check("free has no coupon to make", founderAmountOff("free") === null);
+    check("every plan with a rate has its own code", ["artist", "artist_pro", "pro", "label"].every((p) => !!FOUNDER_CODES[p as typeof plansWithRates[number]]));
+    check("codes are distinct per plan", new Set(Object.values(FOUNDER_CODES)).size === Object.values(FOUNDER_CODES).length);
     check("free has no founding rate to quote", !afterOptions("free").some((o) => o.includes("price held")), afterOptions("free").join(" | "));
 
     // There is no minimum term, so nothing offered here may imply one.
