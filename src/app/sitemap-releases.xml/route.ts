@@ -1,20 +1,25 @@
+import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
+import { linkCustomDomain } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
-import { robotsAudience, seoIndexable } from "@/lib/seo";
-import { headers } from "next/headers";
+import { robotsAudience } from "@/lib/seo";
+import { xmlSitemap, type SitemapEntry } from "@/lib/sitemap-xml";
 
 /**
- * Public release pages, as a sitemap of their own.
+ * Public release pages, split by the host that serves them.
  *
- * Separate from /sitemap.xml and resolved per request on purpose. It needs the database, and a
- * sitemap is not worth a failed deploy — if this query breaks, the marketing sitemap and the
- * whole site are unaffected. force-dynamic also means it is never evaluated during `next build`,
- * which is what makes the build survive without a database URL.
+ * A sitemap may only list URLs on its own host. droplr.fm's copy therefore lists releases that
+ * actually live on droplr.fm — accounts with no live custom domain — and a label's own domain
+ * serves its own releases at its own URLs. Listing presave.somelabel.com inside droplr.fm's
+ * sitemap would be a cross-domain claim Google ignores, and it would put the label's pages in
+ * our Search Console rather than theirs.
  *
- * Only live, public releases: an upcoming pre-save page in the index means Google shows fans a
- * "not out yet" page for weeks after it is out. Releases on a verified custom domain are listed
- * at that domain, which is where their canonical tag already points.
+ * Resolved per request: it needs the database, and force-dynamic keeps it out of `next build`,
+ * which is what lets the build run with no database URL at all.
+ *
+ * Only live, public releases. An upcoming pre-save page in the index means Google shows fans a
+ * "not out yet" page for weeks after it is out.
  */
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -23,14 +28,11 @@ const LIMIT = 5000; // one file's worth; a second is a problem worth having
 
 export async function GET() {
   const h = await headers();
-  const host = h.get("x-forwarded-host") ?? h.get("host");
-  // Only droplr.fm itself publishes this. On a preview host or a tenant domain it is a 404, so
-  // the same list can't be claimed from two places.
-  if (!seoIndexable() || robotsAudience(host) !== "platform") {
-    return new Response("Not found", { status: 404 });
-  }
+  const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").toLowerCase().split(":")[0];
+  const audience = robotsAudience(host);
+  if (audience === "blocked") return new Response("Not found", { status: 404 });
 
-  let rows: { slug: string; releaseDate: Date; organization: { slug: string; customDomain: string | null; plan: string | null; planUpdatedAt: Date | null; customDomainLiveAt: Date | null } }[] = [];
+  let rows;
   try {
     rows = await prisma.release.findMany({
       where: { isPublic: true, status: "live" },
@@ -45,28 +47,23 @@ export async function GET() {
       },
     });
   } catch {
-    // An empty sitemap is a valid sitemap. Better than a 500 in Search Console.
-    rows = [];
+    // Don't serve a wrong answer as if it were right: 503 asks Google to come back, where an
+    // empty sitemap would quietly tell it we have no releases.
+    return new Response("Sitemap temporarily unavailable", { status: 503 });
   }
 
-  const body = [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-    ...rows.map((r) => {
-      const loc = publicReleaseUrl(r.organization, r.slug, SITE_URL);
-      return `<url><loc>${escapeXml(loc)}</loc><lastmod>${r.releaseDate.toISOString()}</lastmod><changefreq>weekly</changefreq><priority>0.6</priority></url>`;
-    }),
-    "</urlset>",
-  ].join("\n");
+  const entries: SitemapEntry[] = [];
+  for (const r of rows) {
+    const domain = linkCustomDomain(r.organization);
+    // droplr.fm lists only what it serves; a tenant host lists only its own.
+    if (audience === "platform" ? !!domain : domain !== host) continue;
+    entries.push({
+      loc: publicReleaseUrl(r.organization, r.slug, SITE_URL),
+      lastmod: r.releaseDate,
+      changefreq: "weekly",
+      priority: 0.6,
+    });
+  }
 
-  return new Response(body, {
-    headers: {
-      "content-type": "application/xml; charset=utf-8",
-      "cache-control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
-    },
-  });
-}
-
-function escapeXml(s: string) {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&apos;");
+  return xmlSitemap(entries);
 }

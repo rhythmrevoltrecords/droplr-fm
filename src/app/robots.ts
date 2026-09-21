@@ -17,11 +17,17 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     return { rules: { userAgent: "*", disallow: "/" } };
   }
 
-  // A tenant's own domain: their release pages are the point, so let those be found. No sitemap
-  // line — droplr.fm's sitemap describes droplr.fm, and pointing at it from someone else's
-  // domain is a cross-site reference Google is right to ignore.
+  // A tenant's own domain: their release pages are the point, so let those be found, and point
+  // at THEIR sitemap — droplr.fm's describes droplr.fm, and offering it from someone else's
+  // domain is a cross-site claim Google is right to ignore. /sitemap-releases.xml on this host
+  // serves only this tenant's releases, and 404s until they have a live one.
   if (audience === "tenant") {
-    return { rules: { userAgent: "*", allow: "/", disallow: [...NEVER_INDEX] } };
+    const proto = h.get("x-forwarded-proto") ?? "https";
+    const self = `${proto}://${(host ?? "").split(":")[0]}`;
+    return {
+      rules: { userAgent: "*", allow: "/", disallow: [...NEVER_INDEX] },
+      sitemap: `${self}/sitemap-releases.xml`,
+    };
   }
 
   return {
