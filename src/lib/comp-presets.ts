@@ -83,7 +83,7 @@ export const CLAIM_WINDOWS: [number, string][] = [
  * total across all of them.
  *
  * Set each coupon up once as:
- *   amount_off      = the difference below, in AUD cents
+ *   percent_off     = the figure below, chosen so the MONTHLY price lands exactly on the rate
  *   duration        = repeating, duration_in_months = 24   ← this *is* "price held for 24 months"
  *   applies_to      = that plan's product, so an artist code can't be used on a label plan
  *   max_redemptions = how many founding spots that tier has
@@ -97,9 +97,23 @@ export const FOUNDER_CODES: Partial<Record<PlanKey, string>> = {
   label: "FOUNDING-LABEL",
 };
 
-/** AUD off per month to reach the founding rate, for the coupon's amount_off. */
+/** AUD off per month to reach the founding rate. Kept for display; the coupon uses a percentage. */
 export function founderAmountOff(plan: PlanKey): number | null {
   const founder = FOUNDER_RATE[plan];
   const normal = PLAN_LIMITS[plan].price;
   return founder && normal ? normal - founder : null;
+}
+
+/**
+ * The coupon's percent_off, to two decimals.
+ *
+ * A percentage, not a fixed amount, because applies_to works per PRODUCT and every product has a
+ * monthly and a yearly price. A$8 off the A$250 yearly Artist Pro is A$242 — worse per month than
+ * the rate we promised. A percentage scales correctly across both intervals.
+ */
+export function founderPercentOff(plan: PlanKey): number | null {
+  const founder = FOUNDER_RATE[plan];
+  const normal = PLAN_LIMITS[plan].price;
+  if (!founder || !normal) return null;
+  return Math.round((1 - founder / normal) * 10000) / 100;
 }

@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { afterOptions, CLAIM_WINDOWS, COMP_NOTES, FOUNDER_CODES, founderAmountOff } from "@/lib/comp-presets";
+import { afterOptions, CLAIM_WINDOWS, COMP_NOTES, FOUNDER_CODES, founderPercentOff } from "@/lib/comp-presets";
 import type { PlanKey } from "@/lib/plans";
 
 async function patch(orgId: string, body: unknown): Promise<string | null> {
@@ -36,7 +36,7 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, fo
   const [code, setCode] = useState(founderCode ?? "");
   const afters = afterOptions(plan as PlanKey | "none");
   const suggestedCode = plan !== "none" ? FOUNDER_CODES[plan as PlanKey] ?? null : null;
-  const amountOff = plan !== "none" ? founderAmountOff(plan as PlanKey) : null;
+  const percentOff = plan !== "none" ? founderPercentOff(plan as PlanKey) : null;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const dirty = plan !== (compPlan ?? "none") || note !== (compNote ?? "") || after !== (founderPrice ?? "") || code !== (founderCode ?? "") || (plan !== "none" && days !== 0);
@@ -91,9 +91,9 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, fo
                 {suggestedCode && <option value={suggestedCode}>{suggestedCode}</option>}
                 {code && code !== suggestedCode && <option value={code}>{code}</option>}
               </Select>
-              {suggestedCode && amountOff !== null && (
+              {suggestedCode && percentOff !== null && (
                 <span className="text-[11px] text-muted-foreground">
-                  Stripe coupon: A${amountOff} off, repeating 24 months, applies_to this plan&apos;s product.
+                  Stripe coupon: {percentOff}% off, repeating 24 months, applies_to this plan&apos;s product.
                 </span>
               )}
             </>
