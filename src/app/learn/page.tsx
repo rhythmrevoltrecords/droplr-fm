@@ -7,6 +7,7 @@ import { LEGAL_NOTE } from "@/lib/learn";
 export const metadata = {
   title: "Knowledge for independent artists",
   description: "Plain-language guides for independent artists and labels: royalties in Australia, choosing a distributor, Spotify and store tools, release planning, deals and contracts.",
+  alternates: { canonical: "/learn" },
 };
 
 export default function LearnIndex() {

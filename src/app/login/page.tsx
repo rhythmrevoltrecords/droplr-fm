@@ -3,9 +3,10 @@ import { AuthShell } from "@/components/marketing/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { ctaCopy } from "@/lib/launch";
+import { NOINDEX } from "@/lib/seo";
 
 // Home Screen / install from the login page opens as the dashboard app.
-export const metadata = { title: "Log in", manifest: "/app/manifest.webmanifest", appleWebApp: { capable: true, title: "droplr", statusBarStyle: "black-translucent" as const } };
+export const metadata = { ...NOINDEX, title: "Log in", manifest: "/app/manifest.webmanifest", appleWebApp: { capable: true, title: "droplr", statusBarStyle: "black-translucent" as const } };
 
 export default async function LoginPage(props: { searchParams: Promise<{ error?: string; next?: string; verified?: string; verify?: string }> }) {
   const searchParams = await props.searchParams;

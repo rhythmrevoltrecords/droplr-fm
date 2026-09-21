@@ -1,7 +1,8 @@
 import { Suspense } from "react";
 import { DemoTrackFromSearch, DemoTrackView } from "./demo-view";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata = { title: "Demo release" };
+export const metadata = { ...NOINDEX, title: "Demo release" };
 
 /**
  * Static demo with fake data. No database, no tracking. ?view=presave shows the pre-save state.

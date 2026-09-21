@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { prisma } from "@/lib/db";
 import { sha256 } from "@/lib/crypto";
+import { NOINDEX } from "@/lib/seo";
+
+// Never indexed: signed in, or the URL itself is the credential. See lib/seo NEVER_INDEX.
+export const metadata = { ...NOINDEX };
 
 export const dynamic = "force-dynamic";
 

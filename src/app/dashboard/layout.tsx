@@ -5,10 +5,12 @@ import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
 import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
 import { prisma } from "@/lib/db";
+import { NOINDEX } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 // Signed-in pages: a plain tab title instead of the marketing tagline, and never indexed.
-export const metadata = {
+// Never indexed: signed in, or the URL itself is the credential. See lib/seo NEVER_INDEX.
+export const metadata = { ...NOINDEX,
   title: { default: "Dashboard · droplr.fm", template: "%s · droplr.fm" },
   robots: { index: false, follow: false },
   // Installable as an app (Home Screen / Android install) for push notifications.

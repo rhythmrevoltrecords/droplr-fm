@@ -5,9 +5,11 @@ import { Input, Label } from "@/components/ui/input";
 import { MIN_PASSWORD } from "@/lib/auth";
 import { sha256 } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
+import { NOINDEX } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Choose a new password", robots: { index: false } };
+// Never indexed: signed in, or the URL itself is the credential. See lib/seo NEVER_INDEX.
+export const metadata = { ...NOINDEX, title: "Choose a new password" };
 
 export default async function ResetPasswordPage(props: { searchParams: Promise<{ token?: string; error?: string }> }) {
   const searchParams = await props.searchParams;

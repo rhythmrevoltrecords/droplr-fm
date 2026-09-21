@@ -9,10 +9,12 @@ import { compNoticeFor } from "@/lib/plan-copy";
 import { planOf } from "@/lib/plans";
 import { formatInTz } from "@/lib/time";
 import { prisma } from "@/lib/db";
+import { NOINDEX } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 // Signed-in pages: a plain tab title instead of the marketing tagline, and never indexed.
-export const metadata = {
+// Never indexed: signed in, or the URL itself is the credential. See lib/seo NEVER_INDEX.
+export const metadata = { ...NOINDEX,
   title: { default: "Dashboard · droplr.fm", template: "%s · droplr.fm" },
   robots: { index: false, follow: false },
   // Installable as an app (Home Screen / Android install) for push notifications.
