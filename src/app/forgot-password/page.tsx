@@ -3,8 +3,10 @@ import { AuthShell } from "@/components/marketing/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { CONTACT } from "@/lib/legal";
+import { NOINDEX } from "@/lib/seo";
 
-export const metadata = { title: "Reset password", robots: { index: false } };
+// Never indexed: signed in, or the URL itself is the credential. See lib/seo NEVER_INDEX.
+export const metadata = { ...NOINDEX, title: "Reset password" };
 
 export default async function ForgotPasswordPage(props: { searchParams: Promise<{ sent?: string; error?: string }> }) {
   const searchParams = await props.searchParams;

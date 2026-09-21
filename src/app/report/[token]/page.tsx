@@ -7,17 +7,18 @@ import { reportByToken } from "@/lib/report";
 import { SITE_URL } from "@/lib/env";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
+import { NOINDEX } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata(props: { params: Promise<{ token: string }> }) {
   const data = await reportByToken((await props.params).token);
-  if (!data) return { title: "Report" };
+  if (!data) return { ...NOINDEX, title: "Report" };
   return {
     title: `${data.release.title} — release report`,
     description: `${fmtNum(data.totals.presaves)} pre-saves and ${fmtNum(data.totals.clicks)} link clicks for ${data.release.artistName}.`,
     // A shared link shouldn't end up in search results: the label chose who to send it to.
-    robots: { index: false, follow: false },
+    ...NOINDEX,
   };
 }
 

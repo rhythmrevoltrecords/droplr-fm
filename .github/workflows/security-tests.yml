@@ -107,6 +107,9 @@ jobs:
       - name: Complimentary plans
         run: npx tsx scripts/test-comp.ts
 
+      - name: Indexing and sitemaps
+        run: npx tsx scripts/test-seo.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
