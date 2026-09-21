@@ -171,7 +171,7 @@ export const artistInput = z.object({ ...labelShape, name: labelShape.name.optio
 /** Readable messages. For "x or blank" unions, zod's top message is just "Invalid input": use the real one inside. */
 export const zodError = (e: z.ZodError) =>
   e.issues
-    .map((i) => (i.code === "invalid_union" ? i.unionErrors[0]?.issues[0]?.message ?? i.message : i.message))
+    .map((i) => (i.code === "invalid_union" ? i.errors[0]?.[0]?.message ?? i.message : i.message))
     .join("; ");
 
 /** Drop undefined so Prisma leaves those columns alone. */
