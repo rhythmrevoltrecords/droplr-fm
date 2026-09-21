@@ -74,6 +74,9 @@ export function CompNotice({
                   ? `Your founding rate is ${founderPrice}. Add a card to stay on ${planName} — nothing has been charged, and nothing will be until you do.`
                   : `Nothing has been charged. Add a card to stay on ${planName}, or carry on with the Free plan — your releases and fan list stay either way.`}
               </p>
+              <p className="text-sm text-muted-foreground">
+                No minimum term: cancel any time and you keep your releases and your fan list.
+              </p>
             </>
           )}
         </div>

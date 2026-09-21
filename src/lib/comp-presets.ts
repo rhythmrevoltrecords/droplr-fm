@@ -38,7 +38,9 @@ export function afterOptions(plan: PlanKey | "none"): string[] {
   const founder = FOUNDER_RATE[key];
   const normal = PLAN_LIMITS[key].price;
   const out: string[] = [];
-  if (founder) out.push(`A$${founder}/mo, locked for 24 months`);
+  // "Price held", never "locked in". There is no minimum term — /legal/billing says cancel any
+  // time — so wording that implies a 24-month commitment would misrepresent what's on offer.
+  if (founder) out.push(`A$${founder}/mo, and that price held for 24 months`);
   if (founder) out.push(`A$${founder}/mo for 12 months, then the normal price`);
   if (normal) out.push(`the normal ${PLAN_LIMITS[key].name} price, A$${normal}/mo`);
   out.push("whatever you'd like to pay — get in touch and we'll sort it");
