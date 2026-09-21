@@ -11,7 +11,7 @@
  */
 import { prisma } from "../src/lib/db";
 import { effectiveComp, storedPlan, sweepLapsedComps } from "../src/lib/billing";
-import { afterOptions, FOUNDER_CODES, founderAmountOff, founderOffer } from "../src/lib/comp-presets";
+import { afterOptions, FOUNDER_CODES, founderAmountOff, founderOffer, founderPercentOff } from "../src/lib/comp-presets";
 import { compNoticeFor } from "../src/lib/plan-copy";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -114,6 +114,20 @@ async function main() {
     check("Pro coupon is A$10 off (29 → 19)", founderAmountOff("pro") === 10, String(founderAmountOff("pro")));
     check("Label coupon is A$24 off (79 → 55)", founderAmountOff("label") === 24, String(founderAmountOff("label")));
     check("free has no coupon to make", founderAmountOff("free") === null);
+
+    // percent_off is what actually goes in Stripe. It must land on the exact monthly rate, and
+    // stay sane on the yearly price of the same product — which is why it isn't a fixed amount.
+    const PCT: [("artist_pro" | "pro" | "label"), number, number, number][] = [
+      ["artist_pro", 32, 25, 17],
+      ["pro", 34.48, 29, 19],
+      ["label", 30.38, 79, 55],
+    ];
+    for (const [plan, pct, normal, rate] of PCT) {
+      check(`${plan} coupon is ${pct}% off`, founderPercentOff(plan) === pct, String(founderPercentOff(plan)));
+      check(`${plan} at ${pct}% bills A$${rate}/mo`, Math.round(normal * (1 - pct / 100) * 100) / 100 === rate,
+        String(Math.round(normal * (1 - pct / 100) * 100) / 100));
+    }
+    check("plain Artist has no percentage either", founderPercentOff("artist") === null);
     check("every plan with a rate has its own code", plansWithRates.every((p) => !!FOUNDER_CODES[p]));
     check("codes are distinct per plan", new Set(Object.values(FOUNDER_CODES)).size === Object.values(FOUNDER_CODES).length);
     check("free has no founding rate to quote", !afterOptions("free").some((o) => o.includes("price held")), afterOptions("free").join(" | "));
