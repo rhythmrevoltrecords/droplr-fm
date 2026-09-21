@@ -70,3 +70,31 @@ export const CLAIM_WINDOWS: [number, string][] = [
   [90, "Claim within 90 days"],
   [0, "No deadline to claim"],
 ];
+
+/**
+ * The Stripe side of a founding rate. One coupon per plan, reused by everyone — not one per
+ * person. A promotion code can be redeemed by any number of customers; max_redemptions caps the
+ * total across all of them.
+ *
+ * Set each coupon up once as:
+ *   amount_off      = the difference below, in AUD cents
+ *   duration        = repeating, duration_in_months = 24   ← this *is* "price held for 24 months"
+ *   applies_to      = that plan's product, so an artist code can't be used on a label plan
+ *   max_redemptions = how many founding spots that tier has
+ *   redeem_by       = the claim deadline you set here, or the date in droplr means nothing
+ *
+ * droplr never applies a discount itself. It shows the code; Stripe enforces all of the above.
+ */
+export const FOUNDER_CODES: Partial<Record<PlanKey, string>> = {
+  artist: "FOUNDING-ARTIST",
+  artist_pro: "FOUNDING-ARTISTPRO",
+  pro: "FOUNDING-PRO",
+  label: "FOUNDING-LABEL",
+};
+
+/** AUD off per month to reach the founding rate, for the coupon's amount_off. */
+export function founderAmountOff(plan: PlanKey): number | null {
+  const founder = FOUNDER_RATE[plan];
+  const normal = PLAN_LIMITS[plan].price;
+  return founder && normal ? normal - founder : null;
+}

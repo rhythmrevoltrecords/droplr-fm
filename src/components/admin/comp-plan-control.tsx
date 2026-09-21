@@ -4,7 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
-import { afterOptions, CLAIM_WINDOWS, COMP_NOTES } from "@/lib/comp-presets";
+import { afterOptions, CLAIM_WINDOWS, COMP_NOTES, FOUNDER_CODES, founderAmountOff } from "@/lib/comp-presets";
 import type { PlanKey } from "@/lib/plans";
 
 async function patch(orgId: string, body: unknown): Promise<string | null> {
@@ -35,6 +35,8 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, fo
   const [claimDays, setClaimDays] = useState(30);
   const [code, setCode] = useState(founderCode ?? "");
   const afters = afterOptions(plan as PlanKey | "none");
+  const suggestedCode = plan !== "none" ? FOUNDER_CODES[plan as PlanKey] ?? null : null;
+  const amountOff = plan !== "none" ? founderAmountOff(plan as PlanKey) : null;
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const dirty = plan !== (compPlan ?? "none") || note !== (compNote ?? "") || after !== (founderPrice ?? "") || code !== (founderCode ?? "") || (plan !== "none" && days !== 0);
@@ -84,7 +86,16 @@ export function CompPlanControl({ orgId, kind, compPlan, compNote, compUntil, fo
               <Select aria-label="Claim window" value={claimDays} onChange={(e) => setClaimDays(Number(e.target.value))} className="h-8 text-xs">
                 {CLAIM_WINDOWS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
               </Select>
-              <Input aria-label="Promo code" value={code} onChange={(e) => setCode(e.target.value.toUpperCase())} placeholder="Stripe promo code, e.g. FOUNDING" className="h-8 text-xs" maxLength={40} />
+              <Select aria-label="Promo code" value={code} onChange={(e) => setCode(e.target.value)} className="h-8 text-xs">
+                <option value="">No code</option>
+                {suggestedCode && <option value={suggestedCode}>{suggestedCode}</option>}
+                {code && code !== suggestedCode && <option value={code}>{code}</option>}
+              </Select>
+              {suggestedCode && amountOff !== null && (
+                <span className="text-[11px] text-muted-foreground">
+                  Stripe coupon: A${amountOff} off, repeating 24 months, applies_to this plan&apos;s product.
+                </span>
+              )}
             </>
           )}
         </>
