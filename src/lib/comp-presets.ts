@@ -20,9 +20,15 @@ export const COMP_NOTES = [
   "Extended — no rush, take the time you need.",
 ] as const;
 
-/** What a founding account pays once the comp lapses, by the plan they were comped onto. */
+/**
+ * What a founding account pays once the comp lapses, by the plan they were comped onto.
+ *
+ * No entry for plain Artist on purpose: founders are comped onto Artist Pro. Artist caps them at
+ * 12 releases, 90 days of insights and no custom domain, so a founder on it can't reach the parts
+ * of the product we most need feedback on. A plan with no entry here simply offers no founding
+ * rate — and no code, so the dropdown can never name a coupon that doesn't exist in Stripe.
+ */
 const FOUNDER_RATE: Partial<Record<PlanKey, number>> = {
-  artist: 8,
   artist_pro: 17,
   pro: 19,
   label: 55,
@@ -86,7 +92,6 @@ export const CLAIM_WINDOWS: [number, string][] = [
  * droplr never applies a discount itself. It shows the code; Stripe enforces all of the above.
  */
 export const FOUNDER_CODES: Partial<Record<PlanKey, string>> = {
-  artist: "FOUNDING-ARTIST",
   artist_pro: "FOUNDING-ARTISTPRO",
   pro: "FOUNDING-PRO",
   label: "FOUNDING-LABEL",
