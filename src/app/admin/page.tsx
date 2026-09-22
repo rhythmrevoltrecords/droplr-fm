@@ -16,6 +16,7 @@ import { SITE_URL } from "@/lib/env";
 import { duePromoWork } from "@/lib/promo-reminders";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
+import { InstallApp } from "@/components/admin/install-app";
 
 export default async function AdminHome(
   props: { searchParams: Promise<{ days?: string; welcome?: string; password?: string; verified?: string }> }
@@ -68,6 +69,7 @@ export default async function AdminHome(
 
   return (
     <div className="space-y-8">
+      <InstallApp />
       {searchParams.password === "reset" && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Password updated. You&apos;re signed in, and every other device has been signed out.</Card>}
       {searchParams.verified && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Email confirmed. Thanks!</Card>}
       {searchParams.welcome && (
