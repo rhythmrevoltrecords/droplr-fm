@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CopyButton } from "@/components/admin/copy-button";
 import { SpotifyButtonToggle, SpotifyConnectForm } from "@/components/admin/org-forms";
+import { SoundCloudConnectForm } from "@/components/admin/soundcloud-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
@@ -46,6 +47,24 @@ export default async function IntegrationsPage() {
           <SpotifyConnectForm status={org.spotifyAppStatus} canEdit={user.role === "owner"} planAllows={plan.byoSpotify} kind={org.kind === "artist" ? "artist" : "label"} />
           {plan.byoSpotify && org.spotifyAppStatus === "active" && <SpotifyButtonToggle initial={org.spotifyPublicButton} canEdit={user.role === "owner"} />}
           <p className="text-xs text-muted-foreground">Credentials are encrypted with AES-256-GCM before storage. <Link className="underline" href="/docs/spotify-byo">Full guide</Link></p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2">
+            <CardTitle>SoundCloud</CardTitle>
+            {org.soundcloudAppStatus === "active" ? <Badge variant="success">Active</Badge> : <Badge variant="secondary">Not connected</Badge>}
+          </div>
+          <CardDescription>
+            For download gates. When a fan connects SoundCloud, droplr performs the follow, like or repost for
+            them and gets a confirmation back — the only gate step anyone can honestly call verified.
+            {" "}Get a Client ID and Secret at <a href="https://soundcloud.com/you/apps" target="_blank" rel="noreferrer" className="underline">soundcloud.com/you/apps</a>.
+            Instant keys need a SoundCloud <strong>Artist Pro</strong> subscription; without one you have to apply and wait.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <SoundCloudConnectForm status={org.soundcloudAppStatus} username={org.soundcloudUsername} canEdit={user.role === "owner"} />
         </CardContent>
       </Card>
 

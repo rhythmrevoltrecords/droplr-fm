@@ -110,6 +110,9 @@ jobs:
       - name: Indexing and sitemaps
         run: npx tsx scripts/test-seo.ts
 
+      - name: Download gates
+        run: npx tsx scripts/test-gate.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

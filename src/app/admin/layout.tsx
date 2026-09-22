@@ -41,6 +41,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       tour={user.tourDoneAt ? undefined : tourSteps(artist ? "artist" : "label")}
       nav={[
         { href: "/admin", label: "Releases", tour: "nav-releases" },
+        { href: "/admin/downloads", label: "Downloads" },
         { href: "/admin/fans", label: "Fans" },
         { href: "/admin/news", label: "Fan emails" },
         { href: "/admin/bio", label: "Bio links" },

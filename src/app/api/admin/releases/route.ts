@@ -44,7 +44,8 @@ export async function POST(req: NextRequest) {
 
   const plan = planOf(user.organization.plan);
   // Counted over a rolling 12 months so older releases never have to be deleted (their links stay live).
-  const count = await prisma.release.count({ where: { organizationId: user.organizationId, createdAt: { gte: releaseWindowStart() } } });
+  // kind: "release" — download gates have their own cap (PLAN_LIMITS.downloads), so one must never eat the other.
+  const count = await prisma.release.count({ where: { organizationId: user.organizationId, kind: "release", createdAt: { gte: releaseWindowStart() } } });
   if (count >= plan.releases) return NextResponse.json({ error: `${plan.name} allows ${plan.releases} new releases in any 12 months. Upgrade to add more; existing releases stay live.` }, { status: 402 });
 
   const slug = slugify(d.slug);

@@ -31,7 +31,8 @@ export default async function AdminHome(
   const location = (org.locationLabel || "Local").toUpperCase();
   const plan = planOf(user.organization.plan);
   const windowStart = releaseWindowStart();
-  const atLimit = releases.filter((r) => r.createdAt >= windowStart).length >= plan.releases;
+  // Download gates have their own cap, so they must not count toward the release allowance.
+  const atLimit = releases.filter((r) => r.kind === "release" && r.createdAt >= windowStart).length >= plan.releases;
 
   return (
     <div className="space-y-8">

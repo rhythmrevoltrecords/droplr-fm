@@ -11,6 +11,9 @@ import { isReleased, isReleasedFor, releaseInstantFor } from "@/lib/time";
 import { requestMeta, resolveSource } from "@/lib/tracking";
 import { OrgView } from "./org-view";
 import { ReleaseView } from "./release-view";
+import { GateView } from "./gate-view";
+import { getSoundCloudCreds } from "@/lib/soundcloud";
+import { progressFor, remaining } from "@/lib/downloads";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -69,6 +72,48 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
   }
 
   const org = release.organization;
+
+  // A download gate is the same Release record with a different front door: no store links, no
+  // release day, a list of actions and a file at the end.
+  if (release.kind === "download") {
+    const anonId = h.get("x-anon-id");
+    const progress = await progressFor(release.id, anonId);
+    const via = progress?.via ?? [];
+    // Hide a SoundCloud step rather than show one that can't work: without a key the fan would
+    // bounce to a SoundCloud error page and blame the artist.
+    const scCreds = release.gateSteps.some((s) => s.platform === "soundcloud")
+      ? await getSoundCloudCreds(release.organizationId)
+      : null;
+    const steps = release.gateSteps.map((s) => ({
+      id: s.id,
+      platform: s.platform,
+      action: s.action,
+      target: s.target,
+      required: s.required,
+      done: via.includes(s.platform),
+      available: s.platform !== "soundcloud" || (!!scCreds && !!s.targetId),
+    }));
+    const usable = steps.filter((s) => s.available);
+    return (
+      <GateView
+        release={{
+          id: release.id,
+          title: release.title,
+          artistName: release.artistName,
+          coverUrl: release.coverUrl,
+          accentColor: release.accentColor ?? org.accentColor,
+          downloadNote: release.downloadNote,
+          org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, timezone: org.timezone },
+        }}
+        steps={steps}
+        unlocked={remaining(usable, via).length === 0}
+        query={query}
+        showBranding={!planOf(org.plan).removeBranding}
+        theme={publicTheme(org)}
+      />
+    );
+  }
+
   // Local rollout: the page flips to "Out now" at the visitor's own midnight, like the stores do.
   const viewerTz = meta.timezone;
   const live = isReleasedFor(release, org.timezone, viewerTz);
@@ -107,11 +152,19 @@ export async function releaseMetadata(resolution: Resolution) {
   const r = resolution.release;
   const live = isReleased(r.releaseDate);
   const title = `${r.title} — ${r.artistName}`;
-  const description = live ? `Listen to ${r.title} by ${r.artistName} on your favourite platform.` : `Pre-save ${r.title} by ${r.artistName}.`;
+  // A gate page has no release day, so "Pre-save" would be nonsense on it. The page itself is
+  // worth indexing — it's a free download someone might search for — while the unlock route
+  // sends noindex, because that one is the file.
+  const description =
+    r.kind === "download"
+      ? `Free download: ${r.title} by ${r.artistName}.`
+      : live
+        ? `Listen to ${r.title} by ${r.artistName} on your favourite platform.`
+        : `Pre-save ${r.title} by ${r.artistName}.`;
   return {
     title: { absolute: title },
     description,
-    openGraph: { title, description, images: [{ url: r.coverUrl, width: 640, height: 640 }], type: "music.album" as const },
+    openGraph: { title, description, images: [{ url: r.coverUrl, width: 640, height: 640 }], type: r.kind === "download" ? ("website" as const) : ("music.album" as const) },
     twitter: { card: "summary_large_image" as const, title, description, images: [r.coverUrl] },
   };
 }
