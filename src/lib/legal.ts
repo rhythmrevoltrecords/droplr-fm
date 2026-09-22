@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-21",
-  updated: "21 September 2026",
+  version: "2026-09-22",
+  updated: "22 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -56,6 +56,17 @@ export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-22",
+    date: "22 September 2026",
+    summary: [
+      "Download gates: you can put a free file behind steps a fan takes first. droplr.fm stores the link, never the file — it stays wherever you keep it, and you're responsible for having the right to give it away.",
+      "Only gate files you can legally distribute. If we're told a gated file infringes someone's rights we can switch the gate off, but we can't remove a file that isn't on our systems.",
+      "A SoundCloud step performs the follow, like or repost the fan just authorised, then discards the access token immediately. We store nothing about their SoundCloud account.",
+      "Instagram, TikTok, YouTube, Spotify and Facebook steps only open a link. No app can check whether someone followed on those platforms, we say so on the page, and you must not present those steps as verified.",
+      "Privacy: gate emails are recorded with their own consent wording, separate from pre-saves, and which steps a visitor finished is kept against an anonymous visitor ID.",
+    ],
+  },
   {
     version: "2026-09-21",
     date: "21 September 2026",

@@ -94,6 +94,8 @@ export default function TermsPage() {
           <li>not upload, import or use purchased, rented or scraped email lists with the service;</li>
           <li>keep any fan data you export secure and use it lawfully.</li>
         </ul>
+        <p><strong>Download gates.</strong> A gate points at a file you host somewhere else; droplr.fm stores the link and never the file. You confirm you have the right to give away whatever is behind it, including any unofficial remix, bootleg, edit or mashup, and you accept that the risk of that decision is yours. We can switch a gate off if we&apos;re told it infringes someone&apos;s rights, but we can&apos;t remove a file that isn&apos;t on our systems.</p>
+        <p>We tell fans plainly which gate steps we can confirm and which we can&apos;t. A SoundCloud step carries out the follow, like or repost the fan has just authorised and then discards their access token; a step pointing at Instagram, TikTok, YouTube, Spotify or Facebook only opens a link, because no API from those platforms lets anyone check whether a visitor followed an account. You must not describe an unconfirmed step as verified, and each step has to comply with the rules of the platform it points at.</p>
       </Section>
 
       <Section {...s("reports")}>

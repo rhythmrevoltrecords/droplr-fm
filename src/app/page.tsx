@@ -23,7 +23,7 @@ const FOR_ARTISTS = [
   { title: "Make the release page", body: "Paste a Spotify link. Artwork, colour and store links fill in, unreleased is fine." },
   { title: "Follow the promo plan", body: "Dated steps from announce day to a week after, each with the graphic or link it needs." },
   { title: "Let release day run itself", body: "Every pre-saver gets an email at 9am in their own timezone, leading with the store they picked." },
-  { title: "Keep the fans", body: "One fan list across every release. The ones who opted in to news are yours to email again." },
+  { title: "Keep the fans", body: "One fan list across every release. Put a free pack behind a download gate to start one, and the fans who opted in to news are yours to email again." },
 ];
 const FOR_LABELS = [
   { title: "Run the whole roster", body: "Every release, every artist, one account. Artists log in to grab their links and see their stats." },
@@ -36,11 +36,12 @@ type Status = "Live now" | "Next" | "Later";
 const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = [
   { status: "Live now", items: [
     { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
+    { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
+    { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
   { status: "Next", items: [
-    { title: "Fan updates", body: "Email fans who opted in to news, straight from droplr." },
     { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders." },
     { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply." },
   ] },
