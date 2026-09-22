@@ -31,12 +31,18 @@ export default async function AdminHome(
     include: { artist: { select: { artistName: true, email: true } } },
   });
   const ids = releases.map((r) => r.id);
-  const [totals, stats, dueWork] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone), duePromoWork(user.organizationId)]);
+  // Grants go in the same Promise.all rather than after it: almost every account has none, and
+  // a serial round trip to find that out is a round trip every label pays for nothing.
+  const [totals, stats, dueWork, grants] = await Promise.all([
+    releaseTotals(ids),
+    getStats(ids, days, user.organization.timezone),
+    duePromoWork(user.organizationId),
+    grantsFor(user.id),
+  ]);
 
   // Releases another label puts out under this artist's name, through an accepted roster link.
-  // Fetched separately and never mixed into `releases`: everything on this page below assumes
-  // the caller owns what it's looking at, and a granted release is read-only.
-  const grants = await grantsFor(user.id);
+  // Never mixed into `releases`: everything below assumes the caller owns what it's looking at,
+  // and a granted release is read-only.
   const grantWhere = grantedReleaseWhere(user.id, grants);
   const grantedRows = grantWhere
     ? await prisma.release.findMany({
