@@ -37,8 +37,8 @@ export default function DataProcessingPage() {
             <tbody>
               <tr><td><strong>Subject matter</strong></td><td>Hosting your public release, pre-save and bio pages, and handling the fan data they collect</td></tr>
               <tr><td><strong>Duration</strong></td><td>While your account is active, plus the deletion period below</td></tr>
-              <tr><td><strong>Purposes</strong></td><td>Showing pages, redirecting clicks, recording pre-saves, sending release-day emails, performing connected Spotify/Deezer saves, and providing analytics and CSV exports to you</td></tr>
-              <tr><td><strong>Fans&apos; data</strong></td><td>Email address and consent record (time and wording version); Spotify/Deezer account ID and encrypted refresh token; country, device type, referrer and campaign tags; daily-rotating IP hash; random visitor ID; email send, click and unsubscribe status</td></tr>
+              <tr><td><strong>Purposes</strong></td><td>Showing pages, redirecting clicks, recording pre-saves, sending release-day emails, performing connected Spotify/Deezer saves, running download gates (including carrying out a SoundCloud follow, like or repost a fan has just authorised), and providing analytics and CSV exports to you</td></tr>
+              <tr><td><strong>Fans&apos; data</strong></td><td>Email address and consent record (time and wording version, recorded separately for pre-saves and for download gates); Spotify/Deezer account ID and encrypted refresh token; which download-gate steps a visitor ID has completed; country, device type, referrer and campaign tags; daily-rotating IP hash; random visitor ID; email send, click and unsubscribe status. A SoundCloud access token given for a gate step is used once and discarded — it is never stored, and no SoundCloud username or account ID is kept.</td></tr>
               <tr><td><strong>People</strong></td><td>Fans and visitors to your pages</td></tr>
               <tr><td><strong>Sensitive data</strong></td><td>None intended. Don&apos;t collect sensitive information through droplr.fm.</td></tr>
             </tbody>
@@ -63,7 +63,7 @@ export default function DataProcessingPage() {
       </Section>
 
       <Section {...s("subprocessors")}>
-        <p>You authorise us to use the sub-processors listed in the <Link href="/legal/privacy#share">Privacy Policy</Link> (currently Netlify, Neon, Resend, and Spotify or Deezer when a fan connects). Stripe processes billing data only, not fan data. We impose data protection obligations on sub-processors at least as protective as this DPA and remain responsible for them.</p>
+        <p>You authorise us to use the sub-processors listed in the <Link href="/legal/privacy#share">Privacy Policy</Link> (currently Netlify, Neon, Resend, and Spotify, Deezer or SoundCloud when a fan connects). Stripe processes billing data only, not fan data. We impose data protection obligations on sub-processors at least as protective as this DPA and remain responsible for them.</p>
         <p>We&apos;ll give account owners at least 30 days&apos; notice by email before adding or replacing a sub-processor that handles fan data. If you object on reasonable data protection grounds, we&apos;ll work with you on an alternative. If none is possible, you can cancel and we&apos;ll refund the unused part of any prepaid period.</p>
       </Section>
 

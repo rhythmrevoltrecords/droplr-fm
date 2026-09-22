@@ -8,6 +8,7 @@ export const metadata = { title: "Copyright & Trade Marks" };
 const toc = [
   { id: "ours", title: "droplr.fm's own material" },
   { id: "yours", title: "Labels' and artists' content" },
+  { id: "downloads", title: "Files behind a download gate" },
   { id: "marks", title: "Third-party names and logos" },
   { id: "report", title: "Reporting copyright or trade mark infringement" },
   { id: "counter", title: "If your content was removed" },
@@ -26,6 +27,12 @@ export default function CopyrightPage() {
 
       <Section {...s("yours")}>
         <p>Artwork, music, release details, logos, photos and text that labels and artists add to droplr.fm belong to them or their licensors, not to us. Labels confirm they have the rights to use that content when they publish it (see <Link href="/legal/terms#content">Terms, section 5</Link>). Each public release page is published by the label named on it.</p>
+      </Section>
+
+      <Section {...s("downloads")}>
+        <p>A download gate on droplr.fm is a page with a link on it. The file itself is hosted wherever the artist keeps it — their own drive, storage or website. We don&apos;t host it, store it, copy it or serve it, and we can&apos;t inspect it.</p>
+        <p>That matters if you&apos;re reporting something. We can switch a gate off so the link is no longer handed out, and we&apos;ll tell the artist. We cannot delete the file, because it isn&apos;t on our systems — for that you need the service actually hosting it. Report the gate to us using the process below, and we&apos;ll act on the part that is ours.</p>
+        <p>Artists are responsible for having the right to give away whatever they put behind a gate, including any unofficial remix, bootleg, edit or mashup. See <Link href="/legal/acceptable-use#downloads">Acceptable Use</Link>.</p>
       </Section>
 
       <Section {...s("marks")}>

@@ -9,6 +9,7 @@ const toc = [
   { id: "content", title: "Releases and content" },
   { id: "links", title: "Links and redirects" },
   { id: "email", title: "Email and fan data" },
+  { id: "downloads", title: "Download gates" },
   { id: "streaming", title: "Streaming manipulation" },
   { id: "platform", title: "Using the platform" },
   { id: "report", title: "Reporting abuse" },
@@ -47,10 +48,22 @@ export default function AcceptableUsePage() {
         </ul>
       </Section>
 
+      <Section {...s("downloads")}>
+        <p>A download gate points at a file you host somewhere else. droplr.fm never stores the file, and you are responsible for it.</p>
+        <ul>
+          <li>Only gate files you have the right to give away. If you put an unofficial remix, bootleg, edit or mashup behind a gate, that is your decision and your risk — not ours.</li>
+          <li>Don&apos;t link to software, installers or anything executable. Gates are for music, artwork and documents.</li>
+          <li>Don&apos;t describe a step as doing something it doesn&apos;t. We label which steps we can confirm and which we can&apos;t, and you must not present an unconfirmed step as verified.</li>
+          <li>Don&apos;t use a gate as general file hosting, or to distribute anything unrelated to your music.</li>
+          <li>Each step must comply with the rules of the platform it points at. A follow or repost you ask for has to be something that platform allows you to ask for.</li>
+        </ul>
+        <p>If we&apos;re told a gated file infringes someone&apos;s rights, we can switch the gate off. We can&apos;t remove the file itself — it isn&apos;t ours and it isn&apos;t on our systems. See <Link href="/legal/copyright">Copyright &amp; Trade Marks</Link>.</p>
+      </Section>
+
       <Section {...s("streaming")}>
         <ul>
           <li>Use droplr.fm in any scheme to inflate streams, saves, follows or chart positions artificially, including bots, click farms, paid fake engagement or incentivised save loops that break platform rules.</li>
-          <li>Use pre-save features in ways that break the terms of Spotify, Apple Music, Deezer or any other platform.</li>
+          <li>Use pre-save or download-gate features in ways that break the terms of Spotify, Apple Music, SoundCloud, Deezer or any other platform. We deliberately don&apos;t automate Spotify follows from a gate for this reason: a gate step pointing at Spotify only opens a link.</li>
         </ul>
       </Section>
 
