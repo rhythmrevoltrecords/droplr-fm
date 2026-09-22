@@ -21,12 +21,19 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
   if (!artist) notFound();
   const tz = user.organization.timezone;
 
-  const [login, invite, releases] = await Promise.all([
+  const [login, invite, releases, linked] = await Promise.all([
     artist.userId ? prisma.user.findFirst({ where: { id: artist.userId, organizationId: user.organizationId }, select: { email: true } }) : null,
     prisma.invite.findFirst({ where: { artistProfileId: artist.id, organizationId: user.organizationId, acceptedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
     prisma.release.findMany({ where: { artistProfileId: artist.id, organizationId: user.organizationId }, orderBy: { releaseDate: "desc" }, select: { id: true, title: true, coverUrl: true, releaseDate: true } }),
+    // The linked account lives in another organisation, so this lookup is by id alone — the only
+    // thing read is the email already on this roster row's invitation. Nothing else of theirs.
+    artist.linkedUserId ? prisma.user.findUnique({ where: { id: artist.linkedUserId }, select: { email: true } }) : null,
   ]);
-  const state: LoginState = login ? { kind: "login", email: login.email } : invite ? { kind: "invited", email: invite.email, expires: formatInTz(invite.expiresAt, tz, { dateStyle: "medium" }) } : { kind: "none" };
+  const state: LoginState =
+    login ? { kind: "login", email: login.email }
+    : linked ? { kind: "linked", email: linked.email }
+    : invite ? { kind: "invited", email: invite.email, expires: formatInTz(invite.expiresAt, tz, { dateStyle: "medium" }) }
+    : { kind: "none" };
   const isOwner = user.role === "owner";
   // An artist account has exactly one profile: its own. No roster, status, login invites or delete.
   const own = user.organization.kind === "artist";

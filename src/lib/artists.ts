@@ -31,9 +31,13 @@ export function artistLimitMessage(plan: string) {
  * Call after a profile gains or loses a login so every existing access check keeps working unchanged.
  */
 export async function syncReleaseAccess(artistProfileId: string) {
-  const artist = await prisma.artist.findUnique({ where: { id: artistProfileId }, select: { organizationId: true, userId: true } });
+  const artist = await prisma.artist.findUnique({ where: { id: artistProfileId }, select: { organizationId: true, userId: true, linkedUserId: true } });
   if (!artist) return;
-  await prisma.release.updateMany({ where: { artistProfileId, organizationId: artist.organizationId }, data: { artistId: artist.userId } });
+  // A login inside this org wins; otherwise an accepted roster link from the artist's own
+  // account. Either way this is a read pointer — every write route scopes by organizationId, so
+  // an outside account named here still cannot change anything.
+  const reader = artist.userId ?? artist.linkedUserId ?? null;
+  await prisma.release.updateMany({ where: { artistProfileId, organizationId: artist.organizationId }, data: { artistId: reader } });
 }
 
 /** A profile in the user's organization, or null (callers answer 404 so ids from other labels look nonexistent). */
