@@ -126,6 +126,8 @@ model User {
   // Which push notifications this login wants: { milestones, releaseLive, feedback, referrals } (missing = on).
   pushPrefs      Json?
   tourDoneAt     DateTime? // finished or skipped the first-login walkthrough
+  /** Roster rows on other labels that have been granted read access to this account. */
+  linkedRosterRows Artist[] @relation("LinkedRoster")
 }
 
 model Invite {
@@ -135,6 +137,12 @@ model Invite {
   email          String
   artistName     String?
   role           String       @default("artist")
+  /**
+   * "signup" = accepting creates a new login in this org (the original behaviour).
+   * "link"   = accepting grants an EXISTING droplr account read access to this roster row's
+   *            releases. Nothing is created and nothing is merged.
+   */
+  kind           String       @default("signup")
   // Invite to log in for an existing roster profile. Null = generic invite (accepting creates a profile).
   artistProfileId String?
   artistProfile   Artist?     @relation(fields: [artistProfileId], references: [id], onDelete: SetNull)
@@ -262,6 +270,22 @@ model Artist {
   statsUpdatedAt   DateTime?
   userId           String?      @unique
   user             User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  /**
+   * A droplr account in ANOTHER organisation that this roster row belongs to — an artist who
+   * already had their own account when the label added them.
+   *
+   * Deliberately separate from userId. userId means "this artist has a login inside this org";
+   * linkedUserId means "an existing account elsewhere has been granted read access to the
+   * releases this label puts out under their name". Reusing userId would have made a cross-org
+   * account look like a member of the label's organisation to every query that reads it.
+   *
+   * Not @unique: one artist can be on several labels' rosters. The grant is one-way and
+   * revocable — it never gives the label anything of the artist's, and never gives the artist
+   * anything of the label's beyond their own releases.
+   */
+  linkedUserId     String?
+  linkedUser       User?        @relation("LinkedRoster", fields: [linkedUserId], references: [id], onDelete: SetNull)
+  linkedAt         DateTime?
   createdAt        DateTime     @default(now())
   updatedAt        DateTime     @updatedAt
   releases         Release[]

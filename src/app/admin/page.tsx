@@ -9,6 +9,10 @@ import { getStats, releaseTotals, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { planOf, releaseWindowStart } from "@/lib/plans";
+import { grantedReleaseWhere, grantsFor } from "@/lib/roster-grant";
+import { GrantedReleases } from "@/components/admin/granted-releases";
+import { publicReleaseUrl } from "@/lib/releases";
+import { SITE_URL } from "@/lib/env";
 import { duePromoWork } from "@/lib/promo-reminders";
 import { formatInTz, isReleased } from "@/lib/time";
 import { fmtNum, pct } from "@/lib/utils";
@@ -27,6 +31,34 @@ export default async function AdminHome(
   });
   const ids = releases.map((r) => r.id);
   const [totals, stats, dueWork] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone), duePromoWork(user.organizationId)]);
+
+  // Releases another label puts out under this artist's name, through an accepted roster link.
+  // Fetched separately and never mixed into `releases`: everything on this page below assumes
+  // the caller owns what it's looking at, and a granted release is read-only.
+  const grants = await grantsFor(user.id);
+  const grantWhere = grantedReleaseWhere(user.id, grants);
+  const grantedRows = grantWhere
+    ? await prisma.release.findMany({
+        where: grantWhere,
+        orderBy: { releaseDate: "desc" },
+        include: { organization: true, linkVariants: { where: { isActive: true } } },
+      })
+    : [];
+  const grantedTotals = grantedRows.length ? await releaseTotals(grantedRows.map((r) => r.id)) : new Map();
+  const granted = grantedRows.map((r) => ({
+    id: r.id,
+    slug: r.slug,
+    title: r.title,
+    artistName: r.artistName,
+    coverUrl: r.coverUrl,
+    releaseDate: r.releaseDate,
+    // The label's own URL, not this artist's — a granted release lives on the label's domain.
+    url: publicReleaseUrl(r.organization, r.slug, SITE_URL),
+    labelName: r.organization.name,
+    timezone: r.organization.timezone,
+    variants: r.linkVariants.map((v) => ({ slug: v.slug })),
+    totals: grantedTotals.get(r.id) ?? { views: 0, clicks: 0, presaves: 0 },
+  }));
   const org = user.organization;
   const location = (org.locationLabel || "Local").toUpperCase();
   const plan = planOf(user.organization.plan);
@@ -146,6 +178,8 @@ export default async function AdminHome(
           </TBody>
         </Table>
       </Card>
+
+      <GrantedReleases releases={granted} />
 
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-2">

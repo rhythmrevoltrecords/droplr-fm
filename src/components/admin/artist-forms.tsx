@@ -303,7 +303,7 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated, own
 
 // ---------- login access ----------
 
-export type LoginState = { kind: "login"; email: string } | { kind: "invited"; email: string; expires: string } | { kind: "none" };
+export type LoginState = { kind: "login"; email: string } | { kind: "invited"; email: string; expires: string } | { kind: "linked"; email: string } | { kind: "none" };
 
 export function ArtistLoginAccess({ artistId, state, isOwner, defaultEmail }: { artistId: string; state: LoginState; isOwner: boolean; defaultEmail: string }) {
   const router = useRouter();
@@ -319,6 +319,23 @@ export function ArtistLoginAccess({ artistId, state, isOwner, defaultEmail }: { 
     setBusy(false);
     if (!r.ok) return setMsg({ ok: false, text: r.data.error ?? "Couldn't create invite" });
     setLink(r.data.link ?? null);
+    router.refresh();
+  }
+  async function linkAccount() {
+    setBusy(true);
+    setMsg(null);
+    const r = await sendJson(`/api/admin/roster/${artistId}/link`, "POST", { email });
+    setBusy(false);
+    if (!r.ok) return setMsg({ ok: false, text: r.data.error ?? "Couldn't create the link" });
+    setLink(r.data.link ?? null);
+    router.refresh();
+  }
+  async function unlink() {
+    if (!confirm("End the link to this artist's own account? Your releases stay yours; they stop seeing them.")) return;
+    setBusy(true);
+    const r = await sendJson(`/api/admin/roster/${artistId}/link`, "DELETE");
+    setBusy(false);
+    if (!r.ok) return setMsg({ ok: false, text: r.data.error ?? "Couldn't end the link" });
     router.refresh();
   }
   async function revoke() {
@@ -338,6 +355,24 @@ export function ArtistLoginAccess({ artistId, state, isOwner, defaultEmail }: { 
           <code className="min-w-0 max-w-full truncate rounded bg-black/40 px-2 py-1 text-xs">{link}</code>
           <CopyButton value={link} />
         </div>
+      </div>
+    );
+  }
+
+  if (state.kind === "linked") {
+    return (
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2"><Badge variant="success">Linked to their own account</Badge><span className="min-w-0 break-all text-muted-foreground">{state.email}</span></div>
+        <p className="text-muted-foreground">
+          They see the releases you put out under their name — numbers, links and QR codes — from their own droplr account.
+          They can&apos;t edit anything, and your fan list stays yours. Nothing of theirs is shared with you.
+        </p>
+        {isOwner ? (
+          <Button size="sm" variant="outline" disabled={busy} onClick={unlink}>{busy && <Loader2 className="animate-spin" />} End link</Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">Only the label owner can end a link.</p>
+        )}
+        <MsgText msg={msg} />
       </div>
     );
   }
@@ -370,6 +405,15 @@ export function ArtistLoginAccess({ artistId, state, isOwner, defaultEmail }: { 
       <div className="flex flex-col gap-2 sm:flex-row">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="artist@email.com" aria-label="Invite email" />
         <Button className="shrink-0" disabled={busy || !email.trim()} onClick={invite}>{busy && <Loader2 className="animate-spin" />} {state.kind === "invited" ? "Create new invite" : "Invite to log in"}</Button>
+      </div>
+      <div className="rounded-lg border border-dashed p-3">
+        <p className="text-muted-foreground">
+          Already on droplr with their own account? Link it instead — they keep their account and see the releases you put
+          out under their name, without you creating a second login for them. They have to accept it.
+        </p>
+        <Button className="mt-2" size="sm" variant="outline" disabled={busy || !email.trim()} onClick={linkAccount}>
+          {busy && <Loader2 className="animate-spin" />} Link their existing account
+        </Button>
       </div>
       <MsgText msg={msg} />
     </div>
