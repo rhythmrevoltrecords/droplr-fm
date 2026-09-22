@@ -7,6 +7,11 @@ const include = {
   organization: true,
   links: { where: { visible: true }, orderBy: { position: "asc" as const } },
   linkVariants: { where: { isActive: true } },
+  // Gate steps on every public load. Cheap (a handful of rows, indexed by releaseId) and it
+  // means a download page never needs a second round trip before it can render.
+  // downloadUrl is deliberately NOT selected anywhere a page can reach: only the unlock route
+  // touches it, which is what stops the destination leaking into the gate page's HTML.
+  gateSteps: { orderBy: { position: "asc" as const } },
 };
 
 export type PublicRelease = NonNullable<Awaited<ReturnType<typeof loadBySlug>>>;

@@ -11,6 +11,12 @@ export const PLAN_LIMITS: Record<PlanKey, {
   /** New releases allowed in any rolling 12 months. Existing releases always stay live. */
   releases: number;
   /** Soft cap: shown as usage and an upgrade prompt. Fan links never stop working. */
+  /**
+   * Gated free downloads per rolling 12 months. Separate from `releases` on purpose: a download
+   * gate is not a record going to stores, and sharing one allowance would mean an artist on Free
+   * giving up a release to post a remix pack.
+   */
+  downloads: number;
   clicksPerMonth: number;
   artists: number;
   /** Days of analytics history you can view. */
@@ -27,12 +33,12 @@ export const PLAN_LIMITS: Record<PlanKey, {
   /** Send one-off emails to fans who ticked the optional news box. Costs real sending credits. */
   newsEmails: boolean;
 }> = {
-  free: { name: "Free", price: 0, yearly: null, releases: 3, clicksPerMonth: 1_000, artists: 1, insightsDays: 30, releaseEmails: 250, customDomain: false, pixels: false, byoSpotify: false, csvExport: false, qr: false, removeBranding: false, whiteLabel: false, newsEmails: false },
-  artist: { name: "Artist", price: 12, yearly: 120, releases: 12, clicksPerMonth: 10_000, artists: 1, insightsDays: 90, releaseEmails: Infinity, customDomain: false, pixels: true, byoSpotify: false, csvExport: true, qr: true, removeBranding: false, whiteLabel: false, newsEmails: true },
-  artist_pro: { name: "Artist Pro", price: 25, yearly: 250, releases: Infinity, clicksPerMonth: 50_000, artists: 1, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false, newsEmails: true },
-  pro: { name: "Pro", price: 29, yearly: 290, releases: Infinity, clicksPerMonth: 50_000, artists: 5, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false, newsEmails: true },
-  label: { name: "Label", price: 79, yearly: 790, releases: Infinity, clicksPerMonth: 250_000, artists: Infinity, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true, newsEmails: true },
-  enterprise: { name: "Enterprise", price: null, yearly: null, releases: Infinity, clicksPerMonth: Infinity, artists: Infinity, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true, newsEmails: true },
+  free: { name: "Free", price: 0, yearly: null, releases: 3, downloads: 2, clicksPerMonth: 1_000, artists: 1, insightsDays: 30, releaseEmails: 250, customDomain: false, pixels: false, byoSpotify: false, csvExport: false, qr: false, removeBranding: false, whiteLabel: false, newsEmails: false },
+  artist: { name: "Artist", price: 12, yearly: 120, releases: 12, downloads: 12, clicksPerMonth: 10_000, artists: 1, insightsDays: 90, releaseEmails: Infinity, customDomain: false, pixels: true, byoSpotify: false, csvExport: true, qr: true, removeBranding: false, whiteLabel: false, newsEmails: true },
+  artist_pro: { name: "Artist Pro", price: 25, yearly: 250, releases: Infinity, downloads: Infinity, clicksPerMonth: 50_000, artists: 1, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false, newsEmails: true },
+  pro: { name: "Pro", price: 29, yearly: 290, releases: Infinity, downloads: Infinity, clicksPerMonth: 50_000, artists: 5, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: false, newsEmails: true },
+  label: { name: "Label", price: 79, yearly: 790, releases: Infinity, downloads: Infinity, clicksPerMonth: 250_000, artists: Infinity, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true, newsEmails: true },
+  enterprise: { name: "Enterprise", price: null, yearly: null, releases: Infinity, downloads: Infinity, clicksPerMonth: Infinity, artists: Infinity, insightsDays: Infinity, releaseEmails: Infinity, customDomain: true, pixels: true, byoSpotify: true, csvExport: true, qr: true, removeBranding: true, whiteLabel: true, newsEmails: true },
 };
 
 /** Start of the rolling 12-month window release limits count in. */

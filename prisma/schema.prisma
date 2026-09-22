@@ -59,6 +59,17 @@ model Organization {
   referralCode  String?  @unique
 
   // BYO Spotify app (encrypted with ENCRYPTION_KEY)
+  // BYO SoundCloud app (encrypted with ENCRYPTION_KEY), for gate steps that perform a follow,
+  // like or repost on the fan's behalf. Self-serve SoundCloud API keys need an Artist Pro
+  // subscription on the artist's own SoundCloud account; without one droplr falls back to the
+  // platform app, which shares a single rate limit across every account — see lib/soundcloud.ts.
+  soundcloudClientIdEncrypted     String?
+  soundcloudClientSecretEncrypted String?
+  soundcloudAppStatus             String  @default("none") // none | pending | active
+  /** The SoundCloud account gates follow. Resolved on connect so a username change can't break a gate. */
+  soundcloudUserId                String?
+  soundcloudUsername              String?
+
   spotifyClientIdEncrypted     String?
   spotifyClientSecretEncrypted String?
   spotifyAppStatus             String  @default("none") // none | pending | active
@@ -178,6 +189,31 @@ model Release {
   poolOptIn   Boolean   @default(false)
   poolOptInAt DateTime?
 
+  /**
+   * "release" = a record going to stores. "download" = a free download behind a gate — an edit
+   * or mashup pack, stems for a remix comp, unreleased tracks, a VIP.
+   *
+   * Deliberately the same record rather than a second object: the public page, tenant routing,
+   * QR codes, link variants, insights, fan capture and the press kit all work on a download for
+   * free, and "everything generated from one release record" stays true.
+   *
+   * Anything counting releases against a plan MUST filter kind: "release" — downloads have their
+   * own cap (PLAN_LIMITS.downloads).
+   */
+  kind           String       @default("release") // release | download
+  /**
+   * Where the file actually lives: the artist's own Drive, Dropbox, host or Bandcamp code page.
+   *
+   * droplr stores the URL and never the file. Gates are mostly unofficial remixes and edits, and
+   * hosting those would make droplr the party a takedown notice lands on rather than a service
+   * that points at one — the same posture a smart link already has toward Spotify.
+   */
+  downloadUrl    String?
+  /** "320 MP3 + WAV, 412MB" — sets expectations before someone spends actions on the gate. */
+  downloadNote   String?
+
+  gateSteps    GateStep[]
+  gateUnlocks  GateUnlock[]
   links        ReleaseLink[]
   linkVariants  LinkVariant[]
   promoDone     PromoTaskDone[]
@@ -614,4 +650,64 @@ model PromoStepReminder {
   sentAt    DateTime @default(now())
 
   @@unique([releaseId, key])
+}
+
+/**
+ * One action a fan has to take before a download unlocks.
+ *
+ * `verified` is not stored: what can actually be proven is a property of the platform, not of
+ * the row, and lib/downloads.ts is the single place that decides it. Only SoundCloud (droplr
+ * performs the follow/like/repost with the fan's own token and gets a success back) and email
+ * are provable. Instagram, TikTok, YouTube and Spotify expose no way for any app to check
+ * whether a given visitor follows a given account, so those steps open a link and take the
+ * fan's word for it — and the builder says so rather than implying a check.
+ */
+model GateStep {
+  id         String   @id @default(cuid())
+  releaseId  String
+  release    Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  position   Int      @default(0)
+  /** email | soundcloud | instagram | tiktok | youtube | spotify | facebook | link */
+  platform   String
+  /** email | follow | like | repost | visit */
+  action     String
+  /** Profile or track URL the fan is sent to, or whose owner the action is performed on. */
+  target     String?
+  /** SoundCloud numeric id resolved from target at save time, so a later rename can't break the gate. */
+  targetId   String?
+  required   Boolean  @default(true)
+  createdAt  DateTime @default(now())
+
+  @@index([releaseId, position])
+}
+
+/**
+ * One fan's progress through a gate, and their unlock once it's finished.
+ *
+ * Progress has to live server-side rather than in a cookie because a SoundCloud step bounces the
+ * fan off to soundcloud.com and back, and anything they could edit themselves would make a
+ * "performed" step a lie. Keyed by the anonymous visitor id the middleware already sets.
+ *
+ * `completedAt` is what the unlock token is issued against, so a fan who comes back later gets
+ * their download without re-gating, and the funnel has a denominator that isn't a page view.
+ * Step-level drop-off comes from ClickEvent rows written per attempt (platform "gate:<step>"),
+ * which keeps it inside the insights aggregation that already exists.
+ */
+model GateUnlock {
+  id         String   @id @default(cuid())
+  releaseId  String
+  release    Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  email       String?
+  anonId      String
+  /** Step platforms actually completed, for "which step loses people". */
+  via         String[]
+  /** Null while they're part-way through; set when every required step is done. */
+  completedAt DateTime?
+  country     String?
+  timezone    String?
+  createdAt   DateTime  @default(now())
+
+  @@unique([releaseId, anonId])
+  @@index([releaseId, createdAt])
+  @@index([releaseId, email])
 }

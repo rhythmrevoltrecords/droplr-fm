@@ -44,6 +44,14 @@ export const CONTACT = {
 export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optional";
 
 /**
+ * Consent shown on a download gate's email step. Versioned separately from the pre-save one on
+ * purpose: bumping a shared constant would retroactively change what every existing consent
+ * record attests to, and a fan trading their address for a remix pack agreed to different words
+ * from a fan asking to be told when a single comes out.
+ */
+export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
+
+/**
  * What changed, newest first. The dashboard shows the entries newer than the version a login accepted,
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */

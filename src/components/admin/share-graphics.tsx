@@ -1,4 +1,5 @@
 import { Download } from "lucide-react";
+import { ShareButton } from "@/components/admin/share-button";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -17,7 +18,7 @@ export function ShareGraphics({ releaseId, live, milestones, presaves }: { relea
         <CardHeader>
           <CardTitle>Share graphics</CardTitle>
           <CardDescription>
-            Instagram story (9:16) and post (4:5) images made from the artwork, with the link written on them. Add the link as a story sticker too.
+            Instagram story (9:16) and post (4:5) images made from the artwork, with the link written on them. Add the link as a story sticker too. On a phone, Share posts it straight to a story.
             {milestones.length === 0 && ` Milestone graphics unlock at 25 pre-saves (${presaves} so far).`}
           </CardDescription>
         </CardHeader>
@@ -30,9 +31,13 @@ export function ShareGraphics({ releaseId, live, milestones, presaves }: { relea
               <figure key={f} className="space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={`${base}?${it.query}&format=${f}`} alt={`${it.title} ${f} preview`} loading="lazy" className={`w-full rounded-lg border bg-muted object-cover ${f === "story" ? "aspect-[9/16]" : "aspect-[4/5]"}`} />
-                <figcaption className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                   <span>{f === "story" ? "Story · 1080×1920" : "Post · 1080×1350"}</span>
-                  <Button asChild size="sm" variant="secondary"><a href={`${base}?${it.query}&format=${f}&download=1`}><Download /> PNG</a></Button>
+                  <span className="flex items-center gap-2">
+                    {/* On a phone this posts straight to a story; on desktop it renders nothing. */}
+                    <ShareButton url={`${base}?${it.query}&format=${f}`} filename={`${it.key}-${f}.png`} title={it.title} />
+                    <Button asChild size="sm" variant="secondary"><a href={`${base}?${it.query}&format=${f}&download=1`}><Download /> PNG</a></Button>
+                  </span>
                 </figcaption>
               </figure>
             ))}

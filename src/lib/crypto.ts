@@ -50,7 +50,7 @@ function jwtKey() {
  * Every token says what it's for. Without an audience, a release-email click token (sent to fans, lives 60 days)
  * would also verify as a session cookie.
  */
-export type TokenAudience = "session" | "unsub" | "pst";
+export type TokenAudience = "session" | "unsub" | "pst" | "dl";
 
 export async function signToken(payload: JWTPayload, expiresIn: string, aud: TokenAudience) {
   return new SignJWT(payload).setProtectedHeader({ alg: "HS256" }).setAudience(aud).setIssuedAt().setExpirationTime(expiresIn).sign(jwtKey());
