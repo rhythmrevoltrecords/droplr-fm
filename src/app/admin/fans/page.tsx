@@ -6,7 +6,8 @@ import { Input, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { countryName } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
-import { fanSummary, listFans } from "@/lib/fans";
+import { fanSummary, importedSummary, listFans, listImported } from "@/lib/fans";
+import { FanImportForm } from "@/components/admin/fan-import-form";
 import { isListenChoice, platformMeta } from "@/lib/platforms";
 import { planOf } from "@/lib/plans";
 import { formatInTz } from "@/lib/time";
@@ -31,7 +32,13 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
     country: /^[A-Z]{2}$/.test(sp.country ?? "") ? sp.country : undefined,
     listenOn: isListenChoice(sp.store) ? sp.store : undefined,
   };
-  const [summary, fans] = await Promise.all([fanSummary(org.id), listFans(org.id, filter, PAGE + 1, (page - 1) * PAGE)]);
+  const imported = sp.show === "imported";
+  const [summary, fans, impSummary, impRows] = await Promise.all([
+    fanSummary(org.id),
+    imported ? Promise.resolve([]) : listFans(org.id, filter, PAGE + 1, (page - 1) * PAGE),
+    importedSummary(org.id),
+    imported ? listImported(org.id, filter.q, PAGE, (page - 1) * PAGE) : Promise.resolve([]),
+  ]);
   const more = fans.length > PAGE;
   const rows = fans.slice(0, PAGE);
   const qs = (extra: Record<string, string | undefined>) => {
@@ -56,12 +63,13 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
           { label: "Fans", value: summary.total, hint: "unique emails", href: "/admin/fans" },
           { label: "Opted in to news", value: summary.news, hint: "you can email about anything", href: "/admin/fans?show=news" },
           { label: "Came back", value: summary.returning, hint: "pre-saved 2+ releases", href: undefined },
           { label: "Unsubscribed", value: summary.unsubscribed, hint: "never email again", href: "/admin/fans?show=unsub" },
+          { label: "Imported", value: impSummary.total, hint: `${fmtNum(impSummary.mailable)} can be emailed`, href: "/admin/fans?show=imported" },
         ].map((t) => {
           const card = (
             <Card key={t.label} className={`p-4${t.href ? " transition-colors hover:border-violet-500/40" : ""}`}>
@@ -74,6 +82,58 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
         })}
       </div>
 
+      {imported ? (
+        <div className="space-y-6">
+          <Card className="border-amber-500/30 bg-amber-500/5">
+            <CardContent className="p-4 text-sm text-muted-foreground">
+              <strong className="text-foreground">Consent came with them, not with the tool.</strong> If someone ticked a box to hear about your music on another service, that consent is yours and it carries over. What doesn&apos;t carry over is an address someone typed in once to get a file — that was a transaction, not a subscription.
+              <br /><br />
+              Imported contacts are <strong className="text-foreground">never</strong> included in a release-day send. They can only be reached by a news email you write and send yourself. The best thing to send them is your pre-save link: the ones who sign up become real fans with fresh consent.
+              <br /><br />
+              <strong className="text-foreground">On old lists:</strong> addresses collected years ago bounce and draw complaints, and that damages the reputation of the domain your release-day emails go out from. Send to your most recent contacts first and see how it lands before you send to all of them.
+            </CardContent>
+          </Card>
+
+          <FanImportForm />
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Imported contacts</CardTitle>
+              <CardDescription>{fmtNum(impSummary.mailable)} can be emailed · {fmtNum(impSummary.pending)} need to confirm · {fmtNum(impSummary.unsubscribed)} unsubscribed</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <form method="get" className="mb-4 flex gap-3">
+                <input type="hidden" name="show" value="imported" />
+                <Input name="q" defaultValue={filter.q} placeholder="Search email" aria-label="Search email" />
+                <Button type="submit" variant="outline">Search</Button>
+              </form>
+              {impRows.length === 0 ? (
+                <p className="py-6 text-center text-sm text-muted-foreground">Nothing imported yet.</p>
+              ) : (
+                <Table>
+                  <THead><TR><TH>Email</TH><TH>From</TH><TH>Consent</TH><TH>Status</TH><TH>Added</TH></TR></THead>
+                  <TBody>
+                    {impRows.map((r) => (
+                      <TR key={r.id}>
+                        <TD className="font-medium">{r.email}</TD>
+                        <TD className="text-muted-foreground">{r.consentSource}</TD>
+                        <TD className="text-muted-foreground">{r.consentKind === "marketing" ? "Opted in to news" : "Download only"}</TD>
+                        <TD>
+                          {r.status === "mailable" ? <Badge variant="success">Can email</Badge>
+                            : r.status === "unsubscribed" ? <Badge variant="danger">Unsubscribed</Badge>
+                            : <Badge>Needs to confirm</Badge>}
+                        </TD>
+                        <TD className="text-muted-foreground">{formatInTz(r.createdAt, org.timezone)}</TD>
+                      </TR>
+                    ))}
+                  </TBody>
+                </Table>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+      <>
       <Card className="border-amber-500/30 bg-amber-500/5">
         <CardContent className="p-4 text-sm text-muted-foreground">
           <strong className="text-foreground">Who you can email:</strong> fans marked <Badge variant="success">News</Badge> said yes to news and new music. Everyone else only agreed to hear about the release they pre-saved, and droplr sends that email for you. Emailing them about other things breaks anti-spam law (in Australia, the Spam Act).
@@ -146,6 +206,8 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
           {page > 1 ? <Link className="underline" href={qs({ page: String(page - 1) })}>Previous</Link> : <span />}
           {more && <Link className="underline" href={qs({ page: String(page + 1) })}>Next</Link>}
         </div>
+      )}
+      </>
       )}
     </div>
   );

@@ -83,3 +83,33 @@ export async function fanSummary(orgId: string) {
     stores: stores.map((s) => ({ value: s.v, fans: Number(s.n) })),
   };
 }
+
+export type ImportedRow = {
+  id: string; email: string; name: string | null; country: string | null;
+  consentSource: string; consentAt: Date | null; consentKind: string; status: string; createdAt: Date;
+};
+
+/**
+ * Contacts the label brought with them. Listed separately from pre-save fans on purpose: they
+ * have no release history, no chosen store and no timezone, and showing them in the same table
+ * would quietly imply droplr knows things about them that it doesn't.
+ */
+export async function listImported(orgId: string, q: string | undefined, limit = 100, offset = 0) {
+  return prisma.fanContact.findMany({
+    where: { organizationId: orgId, ...(q ? { email: { contains: q.toLowerCase() } } : {}) },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    skip: offset,
+    select: { id: true, email: true, name: true, country: true, consentSource: true, consentAt: true, consentKind: true, status: true, createdAt: true },
+  });
+}
+
+export async function importedSummary(orgId: string) {
+  const rows = await prisma.fanContact.groupBy({
+    by: ["status"],
+    where: { organizationId: orgId },
+    _count: { _all: true },
+  });
+  const by = (s: string) => rows.find((r) => r.status === s)?._count._all ?? 0;
+  return { total: rows.reduce((n, r) => n + r._count._all, 0), mailable: by("mailable"), pending: by("pending"), unsubscribed: by("unsubscribed") };
+}

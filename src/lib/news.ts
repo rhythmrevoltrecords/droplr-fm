@@ -44,27 +44,70 @@ function audienceHaving(f: NewsFilter) {
   return Prisma.join(parts, " AND ");
 }
 
-/** Everyone this send would reach, one row per address, with a PreSave id for the unsubscribe token. */
-export async function newsAudience(orgId: string, f: NewsFilter) {
-  return prisma.$queryRaw<{ email: string; preSaveId: string }[]>`
+export type AudienceRow = { email: string; preSaveId: string | null; fanContactId: string | null };
+
+/**
+ * Imported contacts this send may reach.
+ *
+ * Only ones marked mailable — a transactional import stays pending until the person confirms.
+ * Anyone who unsubscribed from this label through a pre-save is excluded here too: the opt-out
+ * is to the label, and an import must never quietly undo one.
+ *
+ * Skipped entirely when the send is filtered by release or by listening platform, because an
+ * imported address has neither. Better to reach fewer people than to pretend we know something
+ * about them that we don't.
+ */
+async function importedAudience(orgId: string, f: NewsFilter) {
+  if (f.releaseId || f.listenOn) return [];
+  return prisma.$queryRaw<{ email: string; fanContactId: string }[]>`
+    SELECT c.email AS email, c.id AS "fanContactId"
+    FROM "FanContact" c
+    WHERE c."organizationId" = ${orgId}
+      AND c.status = 'mailable'
+      ${f.country ? Prisma.sql`AND c.country = ${f.country}` : Prisma.empty}
+      AND NOT EXISTS (
+        SELECT 1 FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
+        WHERE r."organizationId" = ${orgId} AND lower(p.email) = c.email
+      )`;
+}
+
+/** Everyone this send would reach, one row per address, with the id its unsubscribe token points at. */
+export async function newsAudience(orgId: string, f: NewsFilter): Promise<AudienceRow[]> {
+  const [fans, imported] = await Promise.all([
+    prisma.$queryRaw<{ email: string; preSaveId: string }[]>`
     SELECT lower(p.email) AS email,
       (array_agg(p.id ORDER BY p."createdAt" DESC))[1] AS "preSaveId"
     FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
     WHERE ${audienceWhere(orgId, f)}
     GROUP BY lower(p.email)
-    HAVING ${audienceHaving(f)}`;
+    HAVING ${audienceHaving(f)}`,
+    importedAudience(orgId, f),
+  ]);
+  const seen = new Set(fans.map((r) => r.email));
+  return [
+    ...fans.map((r) => ({ email: r.email, preSaveId: r.preSaveId, fanContactId: null })),
+    ...imported.filter((r) => !seen.has(r.email)).map((r) => ({ email: r.email, preSaveId: null, fanContactId: r.fanContactId })),
+  ];
 }
 
 export async function newsAudienceCount(orgId: string, f: NewsFilter) {
-  const [row] = await prisma.$queryRaw<{ n: bigint }[]>`
+  const [[row], imported] = await Promise.all([
+    prisma.$queryRaw<{ n: bigint }[]>`
     SELECT COUNT(*) AS n FROM (
       SELECT lower(p.email)
       FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
       WHERE ${audienceWhere(orgId, f)}
       GROUP BY lower(p.email)
       HAVING ${audienceHaving(f)}
-    ) x`;
-  return Number(row?.n ?? 0);
+    ) x`,
+    importedAudience(orgId, f),
+  ]);
+  return Number(row?.n ?? 0) + imported.length;
+}
+
+/** How many of this org's imported contacts are mailable — shown next to the audience count. */
+export async function importedMailableCount(orgId: string) {
+  return prisma.fanContact.count({ where: { organizationId: orgId, status: "mailable" } });
 }
 
 /** Plain text as typed → escaped paragraphs. Never raw HTML: the body is user input. */
@@ -120,8 +163,11 @@ export function renderNewsEmail(args: RenderArgs) {
   };
 }
 
-export async function newsEmailFor(args: Omit<RenderArgs, "unsub"> & { preSaveId: string }) {
-  const unsub = await signToken({ ps: args.preSaveId, act: "unsub" }, "365d", "unsub");
+export async function newsEmailFor(args: Omit<RenderArgs, "unsub"> & { preSaveId?: string | null; fanContactId?: string | null }) {
+  // An imported contact has no PreSave row to point at, so its token names the contact instead.
+  const unsub = args.fanContactId
+    ? await signToken({ fc: args.fanContactId, act: "unsub" }, "365d", "unsub")
+    : await signToken({ ps: args.preSaveId!, act: "unsub" }, "365d", "unsub");
   return renderNewsEmail({ ...args, unsub });
 }
 
@@ -139,7 +185,7 @@ export async function snapshotAudience(newsEmailId: string) {
   });
   if (rows.length) {
     await prisma.newsEmailDelivery.createMany({
-      data: rows.map((r) => ({ newsEmailId, email: r.email, preSaveId: r.preSaveId })),
+      data: rows.map((r) => ({ newsEmailId, email: r.email, preSaveId: r.preSaveId, fanContactId: r.fanContactId })),
       skipDuplicates: true,
     });
   }
@@ -190,12 +236,23 @@ export async function processNewsEmail(newsEmailId: string, deadlineMs = Date.no
 
       // Someone may have unsubscribed between the snapshot and this batch. Their consent
       // at send time is what matters, so re-check and drop them rather than emailing.
-      const optedOut = await prisma.preSave.findMany({
-        where: { email: { in: pending.map((d) => d.email) }, status: "unsubscribed", release: { organizationId: org.id } },
-        select: { email: true },
-        distinct: ["email"],
-      });
-      const gone = new Set(optedOut.map((r) => r.email!.toLowerCase()));
+      const [optedOut, importedOut] = await Promise.all([
+        prisma.preSave.findMany({
+          where: { email: { in: pending.map((d) => d.email) }, status: "unsubscribed", release: { organizationId: org.id } },
+          select: { email: true },
+          distinct: ["email"],
+        }),
+        // Same check for imported contacts: they can unsubscribe from any earlier send, and that
+        // has to bind before the next batch goes out, not after it.
+        prisma.fanContact.findMany({
+          where: { email: { in: pending.map((d) => d.email) }, organizationId: org.id, status: { not: "mailable" } },
+          select: { email: true },
+        }),
+      ]);
+      const gone = new Set([
+        ...optedOut.map((r) => r.email!.toLowerCase()),
+        ...importedOut.map((r) => r.email.toLowerCase()),
+      ]);
       const dropped = pending.filter((d) => gone.has(d.email));
       if (dropped.length) {
         await prisma.newsEmailDelivery.updateMany({ where: { id: { in: dropped.map((d) => d.id) } }, data: { error: "unsubscribed before send" } });
@@ -210,6 +267,7 @@ export async function processNewsEmail(newsEmailId: string, deadlineMs = Date.no
           replyTo: org.emailReplyTo,
           ...(await newsEmailFor({
             preSaveId: d.preSaveId,
+            fanContactId: d.fanContactId,
             subject: news.subject,
             body: news.body,
             buttonLabel: news.buttonLabel,
