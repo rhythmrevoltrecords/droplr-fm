@@ -10,6 +10,7 @@ const toc = [
   { id: "details", title: "Details of the processing" },
   { id: "instructions", title: "Your instructions" },
   { id: "label", title: "Your responsibilities" },
+  { id: "imported", title: "Lists you import" },
   { id: "confidentiality", title: "Confidentiality and security" },
   { id: "subprocessors", title: "Sub-processors" },
   { id: "requests", title: "Requests from fans" },
@@ -39,7 +40,8 @@ export default function DataProcessingPage() {
               <tr><td><strong>Duration</strong></td><td>While your account is active, plus the deletion period below</td></tr>
               <tr><td><strong>Purposes</strong></td><td>Showing pages, redirecting clicks, recording pre-saves, sending release-day emails, performing connected Spotify/Deezer saves, running download gates (including carrying out a SoundCloud follow, like or repost a fan has just authorised), and providing analytics and CSV exports to you</td></tr>
               <tr><td><strong>Fans&apos; data</strong></td><td>Email address and consent record (time and wording version, recorded separately for pre-saves and for download gates); Spotify/Deezer account ID and encrypted refresh token; which download-gate steps a visitor ID has completed; country, device type, referrer and campaign tags; daily-rotating IP hash; random visitor ID; email send, click and unsubscribe status. A SoundCloud access token given for a gate step is used once and discarded — it is never stored, and no SoundCloud username or account ID is kept.</td></tr>
-              <tr><td><strong>People</strong></td><td>Fans and visitors to your pages</td></tr>
+              <tr><td><strong>Imported contacts</strong></td><td>Where you upload a list you collected before droplr.fm: the email address, plus any name, country or timezone in your file, and the provenance you give us (source, approximate date, what people agreed to, and your confirmation that you collected them directly)</td></tr>
+              <tr><td><strong>People</strong></td><td>Fans and visitors to your pages, and anyone on a list you import</td></tr>
               <tr><td><strong>Sensitive data</strong></td><td>None intended. Don&apos;t collect sensitive information through droplr.fm.</td></tr>
             </tbody>
           </table>
@@ -55,7 +57,22 @@ export default function DataProcessingPage() {
           <li>You have a lawful basis for the processing and give fans any privacy notice the law requires, including telling them how your label will use their information.</li>
           <li>You only use exported fan data lawfully and keep it secure.</li>
           <li>You follow the anti-spam, pixel and consent requirements in the <Link href="/legal/terms#fans">Terms</Link> and <Link href="/legal/cookies">Cookie Policy</Link>.</li>
+          <li>Where you import a list, everything in <Link href="#imported">Lists you import</Link> applies.</li>
         </ul>
+      </Section>
+
+      <Section {...s("imported")}>
+        <p>You can upload a list of fan email addresses you collected before you used droplr.fm. When you do, you are the controller of that list and you warrant that:</p>
+        <ul>
+          <li>the people on it gave you their address directly, and you have not bought, rented, scraped, harvested or swapped it;</li>
+          <li>you have consent, or another lawful basis, to send them the kind of email you intend to send — and that consent was given to you, so you can still rely on it after moving the record here;</li>
+          <li>the source, date and description of consent you give us at import are accurate, and you can evidence them if asked;</li>
+          <li>you have removed anyone who has withdrawn consent or asked you to stop.</li>
+        </ul>
+        <p>You remain responsible for the lawfulness of every message you send to an imported contact. We are your processor for storing and sending, not a check on your consent, and we do not verify it.</p>
+        <p>What we do enforce: an imported address is never added to a release-day email; a list you tell us was collected only in exchange for a download is marked unconfirmed and cannot be emailed until the person confirms; any address that has already unsubscribed from you through droplr.fm is skipped and not re-added; and every news email carries a working one-click unsubscribe.</p>
+        <p>Because all droplr.fm email is sent from shared infrastructure, a list that generates significant spam complaints or bounces harms deliverability for every customer. We may suspend sending for an account, require a list to be re-confirmed, or delete an imported list, where we reasonably believe it breaches this section, our <Link href="/legal/acceptable-use">Acceptable Use Policy</Link>, or our email provider&apos;s rules. Where practical we&apos;ll tell you first.</p>
+        <p>You indemnify us for claims, penalties and costs arising from a list you imported without the consent you warranted.</p>
       </Section>
 
       <Section {...s("confidentiality")}>
