@@ -1,10 +1,11 @@
 "use client";
-import { Loader2, Plus, X } from "lucide-react";
+import { Loader2, Plus, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
+import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 import { GATE_PLATFORMS, type GateAction, type GatePlatform } from "@/lib/gate-steps";
 import { slugify } from "@/lib/utils";
 
@@ -42,6 +43,17 @@ export function DownloadForm({ initial, soundcloudConnected }: { initial?: Downl
   const [error, setError] = useState<string | null>(null);
   const editing = !!v.id;
   const set = <K extends keyof DownloadFormValues>(k: K, val: DownloadFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
+
+  // Same uploader, crop dialog and server-side re-encode the release form uses: the gate's artwork
+  // is shown to fans on a public page, so it goes through processUpload like every other image.
+  const cover = useImageUpload({
+    endpoint: "/api/admin/upload-cover",
+    purpose: "cover",
+    aspects: [ASPECT_SQUARE],
+    maxEdge: 1600,
+    title: "Crop artwork",
+    onUploaded: (img) => set("coverUrl", img.url),
+  });
 
   const used = new Set(v.steps.map((s) => s.platform));
   const addable = (Object.keys(GATE_PLATFORMS) as GatePlatform[]).filter((p) => !used.has(p));
@@ -101,8 +113,32 @@ export function DownloadForm({ initial, soundcloudConnected }: { initial?: Downl
         )}
 
         <div className="space-y-1.5">
-          <Label htmlFor="coverUrl">Artwork URL</Label>
-          <Input id="coverUrl" value={v.coverUrl} onChange={(e) => set("coverUrl", e.target.value)} placeholder="https://…" />
+          <Label>Artwork</Label>
+          <div className="flex items-start gap-3">
+            {v.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={v.coverUrl} alt="" className="size-16 shrink-0 rounded-md border border-border object-cover" />
+            ) : (
+              <div className="grid size-16 shrink-0 place-items-center rounded-md border border-dashed border-border text-muted-foreground">
+                <Upload className="size-4" />
+              </div>
+            )}
+            <div className="flex flex-col gap-2">
+              <div className="flex flex-wrap gap-2">
+                <Button type="button" variant="outline" className="shrink-0" onClick={cover.pick} disabled={cover.busy}>
+                  {cover.uploading ? <Loader2 className="animate-spin" /> : <Upload />}
+                  {v.coverUrl ? "Replace artwork" : "Upload artwork"}
+                </Button>
+                {v.coverUrl && (
+                  <Button type="button" variant="ghost" className="shrink-0" onClick={() => set("coverUrl", "")} disabled={cover.busy}>
+                    Remove
+                  </Button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">{IMAGE_HINT}</p>
+            </div>
+            {cover.ui}
+          </div>
         </div>
 
         <div className="space-y-1.5">
