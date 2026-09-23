@@ -1,6 +1,7 @@
 import { SITE_URL } from "@/lib/env";
 import { GATE_PLATFORMS, isGatePlatform, stepLabel, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
+import { GateRefresh } from "./gate-refresh";
 import { PlatformIcon } from "./platform-icon";
 import { TimezoneField } from "./timezone-field";
 
@@ -100,6 +101,7 @@ export function GateView({
         </div>
       ) : (
         <div className="mt-7 space-y-3">
+          {!demo && <GateRefresh pending={left > 0} />}
           <p className="text-sm font-semibold">
             {left === 1 ? "One step and it's yours" : `${left} steps and it's yours`}
           </p>
