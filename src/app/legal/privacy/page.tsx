@@ -10,6 +10,7 @@ const toc = [
   { id: "roles", title: "Labels, fans and who's responsible" },
   { id: "collect", title: "What we collect" },
   { id: "how", title: "How we collect it" },
+  { id: "imported", title: "Lists a label brings with them" },
   { id: "use", title: "How we use it" },
   { id: "bases", title: "Legal bases (EU and UK)" },
   { id: "share", title: "Who we share it with" },
@@ -82,9 +83,19 @@ export default function PrivacyPage() {
           <li>Directly from you, when you sign up, fill in a form or email us.</li>
           <li>Automatically, through cookies and server requests when you use the service. See the <Link href="/legal/cookies">Cookie Policy</Link>.</li>
           <li>From third parties: Stripe (payment status), Spotify or Deezer (when a fan connects an account), and a label that invites you to its team.</li>
+          <li>From a label directly, if it uploads a list of fan email addresses it collected before it used droplr.fm. See <Link href="#imported">Lists a label brings with them</Link>.</li>
           <li>Release details such as titles, artwork and store links come from public catalogues (Spotify, Apple&apos;s iTunes Search API and Deezer&apos;s public API). Those lookups use release codes, not personal information.</li>
         </ul>
         <p>You can browse the droplr.fm website without giving us your name. You can&apos;t use an account or pre-save by email anonymously, because we need an email address to do it.</p>
+      </Section>
+
+      <Section {...s("imported")}>
+        <p>A label can upload a list of fan email addresses it already had — collected on its own site, or through a download gate or mailing list service it used before droplr.fm. If you&apos;re a fan, you may be on such a list.</p>
+        <p><strong>The label is responsible for having your consent</strong>, not us. Consent you gave was given to that label, and moving the record between tools doesn&apos;t change what you agreed to. When a label imports a list it must tell us where the addresses came from, roughly when, and what people agreed to, and it must confirm it collected them directly and did not buy, scrape or swap them. We keep that statement on record.</p>
+        <p>What we store for an imported contact is the email address, and a name, country or timezone only if the label&apos;s file included them. We don&apos;t buy, sell, rent or enrich contact data, and we never import a list on a label&apos;s behalf from another service.</p>
+        <p>An imported address is <strong>never</strong> added to a release-day email. It can only receive a news email the label writes and sends. If the label told us the addresses were only ever given in exchange for a download — rather than to receive news — we mark them as unconfirmed and they can&apos;t be emailed at all until the person confirms.</p>
+        <p>If you had already unsubscribed from that label through droplr.fm, an import can&apos;t put you back: we check every uploaded address against our unsubscribe records and skip anyone who has opted out. Every news email carries a one-click unsubscribe, and using it stops all email from that label, including release-day emails.</p>
+        <p>To be removed from an imported list, use the unsubscribe link in any email from that label, contact the label directly, or email us at <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a> and we&apos;ll pass it on and help.</p>
       </Section>
 
       <Section {...s("use")}>
@@ -154,6 +165,7 @@ export default function PrivacyPage() {
           <li><strong>Notification subscriptions</strong>: kept until you turn notifications off, remove that device, uninstall the app, or the push service tells us the subscription is dead, when we delete it. All of them are deleted when the account closes.</li>
           <li><strong>Feedback conversations</strong>: kept while your account is open so we have the history of what you asked, and deleted with the account within 90 days of closure.</li>
           <li><strong>Invites and referral records</strong>: kept while they can still be used and for our records of how an account was created; deleted with the account.</li>
+          <li><strong>Imported fan contacts</strong>: kept until the label deletes them, closes its account (deleted within 90 days of closure), or you ask to be removed. If you unsubscribe we keep your address marked as unsubscribed so that label can&apos;t email you through droplr.fm again.</li>
           <li><strong>Billing records</strong>: kept for as long as tax law requires, generally five years in Australia.</li>
           <li><strong>Backups and logs</strong>: overwritten on our providers&apos; normal cycles.</li>
         </ul>

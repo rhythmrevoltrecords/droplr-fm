@@ -45,7 +45,11 @@ export default function AcceptableUsePage() {
           <li>Import, upload or use purchased, rented, scraped or shared email lists.</li>
           <li>Collect fans&apos; personal information on your pages without a lawful basis, or use it for anything unrelated to what they agreed to.</li>
           <li>Try to stop the unsubscribe link from working, or email people who have unsubscribed.</li>
+          <li>Misdescribe where an imported list came from or what the people on it agreed to.</li>
+          <li>Import a list of people who only ever gave you their address in exchange for a file, and present it to us as a marketing opt-in.</li>
         </ul>
+        <p>You can import a list you collected yourself before using droplr.fm — see the <Link href="/legal/data-processing#imported">Data Processing Terms</Link>. Consent you already hold carries over, because it was given to you rather than to the tool that collected it. What doesn&apos;t carry over is an address given for a one-off download; that was a transaction, not a subscription.</p>
+        <p>All droplr.fm email leaves from shared infrastructure, so one bad list damages delivery for every other artist and label here. We may suspend sending, require a list to be re-confirmed, or delete an imported list where we reasonably believe this section has been breached.</p>
       </Section>
 
       <Section {...s("downloads")}>

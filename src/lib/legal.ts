@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-22",
-  updated: "22 September 2026",
+  version: "2026-09-23",
+  updated: "23 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -56,6 +56,18 @@ export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-23",
+    date: "23 September 2026",
+    summary: [
+      "You can import a fan list you collected before using droplr.fm. Consent you already hold carries over, because it was given to you and not to the tool that collected it — but you have to tell us where the addresses came from, roughly when, and what people agreed to, and confirm you collected them directly.",
+      "An imported address is never added to a release-day email. It can only receive a news email you write and send yourself.",
+      "A list collected only in exchange for a download isn't a subscription. Those contacts are marked unconfirmed and can't be emailed until the person confirms.",
+      "An import can't undo an unsubscribe: any address that already opted out of your emails is skipped and not re-added.",
+      "All droplr.fm email is sent from shared infrastructure, so a list that draws heavy complaints or bounces hurts delivery for everyone here. We may suspend sending, require a list to be re-confirmed, or delete an imported list that breaches the Acceptable Use Policy.",
+      "Privacy: the Privacy Policy now explains what we store for an imported contact and how to be removed from one.",
+    ],
+  },
   {
     version: "2026-09-22",
     date: "22 September 2026",
