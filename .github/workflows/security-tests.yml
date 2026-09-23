@@ -116,6 +116,9 @@ jobs:
       - name: Roster links
         run: npx tsx scripts/test-roster-link.ts
 
+      - name: Fan list import
+        run: npx tsx scripts/test-fan-import.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

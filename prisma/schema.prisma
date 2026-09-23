@@ -102,6 +102,7 @@ model Organization {
   referralsMade    Referral[] @relation("ReferralReferrer")
   referredBy       Referral?  @relation("ReferralReferred")
   newsEmails       NewsEmail[]
+  fanContacts      FanContact[]
 }
 
 model User {
@@ -653,7 +654,13 @@ model NewsEmailDelivery {
   newsEmailId String
   newsEmail   NewsEmail @relation(fields: [newsEmailId], references: [id], onDelete: Cascade)
   email       String
-  preSaveId   String // the row the unsubscribe token points at
+  /**
+   * What the unsubscribe token points at. Exactly one is set: preSaveId for a fan droplr
+   * captured, fanContactId for one the label imported. Imported contacts have no PreSave row
+   * by design, so the old NOT NULL here is what made them unmailable.
+   */
+  preSaveId    String?
+  fanContactId String?
   sentAt      DateTime?
   error       String?
   createdAt   DateTime  @default(now())
@@ -734,4 +741,45 @@ model GateUnlock {
   @@unique([releaseId, anonId])
   @@index([releaseId, createdAt])
   @@index([releaseId, email])
+}
+
+/**
+ * A fan address the label already had — imported from wherever they collected it before droplr
+ * (a gate service, a mailing list, their own site), rather than captured by a droplr page.
+ *
+ * Deliberately NOT a PreSave. PreSave rows are what release-day sending reads, and an imported
+ * address has not asked for any particular release. Keeping them in their own table means an
+ * import cannot put anyone into a release-day send by accident — the send path can't see this
+ * table at all.
+ *
+ * consentSource / consentAt / consentNote are the provenance the law actually asks for: who
+ * consented, when, and how. The importer types it in and attests to it; we store their answer
+ * verbatim so that if it's ever questioned there's a record rather than a shrug.
+ */
+model FanContact {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String
+  name           String?
+  country        String?
+  timezone       String?
+  /** Where the label collected it: "hypeddit" | "mailchimp" | "own-site" | "other". Free text, trimmed. */
+  consentSource  String
+  /** When the fan opted in, as stated by the importer. Null when they couldn't say. */
+  consentAt      DateTime?
+  /** What the fan actually agreed to, in the importer's words. Kept verbatim. */
+  consentNote    String?
+  /** marketing = ticked a box to receive music news. transactional = only ever gave it for a download. */
+  consentKind    String       @default("transactional")
+  /** mailable | pending | unsubscribed. transactional imports start pending and must confirm. */
+  status         String       @default("pending")
+  importId       String
+  importedBy     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@unique([organizationId, email])
+  @@index([organizationId, status])
+  @@index([importId])
 }
