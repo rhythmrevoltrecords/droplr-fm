@@ -53,14 +53,27 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">Fans</h1>
-          <p className="mt-0.5 text-sm text-muted-foreground">Everyone who pre-saved any of your releases, in one list.</p>
+          <h1 className="text-2xl font-semibold">{imported ? "Imported contacts" : "Fans"}</h1>
+          <p className="mt-0.5 text-sm text-muted-foreground">
+            {imported
+              ? <>A list you collected before droplr — <Link href="/admin/fans" className="underline">back to fans</Link></>
+              : "Everyone who pre-saved any of your releases, in one list."}
+          </p>
         </div>
-        {plan.csvExport ? (
-          <Button asChild variant="outline"><a href={exportHref}>Export CSV</a></Button>
-        ) : (
-          <Link href="/admin/settings/billing" className="text-sm text-violet-400 underline">Export is on paid plans</Link>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Import sits next to Export because that is where anyone looks for it. It was only
+              reachable from a stat tile at first, which is a place people read, not click. */}
+          {!imported && (
+            <Button asChild variant="outline">
+              <Link href="/admin/fans?show=imported">Import a list</Link>
+            </Button>
+          )}
+          {plan.csvExport ? (
+            <Button asChild variant="outline"><a href={exportHref}>Export CSV</a></Button>
+          ) : (
+            <Link href="/admin/settings/billing" className="text-sm text-violet-400 underline">Export is on paid plans</Link>
+          )}
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
