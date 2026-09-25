@@ -550,7 +550,14 @@ async function main() {
         const dom2 = `links-self-${RUN}.sectest.dev`;
         await http(ownerA, "PATCH", "/api/admin/org", { customDomain: dom2 });
         orgA = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id } });
-        check("changing the domain removes the old alias and resets setup", !mock.aliases.includes(dom) && mock.aliases.includes("www.droplr.fm") && orgA.customDomainToken !== token1 && !orgA.customDomainAttachedAt, JSON.stringify(mock.aliases));
+        // The old alias is deliberately NOT removed: links already printed or pinned keep redirecting to the new
+        // domain, and the removal is queued a year out instead.
+        check("changing the domain resets setup", orgA.customDomainToken !== token1 && !orgA.customDomainAttachedAt && orgA.customDomain === dom2);
+        check("the old alias is kept so old links keep redirecting", mock.aliases.includes(dom) && mock.aliases.includes("www.droplr.fm"), JSON.stringify(mock.aliases));
+        check("the old domain is recorded against the label", orgA.previousDomains.includes(dom), JSON.stringify(orgA.previousDomains));
+        const held = await prisma.domainDetach.findUnique({ where: { domain: dom } });
+        check("its removal is scheduled, not immediate", !!held?.after && held.after.getTime() > Date.now() + 300 * 86400_000, String(held?.after));
+        check("the old domain still resolves to this label", (await prisma.organization.findFirst({ where: { previousDomains: { has: dom } }, select: { id: true } }))?.id === A.org.id);
         check("droplr.fm's own domains are never in a removal", mock.patches.every((p) => p.includes("www.droplr.fm")));
 
         // A removal for a domain another label now uses is dropped without touching Netlify.

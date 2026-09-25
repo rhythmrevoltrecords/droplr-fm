@@ -56,6 +56,10 @@ export function DomainSetup({ view }: { view: DomainSetupView }) {
         {view.checkedAt && <span suppressHydrationWarning className="text-xs text-muted-foreground">Last checked {new Date(view.checkedAt).toLocaleString("en-AU", { dateStyle: "medium", timeStyle: "short" })}</span>}
       </div>
 
+      {view.advice && (
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-3 text-sm text-muted-foreground">{view.advice}</p>
+      )}
+
       {view.state === "live" ? (
         <p className="text-sm text-muted-foreground">Connected. New links use <strong className="text-foreground">https://{view.domain}</strong>. Leave the DNS record that points it at droplr in place; if it&apos;s removed, links go back to droplr.fm.</p>
       ) : view.state !== "paused" ? (

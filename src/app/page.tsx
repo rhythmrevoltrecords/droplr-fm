@@ -28,7 +28,7 @@ const FOR_ARTISTS = [
 const FOR_LABELS = [
   { title: "Run the whole roster", body: "Every release, every artist, one account. Artists log in to grab their links and see their stats." },
   { title: "A link per placement", body: "/ig, /tiktok, a QR on the flyer: each tracked, so you know which post moved people." },
-  { title: "Your domain, connected for you", body: "presave.yourlabel.com with one DNS record. We verify it and issue the certificate." },
+  { title: "Your domain, connected for you", body: "listen.yourlabel.com with one DNS record. We verify it and issue the certificate." },
   { title: "See what works across releases", body: "Busiest hours, top countries, best sources and the stores fans actually use." },
 ];
 

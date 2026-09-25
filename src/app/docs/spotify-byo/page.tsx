@@ -21,7 +21,7 @@ export default function SpotifyByoDocs() {
         <li>Open <a href="https://developer.spotify.com/dashboard">developer.spotify.com/dashboard</a> with the Premium account that will own the app → <strong>Create app</strong>.</li>
         <li>Name it after your label, tick <strong>Web API</strong>, and add Redirect URIs:
           <pre>{`https://droplr.fm/api/spotify/callback
-https://presave.yourlabel.com/api/spotify/callback   (if you use a custom domain)`}</pre>
+https://listen.yourlabel.com/api/spotify/callback   (if you use a custom domain)`}</pre>
         </li>
         <li>Open the app&apos;s <strong>Settings</strong> and copy the <strong>Client ID</strong> and <strong>Client Secret</strong>.</li>
         <li>In droplr.fm: Admin → Integrations → paste both → <strong>Save &amp; verify</strong>.</li>
