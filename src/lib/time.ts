@@ -113,6 +113,27 @@ export function releaseEmailDueFor(release: RolloutRelease, orgTz: string | null
   return zonedLocalToDate(`${zonedDay(next, tz)}T${hh}:00`, tz);
 }
 
+/**
+ * The instant `hour`:00 on `day` (YYYY-MM-DD) in `tz`. Unknown or missing zone falls back to `fallbackTz`
+ * — the label's own zone — which is exactly what release-day sending does with a fan who has no timezone.
+ */
+export function localHourOn(day: string, hour: number, tz: string | null | undefined, fallbackTz?: string | null) {
+  const zone = isValidTimeZone(tz) ? tz : isValidTimeZone(fallbackTz) ? fallbackTz : DEFAULT_TZ;
+  return zonedLocalToDate(`${day}T${String(hour).padStart(2, "0")}:00`, zone);
+}
+
+/**
+ * First and last moment a "hour:00 their time on `day`" send lands anywhere (UTC+14 … UTC−12).
+ * The composer shows this so nobody has to work out that a local send runs for 26 hours.
+ */
+export function localHourWindow(day: string, hour: number) {
+  const wall = zonedLocalToDate(`${day}T${String(hour).padStart(2, "0")}:00`, "UTC").getTime();
+  return { earliest: new Date(wall - 14 * HOUR), latest: new Date(wall + 12 * HOUR) };
+}
+
+/** How long after the label's own moment the last timezone comes round. */
+export const LOCAL_SEND_SPREAD_MS = 26 * HOUR;
+
 /** Curated label locations (searchable in settings); any IANA zone is accepted. */
 export const LOCATIONS: { label: string; tz: string; region: string }[] = [
   { label: "Brisbane", tz: "Australia/Brisbane", region: "Australia" },

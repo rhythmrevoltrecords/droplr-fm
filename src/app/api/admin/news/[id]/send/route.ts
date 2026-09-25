@@ -14,6 +14,11 @@ const schema = z.object({
   action: z.enum(["send", "schedule", "cancel", "test"]),
   // Wall-clock in the label's own timezone, e.g. "2026-09-25T09:00".
   scheduledForLocal: z.string().min(10).max(40).optional(),
+  /**
+   * instant: that one moment for everybody. local: that same clock time in each fan's own zone, on that
+   * day — the release-day behaviour. Only meaningful with "schedule"; "send now" is always one moment.
+   */
+  sendMode: z.enum(["instant", "local"]).optional(),
 });
 
 export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
@@ -64,6 +69,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
   if (!recipients) return NextResponse.json({ error: "Nobody matches that audience yet." }, { status: 400 });
 
   let scheduledFor: Date | null = null;
+  // "Send now" is one moment by definition, so local mode only applies to a scheduled send.
+  const sendMode = action === "schedule" && parsed.data.sendMode === "local" ? "local" : "instant";
+  let localHour: number | null = null;
   if (action === "schedule") {
     const raw = parsed.data.scheduledForLocal;
     if (!raw) return NextResponse.json({ error: "Pick a date and time." }, { status: 400 });
@@ -75,9 +83,16 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     }
     if (!scheduledFor || Number.isNaN(scheduledFor.getTime())) return NextResponse.json({ error: "That date didn't make sense." }, { status: 400 });
     if (scheduledFor.getTime() < Date.now() - 60_000) return NextResponse.json({ error: "That time has already passed." }, { status: 400 });
+    if (sendMode === "local") {
+      // The hour they typed is the hour every fan sees on their own clock.
+      const hh = Number(raw.slice(11, 13));
+      if (!Number.isInteger(hh) || hh < 0 || hh > 23) return NextResponse.json({ error: "Pick an hour for the local-time send." }, { status: 400 });
+      localHour = hh;
+    }
   }
+  if (sendMode !== "local") localHour = null;
 
-  await prisma.newsEmail.update({ where: { id: news.id }, data: { status: "scheduled", scheduledFor } });
+  await prisma.newsEmail.update({ where: { id: news.id }, data: { status: "scheduled", scheduledFor, sendMode, localHour } });
   const frozen = await snapshotAudience(news.id);
 
   // "Send now" starts immediately in the background; the cron picks up anything left over,
@@ -88,5 +103,5 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     });
   }
 
-  return NextResponse.json({ ok: true, status: "scheduled", recipients: frozen, scheduledFor });
+  return NextResponse.json({ ok: true, status: "scheduled", recipients: frozen, scheduledFor, sendMode });
 }

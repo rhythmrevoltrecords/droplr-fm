@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { canSendNews, NEWS_BODY_MAX, NEWS_SUBJECT_MAX, newsAudienceCount } from "@/lib/news";
+import { canSendNews, NEWS_BODY_MAX, NEWS_SUBJECT_MAX, newsAudienceCounts } from "@/lib/news";
 import { isListenChoice } from "@/lib/platforms";
 
 export const dynamic = "force-dynamic";
@@ -27,8 +27,8 @@ export async function GET(req: NextRequest) {
   const releaseId = sp.get("release") || null;
   // A release id from another label would leak its existence, so scope it first.
   const release = releaseId ? await prisma.release.findFirst({ where: { id: releaseId, organizationId: user.organizationId }, select: { id: true } }) : null;
-  const recipients = await newsAudienceCount(user.organizationId, { country, listenOn: store, releaseId: release?.id ?? null });
-  return NextResponse.json({ recipients });
+  const { total, noTimezone } = await newsAudienceCounts(user.organizationId, { country, listenOn: store, releaseId: release?.id ?? null });
+  return NextResponse.json({ recipients: total, noTimezone, timezone: user.organization.timezone });
 }
 
 export async function POST(req: NextRequest) {

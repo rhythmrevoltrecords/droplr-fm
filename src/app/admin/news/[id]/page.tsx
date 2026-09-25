@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireUser } from "@/lib/auth";
 import { countryName } from "@/lib/analytics";
 import { prisma } from "@/lib/db";
-import { canSendNews } from "@/lib/news";
+import { canSendNews, localSendWindow } from "@/lib/news";
 import { newsOptions } from "@/lib/news-options";
 import { platformMeta } from "@/lib/platforms";
 import { formatInTz } from "@/lib/time";
@@ -67,6 +67,16 @@ export default async function NewsDetail(props: { params: Promise<{ id: string }
   ].filter(Boolean);
 
   const pending = Math.max(0, news.recipients - news.sent - news.failed);
+  const localWindow = localSendWindow(news, org.timezone);
+  const fmt = (d: Date) => formatInTz(d, org.timezone, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  // A local send sits on "sending" for up to 26 hours by design. Say so, or it reads as stuck.
+  const nextDue = localWindow
+    ? await prisma.newsEmailDelivery.findFirst({
+        where: { newsEmailId: news.id, sentAt: null, error: null },
+        orderBy: { sendAfter: "asc" },
+        select: { sendAfter: true },
+      })
+    : null;
 
   return (
     <div className="space-y-5">
@@ -76,9 +86,13 @@ export default async function NewsDetail(props: { params: Promise<{ id: string }
           <h1 className="text-2xl font-semibold">{news.subject}</h1>
           <p className="text-sm text-muted-foreground">
             {news.status === "scheduled"
-              ? `Scheduled for ${news.scheduledFor ? formatInTz(news.scheduledFor, org.timezone, { dateStyle: "medium", timeStyle: "short" }) : "the next run"}`
+              ? localWindow
+                ? `${news.localHour}:00 on each fan's own clock — first one leaves ${fmt(localWindow.earliest)} your time, last one ${fmt(localWindow.latest)}`
+                : `Scheduled for ${news.scheduledFor ? formatInTz(news.scheduledFor, org.timezone, { dateStyle: "medium", timeStyle: "short" }) : "the next run"}`
               : news.status === "sending"
-                ? "Sending now — this page updates as it goes."
+                ? localWindow
+                  ? `Going out at ${news.localHour}:00 in each timezone as it comes round${nextDue?.sendAfter ? `. Next batch ${fmt(nextDue.sendAfter)} your time` : ""}`
+                  : "Sending now — this page updates as it goes."
                 : news.sentAt
                   ? `Sent ${formatInTz(news.sentAt, org.timezone, { dateStyle: "medium", timeStyle: "short" })}`
                   : news.status}
