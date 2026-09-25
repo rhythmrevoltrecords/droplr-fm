@@ -22,6 +22,22 @@ export const NETLIFY_APEX_ALIAS = "apex-loadbalancer.netlify.com";
 const LIVE_FAILURES_BEFORE_DEMOTE = 3;
 /** A paused domain (plan lapsed, grace over) keeps redirecting to droplr.fm this long, then the alias is released. */
 export const PAUSED_DETACH_DAYS = 90;
+
+/**
+ * How many custom hostnames one Netlify site can hold.
+ *
+ * Netlify documents no explicit cap, but the real ceiling is Let's Encrypt: a certificate carries at
+ * most 100 SAN entries, and Netlify puts a site's domain aliases on one certificate. Past that,
+ * issuance fails — so the limit shows up as "this domain won't go live" for whoever is unlucky
+ * enough to be number 101, not as an error when the alias is added.
+ *
+ * Only paid tiers can connect a custom domain (PLAN_LIMITS.customDomain), so this is a ceiling on
+ * paying customers, not on accounts. It is a good problem — around 90 customers on the domain tiers
+ * is real revenue — but it arrives quietly, which is why the cron counts and warns.
+ */
+export const ALIAS_BUDGET = 90;
+/** Start saying so with twenty slots left, not on the day it breaks. */
+export const ALIAS_WARN_AT = 70;
 /**
  * A domain the label moved off keeps redirecting to the new one this long, then the alias is released.
  * Longer than the paused window on purpose: a rename is deliberate, and the links it has to keep alive are
@@ -231,6 +247,23 @@ export async function processDetaches(limit = 10, only?: string) {
   return done;
 }
 
+/**
+ * Custom hostnames currently held on the Netlify site.
+ *
+ * Two things consume a slot, and the second is easy to forget: a live domain, and every domain an
+ * account has moved off, because those keep their alias for DOMAIN_REDIRECT_DAYS so the links
+ * already shared on them keep redirecting. A label that renames twice costs three slots for a year.
+ */
+export async function aliasUsage() {
+  const [attached, previous] = await Promise.all([
+    prisma.organization.count({ where: { customDomainAttachedAt: { not: null } } }),
+    prisma.organization.findMany({ where: { NOT: { previousDomains: { isEmpty: true } } }, select: { previousDomains: true } }),
+  ]);
+  const redirecting = previous.reduce((n, o) => n + o.previousDomains.length, 0);
+  const used = attached + redirecting;
+  return { used, attached, redirecting, budget: ALIAS_BUDGET, free: Math.max(0, ALIAS_BUDGET - used), warn: used >= ALIAS_WARN_AT };
+}
+
 // --- The check ----------------------------------------------------------------------------------------------------
 
 const SETUP_SELECT = {
@@ -331,7 +364,7 @@ export async function checkOrgDomain(orgId: string) {
 
 /** Every 15 minutes: retry removals, advance pending domains, re-check live ones, release long-paused aliases. */
 export async function runDomainChecks(deadlineMs = Date.now() + 22_000) {
-  const out = { detached: 0, checked: 0, released: 0 };
+  const out = { detached: 0, checked: 0, released: 0, aliases: { used: 0, attached: 0, redirecting: 0, budget: ALIAS_BUDGET, free: ALIAS_BUDGET, warn: false } };
   out.detached = await processDetaches(5);
 
   const ago = (ms: number) => new Date(Date.now() - ms);
@@ -372,6 +405,15 @@ export async function runDomainChecks(deadlineMs = Date.now() + 22_000) {
         console.error("[domains] release paused alias", { org: o.id, error: (e as Error).message });
       }
     }
+  }
+
+  // Counted last, so it reflects anything this run released.
+  out.aliases = await aliasUsage();
+  if (out.aliases.warn) {
+    console.warn("[domains] custom hostname budget", {
+      ...out.aliases,
+      note: "Netlify puts a site's aliases on one Let's Encrypt certificate, which holds 100 names. Move to Cloudflare for SaaS before this fills.",
+    });
   }
   return out;
 }

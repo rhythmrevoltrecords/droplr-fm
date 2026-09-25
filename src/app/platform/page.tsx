@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { prisma } from "@/lib/db";
 import { LEGAL } from "@/lib/legal";
+import { aliasUsage } from "@/lib/domains";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { accountKind, kindChangeBlocker, planOf } from "@/lib/plans";
 import { formatInTz } from "@/lib/time";
@@ -30,6 +31,9 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
   const counts = { total: orgs.length, paid: orgs.filter((o) => o.stripeSubscriptionId).length, comp: orgs.filter((o) => o.compPlan).length };
   // Who still has to accept the current Terms (they see a notice in their dashboard until they do).
   const staleTerms = await prisma.user.count({ where: { termsVersion: { not: LEGAL.version } } });
+  // Custom hostnames are capped by the certificate Netlify issues for the site, not by any plan.
+  // It fills quietly, so it's counted here rather than discovered when someone's domain won't go live.
+  const aliases = await aliasUsage();
 
   return (
     <PlatformChrome email={admin.email} active="accounts">
@@ -43,6 +47,15 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
             <button className="h-9 rounded-lg border px-3 text-sm hover:bg-accent">Search</button>
           </form>
         </div>
+        {aliases.warn && (
+          <Card className="border-amber-500/40 bg-amber-500/5 p-4 text-sm">
+            <strong className="text-foreground">Custom hostnames: {aliases.used} of {aliases.budget} used, {aliases.free} left.</strong>{" "}
+            {aliases.attached} live{aliases.redirecting > 0 ? `, ${aliases.redirecting} held for renamed domains` : ""}. Netlify puts a site&apos;s
+            domain aliases on a single Let&apos;s Encrypt certificate, which holds 100 names, so past roughly 90 the next customer&apos;s domain
+            silently fails to go live. Move custom hostnames to Cloudflare for SaaS before this fills — droplr.fm&apos;s DNS is already on Cloudflare,
+            and it&apos;s 100 hostnames free then US$0.10 each per month.
+          </Card>
+        )}
         <Card className="p-4 text-sm text-muted-foreground">
           A complimentary plan is free and acts as a floor: the account keeps it without paying, Stripe can only move them higher, and cancelling a Stripe subscription drops them back to the comp plan instead of Free. Comps and paid plans are per account type, so to switch an account between label and artist, cancel its Stripe subscription and remove any comp first. Removing a comp drops the account to whatever it pays for through Stripe, or Free.
         </Card>
