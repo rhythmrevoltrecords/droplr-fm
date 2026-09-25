@@ -10,6 +10,7 @@ const toc = [
   { id: "links", title: "Links and redirects" },
   { id: "email", title: "Email and fan data" },
   { id: "downloads", title: "Download gates" },
+  { id: "clips", title: "Release clips" },
   { id: "streaming", title: "Streaming manipulation" },
   { id: "platform", title: "Using the platform" },
   { id: "report", title: "Reporting abuse" },
@@ -62,6 +63,17 @@ export default function AcceptableUsePage() {
           <li>Each step must comply with the rules of the platform it points at. A follow or repost you ask for has to be something that platform allows you to ask for.</li>
         </ul>
         <p>If we&apos;re told a gated file infringes someone&apos;s rights, we can switch the gate off. We can&apos;t remove the file itself — it isn&apos;t ours and it isn&apos;t on our systems. See <Link href="/legal/copyright">Copyright &amp; Trade Marks</Link>.</p>
+      </Section>
+
+      <Section {...s("clips")}>
+        <p>A release clip is made on your own computer and we never receive the audio. That means we can&apos;t check what&apos;s in one, and it means the responsibility is entirely yours.</p>
+        <ul>
+          <li>Only make a clip from a recording you have the right to use and publish. A clip of someone else&apos;s track, or of an unofficial remix or bootleg, is your decision and your risk.</li>
+          <li>Don&apos;t use artwork, logos or photos in a clip that you don&apos;t have the rights to.</li>
+          <li>Don&apos;t present a clip as official, licensed or endorsed when it isn&apos;t.</li>
+          <li>Don&apos;t remove or obscure the droplr.fm line on a plan that includes it and then present the clip as made elsewhere. The mark is the reason clips are included rather than charged for.</li>
+        </ul>
+        <p>Because the file never touches our systems, we can&apos;t take a clip down for you. A takedown has to go to whichever platform it was posted on. We can act on the droplr.fm account behind it.</p>
       </Section>
 
       <Section {...s("streaming")}>

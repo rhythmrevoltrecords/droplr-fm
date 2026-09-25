@@ -80,6 +80,13 @@ export function tourSteps(kind: "artist" | "label" | "artistLogin"): TourStep[] 
       body: "Everyone who pre-saved gets an email at 9am in their own timezone, on the store they picked. You don't have to be awake for it.",
     },
     {
+      href: "/admin",
+      target: "nav-releases",
+      title: "And you get the reel from the same page",
+      body:
+        "Open a release, go to Clip, pick the best 30 seconds. droplr builds the video — artwork moving on the kick, your link on it — right here in your browser. Your master never leaves your computer, and there's no limit on how many you make.",
+    },
+    {
       href: "/admin/learn",
       target: "nav-knowledge",
       title: "Read this before you release",
