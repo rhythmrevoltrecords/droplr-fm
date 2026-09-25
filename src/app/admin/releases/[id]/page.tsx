@@ -6,6 +6,7 @@ import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
 import { StoreFinder } from "@/components/admin/store-finder";
 import { ShareGraphics } from "@/components/admin/share-graphics";
+import { ClipForgeLazy } from "@/components/admin/clip-forge-lazy";
 import { PromoPlan } from "@/components/admin/promo-plan";
 import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
 import { busiestHour } from "@/lib/analytics";
@@ -35,6 +36,7 @@ const TABS = [
   { key: "analytics", label: "Analytics" },
   { key: "presaves", label: "Pre-saves" },
   { key: "share", label: "Share" },
+  { key: "clip", label: "Clip" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -194,6 +196,20 @@ export default async function ReleaseDetail(
         const count = await prisma.preSave.count({ where: { releaseId: release.id } });
         return <ShareGraphics releaseId={release.id} live={live} presaves={count} milestones={MILESTONES.filter((m) => m <= count).slice(-3).reverse()} />;
       })()}
+
+      {tab === "clip" && (
+        <ClipForgeLazy
+          releaseId={release.id}
+          slug={release.slug}
+          title={release.title}
+          artistName={release.artistName}
+          coverSrc={`/api/admin/releases/${release.id}/cover`}
+          accentColor={release.accentColor ?? release.organization.accentColor}
+          link={url}
+          live={live}
+          removeBranding={plan.removeBranding}
+        />
+      )}
 
       {tab === "settings" && (
         <InterestToggle

@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-23",
-  updated: "23 September 2026",
+  version: "2026-09-25",
+  updated: "25 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -56,6 +56,20 @@ export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-25",
+    date: "25 September 2026",
+    summary: [
+      "Release clips: pick a few seconds of a track and droplr.fm makes a video for Reels or the feed. The whole thing happens in your browser — the audio is read from your own computer and never reaches us, so we hold no copy of the track or of the clip, and nothing about it is recorded.",
+      "The clip is yours. We claim no ownership of it and no licence to it, and because we never see it we can't take one down for you — that has to go to the platform you posted it on.",
+      "You confirm you have the right to the recording and the artwork you put in a clip, including any unofficial remix, bootleg or edit. That risk is yours, the same as for a download gate.",
+      "On plans without branding removal a small droplr.fm line is drawn under your link inside the video. It's part of the image. That mark is why clips are included rather than charged for, and there's no cap on how many you make.",
+      "Clips render on your own device, so what you get depends on it: browsers without WebCodecs record in real time and produce a WebM instead of an MP4, and phones are slow. We don't warrant a clip will render on any particular device.",
+      "Custom domains: changing your domain no longer breaks the links already out on the old one. We keep serving the old hostname and redirect it to your current domain for twelve months, then release it. Anyone who later connects that hostname and proves they control its DNS takes precedence over the redirect immediately. Removing a domain outright still disconnects it straight away.",
+      "Fan emails can now be sent at the same hour in each fan's own timezone, the way release-day emails already are. A send like that runs for about a day as the timezones come round, and contacts with no timezone on file get your own local hour.",
+      "Privacy: nothing new is collected. Clips record nothing at all, and the timezone used for a local-time send is the one already held for that fan.",
+    ],
+  },
   {
     version: "2026-09-23",
     date: "23 September 2026",

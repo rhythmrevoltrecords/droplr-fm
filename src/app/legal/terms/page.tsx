@@ -13,6 +13,7 @@ const toc = [
   { id: "content", title: "Your content" },
   { id: "fans", title: "Fan data and email" },
   { id: "reports", title: "Shared release reports" },
+  { id: "clips", title: "Release clips" },
   { id: "platforms", title: "Spotify, Apple Music and other platforms" },
   { id: "use", title: "Acceptable use" },
   { id: "domains", title: "Custom domains and branding" },
@@ -109,6 +110,17 @@ export default function TermsPage() {
         </ul>
       </Section>
 
+      <Section {...s("clips")}>
+        <p><strong>Your audio never reaches us.</strong> A release clip is made entirely in your own browser: the track you choose is read from your computer, analysed, drawn and encoded there, and the finished video is saved by you. droplr.fm never receives, stores, transmits or processes the audio file, and we hold no copy of it or of the clip. Nothing about the track is sent to us, so nothing about it can be disclosed, subpoenaed or lost from our systems.</p>
+        <ul>
+          <li>You confirm you have the right to use the recording and the artwork in a clip, and to publish the result wherever you post it. This includes any unofficial remix, bootleg, edit or mashup — the risk of that decision is yours, exactly as it is for a download gate.</li>
+          <li><strong>The clip is yours.</strong> We claim no ownership of it and no licence to it. We don&apos;t see it, so we can&apos;t use it.</li>
+          <li>On plans that don&apos;t include removing droplr.fm branding, a small <span className="whitespace-nowrap">droplr.fm</span> line is drawn under your link inside the video. It&apos;s part of the image, not metadata. Editing it out is your business, but the mark is the reason the feature is included rather than charged for, and we may change which plans render clean.</li>
+          <li>Clips are rendered by your own device, so what you get depends on it. Browsers without WebCodecs record in real time and produce a WebM file rather than an MP4, phones are slow and thermally limited, and a very long track may exhaust the tab&apos;s memory. We don&apos;t warrant that a clip will render on any particular device or that a platform will accept a particular file.</li>
+          <li>Because the render happens on your machine there is no per-clip cost to us and no cap on how many you make. We may still change or withdraw the feature under <Link href="#service">Availability and changes to the service</Link>.</li>
+        </ul>
+      </Section>
+
       <Section {...s("platforms")}>
         <p>droplr.fm links to and works with services we don&apos;t control, such as Spotify, Apple Music, Deezer, SoundCloud, YouTube, Beatport, Bandcamp, Stripe, and ad platforms like Meta, TikTok and Google. We aren&apos;t affiliated with or endorsed by them.</p>
         <ul>
@@ -125,6 +137,7 @@ export default function TermsPage() {
 
       <Section {...s("domains")}>
         <p>On plans that include custom domains, you&apos;re responsible for owning the domain and keeping its DNS pointed correctly. SSL certificates are issued by our hosting provider once DNS is correct, and we can&apos;t guarantee how long that takes. Removing droplr.fm branding is available only on plans that include it; if your plan changes, branding may reappear.</p>
+        <p><strong>If you change your domain.</strong> Links you&apos;ve already shared on the old one keep working: for twelve months we keep serving that hostname and redirect every link on it to the same page on your current domain, then we release it. That means we hold the old hostname on our hosting for that period — if you point its DNS somewhere else, or let the domain go, our redirect simply stops being reached and nothing else happens to it. If someone else later connects that hostname to droplr.fm and proves they control its DNS, their site takes precedence over your redirect immediately. Removing a domain outright, rather than changing it, disconnects it straight away.</p>
       </Section>
 
       <Section {...s("notifications")}>

@@ -25,12 +25,13 @@
  */
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
 import { createVerificationToken } from "../src/lib/email-verification";
 import { prisma } from "../src/lib/db";
 import { LEGAL } from "../src/lib/legal";
-import { linkCustomDomain } from "../src/lib/plans";
+import { linkCustomDomain, planOf } from "../src/lib/plans";
 
 // The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -681,6 +682,20 @@ async function main() {
     const fakeMilestone = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=milestone&n=10000&format=post`);
     const badFormat = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=billboard`);
     check("can't make a milestone that wasn't reached, or an unknown format", fakeMilestone.status === 400 && badFormat.status === 400, `${fakeMilestone.status}/${badFormat.status}`);
+
+    // The clip renderer draws the cover onto a canvas and reads it back, so the artwork has to be
+    // served from droplr's own origin or the canvas taints and nothing encodes. That proxy is an
+    // outbound fetch of a stored URL, so it has to be scoped like every other release route.
+    const clipTab = await http(shareOwnerB, "GET", `/admin/releases/${B.release.id}?tab=clip`);
+    check("clip tab renders for the owner", clipTab.status === 200 && clipTab.text.includes("never leaves your computer"), `${clipTab.status}`);
+    const coverCross = await http(ownerA, "GET", `/api/admin/releases/${B.release.id}/cover`);
+    const coverArtist = await http(artistA, "GET", `/api/admin/releases/${A.release.id}/cover`);
+    const coverAnon = await fetch(`${BASE}/api/admin/releases/${B.release.id}/cover`, { redirect: "manual" });
+    check("cover proxy: other label 404, artist 401, logged out 401", coverCross.status === 404 && coverArtist.status === 401 && coverAnon.status === 401, `${coverCross.status}/${coverArtist.status}/${coverAnon.status}`);
+    // The proxy only ever fetches the URL already on the release, so it can't be pointed anywhere.
+    check("the cover proxy takes no url of its own", !readFileSync("src/app/api/admin/releases/[id]/cover/route.ts", "utf8").includes("searchParams"));
+    // Free and Artist render the mark; the gate is the existing removeBranding flag, nothing new.
+    check("the clip mark follows the existing branding flag", !planOf("free").removeBranding && !planOf("artist").removeBranding && planOf("artist_pro").removeBranding);
 
     console.log("\n13. Artist accounts, fans and promo plan");
     const artistSignupEmail = "artist-signup-test@sectest.dev";
