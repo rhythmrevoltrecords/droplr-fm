@@ -4,7 +4,9 @@
  * What these defend:
  *  - a reminder is never sent twice, and never for a step already ticked off;
  *  - a release report does not exist until the label asks for one, stops existing the
- *    moment they turn it off, and never carries anything that identifies a fan.
+ *    moment they turn it off, and never carries anything that identifies a fan;
+ *  - a pasted link is matched on its parsed hostname, so a platform's name can never be
+ *    put in the path or query of someone else's URL to borrow its identity.
  *
  * Local database only, push captured in memory. Never point it at Neon.
  */
@@ -14,6 +16,7 @@ import { prisma } from "../src/lib/db";
 import { disableReport, enableReport, reportByToken } from "../src/lib/report";
 import { notifyDuePromoSteps, duePromoWork } from "../src/lib/promo-reminders";
 import { promoSteps, stepDate } from "../src/lib/promo";
+import { guessPlatformFromUrl } from "../src/lib/platforms";
 import { setPushSenderForTests } from "../src/lib/push";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -48,7 +51,43 @@ setPushSenderForTests(async (_sub, payload) => {
 
 const TZ = "Australia/Brisbane";
 
+function platformGuessChecks() {
+  console.log("\n0. Which platform a pasted link belongs to");
+  // Real links keep resolving.
+  const real: [string, string][] = [
+    ["https://open.spotify.com/track/abc", "spotify"],
+    ["spotify:track:abc", "spotify"],
+    ["https://music.apple.com/au/album/x/1", "appleMusic"],
+    ["https://music.youtube.com/watch?v=x", "youtubeMusic"],
+    ["https://www.youtube.com/watch?v=x", "youtube"],
+    ["https://youtu.be/abc", "youtube"],
+    ["https://m.soundcloud.com/ototo/x", "soundcloud"],
+    ["https://ototo.bandcamp.com/track/x", "bandcamp"],
+    ["https://juno.co.uk/products/x", "juno"],
+    ["https://music.amazon.co.uk/albums/x", "amazonMusic"],
+    ["https://listen.tidal.com/album/x", "tidal"],
+  ];
+  let ok = true;
+  for (const [url, want] of real) if (guessPlatformFromUrl(url) !== want) { ok = false; console.log(`    ${url} → ${guessPlatformFromUrl(url)}, wanted ${want}`); }
+  check("real store and streaming links resolve to their platform", ok);
+
+  // The hostname is the only thing that counts. A platform name in the path, the query or
+  // a longer domain must not borrow that platform's identity on a public release page.
+  const spoofs = [
+    "https://example.com/open.spotify.com/track",
+    "https://example.com/?x=music.apple.com",
+    "https://open.spotify.com.example.com/x",
+    "https://notsoundcloud.com/x",
+    "https://beatport.com.example.net/x",
+    "javascript:alert(1)//open.spotify.com",
+    "not a url",
+  ];
+  const borrowed = spoofs.filter((u) => guessPlatformFromUrl(u) !== "custom");
+  check("a platform name in the path, query or a longer domain is not enough", borrowed.length === 0, borrowed.join(", "));
+}
+
 async function main() {
+  platformGuessChecks();
   console.log(`Release tools tests (run ${RUN})`);
 
   const org = await prisma.organization.create({ data: { name: `Tools ${RUN}`, slug: `tools-${RUN}`, plan: "label", kind: "label", timezone: TZ } });

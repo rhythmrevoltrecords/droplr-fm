@@ -43,7 +43,7 @@ export async function notifyTeam(t: { id: string; subject: string; category: str
       sendAccountEmail({
         to,
         subject: `[droplr feedback] ${t.subject}`,
-        html: accountEmailShell(esc(title), `<p style="margin:0 0 14px;color:#a1a1aa;font-size:13px">${esc(from.email)} · ${esc(from.orgName)} · ${esc(from.plan)} · ${esc(FEEDBACK_CATEGORIES[t.category as FeedbackCategory] ?? t.category)}</p>${quote(body)}${cta(url, "Reply in the platform console")}`),
+        html: accountEmailShell(title, `<p style="margin:0 0 14px;color:#a1a1aa;font-size:13px">${esc(from.email)} · ${esc(from.orgName)} · ${esc(from.plan)} · ${esc(FEEDBACK_CATEGORIES[t.category as FeedbackCategory] ?? t.category)}</p>${quote(body)}${cta(url, "Reply in the platform console")}`),
         text: `${title}\n${from.email} · ${from.orgName} · ${from.plan}\n\n${body}\n\n${url}`,
       }),
     ),
