@@ -14,7 +14,7 @@
  * Local database only. Never point it at Neon.
  */
 import { prisma } from "../src/lib/db";
-import { DOMAIN_REDIRECT_DAYS, domainAdvice, forgetPreviousDomain, MAX_PREVIOUS_DOMAINS, nextPreviousDomains, processDetaches, queueDetach } from "../src/lib/domains";
+import { ALIAS_BUDGET, ALIAS_WARN_AT, aliasUsage, DOMAIN_REDIRECT_DAYS, domainAdvice, forgetPreviousDomain, MAX_PREVIOUS_DOMAINS, nextPreviousDomains, processDetaches, queueDetach } from "../src/lib/domains";
 import { SITE_URL } from "../src/lib/env";
 import { resolveTenantPath } from "../src/lib/releases";
 
@@ -136,6 +136,22 @@ async function main() {
     check("the detach is scheduled, not immediate", !!queued?.after && queued.after.getTime() > Date.now() + 300 * 86_400_000, String(queued?.after));
     check("processDetaches skips a row that isn't due", (await processDetaches(10, OLD)) === 0 && !!(await prisma.domainDetach.findUnique({ where: { domain: OLD } })));
     check("…and doesn't burn a retry on it", (await prisma.domainDetach.findUnique({ where: { domain: OLD } }))?.attempts === 0);
+
+    console.log("\n7. The custom hostname budget");
+    // The real ceiling isn't a Netlify plan limit, it's the Let's Encrypt certificate: 100 SAN entries
+    // for the whole site. It fills silently — the symptom is one customer's domain never going live —
+    // so the cron counts it and /platform says so while there's still runway.
+    const before = await aliasUsage();
+    check("the warning fires below the ceiling, not at it", ALIAS_WARN_AT < ALIAS_BUDGET && ALIAS_BUDGET < 100, `${ALIAS_WARN_AT}/${ALIAS_BUDGET}`);
+    check("a live domain costs a slot", before.attached >= 2, `${before.attached} attached`);
+    // The easy one to forget: a domain someone moved off keeps its alias for a year, so it still costs.
+    await prisma.organization.update({ where: { id: org.id }, data: { previousDomains: [`gone-a-${tag}.example.com`, `gone-b-${tag}.example.com`] } });
+    const after = await aliasUsage();
+    check("a domain that's only redirecting still costs a slot", after.redirecting === before.redirecting + 2, `${before.redirecting} → ${after.redirecting}`);
+    check("used counts both", after.used === after.attached + after.redirecting);
+    check("free never goes negative", after.free >= 0 && after.free === Math.max(0, ALIAS_BUDGET - after.used));
+    check("warn tracks the threshold", after.warn === (after.used >= ALIAS_WARN_AT));
+    await prisma.organization.update({ where: { id: org.id }, data: { previousDomains: [] } });
 
     // Re-queueing without a date clears the hold: that's a domain cleared outright, which goes now.
     // Netlify is switched off for this one call so the row survives to be inspected instead of being actioned.
