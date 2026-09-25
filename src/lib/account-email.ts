@@ -26,12 +26,18 @@ export async function sendAccountEmail(msg: { to: string; subject: string; html:
   if (!res.ok) throw new Error(`Resend ${res.status}: ${await res.text()}`);
 }
 
-/** droplr.fm-branded account email: wordmark, violet glow, one card. `body` is trusted HTML built from the helpers. */
+/**
+ * droplr.fm-branded account email: wordmark, violet glow, one card. `body` is trusted HTML
+ * built from the helpers; `title` is plain text and h1() escapes it.
+ *
+ * Pass the title unescaped. This used to un-escape five entities before handing them to h1(),
+ * which escaped them again — a round trip that only existed because one caller escaped first.
+ */
 export const accountEmailShell = (title: string, body: string) =>
   layout({
     preheader: title.replace(/<[^>]+>/g, ""),
     brand: "droplr",
-    body: `${h1(title.replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'"))}${body}`,
+    body: `${h1(title)}${body}`,
     footer: `Need help? Reply to this email or contact <a href="mailto:${CONTACT.support}" style="color:${BRAND.muted}">${CONTACT.support}</a>.<br/>droplr.fm · Brisbane, Australia`,
   });
 
