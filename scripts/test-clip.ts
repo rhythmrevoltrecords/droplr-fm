@@ -19,6 +19,7 @@ import {
   analyseClip, ASPECTS, BANDS, bandEdges, buildPeaks, clampFades, clipFileName, CLIP_LENGTHS,
   fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
+import { blobHasAudio } from "../src/lib/clip-encode";
 import { planOf } from "../src/lib/plans";
 
 let passed = 0;
@@ -30,7 +31,7 @@ const check = (name: string, ok: boolean, detail = "") => {
 };
 const near = (a: number, b: number, tol = 1e-6) => Math.abs(a - b) <= tol;
 
-function main() {
+async function main() {
   console.log("1. Band edges — the bug that shipped twice");
   for (const [bins, bands] of [[FFT_SIZE / 2, BANDS], [1024, 44], [512, 44], [256, 44], [128, 32], [64, 44], [2048, 64]] as const) {
     const e = bandEdges(bins, bands);
@@ -135,7 +136,20 @@ function main() {
   check("every length is a whole number of frames", CLIP_LENGTHS.every((n) => Number.isInteger(n * FPS)));
   check("the longest preset fits what platforms take", Math.max(...CLIP_LENGTHS) <= 60);
 
-  console.log("\n10. The droplr mark is on the plans the pricing decision says");
+  console.log("\n10. The silent-clip safety net");
+  // A clip with no sound is the one failure an artist doesn't catch: the video looks perfect and
+  // they find out from the post. Reported on Safari, where the audio encoder accepted everything
+  // and emitted nothing. This detector is the last line before they download it.
+  const withAac = new Blob([new Uint8Array(400).fill(1), new TextEncoder().encode("mp4a"), new Uint8Array(400)]);
+  const withOpusWebm = new Blob([new Uint8Array(200), new TextEncoder().encode("A_OPUS"), new Uint8Array(200)]);
+  const videoOnly = new Blob([new Uint8Array(4000).fill(7)]);
+  check("an MP4 carrying AAC is seen as having audio", await blobHasAudio(withAac));
+  check("a WebM carrying Opus is too", await blobHasAudio(withOpusWebm));
+  check("a file with no audio track is not", !(await blobHasAudio(videoOnly)));
+  check("an empty file is not", !(await blobHasAudio(new Blob([]))));
+  check("a marker split across the scan boundary isn't invented", !(await blobHasAudio(new Blob([new TextEncoder().encode("mp4")]))));
+
+  console.log("\n11. The droplr mark is on the plans the pricing decision says");
   // Free gets clips on purpose: every marked reel is distribution that costs nothing, because the
   // render happens on the artist's own machine. The mark is the limit, not a render cap.
   for (const p of ["free", "artist"]) check(`${p}: clip carries the mark`, !planOf(p).removeBranding);
@@ -148,4 +162,4 @@ function main() {
   }
 }
 
-main();
+main().catch((e) => { console.error(e); process.exit(1); });

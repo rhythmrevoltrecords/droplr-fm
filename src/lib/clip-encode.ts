@@ -15,7 +15,30 @@ import { fadeGain, FPS } from "./clip";
 
 export type EncodeKind = "webcodecs" | "mediarecorder";
 
-export type RenderResult = { blob: Blob; ext: "mp4" | "webm"; how: string; kind: EncodeKind; seconds: number };
+export type RenderResult = { blob: Blob; ext: "mp4" | "webm"; how: string; kind: EncodeKind; seconds: number; hasAudio: boolean };
+
+/**
+ * Does the finished file actually carry an audio track?
+ *
+ * Belt and braces over the encoder checks, because a silent clip is the one failure an artist
+ * doesn't notice until it's posted — the video looks perfect. Scans the header for the codec entry:
+ * "mp4a" in an MP4 sample description, or the Matroska CodecID string in a WebM Tracks element.
+ * Both live near the front of the file, so this reads a few megabytes, not the whole thing.
+ */
+export async function blobHasAudio(blob: Blob) {
+  const head = new Uint8Array(await blob.slice(0, Math.min(blob.size, 4 * 1024 * 1024)).arrayBuffer());
+  // Kept to what droplr actually produces — AAC in MP4, Opus or Vorbis in WebM, and Opus in MP4,
+  // which some MediaRecorder implementations emit. A longer list would raise the chance of matching
+  // these bytes by accident, and a false positive here silently switches the safety net off.
+  const markers = ["mp4a", "Opus", "A_OPUS", "A_VORBIS", "A_AAC"].map((m) => Array.from(m, (c) => c.charCodeAt(0)));
+  for (const m of markers) {
+    outer: for (let i = 0; i + m.length <= head.length; i++) {
+      for (let j = 0; j < m.length; j++) if (head[i + j] !== m[j]) continue outer;
+      return true;
+    }
+  }
+  return false;
+}
 
 export type RenderArgs = {
   canvas: HTMLCanvasElement;
@@ -56,7 +79,7 @@ const AAC_CODEC = "mp4a.40.2";
  * and nothing else. Asking first means those artists go straight to the real-time path with an
  * honest message instead of waiting for a failure.
  */
-export async function pickMp4Config(width: number, height: number) {
+export async function pickMp4Config(width: number, height: number, sampleRate = 44100, channels = 2) {
   if (!webCodecsAvailable()) return null;
   const W = window as unknown as { VideoEncoder: typeof VideoEncoder; AudioEncoder: typeof AudioEncoder };
   let video: string | null = null;
@@ -67,13 +90,40 @@ export async function pickMp4Config(width: number, height: number) {
     } catch { /* an unknown codec string throws rather than answering false */ }
   }
   if (!video) return null;
+  // Asked at the rate and channel count the track actually has. Probing a fixed 44.1kHz stereo and
+  // then configuring 48kHz mono is how you get a config that passed and an encoder that produces nothing.
   try {
-    const a = await W.AudioEncoder.isConfigSupported({ codec: AAC_CODEC, sampleRate: 44100, numberOfChannels: 2, bitrate: 192_000 });
+    const a = await W.AudioEncoder.isConfigSupported({ codec: AAC_CODEC, sampleRate, numberOfChannels: channels, bitrate: 192_000 });
     if (!a.supported) return null;
   } catch {
     return null;
   }
   return { video, audio: AAC_CODEC };
+}
+
+/**
+ * Which AudioData layout this browser takes.
+ *
+ * Chrome accepts interleaved "f32". Not every implementation does, and one that refuses it throws
+ * on construction rather than answering a question, so the only way to find out is to try.
+ */
+function audioDataFormat(W: { AudioData: typeof AudioData }): "f32" | "f32-planar" {
+  try {
+    const probe = new W.AudioData({ format: "f32", sampleRate: 48000, numberOfFrames: 1, numberOfChannels: 2, timestamp: 0, data: new Float32Array(2) });
+    probe.close();
+    return "f32";
+  } catch {
+    return "f32-planar";
+  }
+}
+
+/** One slice of the interleaved buffer, laid out the way this browser's AudioData wants it. */
+function sliceFor(out: Float32Array, off: number, n: number, channels: number, format: "f32" | "f32-planar") {
+  const inter = out.slice(off * channels, (off + n) * channels);
+  if (format === "f32") return inter;
+  const planar = new Float32Array(n * channels);
+  for (let c = 0; c < channels; c++) for (let i = 0; i < n; i++) planar[c * n + i] = inter[i * channels + c];
+  return planar;
 }
 
 const throwIfAborted = (signal?: AbortSignal) => {
@@ -126,13 +176,14 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
   };
 
   let encoderError: string | null = null;
+  let audioChunks = 0;
   const venc = new W.VideoEncoder({
     output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
     error: (e) => { encoderError = e.message; },
   });
   venc.configure({ codec: codecs.video, width: canvas.width, height: canvas.height, bitrate: 7_000_000, framerate: FPS });
   const aenc = new W.AudioEncoder({
-    output: (chunk, meta) => muxer.addAudioChunk(chunk, meta),
+    output: (chunk, meta) => { audioChunks++; muxer.addAudioChunk(chunk, meta); },
     error: (e) => { encoderError = e.message; },
   });
   aenc.configure({ codec: codecs.audio, sampleRate, numberOfChannels: channels, bitrate: 192_000 });
@@ -151,35 +202,44 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
     if (venc.encodeQueueSize > 30) await new Promise((r) => setTimeout(r, 8));
   }
 
+  const format = audioDataFormat(W);
   const slice = sampleRate; // one second at a time
   for (let off = 0; off < total; off += slice) {
     throwIfAborted(signal);
+    if (encoderError) throw new Error(encoderError);
     const n = Math.min(slice, total - off);
     const audio = new W.AudioData({
-      format: "f32",
+      format,
       sampleRate,
       numberOfFrames: n,
       numberOfChannels: channels,
       timestamp: Math.round((off / sampleRate) * 1e6),
-      data: out.slice(off * channels, (off + n) * channels),
+      data: sliceFor(out, off, n, channels, format),
     });
     aenc.encode(audio);
     audio.close();
     onProgress(0.7 + (off / total) * 0.25);
     await yieldToBrowser();
+    if (aenc.encodeQueueSize > 8) await new Promise((r) => setTimeout(r, 8));
   }
 
   await venc.flush();
   await aenc.flush();
-  muxer.finalize();
   if (encoderError) throw new Error(encoderError);
+  // An encoder that accepted the config, accepted every AudioData and emitted nothing leaves a file
+  // with an audio track declared and no samples in it: it plays, it looks right, and it is silent.
+  // Found on Safari. Throwing here falls back to MediaRecorder rather than handing over a mute clip.
+  if (!audioChunks) throw new Error("the audio encoder produced nothing");
+  muxer.finalize();
   onProgress(1);
+  const blob = new Blob([muxer.target.buffer], { type: "video/mp4" });
   return {
-    blob: new Blob([muxer.target.buffer], { type: "video/mp4" }),
+    blob,
     ext: "mp4",
     how: `WebCodecs → MP4 (${codecs.video})`,
     kind: "webcodecs",
     seconds: (performance.now() - t0) / 1000,
+    hasAudio: await blobHasAudio(blob),
   };
 }
 
@@ -188,6 +248,9 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
   const t0 = performance.now();
   const stream = canvas.captureStream(FPS);
   const ac = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+  // A suspended context has a clock that never advances, so everything below would be scheduled in
+  // the past and the recording would come out silent. Phones do this even inside a tap handler.
+  if (ac.state === "suspended") await ac.resume().catch(() => {});
   const dest = ac.createMediaStreamDestination();
   const src = ac.createBufferSource();
   src.buffer = buffer;
@@ -200,9 +263,14 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
   const steps = 200;
   const curve = new Float32Array(steps);
   for (let i = 0; i < steps; i++) curve[i] = fadeGain((i / (steps - 1)) * clipLen, clipLen, args.fadeIn, args.fadeOut);
-  gain.gain.setValueCurveAtTime(curve, ac.currentTime, clipLen);
+  const startAt = ac.currentTime + 0.06;
+  gain.gain.setValueCurveAtTime(curve, startAt, clipLen);
 
   for (const t of dest.stream.getAudioTracks()) stream.addTrack(t);
+  // Adding an audio track to a canvas capture stream is not universally supported, and where it
+  // silently doesn't take you get a perfect-looking video with no sound. Say so before recording.
+  const audioTrack = stream.getAudioTracks()[0];
+  if (!audioTrack) onNote("This browser wouldn't attach the audio to the recording — the clip will have no sound.");
   const mime =
     ["video/mp4;codecs=avc1,mp4a.40.2", "video/webm;codecs=vp9,opus", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 7_000_000 });
@@ -212,7 +280,7 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
 
   onNote(`This browser records in real time, so it takes the full ${clipLen} seconds. Leave the tab in front.`);
   rec.start();
-  src.start(0, args.start, clipLen);
+  src.start(startAt, args.start, clipLen);
   const t1 = performance.now();
   await new Promise<void>((resolve, reject) => {
     const tick = () => {
@@ -232,18 +300,20 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
   await stopped;
   onProgress(1);
   const isMp4 = mime.includes("mp4");
+  const blob = new Blob(parts, { type: mime });
   return {
-    blob: new Blob(parts, { type: mime }),
+    blob,
     ext: isMp4 ? "mp4" : "webm",
     how: `MediaRecorder → ${isMp4 ? "MP4" : "WebM"}`,
     kind: "mediarecorder",
     seconds: (performance.now() - t0) / 1000,
+    hasAudio: await blobHasAudio(blob),
   };
 }
 
 /** WebCodecs where it exists, MediaRecorder where it doesn't — and if WebCodecs fails mid-way, fall back rather than leaving them with nothing. */
 export async function renderClip(args: RenderArgs): Promise<RenderResult> {
-  const codecs = await pickMp4Config(args.canvas.width, args.canvas.height);
+  const codecs = await pickMp4Config(args.canvas.width, args.canvas.height, args.buffer.sampleRate, Math.min(2, args.buffer.numberOfChannels));
   if (codecs) {
     try {
       return await renderWebCodecs(args, codecs);
