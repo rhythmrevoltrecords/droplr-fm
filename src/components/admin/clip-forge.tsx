@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input, Label } from "@/components/ui/input";
 import {
   analyseClip, ASPECTS, type AspectKey, buildPeaks, clampFades, type ClipAnalysis, clipFileName,
-  CLIP_LENGTHS, FADE_CHOICES, fadeSummary, FPS, isHex, loudestWindow, mmss, partnerHex,
+  CLIP_LENGTHS, FADE_CHOICES, fadeGain as clipFadeGain, fadeSummary, FPS, isHex, loudestWindow, mmss, partnerHex,
 } from "@/lib/clip";
 import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
@@ -225,37 +225,38 @@ export function ClipForge(props: ClipForgeProps) {
 
   useEffect(() => () => { stop(); abortRef.current?.abort(); }, [stop]);
 
-  function play() {
+  async function play() {
     const buf = bufferRef.current;
     if (!buf) return;
     stop();
     ensureAnalysis();
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     audioCtxRef.current = ctx;
+    // Phones hand back a suspended AudioContext even when it's created inside a tap, and a suspended
+    // context's clock doesn't move. Scheduling a fade against currentTime then puts the whole curve in
+    // the past, so the gain sits at its last value — which, with a fade out, is silence. That is why
+    // preview had no sound on a phone, and why a clip recorded in real time came out mute.
+    if (ctx.state === "suspended") await ctx.resume().catch(() => {});
     const src = ctx.createBufferSource();
     src.buffer = buf;
     const gain = ctx.createGain();
     const steps = 200;
     const curve = new Float32Array(steps);
-    for (let i = 0; i < steps; i++) {
-      const t = (i / (steps - 1)) * clipLen;
-      let g = 1;
-      if (fadeIn > 0 && t < fadeIn) g *= Math.sin((Math.PI / 2) * (t / fadeIn));
-      const rem = clipLen - t;
-      if (fadeOut > 0 && rem < fadeOut) g *= Math.sin(((Math.PI / 2) * Math.max(0, rem)) / fadeOut);
-      curve[i] = g;
-    }
-    gain.gain.setValueCurveAtTime(curve, ctx.currentTime, clipLen);
+    for (let i = 0; i < steps; i++) curve[i] = clipFadeGain((i / (steps - 1)) * clipLen, clipLen, fadeIn, fadeOut);
+    // A small lead-in so the curve and the source start together on a clock that is definitely running.
+    const startAt = ctx.currentTime + 0.06;
+    gain.gain.setValueCurveAtTime(curve, startAt, clipLen);
     src.connect(gain);
     gain.connect(ctx.destination);
     sourceRef.current = src;
-    src.start(0, selStart, clipLen);
+    src.start(startAt, selStart, clipLen);
     setPlaying(true);
-    const t0 = performance.now();
+    // Driven by the audio clock, not performance.now(): if the context stalls (a phone locking, a tab
+    // backgrounding) the picture stalls with the sound instead of running away from it.
     const tick = () => {
-      const elapsed = (performance.now() - t0) / 1000;
+      const elapsed = ctx.currentTime - startAt;
       if (elapsed >= clipLen) { stop(); paint(-1); return; }
-      paint(Math.min(frames - 1, Math.floor(elapsed * FPS)));
+      paint(Math.max(0, Math.min(frames - 1, Math.floor(elapsed * FPS))));
       rafRef.current = requestAnimationFrame(tick);
     };
     tick();
@@ -405,7 +406,7 @@ export function ClipForge(props: ClipForgeProps) {
                 onPointerDown={(e) => { if (!ready) return; scrubbing.current = true; moveTo(e.clientX); }}
               />
               <div className="flex flex-wrap items-center gap-2">
-                <Button size="sm" variant="secondary" disabled={!ready} onClick={() => (playing ? stop() : play())}>
+                <Button size="sm" variant="secondary" disabled={!ready} onClick={() => { if (playing) stop(); else void play(); }}>
                   {playing ? <><Square /> Stop</> : <><Play /> Play it</>}
                 </Button>
                 <span className="text-xs text-muted-foreground">Play shows exactly what renders — same analysis, same bars.</span>
@@ -470,6 +471,12 @@ export function ClipForge(props: ClipForgeProps) {
               </div>
             )}
 
+            {result && !result.hasAudio && (
+              <p className="rounded-lg border border-red-500/40 bg-red-500/5 p-2 text-sm text-red-300">
+                <strong>This clip has no sound.</strong> The video is fine, but no audio track made it into the file — don&apos;t post it. Chrome or
+                Edge on a computer will render it with audio. Tell us if that doesn&apos;t fix it.
+              </p>
+            )}
             {result && (
               <p className="text-xs text-muted-foreground">
                 {result.how} · {(result.blob.size / 1048576).toFixed(1)} MB · rendered in {result.seconds.toFixed(1)}s.
