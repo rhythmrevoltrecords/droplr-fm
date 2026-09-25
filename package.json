@@ -16,7 +16,8 @@
     "postinstall": "prisma generate",
     "test:news": "tsx scripts/test-news.ts",
     "test:tools": "tsx scripts/test-release-tools.ts",
-    "test:import": "tsx scripts/test-fan-import.ts"
+    "test:import": "tsx scripts/test-fan-import.ts",
+    "test:domains": "tsx scripts/test-domains.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

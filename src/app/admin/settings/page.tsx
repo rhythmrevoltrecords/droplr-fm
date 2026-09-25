@@ -76,10 +76,10 @@ export default async function SettingsPage() {
       <Card id="domain" className="scroll-mt-24">
         <CardHeader>
           <CardTitle>Custom domain</CardTitle>
-          <CardDescription>Serve every release from your own domain, e.g. {org.kind === "artist" ? "presave.yourname.com" : "presave.yourlabel.com"}/track-name. <Link className="underline" href="/docs/custom-domain">Setup guide</Link></CardDescription>
+          <CardDescription>Serve every release from your own domain, e.g. {org.kind === "artist" ? "listen.yourname.com" : "listen.yourlabel.com"}/track-name. <Link className="underline" href="/docs/custom-domain">Setup guide</Link></CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <OrgFieldsForm disabled={plan.customDomain ? undefined : org.kind === "artist" ? "Custom domains are on Artist Pro" : "Custom domains are on Pro and Label"} fields={[{ key: "customDomain", label: "Domain", placeholder: org.kind === "artist" ? "presave.yourname.com" : "presave.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
+          <OrgFieldsForm disabled={plan.customDomain ? undefined : org.kind === "artist" ? "Custom domains are on Artist Pro" : "Custom domains are on Pro and Label"} fields={[{ key: "customDomain", label: "Domain", placeholder: org.kind === "artist" ? "listen.yourname.com" : "listen.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
           {org.customDomain && !plan.customDomain && (() => {
             const st = customDomainStatus(org);
             return (

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { domainProblem, newDomainToken, queueDetach } from "@/lib/domains";
+import { DOMAIN_REDIRECT_DAYS, domainProblem, newDomainToken, nextPreviousDomains, queueDetach } from "@/lib/domains";
 import { UNVERIFIED_ERROR } from "@/lib/email-verification";
 import { planOf } from "@/lib/plans";
 import { isValidTimeZone } from "@/lib/time";
@@ -14,7 +14,7 @@ const schema = z.object({
   metaPixelId: id.optional(),
   tiktokPixelId: id.optional(),
   ga4Id: id.optional(),
-  customDomain: z.string().max(253).regex(/^$|^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i, "Enter a hostname like presave.yourlabel.com").optional(),
+  customDomain: z.string().max(253).regex(/^$|^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i, "Enter a hostname like listen.yourlabel.com").optional(),
   emailFromName: z.string().max(80).optional(),
   emailReplyTo: z.string().email().or(z.literal("")).optional(),
   slug: z.string().max(60).optional(),
@@ -44,6 +44,9 @@ export async function PATCH(req: NextRequest) {
     if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     const clash = await prisma.organization.findUnique({ where: { customDomain: domain } });
     if (clash && clash.id !== user.organizationId) return NextResponse.json({ error: "Domain already connected to another label" }, { status: 409 });
+    // Held for another account's old links. They get it once they prove they own it (the TXT check at attach clears the claim).
+    const heldBy = await prisma.organization.findFirst({ where: { previousDomains: { has: domain }, id: { not: user.organizationId } }, select: { id: true } });
+    if (heldBy) return NextResponse.json({ error: "Another label is still redirecting from that domain. Add the TXT record to prove it's yours and it'll switch over." }, { status: 409 });
   }
   // Slug rename: keep the old one in previousSlugs so every link already shared keeps redirecting.
   let slugData: { slug: string; previousSlugs: string[] } | undefined;
@@ -66,12 +69,17 @@ export async function PATCH(req: NextRequest) {
   // A new (or cleared) domain starts setup from scratch with a fresh TXT token; re-saving the same domain changes nothing.
   const previousDomain = user.organization.customDomain;
   const domainChanged = d.customDomain !== undefined && (domain || null) !== previousDomain;
+  // An old domain that was actually attached keeps its alias, and its links keep redirecting here (see lib/releases).
+  // One that never got as far as Netlify has nothing to redirect, so it's just dropped.
+  const keepsRedirecting = domainChanged && !!previousDomain && !!user.organization.customDomainAttachedAt;
+  const nextPrevious = nextPreviousDomains(user.organization.previousDomains, previousDomain, domain || null, keepsRedirecting);
   const domainData = domainChanged
     ? {
         customDomain: domain || null,
         customDomainToken: domain ? newDomainToken() : null,
         customDomainVerifiedAt: null, customDomainAttachedAt: null, customDomainLiveAt: null,
         customDomainCheckedAt: null, customDomainError: null, customDomainFailures: 0,
+        previousDomains: nextPrevious,
       }
     : {};
 
@@ -96,7 +104,19 @@ export async function PATCH(req: NextRequest) {
       ...(d.releaseEmailHour !== undefined && { releaseEmailHour: d.releaseEmailHour }),
     },
   });
-  // The old domain's Netlify alias goes (retried by the domain cron if Netlify is unavailable).
-  if (domainChanged && previousDomain && user.organization.customDomainAttachedAt) await queueDetach(previousDomain).catch(() => {});
-  return NextResponse.json({ ok: true, slug: slugData?.slug, ...(domainChanged && domain ? { message: "Saved. Add the DNS records below, then press Check now." } : {}) });
+  // The old domain's Netlify alias is released a year from now, not today, so links already shared keep working
+  // until then. Retried by the domain cron if Netlify is unavailable when the time comes.
+  if (keepsRedirecting) await queueDetach(previousDomain!, new Date(Date.now() + DOMAIN_REDIRECT_DAYS * 86_400_000)).catch(() => {});
+  // Pushed past the cap (or re-claimed as the current domain): those stop redirecting now.
+  if (domainChanged) {
+    for (const gone of user.organization.previousDomains.filter((x) => x !== domain && !nextPrevious.includes(x))) {
+      await queueDetach(gone).catch(() => {});
+    }
+  }
+  const message = domainChanged && domain
+    ? keepsRedirecting
+      ? `Saved. Add the DNS records below, then press Check now. Links on ${previousDomain} keep redirecting here for a year.`
+      : "Saved. Add the DNS records below, then press Check now."
+    : undefined;
+  return NextResponse.json({ ok: true, slug: slugData?.slug, ...(message ? { message } : {}) });
 }

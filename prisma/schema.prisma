@@ -85,6 +85,9 @@ model Organization {
 
   // Label identity + appearance
   previousSlugs   String[] @default([]) // old slugs keep redirecting after a rename
+  /// Custom domains this account used before. The Netlify alias is held for DOMAIN_REDIRECT_DAYS after a
+  /// change so links already printed, pinned or in a Spotify bio keep redirecting to the current domain.
+  previousDomains String[] @default([])
   timezone        String   @default("Australia/Brisbane") // IANA zone: date display + scheduling input
   locationLabel   String   @default("Brisbane") // shown in admin, e.g. "DATE (SYDNEY)"
   themePreference String   @default("dark") // dark | light | system
@@ -479,6 +482,8 @@ model DomainDetach {
   domain    String   @unique
   attempts  Int      @default(0)
   lastError String?
+  /// Don't release the alias before this. Set when a label changes domain, so the old one keeps redirecting.
+  after     DateTime?
   createdAt DateTime @default(now())
 }
 

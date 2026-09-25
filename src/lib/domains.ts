@@ -22,6 +22,14 @@ export const NETLIFY_APEX_ALIAS = "apex-loadbalancer.netlify.com";
 const LIVE_FAILURES_BEFORE_DEMOTE = 3;
 /** A paused domain (plan lapsed, grace over) keeps redirecting to droplr.fm this long, then the alias is released. */
 export const PAUSED_DETACH_DAYS = 90;
+/**
+ * A domain the label moved off keeps redirecting to the new one this long, then the alias is released.
+ * Longer than the paused window on purpose: a rename is deliberate, and the links it has to keep alive are
+ * the ones already printed on cards, pinned in a bio or sitting in someone's saved messages.
+ */
+export const DOMAIN_REDIRECT_DAYS = 365;
+/** How many old domains one account can hold aliases for. Renames are rare; hoarding aliases is not free. */
+export const MAX_PREVIOUS_DOMAINS = 3;
 
 export const newDomainToken = () => randomBytes(12).toString("hex");
 
@@ -29,10 +37,23 @@ export const newDomainToken = () => randomBytes(12).toString("hex");
 export function domainProblem(domain: string): string | null {
   if (domain.length > 253) return "That domain is too long";
   const labels = domain.split(".");
-  if (labels.length < 2 || labels.some((l) => !l || l.length > 63 || l.startsWith("-") || l.endsWith("-"))) return "Enter a hostname like presave.yourlabel.com";
-  if (!/^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/.test(labels[labels.length - 1])) return "Enter a hostname like presave.yourlabel.com";
+  if (labels.length < 2 || labels.some((l) => !l || l.length > 63 || l.startsWith("-") || l.endsWith("-"))) return "Enter a hostname like listen.yourlabel.com";
+  if (!/^(?:[a-z]{2,63}|xn--[a-z0-9-]{1,59})$/.test(labels[labels.length - 1])) return "Enter a hostname like listen.yourlabel.com";
   if (isProtectedDomain(domain)) return "Use your own domain";
   return null;
+}
+
+/**
+ * Words that describe one moment in a release's life, in a domain that has to carry every link forever.
+ * Not an error — plenty of labels use presave.* knowingly — but worth saying once, before it's on printed cards.
+ */
+const RELEASE_STATE_WORDS = ["presave", "pre-save", "preorder", "pre-order", "outnow", "out-now", "newmusic", "comingsoon"];
+
+export function domainAdvice(domain: string): string | null {
+  const { root, sub } = splitDomain(domain.toLowerCase());
+  const word = RELEASE_STATE_WORDS.find((w) => sub.includes(w));
+  if (!word) return null;
+  return `Heads up: "${word}" is a moment, and this domain is every link you ever share — a fan opening it a year from now still sees ${domain} for a track that's been out since. listen.${root} or music.${root} reads right at both ends. You can change it later and links on the old domain keep redirecting for a year, but the tidier time is now.`;
 }
 
 // Common two-part public suffixes, so presave.label.com.au → host "presave" on label.com.au.
@@ -85,6 +106,7 @@ export function domainSetupView(org: SetupOrg) {
     liveAt: org.customDomainLiveAt?.toISOString() ?? null,
     checkedAt: org.customDomainCheckedAt?.toISOString() ?? null,
     error: org.customDomainError,
+    advice: domainAdvice(domain),
   };
 }
 export type DomainSetupView = NonNullable<ReturnType<typeof domainSetupView>>;
@@ -159,14 +181,35 @@ async function withNetlifyLock<T>(fn: () => Promise<T>): Promise<T> {
   );
 }
 
-/** Remember an alias to remove (domain changed or cleared) and try right away; the cron retries failures. */
-export async function queueDetach(domain: string) {
-  await prisma.domainDetach.upsert({ where: { domain }, create: { domain }, update: {} });
-  if (netlifyConfigured()) await processDetaches(1, domain).catch(() => {});
+/**
+ * The previousDomains list after a domain change. The one being left keeps redirecting only if it ever got as
+ * far as a Netlify alias; a domain being re-claimed as the current one drops out; oldest past the cap falls off.
+ */
+export function nextPreviousDomains(current: string[], leaving: string | null, arriving: string | null, keepsRedirecting: boolean) {
+  const kept = current.filter((x) => x !== leaving && x !== arriving);
+  return [...new Set([...kept, ...(keepsRedirecting && leaving ? [leaving] : [])])].slice(-MAX_PREVIOUS_DOMAINS);
+}
+
+/** Drop a host from every account's previousDomains (it was released, or someone has proven they own it now). */
+export async function forgetPreviousDomain(domain: string) {
+  await prisma.$executeRaw`UPDATE "Organization" SET "previousDomains" = array_remove("previousDomains", ${domain}) WHERE ${domain} = ANY("previousDomains")`;
+}
+
+/**
+ * Remember an alias to remove (domain changed or cleared). With no `after` it goes right away and the cron
+ * retries failures; with one, the alias is held until then so the old domain keeps redirecting in the meantime.
+ */
+export async function queueDetach(domain: string, after?: Date) {
+  await prisma.domainDetach.upsert({ where: { domain }, create: { domain, after }, update: { after: after ?? null, attempts: 0, lastError: null } });
+  if (!after && netlifyConfigured()) await processDetaches(1, domain).catch(() => {});
 }
 
 export async function processDetaches(limit = 10, only?: string) {
-  const rows = await prisma.domainDetach.findMany({ where: { attempts: { lt: 50 }, ...(only ? { domain: only } : {}) }, orderBy: { createdAt: "asc" }, take: limit });
+  const rows = await prisma.domainDetach.findMany({
+    where: { attempts: { lt: 50 }, OR: [{ after: null }, { after: { lte: new Date() } }], ...(only ? { domain: only } : {}) },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
   let done = 0;
   for (const row of rows) {
     // Another label (or the same one) has since claimed the domain: keep the alias.
@@ -177,6 +220,8 @@ export async function processDetaches(limit = 10, only?: string) {
     }
     try {
       await withNetlifyLock(() => detachDomain(row.domain));
+      // The alias is gone, so the redirect can't work any more: stop claiming the host.
+      await forgetPreviousDomain(row.domain);
       await prisma.domainDetach.delete({ where: { id: row.id } }).catch(() => {});
       done++;
     } catch (e) {
@@ -240,6 +285,8 @@ export async function checkOrgDomain(orgId: string) {
         await attachDomain(domain);
         await prisma.domainDetach.deleteMany({ where: { domain } });
       });
+      // TXT proved control of this host, so no other account gets to keep redirecting from it.
+      await forgetPreviousDomain(domain);
       data.customDomainAttachedAt = now;
     } catch (e) {
       console.error("[domains] attach failed", { org: org.id, domain, error: (e as Error).message });

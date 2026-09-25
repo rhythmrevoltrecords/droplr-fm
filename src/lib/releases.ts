@@ -43,6 +43,14 @@ async function findOrgBySlug(slug: string) {
   return old ? { org: old, renamed: true } : null;
 }
 
+/** Org by current custom domain, or by one it used to be on (a renamed domain keeps redirecting). */
+async function findOrgByDomain(host: string) {
+  const current = await prisma.organization.findUnique({ where: { customDomain: host } });
+  if (current) return { org: current, moved: false };
+  const old = await prisma.organization.findFirst({ where: { previousDomains: { has: host } } });
+  return old ? { org: old, moved: true } : null;
+}
+
 const path = (...segs: (string | null | undefined)[]) => "/" + segs.filter(Boolean).map((x) => encodeURIComponent(x!)).join("/");
 
 /**
@@ -92,8 +100,19 @@ async function resolvePlatformPathUncached(parts: string[], variantQuery?: strin
 async function resolveTenantPathUncached(host: string, parts: string[], variantQuery?: string | null): Promise<Resolution> {
   const h = host.toLowerCase().split(":")[0];
   const sub = h.match(/^([a-z0-9-]+)\.droplr\.fm$/)?.[1];
-  const org = sub ? (await findOrgBySlug(sub))?.org ?? null : await prisma.organization.findUnique({ where: { customDomain: h } });
+  const found = sub ? await findOrgBySlug(sub).then((f) => (f ? { org: f.org, moved: false } : null)) : await findOrgByDomain(h);
+  const org = found?.org ?? null;
   if (!org) return null;
+  // The label moved to another domain. Send the visitor to the same page on the current one.
+  // Permanent only when there is another live domain to point at: a 308 to droplr.fm would be cached by the
+  // browser and the new domain would never take over for that visitor once it finishes connecting.
+  if (found?.moved) {
+    const rest = parts.map((p) => decodeURIComponent(p).toLowerCase()).map(encodeURIComponent);
+    const live = linkCustomDomain(org);
+    return live
+      ? { kind: "redirect", to: [`https://${live}`, ...rest].join("/") }
+      : { kind: "redirect", to: [`${SITE_URL}/${org.slug}`, ...rest].join("/"), temporary: true };
+  }
   // Custom domain no longer on the plan (after the grace period): send visitors to the same page on droplr.fm
   // instead of breaking links that were already shared. Temporary, because upgrading switches the domain back on.
   if (!sub && !activeCustomDomain(org)) {
