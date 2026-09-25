@@ -43,8 +43,14 @@ export function NewsComposer({
   const [error, setError] = useState<string | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [count, setCount] = useState<number | null>(null);
+  const [noTz, setNoTz] = useState(0);
   const [when, setWhen] = useState("");
+  const [local, setLocal] = useState(false);
   const locked = status !== "draft";
+
+  // A local send is "9:00 wherever you are", so there is no honest meaning for 9:30. Snap it rather than
+  // silently dropping the minutes after they've pressed Schedule.
+  const onTheHour = (v: string, on: boolean) => (on && v.length >= 16 ? `${v.slice(0, 14)}00` : v);
 
   const set = <K extends keyof NewsDraft>(k: K, v: NewsDraft[K]) => {
     setD((prev) => ({ ...prev, [k]: v }));
@@ -66,7 +72,11 @@ export function NewsComposer({
     setCount(null);
     fetch(`/api/admin/news${query ? `?${query}` : ""}`)
       .then((r) => r.json())
-      .then((j) => live && setCount(typeof j.recipients === "number" ? j.recipients : null))
+      .then((j) => {
+        if (!live) return;
+        setCount(typeof j.recipients === "number" ? j.recipients : null);
+        setNoTz(typeof j.noTimezone === "number" ? j.noTimezone : 0);
+      })
       .catch(() => {});
     return () => {
       live = false;
@@ -106,7 +116,7 @@ export function NewsComposer({
       const res = await fetch(`/api/admin/news/${savedId}/send`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ action, ...(action === "schedule" && { scheduledForLocal: when }) }),
+        body: JSON.stringify({ action, ...(action === "schedule" && { scheduledForLocal: when, sendMode: local ? "local" : "instant" }) }),
       });
       const j = (await res.json().catch(() => ({}))) as { error?: string; to?: string; recipients?: number };
       if (!res.ok) {
@@ -138,6 +148,19 @@ export function NewsComposer({
 
   const ready = d.subject.trim().length > 0 && d.body.trim().length > 0;
   const audience = count === null ? "counting…" : `${count.toLocaleString()} ${count === 1 ? "fan" : "fans"}`;
+
+  // "9am Saturday their time" starts 14 hours before the label's own 9am and finishes 12 hours after it.
+  // Shown in the label's own clock, because that's the only clock they can act on.
+  const spread = useMemo(() => {
+    if (!local || when.length < 13) return null;
+    const hh = Number(when.slice(11, 13));
+    if (!Number.isInteger(hh)) return null;
+    const wall = Date.parse(`${when.slice(0, 10)}T${when.slice(11, 13)}:00:00Z`);
+    if (Number.isNaN(wall)) return null;
+    const fmt = (t: number) =>
+      new Intl.DateTimeFormat("en-AU", { timeZone: timezone, weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" }).format(new Date(t));
+    return { first: fmt(wall - 14 * 3600_000), last: fmt(wall + 12 * 3600_000), hour: hh };
+  }, [local, when, timezone]);
 
   return (
     <div className="space-y-4">
@@ -228,11 +251,38 @@ export function NewsComposer({
               <Button variant="secondary" disabled={!!busy || !ready} onClick={() => act("test", "Test")}>{busy === "Test" ? "Sending…" : "Send test to me"}</Button>
               <Button disabled={!!busy || !ready || count === 0} onClick={() => act("send", "Send")}>{busy === "Send" ? "Sending…" : `Send now to ${audience}`}</Button>
             </div>
-            <div className="flex flex-wrap items-center gap-2 border-t border-border pt-3">
-              <Input type="datetime-local" value={when} onChange={(e) => setWhen(e.target.value)} className="w-auto" aria-label="Send at" />
-              <Button variant="secondary" disabled={!!busy || !ready || !when || count === 0} onClick={() => act("schedule", "Schedule")}>
-                {busy === "Schedule" ? "Scheduling…" : "Schedule"}
-              </Button>
+            <div className="space-y-3 border-t border-border pt-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <Input type="datetime-local" step={local ? 3600 : 60} value={when} onChange={(e) => setWhen(onTheHour(e.target.value, local))} className="w-auto" aria-label="Send at" />
+                <Button variant="secondary" disabled={!!busy || !ready || !when || count === 0} onClick={() => act("schedule", "Schedule")}>
+                  {busy === "Schedule" ? "Scheduling…" : "Schedule"}
+                </Button>
+              </div>
+              <fieldset className="space-y-2">
+                <legend className="text-sm font-medium">What that time means</legend>
+                {[
+                  { v: false, title: "That exact moment, everywhere", why: `One send. Everyone gets it when it's that time in ${timezone.replace(/_/g, " ")} — which is the middle of the night for anyone far enough away.` },
+                  { v: true, title: "That time on their own clock", why: "Each fan gets it at that hour where they are, the same way your release-day emails go out. The send runs for about a day as the timezones come round." },
+                ].map((opt) => (
+                  <label key={String(opt.v)} className={cn("flex cursor-pointer gap-3 rounded-lg border p-3 text-sm", local === opt.v ? "border-violet-500/50 bg-violet-500/5" : "border-border")}>
+                    <input type="radio" name="sendmode" className="mt-1" checked={local === opt.v} onChange={() => { setLocal(opt.v); setWhen((w) => onTheHour(w, opt.v)); }} />
+                    <span>
+                      <span className="block font-medium text-foreground">{opt.title}</span>
+                      <span className="block text-muted-foreground">{opt.why}</span>
+                    </span>
+                  </label>
+                ))}
+              </fieldset>
+              {local && spread && (
+                <p className="text-sm text-muted-foreground">
+                  First one leaves <strong className="text-foreground">{spread.first}</strong> your time, last one <strong className="text-foreground">{spread.last}</strong>. Everyone reads it at {spread.hour}:00 their own time.
+                </p>
+              )}
+              {local && noTz > 0 && (
+                <p className="text-sm text-amber-400">
+                  {noTz.toLocaleString()} of them {noTz === 1 ? "has" : "have"} no timezone on file — usually imported contacts — so they get {spread ? `${spread.hour}:00` : "that hour"} in {timezone.replace(/_/g, " ")} instead.
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>

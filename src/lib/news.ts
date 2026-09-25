@@ -5,6 +5,7 @@ import { BRAND, button, esc, h1, layout, muted, p, safeHex, safeHttps } from "./
 import { sendBatch } from "./email";
 import { SITE_URL } from "./env";
 import { planOf } from "./plans";
+import { LOCAL_SEND_SPREAD_MS, localHourOn, localHourWindow, zonedDay } from "./time";
 
 /**
  * News emails: a one-off send from a label/artist to the fans who ticked the optional
@@ -44,7 +45,7 @@ function audienceHaving(f: NewsFilter) {
   return Prisma.join(parts, " AND ");
 }
 
-export type AudienceRow = { email: string; preSaveId: string | null; fanContactId: string | null };
+export type AudienceRow = { email: string; preSaveId: string | null; fanContactId: string | null; timezone: string | null };
 
 /**
  * Imported contacts this send may reach.
@@ -59,8 +60,8 @@ export type AudienceRow = { email: string; preSaveId: string | null; fanContactI
  */
 async function importedAudience(orgId: string, f: NewsFilter) {
   if (f.releaseId || f.listenOn) return [];
-  return prisma.$queryRaw<{ email: string; fanContactId: string }[]>`
-    SELECT c.email AS email, c.id AS "fanContactId"
+  return prisma.$queryRaw<{ email: string; fanContactId: string; timezone: string | null }[]>`
+    SELECT c.email AS email, c.id AS "fanContactId", c.timezone AS timezone
     FROM "FanContact" c
     WHERE c."organizationId" = ${orgId}
       AND c.status = 'mailable'
@@ -74,9 +75,10 @@ async function importedAudience(orgId: string, f: NewsFilter) {
 /** Everyone this send would reach, one row per address, with the id its unsubscribe token points at. */
 export async function newsAudience(orgId: string, f: NewsFilter): Promise<AudienceRow[]> {
   const [fans, imported] = await Promise.all([
-    prisma.$queryRaw<{ email: string; preSaveId: string }[]>`
+    prisma.$queryRaw<{ email: string; preSaveId: string; timezone: string | null }[]>`
     SELECT lower(p.email) AS email,
-      (array_agg(p.id ORDER BY p."createdAt" DESC))[1] AS "preSaveId"
+      (array_agg(p.id ORDER BY p."createdAt" DESC))[1] AS "preSaveId",
+      (array_agg(p.timezone ORDER BY p."createdAt" DESC) FILTER (WHERE p.timezone IS NOT NULL))[1] AS timezone
     FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
     WHERE ${audienceWhere(orgId, f)}
     GROUP BY lower(p.email)
@@ -85,16 +87,22 @@ export async function newsAudience(orgId: string, f: NewsFilter): Promise<Audien
   ]);
   const seen = new Set(fans.map((r) => r.email));
   return [
-    ...fans.map((r) => ({ email: r.email, preSaveId: r.preSaveId, fanContactId: null })),
-    ...imported.filter((r) => !seen.has(r.email)).map((r) => ({ email: r.email, preSaveId: null, fanContactId: r.fanContactId })),
+    ...fans.map((r) => ({ email: r.email, preSaveId: r.preSaveId, fanContactId: null, timezone: r.timezone })),
+    ...imported.filter((r) => !seen.has(r.email)).map((r) => ({ email: r.email, preSaveId: null, fanContactId: r.fanContactId, timezone: r.timezone })),
   ];
 }
 
-export async function newsAudienceCount(orgId: string, f: NewsFilter) {
+/**
+ * Audience size, and how many of them droplr has no timezone for. The second number is the one that
+ * decides whether a local-time send is honest: those people get the label's own hour, and the composer
+ * says so rather than letting an artist assume everyone is covered.
+ */
+export async function newsAudienceCounts(orgId: string, f: NewsFilter) {
   const [[row], imported] = await Promise.all([
-    prisma.$queryRaw<{ n: bigint }[]>`
-    SELECT COUNT(*) AS n FROM (
-      SELECT lower(p.email)
+    prisma.$queryRaw<{ n: bigint; nz: bigint }[]>`
+    SELECT COUNT(*) AS n, COUNT(*) FILTER (WHERE x.tz IS NULL) AS nz FROM (
+      SELECT lower(p.email),
+        (array_agg(p.timezone ORDER BY p."createdAt" DESC) FILTER (WHERE p.timezone IS NOT NULL))[1] AS tz
       FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
       WHERE ${audienceWhere(orgId, f)}
       GROUP BY lower(p.email)
@@ -102,7 +110,14 @@ export async function newsAudienceCount(orgId: string, f: NewsFilter) {
     ) x`,
     importedAudience(orgId, f),
   ]);
-  return Number(row?.n ?? 0) + imported.length;
+  return {
+    total: Number(row?.n ?? 0) + imported.length,
+    noTimezone: Number(row?.nz ?? 0) + imported.filter((r) => !r.timezone).length,
+  };
+}
+
+export async function newsAudienceCount(orgId: string, f: NewsFilter) {
+  return (await newsAudienceCounts(orgId, f)).total;
 }
 
 /** How many of this org's imported contacts are mailable — shown next to the audience count. */
@@ -171,21 +186,47 @@ export async function newsEmailFor(args: Omit<RenderArgs, "unsub"> & { preSaveId
   return renderNewsEmail({ ...args, unsub });
 }
 
+export type LocalSend = { sendMode: string; localHour: number | null; scheduledFor: Date | null };
+
+/**
+ * The day and hour a local send is aiming at, or null if this is an ordinary one-instant send.
+ * The day is read in the label's own timezone because that's the calendar they picked it on.
+ */
+export function localSendPlan(news: LocalSend, orgTz: string | null | undefined) {
+  if (news.sendMode !== "local" || news.localHour == null || !news.scheduledFor) return null;
+  return { day: zonedDay(news.scheduledFor, orgTz), hour: news.localHour };
+}
+
+/** First and last moment a local send lands anywhere, for the composer and the status page. */
+export function localSendWindow(news: LocalSend, orgTz: string | null | undefined) {
+  const plan = localSendPlan(news, orgTz);
+  return plan ? localHourWindow(plan.day, plan.hour) : null;
+}
+
 /**
  * Freeze the audience before any sending starts. One row per address means a send can
  * span several worker runs and still never email anyone twice.
  */
 export async function snapshotAudience(newsEmailId: string) {
-  const news = await prisma.newsEmail.findUnique({ where: { id: newsEmailId } });
+  const news = await prisma.newsEmail.findUnique({ where: { id: newsEmailId }, include: { organization: { select: { timezone: true } } } });
   if (!news) return 0;
   const rows = await newsAudience(news.organizationId, {
     country: news.filterCountry,
     listenOn: news.filterListenOn,
     releaseId: news.filterReleaseId,
   });
+  // A local send turns into one timestamp per recipient here, once, so the send loop stays timezone-free.
+  // The day is whatever day the scheduled moment falls on in the label's own zone — that's the day they picked.
+  const plan = localSendPlan(news, news.organization.timezone);
   if (rows.length) {
     await prisma.newsEmailDelivery.createMany({
-      data: rows.map((r) => ({ newsEmailId, email: r.email, preSaveId: r.preSaveId, fanContactId: r.fanContactId })),
+      data: rows.map((r) => ({
+        newsEmailId,
+        email: r.email,
+        preSaveId: r.preSaveId,
+        fanContactId: r.fanContactId,
+        sendAfter: plan ? localHourOn(plan.day, plan.hour, r.timezone, news.organization.timezone) : null,
+      })),
       skipDuplicates: true,
     });
   }
@@ -227,10 +268,12 @@ export async function processNewsEmail(newsEmailId: string, deadlineMs = Date.no
         out.stoppedEarly = true;
         break;
       }
+      // A local send only takes the recipients whose own hour has come round. The rest stay pending and the
+      // next cron run picks them up, which is the same mechanism that already lets a send resume after a timeout.
       const pending = await prisma.newsEmailDelivery.findMany({
-        where: { newsEmailId, sentAt: null, error: null },
+        where: { newsEmailId, sentAt: null, error: null, OR: [{ sendAfter: null }, { sendAfter: { lte: new Date() } }] },
         take: BATCH,
-        orderBy: { createdAt: "asc" },
+        orderBy: [{ sendAfter: "asc" }, { createdAt: "asc" }],
       });
       if (!pending.length) break;
 
@@ -340,12 +383,18 @@ export async function processNewsEmail(newsEmailId: string, deadlineMs = Date.no
   }
 }
 
-/** Scheduled sends whose moment has passed, plus any send interrupted mid-way. */
+/**
+ * Scheduled sends whose moment has passed, plus any send interrupted mid-way.
+ * A local send opens 26 hours early, because UTC+14 reaches its own 9am that far ahead of the label.
+ */
 export async function findDueNewsEmails() {
+  const now = new Date();
   return prisma.newsEmail.findMany({
     where: {
       OR: [
-        { status: "scheduled", OR: [{ scheduledFor: null }, { scheduledFor: { lte: new Date() } }] },
+        { status: "scheduled", scheduledFor: null },
+        { status: "scheduled", sendMode: "instant", scheduledFor: { lte: now } },
+        { status: "scheduled", sendMode: "local", scheduledFor: { lte: new Date(now.getTime() + LOCAL_SEND_SPREAD_MS) } },
         { status: "sending" },
       ],
     },

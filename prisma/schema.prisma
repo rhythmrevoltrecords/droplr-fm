@@ -631,6 +631,11 @@ model NewsEmail {
 
   status       String    @default("draft") // draft | scheduled | sending | sent | cancelled | failed
   scheduledFor DateTime? // null with status "scheduled" means send at the next run
+  /// instant = one moment for everyone. local = localHour in each recipient's own timezone, on the day
+  /// scheduledFor falls on in the label's timezone. A local send spans up to 26 hours.
+  sendMode     String    @default("instant")
+  /// The hour, 0-23, in each recipient's own zone. Taken from the scheduled time. Only read when sendMode is "local".
+  localHour    Int?
   startedAt    DateTime?
   sentAt       DateTime?
   processingUntil DateTime? // lease, so two worker runs can't send the same batch twice
@@ -668,10 +673,14 @@ model NewsEmailDelivery {
   fanContactId String?
   sentAt      DateTime?
   error       String?
+  /// Computed once at snapshot from this recipient's timezone, so the send loop needs no timezone
+  /// logic at all — just a timestamp comparison. Null means "as soon as the send runs".
+  sendAfter   DateTime?
   createdAt   DateTime  @default(now())
 
   @@unique([newsEmailId, email])
   @@index([newsEmailId, sentAt])
+  @@index([newsEmailId, sendAfter])
 }
 
 /**

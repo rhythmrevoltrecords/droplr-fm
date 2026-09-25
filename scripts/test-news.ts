@@ -9,7 +9,8 @@
  */
 import { randomBytes } from "node:crypto";
 import { prisma } from "../src/lib/db";
-import { canSendNews, newsAudience, newsAudienceCount, processNewsEmail, renderNewsEmail, snapshotAudience } from "../src/lib/news";
+import { canSendNews, findDueNewsEmails, localSendWindow, newsAudience, newsAudienceCount, newsAudienceCounts, processNewsEmail, renderNewsEmail, snapshotAudience } from "../src/lib/news";
+import { zonedDay, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name];
@@ -195,6 +196,74 @@ async function main() {
     failNext = null;
     check("a rejected address is recorded and the rest still go", r4.failed === 1 && sentTo.includes(otherRelease) && !sentTo.includes(optedIn), JSON.stringify(r4));
     check("the failure is stored against that recipient", !!(await prisma.newsEmailDelivery.findFirst({ where: { newsEmailId: news4.id, email: optedIn, error: { not: null } } })));
+
+    // --- Local-time sending ---
+    // Release-day emails already land at the fan's own 9am; a news email can now do the same. The whole
+    // trick is that each recipient's moment is worked out once, at snapshot, so the send loop only
+    // compares timestamps. A local send is therefore a normal resumable send that happens to span a day.
+    console.log("\n  Local-time sending");
+    const ukFan = `uk-${RUN}@fans.dev`;
+    const laFan = `la-${RUN}@fans.dev`;
+    const nowhereFan = `nowhere-${RUN}@fans.dev`;
+    await prisma.preSave.createMany({
+      data: [
+        fan(A.rel.id, ukFan, { newsConsent: true, newsConsentAt: new Date(), timezone: "Europe/London" }),
+        fan(A.rel.id, laFan, { newsConsent: true, newsConsentAt: new Date(), timezone: "America/Los_Angeles" }),
+        fan(A.rel.id, nowhereFan, { newsConsent: true, newsConsentAt: new Date() }),
+      ],
+    });
+    const zoned = await newsAudience(A.o.id, {});
+    check("the audience carries each fan's timezone", zoned.find((r) => r.email === ukFan)?.timezone === "Europe/London");
+    check("a fan with no timezone comes back null, not guessed", zoned.find((r) => r.email === nowhereFan)?.timezone === null);
+    const counts = await newsAudienceCounts(A.o.id, {});
+    check("the composer can say how many have no timezone", counts.noTimezone >= 1 && counts.noTimezone < counts.total, JSON.stringify(counts));
+
+    // 9am Saturday, Brisbane, as the composer would send it.
+    const day = "2099-06-20";
+    const localNews = await prisma.newsEmail.create({
+      data: {
+        organizationId: A.o.id, subject: `Local ${RUN}`, body: "x", status: "scheduled",
+        sendMode: "local", localHour: 9, scheduledFor: zonedLocalToDate(`${day}T09:00`, "Australia/Brisbane"),
+      },
+    });
+    await snapshotAudience(localNews.id);
+    const rows = await prisma.newsEmailDelivery.findMany({ where: { newsEmailId: localNews.id }, select: { email: true, sendAfter: true } });
+    const at = (e: string) => rows.find((r) => r.email === e)?.sendAfter;
+    check("every recipient gets their own moment", rows.every((r) => !!r.sendAfter), String(rows.filter((r) => !r.sendAfter).length));
+    check("a UK fan is due at 9am London", at(ukFan)?.toISOString() === zonedLocalToDate(`${day}T09:00`, "Europe/London").toISOString(), String(at(ukFan)));
+    check("an LA fan is due at 9am Los Angeles", at(laFan)?.toISOString() === zonedLocalToDate(`${day}T09:00`, "America/Los_Angeles").toISOString(), String(at(laFan)));
+    check("a fan with no timezone falls back to the label's hour", at(nowhereFan)?.toISOString() === zonedLocalToDate(`${day}T09:00`, "Australia/Brisbane").toISOString(), String(at(nowhereFan)));
+    check("Brisbane comes first, then London, then LA", at(nowhereFan)!.getTime() < at(ukFan)!.getTime() && at(ukFan)!.getTime() < at(laFan)!.getTime());
+    // Brisbane (UTC+10) to Los Angeles (UTC−7 in June) is 17 hours; the full UTC+14…UTC−12 window is 26.
+    check("the send spans the gap between the zones, not a moment", at(laFan)!.getTime() - at(nowhereFan)!.getTime() === 17 * 3600_000, String((at(laFan)!.getTime() - at(nowhereFan)!.getTime()) / 3600_000));
+
+    const win = localSendWindow({ sendMode: "local", localHour: 9, scheduledFor: zonedLocalToDate(`${day}T09:00`, "Australia/Brisbane") }, "Australia/Brisbane");
+    check("the window covers every zone the fans are in", !!win && win.earliest.getTime() <= at(nowhereFan)!.getTime() && win.latest.getTime() >= at(laFan)!.getTime());
+    check("an instant send has no window", localSendWindow({ sendMode: "instant", localHour: null, scheduledFor: new Date() }, "Australia/Brisbane") === null);
+    check("the label's own day is what gets scheduled", zonedDay(zonedLocalToDate(`${day}T09:00`, "Australia/Brisbane"), "Australia/Brisbane") === day);
+
+    // Nobody's hour has come round yet (the day is in 2099), so a run must send nothing and leave it sending.
+    sentTo = [];
+    const early = await processNewsEmail(localNews.id, Date.now() + 5_000);
+    check("nothing goes out before anyone's local hour", sentTo.length === 0 && early.sent === 0, sentTo.join(","));
+    check("the send stays open rather than being marked done", (await prisma.newsEmail.findUnique({ where: { id: localNews.id } }))?.status === "sending");
+
+    // Bring the UK fan's moment forward: only that one should go.
+    await prisma.newsEmailDelivery.updateMany({ where: { newsEmailId: localNews.id, email: ukFan }, data: { sendAfter: new Date(Date.now() - 60_000) } });
+    sentTo = [];
+    await processNewsEmail(localNews.id, Date.now() + 10_000);
+    check("only the recipients whose hour has come are sent", sentTo.join(",") === ukFan, sentTo.join(","));
+    check("the rest are still waiting, not failed", (await prisma.newsEmailDelivery.count({ where: { newsEmailId: localNews.id, sentAt: null, error: null } })) === rows.length - 1);
+    check("it is still sending, a day out from finishing", (await prisma.newsEmail.findUnique({ where: { id: localNews.id } }))?.status === "sending");
+
+    // The cron has to pick a local send up before the label's own moment, or UTC+14 misses its 9am.
+    await prisma.newsEmail.update({ where: { id: localNews.id }, data: { status: "scheduled" } });
+    const soonish = zonedLocalToDate(`${zonedDay(new Date(Date.now() + 20 * 3600_000), "Australia/Brisbane")}T09:00`, "Australia/Brisbane");
+    await prisma.newsEmail.update({ where: { id: localNews.id }, data: { scheduledFor: soonish } });
+    const due = await findDueNewsEmails();
+    check("a local send is picked up 26 hours early", due.some((r) => r.id === localNews.id), `${due.length} due`);
+    await prisma.newsEmail.update({ where: { id: localNews.id }, data: { sendMode: "instant", localHour: null } });
+    check("an instant send at the same time is not", !(await findDueNewsEmails()).some((r) => r.id === localNews.id));
 
     // --- Tenant isolation at the data layer ---
     check("label B's audience never includes label A's fans", (await newsAudience(B.o.id, {})).every((r) => !r.email.includes(`-${RUN}@fans.dev`) || r.email.startsWith("b-")));
