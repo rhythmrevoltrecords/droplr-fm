@@ -466,17 +466,37 @@ export function ClipForge(props: ClipForgeProps) {
               </div>
             )}
 
-            {result && !result.hasAudio && (
+            {result?.diagnostics.audio.state === "silent" && (
               <p className="rounded-lg border border-red-500/40 bg-red-500/5 p-2 text-sm text-red-300">
-                <strong>This clip has no sound.</strong> The video is fine, but no audio track made it into the file — don&apos;t post it. Chrome or
-                Edge on a computer will render it with audio. Tell us if that doesn&apos;t fix it.
+                <strong>This clip has no sound.</strong> We decoded it and measured silence — don&apos;t post it. Chrome or Edge on a computer will
+                render it with audio. Tell us if that doesn&apos;t fix it.
+              </p>
+            )}
+            {result?.diagnostics.audio.state === "unknown" && (
+              <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-2 text-sm text-amber-300">
+                <strong>Play it before you post it.</strong> This browser wouldn&apos;t let us check the sound on the finished file, so we can&apos;t
+                promise it has any. Press play above with the volume up.
               </p>
             )}
             {result && (
-              <p className="text-xs text-muted-foreground">
-                {result.how} · {(result.blob.size / 1048576).toFixed(1)} MB · rendered in {result.seconds.toFixed(1)}s.
-                {result.ext === "webm" && " WebM uploads to Instagram but re-encodes; an MP4 from Chrome or Edge posts cleaner."}
-              </p>
+              <div className="space-y-1 text-xs text-muted-foreground">
+                <p>
+                  {result.how} · {(result.blob.size / 1048576).toFixed(1)} MB · rendered in {result.seconds.toFixed(1)}s.
+                  {result.ext === "webm" && " WebM uploads to Instagram but re-encodes; an MP4 from Chrome or Edge posts cleaner."}
+                </p>
+                {/* Visible on purpose. Sound problems here depend entirely on the browser, and one
+                    line a person can read out is worth more than any amount of guessing from afar. */}
+                <details>
+                  <summary className="cursor-pointer select-none">Technical details</summary>
+                  <code className="mt-1 block break-all rounded bg-black/30 p-2 leading-relaxed">
+                    path={result.diagnostics.path} video={result.diagnostics.videoCodec ?? "—"} audio={result.diagnostics.audioCodec ?? "—"}{" "}
+                    layout={result.diagnostics.audioLayout ?? "—"} chunks={result.diagnostics.audioChunks ?? "—"}{" "}
+                    {result.diagnostics.sampleRate}Hz×{result.diagnostics.channels} sound={result.diagnostics.audio.state}
+                    {result.diagnostics.audio.peak !== null && ` peak=${result.diagnostics.audio.peak}`}
+                    {result.diagnostics.audio.why && ` (${result.diagnostics.audio.why})`}
+                  </code>
+                </details>
+              </div>
             )}
 
             <div className="flex flex-wrap gap-2">

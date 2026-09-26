@@ -15,7 +15,32 @@ import { clipAudioBuffer, fadeGain, FPS } from "./clip";
 
 export type EncodeKind = "webcodecs" | "mediarecorder";
 
-export type RenderResult = { blob: Blob; ext: "mp4" | "webm"; how: string; kind: EncodeKind; seconds: number; hasAudio: boolean };
+/**
+ * "audible" — decoded and measured, there is signal.
+ * "silent"  — decoded and measured, there is none. Don't post it.
+ * "unknown" — the browser wouldn't decode its own output, so nothing was proven either way.
+ *
+ * The third state exists because pretending it doesn't is what let a silent clip through: the check
+ * used to fall back to scanning the header for a codec entry, which can't tell a silent track from
+ * a loud one, and reported "has audio" on a clip that had none. Safari routinely refuses to
+ * decodeAudioData an MP4 that has video in it, so that fallback fired exactly where it mattered.
+ */
+export type AudioVerdict = { state: "audible" | "silent" | "unknown"; peak: number | null; why?: string };
+
+export type RenderDiagnostics = {
+  path: EncodeKind;
+  videoCodec: string | null;
+  audioCodec: string | null;
+  /** How AudioData was handed to the encoder. Safari and Chrome don't agree about this. */
+  audioLayout: string | null;
+  /** Chunks the audio encoder actually emitted. Zero means it accepted everything and made nothing. */
+  audioChunks: number | null;
+  sampleRate: number;
+  channels: number;
+  audio: AudioVerdict;
+};
+
+export type RenderResult = { blob: Blob; ext: "mp4" | "webm"; how: string; kind: EncodeKind; seconds: number; hasAudio: boolean; diagnostics: RenderDiagnostics };
 
 /**
  * Does the finished file actually make a sound?
@@ -23,6 +48,24 @@ export type RenderResult = { blob: Blob; ext: "mp4" | "webm"; how: string; kind:
  * Belt and braces over the encoder checks, because a silent clip is the one failure an artist
  * doesn't notice until it's posted — the video looks perfect.
  */
+export async function verifyAudio(blob: Blob): Promise<AudioVerdict> {
+  try {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AC();
+    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    await ctx.close();
+    let peak = 0;
+    for (let c = 0; c < decoded.numberOfChannels; c++) {
+      const d = decoded.getChannelData(c);
+      // Every 97th sample: a prime stride, so it can't land on a period of the signal and miss it.
+      for (let i = 0; i < d.length; i += 97) { const v = Math.abs(d[i]); if (v > peak) peak = v; }
+    }
+    return { state: peak > 0.001 ? "audible" : "silent", peak: +peak.toFixed(4) };
+  } catch (e) {
+    return { state: "unknown", peak: null, why: String((e as Error).message || e).slice(0, 120) };
+  }
+}
+
 export async function blobHasAudio(blob: Blob) {
   // Decode it and look for actual signal first. A track can be present and silent — that is exactly
   // what happened when the fade was scheduled on a GainNode instead of baked into the samples, and
@@ -170,9 +213,11 @@ function interleave(buffer: AudioBuffer, start: number, clipLen: number, fadeIn:
   return { out, total, channels, sampleRate };
 }
 
-async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio: string }): Promise<RenderResult> {
+async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio: string }, diag: RenderDiagnostics): Promise<RenderResult> {
   const { canvas, drawFrame, frames, buffer, onProgress, onNote, signal } = args;
   const t0 = performance.now();
+  diag.videoCodec = codecs.video;
+  diag.audioCodec = codecs.audio;
   const { Muxer, ArrayBufferTarget } = await import("mp4-muxer");
   const { out, total, channels, sampleRate } = interleave(buffer, args.start, args.clipLen, args.fadeIn, args.fadeOut);
 
@@ -220,6 +265,7 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
   }
 
   const format = audioDataFormat(W);
+  diag.audioLayout = format;
   const slice = sampleRate; // one second at a time
   for (let off = 0; off < total; off += slice) {
     throwIfAborted(signal);
@@ -246,21 +292,24 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
   // An encoder that accepted the config, accepted every AudioData and emitted nothing leaves a file
   // with an audio track declared and no samples in it: it plays, it looks right, and it is silent.
   // Found on Safari. Throwing here falls back to MediaRecorder rather than handing over a mute clip.
+  diag.audioChunks = audioChunks;
   if (!audioChunks) throw new Error("the audio encoder produced nothing");
   muxer.finalize();
   onProgress(1);
   const blob = new Blob([muxer.target.buffer], { type: "video/mp4" });
+  diag.audio = await verifyAudio(blob);
   return {
     blob,
     ext: "mp4",
     how: `WebCodecs → MP4 (${codecs.video})`,
     kind: "webcodecs",
     seconds: (performance.now() - t0) / 1000,
-    hasAudio: await blobHasAudio(blob),
+    hasAudio: diag.audio.state !== "silent",
+    diagnostics: diag,
   };
 }
 
-async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
+async function renderMediaRecorder(args: RenderArgs, diag: RenderDiagnostics): Promise<RenderResult> {
   const { canvas, drawFrame, frames, buffer, clipLen, onProgress, onNote, signal } = args;
   const t0 = performance.now();
   const stream = canvas.captureStream(FPS);
@@ -283,6 +332,7 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
   if (!audioTrack) onNote("This browser wouldn't attach the audio to the recording — the clip will have no sound.");
   const mime =
     ["video/mp4;codecs=avc1,mp4a.40.2", "video/webm;codecs=vp9,opus", "video/webm"].find((m) => MediaRecorder.isTypeSupported(m)) ?? "video/webm";
+  diag.audioCodec = stream.getAudioTracks().length ? "from the audio graph" : "no audio track attached";
   const rec = new MediaRecorder(stream, { mimeType: mime, videoBitsPerSecond: 7_000_000 });
   const parts: Blob[] = [];
   rec.ondataavailable = (e) => { if (e.data.size) parts.push(e.data); };
@@ -311,22 +361,35 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
   onProgress(1);
   const isMp4 = mime.includes("mp4");
   const blob = new Blob(parts, { type: mime });
+  diag.path = "mediarecorder";
+  diag.videoCodec = mime;
+  diag.audio = await verifyAudio(blob);
   return {
     blob,
     ext: isMp4 ? "mp4" : "webm",
     how: `MediaRecorder → ${isMp4 ? "MP4" : "WebM"}`,
     kind: "mediarecorder",
     seconds: (performance.now() - t0) / 1000,
-    hasAudio: await blobHasAudio(blob),
+    hasAudio: diag.audio.state !== "silent",
+    diagnostics: diag,
   };
 }
 
 /** WebCodecs where it exists, MediaRecorder where it doesn't — and if WebCodecs fails mid-way, fall back rather than leaving them with nothing. */
 export async function renderClip(args: RenderArgs): Promise<RenderResult> {
-  const codecs = await pickMp4Config(args.canvas.width, args.canvas.height, args.buffer.sampleRate, Math.min(2, args.buffer.numberOfChannels));
+  const channels = Math.min(2, args.buffer.numberOfChannels);
+  const diag: RenderDiagnostics = {
+    path: "webcodecs", videoCodec: null, audioCodec: null, audioLayout: null, audioChunks: null,
+    sampleRate: args.buffer.sampleRate, channels, audio: { state: "unknown", peak: null },
+  };
+  const codecs = await pickMp4Config(args.canvas.width, args.canvas.height, args.buffer.sampleRate, channels);
   if (codecs) {
     try {
-      return await renderWebCodecs(args, codecs);
+      const out = await renderWebCodecs(args, codecs, diag);
+      // An encoder can accept everything, emit chunks, and still produce a track with no signal in
+      // it. If we could prove that, don't hand it over — record it in real time instead.
+      if (out.diagnostics.audio.state !== "silent") return out;
+      args.onNote("The fast encoder produced a silent track. Recording in real time instead.");
     } catch (e) {
       if ((e as Error).name === "AbortError") throw e;
       args.onNote(`The fast encoder stopped (${(e as Error).message}). Recording in real time instead.`);
@@ -338,5 +401,5 @@ export async function renderClip(args: RenderArgs): Promise<RenderResult> {
         : "This browser doesn't have WebCodecs, so the clip is recorded in real time and comes out as WebM.",
     );
   }
-  return renderMediaRecorder(args);
+  return renderMediaRecorder(args, diag);
 }

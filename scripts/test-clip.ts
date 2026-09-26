@@ -19,7 +19,7 @@ import {
   analyseClip, ASPECTS, BANDS, bandEdges, buildPeaks, clampFades, clipFileName, CLIP_LENGTHS,
   clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
-import { blobHasAudio } from "../src/lib/clip-encode";
+import { blobHasAudio, verifyAudio } from "../src/lib/clip-encode";
 import { planOf } from "../src/lib/plans";
 
 let passed = 0;
@@ -182,6 +182,16 @@ async function main() {
   check("a file with no audio track is not", !(await blobHasAudio(videoOnly)));
   check("an empty file is not", !(await blobHasAudio(new Blob([]))));
   check("a marker split across the scan boundary isn't invented", !(await blobHasAudio(new Blob([new TextEncoder().encode("mp4")]))));
+
+  // The third state is the point. Reporting "has audio" when nothing could be decoded is what let a
+  // silent clip through: the header scan finds mp4a in a silent track exactly as it does in a loud
+  // one, and Safari refuses to decodeAudioData an MP4 containing video, so the weak check fired
+  // precisely where it mattered. In Node there is no window, so every verdict here is "unknown".
+  const verdict = await verifyAudio(withAac);
+  check("a file that can't be decoded is 'unknown', never 'audible'", verdict.state === "unknown", verdict.state);
+  check("an unverified file reports no peak rather than a made-up one", verdict.peak === null);
+  check("and says why", !!verdict.why);
+  check("'unknown' is not treated as silent either", verdict.state !== "silent");
 
   console.log("\n12. The droplr mark is on the plans the pricing decision says");
   // Free gets clips on purpose: every marked reel is distribution that costs nothing, because the
