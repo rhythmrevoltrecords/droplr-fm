@@ -19,7 +19,7 @@ import {
   analyseClip, ASPECTS, BANDS, bandEdges, buildPeaks, clampFades, clipFileName, CLIP_LENGTHS,
   clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
-import { blobHasAudio, verifyAudio } from "../src/lib/clip-encode";
+import { blobHasAudio, isIOS, verifyAudio } from "../src/lib/clip-encode";
 import { planOf } from "../src/lib/plans";
 
 let passed = 0;
@@ -193,7 +193,27 @@ async function main() {
   check("and says why", !!verdict.why);
   check("'unknown' is not treated as silent either", verdict.state !== "silent");
 
-  console.log("\n12. The droplr mark is on the plans the pricing decision says");
+  console.log("\n12. Clips are a computer feature, and iOS is told so");
+  // Every browser on iOS runs Safari's engine, so this is a platform test, not a browser one:
+  // Chrome on an iPhone hits the same wall. It can't record the canvas and an audio track together,
+  // which is how a clip came back with picture and no sound. Saying so before they pick a track
+  // beats saying it after a render that took as long as the clip.
+  const asDevice = (ua: string, touch = 0) => {
+    const prev = (globalThis as { navigator?: Navigator }).navigator;
+    Object.defineProperty(globalThis, "navigator", { value: { userAgent: ua, maxTouchPoints: touch }, configurable: true });
+    const got = isIOS();
+    if (prev) Object.defineProperty(globalThis, "navigator", { value: prev, configurable: true });
+    return got;
+  };
+  check("an iPhone is iOS", asDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Version/17.0 Mobile/15E148 Safari/604.1"));
+  check("an iPad is iOS", asDevice("Mozilla/5.0 (iPad; CPU OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"));
+  check("Chrome on iOS is still iOS — it is Safari underneath", asDevice("Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/120 Mobile/15E148 Safari/604.1"));
+  check("an iPad claiming to be a Mac is caught by the touch points", asDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15", 5));
+  check("a real Mac is not iOS", !asDevice("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 Version/17.0 Safari/605.1.15", 0));
+  check("Windows Chrome is not iOS", !asDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"));
+  check("Android is not iOS — it gets the WebM message, not the no-sound one", !asDevice("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36", 5));
+
+  console.log("\n13. The droplr mark is on the plans the pricing decision says");
   // Free gets clips on purpose: every marked reel is distribution that costs nothing, because the
   // render happens on the artist's own machine. The mark is the limit, not a render cap.
   for (const p of ["free", "artist"]) check(`${p}: clip carries the mark`, !planOf(p).removeBranding);
