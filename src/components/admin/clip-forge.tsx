@@ -19,7 +19,7 @@ import {
   analyseClip, ASPECTS, type AspectKey, buildPeaks, clampFades, type ClipAnalysis, clipFileName,
   clipAudioBuffer, CLIP_LENGTHS, FADE_CHOICES, fadeSummary, FPS, isHex, loudestWindow, mmss, partnerHex,
 } from "@/lib/clip";
-import { isIOS, pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
+import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
 import { cn } from "@/lib/utils";
 
@@ -60,10 +60,7 @@ export function ClipForge(props: ClipForgeProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [mp4, setMp4] = useState<boolean | null>(null);
-  // Read once on the client: the server has no navigator, and rendering this differently on the
-  // server and the client would be a hydration mismatch.
-  const [onPhone, setOnPhone] = useState(false);
-  useEffect(() => setOnPhone(isIOS()), []);
+
 
   const frameRef = useRef<HTMLCanvasElement>(null);
   const waveRef = useRef<HTMLCanvasElement>(null);
@@ -376,16 +373,11 @@ export function ClipForge(props: ClipForgeProps) {
               {decoding ? "Decoding…" : audioName ? `${audioName} · ${mmss(duration)}` : "WAV, MP3, M4A or FLAC. Use the master you'd send to a store."}
             </span>
           </div>
-          {/* Said before they pick a track, not after a render that took the length of the clip.
-              On iOS the sound is the part that goes missing, and a silent reel is worse than none. */}
-          {onPhone ? (
-            <p className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-sm text-amber-300">
-              <strong>Make clips on a computer, not on your phone.</strong> Every browser on an iPhone or iPad is Safari underneath, and it can&apos;t
-              record the picture and the sound together — you get the video with no audio. It also renders in real time and gets hot. Open this page on
-              a laptop in Chrome, Edge or Safari and a 30-second clip takes seconds, with sound. You can still try it here; check the result before you
-              post it.
-            </p>
-          ) : mp4 === false ? (
+          {/* No "use a computer" warning. Measured on an iPhone: a 30-second clip renders in 5-10
+              seconds, because iOS has a hardware H.264 encoder and WebCodecs reaches it. The earlier
+              copy here assumed phones fall back to real-time recording, which was left over from the
+              prototype and was never true once this used WebCodecs. */}
+          {mp4 === false ? (
             <p className="text-sm text-amber-400">
               This browser can&apos;t encode H.264, so the clip records in real time and comes out as WebM. It still uploads everywhere, but Instagram
               re-encodes it — Chrome, Edge or Safari 16.4+ on a computer give you an MP4 in a fraction of the time.
@@ -528,7 +520,7 @@ export function ClipForge(props: ClipForgeProps) {
                 </Button>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">Rendering uses this device&apos;s CPU — on a laptop a 30-second clip takes seconds. On a phone it runs in real time, gets hot, and on iPhone loses the sound.</p>
+            <p className="text-xs text-muted-foreground">Rendering happens on this device. A 30-second clip takes seconds on a laptop and on a recent phone; older hardware and very long tracks take longer.</p>
           </CardContent>
         </Card>
       </div>

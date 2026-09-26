@@ -260,6 +260,65 @@ export function analyseClip({ channel, sampleRate, start, clipLen, frames, fadeI
 }
 
 // ---------------------------------------------------------------------------------------------
+// AAC decoder configuration
+// ---------------------------------------------------------------------------------------------
+
+/**
+ * The bare AudioSpecificConfig from whatever an AudioEncoder hands back as its decoder description.
+ *
+ * mp4-muxer writes that description straight into the audio sample entry's esds box, so it has to
+ * be the AudioSpecificConfig on its own — two bytes for AAC-LC. Chrome supplies exactly that.
+ * Safari supplies the entire esds box instead, header included: 12 bytes of box header, then an
+ * ES_Descriptor, a DecoderConfigDescriptor, the DecoderSpecificInfo we actually want, and an
+ * SLConfigDescriptor. Thirty-nine bytes, which is the number that gave it away.
+ *
+ * Embedding those 39 bytes where 2 belong produces an audio track that is perfectly encoded and
+ * that nothing can parse: the video plays, the sound is absent, and even the browser that wrote the
+ * file refuses to decode it.
+ *
+ * Returns the config to use, or null to pass the original through untouched — this only ever
+ * replaces a description it is confident it has understood.
+ */
+export function audioSpecificConfig(desc: ArrayBuffer | ArrayBufferView): Uint8Array | null {
+  const bytes = desc instanceof ArrayBuffer ? new Uint8Array(desc) : new Uint8Array(desc.buffer, desc.byteOffset, desc.byteLength);
+  // Already bare. Chrome's AAC-LC config is 2 bytes; 5 with explicit SBR/PS signalling.
+  if (bytes.length <= 8) return null;
+
+  // Skip an MP4 box header if one is there: 4-byte size then the four characters 'esds', then a
+  // version and flags word.
+  let i = 0;
+  if (bytes.length > 12 && bytes[4] === 0x65 && bytes[5] === 0x73 && bytes[6] === 0x64 && bytes[7] === 0x73) i = 12;
+
+  // MPEG-4 descriptors: a tag byte, then a length whose top bit continues into the next byte.
+  const readLen = () => {
+    let len = 0;
+    for (let n = 0; n < 4; n++) {
+      const b = bytes[i++];
+      len = (len << 7) | (b & 0x7f);
+      if (!(b & 0x80)) break;
+    }
+    return len;
+  };
+  while (i < bytes.length) {
+    const tag = bytes[i++];
+    const len = readLen();
+    if (len <= 0 || i + len > bytes.length) break;
+    if (tag === 0x05) return plausibleAsc(bytes.slice(i, i + len)); // DecoderSpecificInfo
+    if (tag === 0x03) i += 3 + (bytes[i + 2] & 0x80 ? 2 : 0); // ES_Descriptor: ES_ID, flags
+    else if (tag === 0x04) i += 13; // DecoderConfigDescriptor: object type, buffer and bitrates
+    else i += len; // anything else: step over it whole
+  }
+  return null;
+}
+
+/** An AudioSpecificConfig starts with a 5-bit object type; 1-5 covers AAC Main through SBR. */
+function plausibleAsc(asc: Uint8Array) {
+  if (asc.length < 2 || asc.length > 8) return null;
+  const objectType = asc[0] >> 3;
+  return objectType >= 1 && objectType <= 5 ? asc : null;
+}
+
+// ---------------------------------------------------------------------------------------------
 // Colour
 // ---------------------------------------------------------------------------------------------
 

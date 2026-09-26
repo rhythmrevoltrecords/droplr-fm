@@ -11,7 +11,7 @@
  * detail — it is the reason droplr can offer this at all without becoming a host for other
  * people's masters. See droplr/release-clips-feature.md.
  */
-import { clipAudioBuffer, fadeGain, FPS } from "./clip";
+import { audioSpecificConfig, clipAudioBuffer, fadeGain, FPS } from "./clip";
 
 export type EncodeKind = "webcodecs" | "mediarecorder";
 
@@ -275,12 +275,21 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
     output: (chunk, meta) => {
       audioChunks++;
       audioBytes += chunk.byteLength;
-      if (audioConfig === "never sent" && meta?.decoderConfig) {
-        const d = meta.decoderConfig.description;
-        const len = d ? (d as ArrayBuffer).byteLength ?? (d as Uint8Array).length : 0;
-        audioConfig = `${meta.decoderConfig.codec ?? "?"} desc=${d ? `${len}B` : "none"}`;
+      let out = meta;
+      const d = meta?.decoderConfig?.description;
+      if (d) {
+        // Safari hands back the whole esds box where the bare AudioSpecificConfig belongs, and
+        // mp4-muxer writes it verbatim — producing an audio track nothing can parse. Unwrap it.
+        const asc = audioSpecificConfig(d as ArrayBuffer);
+        if (asc) out = { ...meta, decoderConfig: { ...meta!.decoderConfig!, description: asc } };
+        if (audioConfig === "never sent") {
+          const len = (d as ArrayBuffer).byteLength ?? (d as unknown as Uint8Array).length;
+          audioConfig = `${meta!.decoderConfig!.codec ?? "?"} desc=${len}B${asc ? `→${asc.length}B unwrapped` : ""}`;
+        }
+      } else if (audioConfig === "never sent" && meta?.decoderConfig) {
+        audioConfig = `${meta.decoderConfig.codec ?? "?"} desc=none`;
       }
-      muxer.addAudioChunk(chunk, meta);
+      muxer.addAudioChunk(chunk, out);
     },
     error: (e) => { encoderError = e.message; },
   });
