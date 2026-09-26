@@ -17,7 +17,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input, Label } from "@/components/ui/input";
 import {
   analyseClip, ASPECTS, type AspectKey, buildPeaks, clampFades, type ClipAnalysis, clipFileName,
-  CLIP_LENGTHS, FADE_CHOICES, fadeGain as clipFadeGain, fadeSummary, FPS, isHex, loudestWindow, mmss, partnerHex,
+  clipAudioBuffer, CLIP_LENGTHS, FADE_CHOICES, fadeSummary, FPS, isHex, loudestWindow, mmss, partnerHex,
 } from "@/lib/clip";
 import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
@@ -237,19 +237,14 @@ export function ClipForge(props: ClipForgeProps) {
     // the past, so the gain sits at its last value — which, with a fade out, is silence. That is why
     // preview had no sound on a phone, and why a clip recorded in real time came out mute.
     if (ctx.state === "suspended") await ctx.resume().catch(() => {});
+    // The clip's own samples, fade already in them. No gain node and nothing scheduled on an
+    // AudioParam: automation is what was silencing this on Safari and on phones.
     const src = ctx.createBufferSource();
-    src.buffer = buf;
-    const gain = ctx.createGain();
-    const steps = 200;
-    const curve = new Float32Array(steps);
-    for (let i = 0; i < steps; i++) curve[i] = clipFadeGain((i / (steps - 1)) * clipLen, clipLen, fadeIn, fadeOut);
-    // A small lead-in so the curve and the source start together on a clock that is definitely running.
-    const startAt = ctx.currentTime + 0.06;
-    gain.gain.setValueCurveAtTime(curve, startAt, clipLen);
-    src.connect(gain);
-    gain.connect(ctx.destination);
+    src.buffer = clipAudioBuffer(ctx, buf, selStart, clipLen, fadeIn, fadeOut);
+    src.connect(ctx.destination);
     sourceRef.current = src;
-    src.start(startAt, selStart, clipLen);
+    const startAt = ctx.currentTime + 0.06;
+    src.start(startAt);
     setPlaying(true);
     // Driven by the audio clock, not performance.now(): if the context stalls (a phone locking, a tab
     // backgrounding) the picture stalls with the sound instead of running away from it.

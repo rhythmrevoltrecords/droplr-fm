@@ -17,7 +17,7 @@
  */
 import {
   analyseClip, ASPECTS, BANDS, bandEdges, buildPeaks, clampFades, clipFileName, CLIP_LENGTHS,
-  fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
+  clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
 import { blobHasAudio } from "../src/lib/clip-encode";
 import { planOf } from "../src/lib/plans";
@@ -136,7 +136,41 @@ async function main() {
   check("every length is a whole number of frames", CLIP_LENGTHS.every((n) => Number.isInteger(n * FPS)));
   check("the longest preset fits what platforms take", Math.max(...CLIP_LENGTHS) <= 60);
 
-  console.log("\n10. The silent-clip safety net");
+  console.log("\n10. The fade is baked into the samples, not scheduled");
+  // The preview and the real-time recorder used to fade with setValueCurveAtTime on a GainNode.
+  // That is the one thing they had in common that the WebCodecs path — which bakes the fade into
+  // the samples and worked — did not, and both of them came out silent on Safari and on phones.
+  // Automation depends on the context clock and on each browser's curve implementation; samples
+  // don't. These checks are here so nobody reintroduces a GainNode to do this job.
+  const SR2 = 48000, LEN2 = 4;
+  const fake = { sampleRate: SR2, numberOfChannels: 2, length: SR2 * 10,
+    getChannelData: (c: number) => srcChannels[c] } as unknown as AudioBuffer;
+  const srcChannels = [new Float32Array(SR2 * 10).fill(1), new Float32Array(SR2 * 10).fill(1)];
+  const made: { ch: Float32Array[]; frames: number } = { ch: [], frames: 0 };
+  const ctxStub = { createBuffer: (channels: number, frames: number) => {
+    made.frames = frames;
+    made.ch = Array.from({ length: channels }, () => new Float32Array(frames));
+    return { numberOfChannels: channels, length: frames, sampleRate: SR2, getChannelData: (c: number) => made.ch[c] } as unknown as AudioBuffer;
+  } } as unknown as BaseAudioContext;
+
+  const clip = clipAudioBuffer(ctxStub, fake, 1, LEN2, 1, 1);
+  check("the clip is exactly the length asked for", clip.length === LEN2 * SR2, String(clip.length));
+  check("every channel comes across", clip.numberOfChannels === 2);
+  const ch0 = made.ch[0];
+  check("it opens from silence", Math.abs(ch0[0]) < 0.01, String(ch0[0]));
+  check("it is at full level through the middle", Math.abs(ch0[Math.floor(ch0.length / 2)] - 1) < 1e-6);
+  check("it ends in silence", Math.abs(ch0[ch0.length - 1]) < 0.01, String(ch0[ch0.length - 1]));
+  // The failure that started all this: gain stuck at its final value for the whole clip.
+  check("the middle is NOT silent — the bug this replaces", Math.abs(ch0[Math.floor(ch0.length / 2)]) > 0.9);
+  const halfway = ch0[Math.floor(0.5 * SR2)];
+  check("halfway through the fade in is equal-power, not linear", Math.abs(halfway - Math.SQRT1_2) < 1e-3, String(halfway));
+  check("both channels are faded the same", made.ch[1].every((v, i) => Math.abs(v - ch0[i]) < 1e-9));
+  const noFade = clipAudioBuffer(ctxStub, fake, 1, LEN2, 0, 0);
+  check("with no fades every sample is untouched", made.ch[0].every((v) => Math.abs(v - 1) < 1e-9) && noFade.length === LEN2 * SR2);
+  const past = clipAudioBuffer(ctxStub, fake, 9.5, LEN2, 0, 0);
+  check("a selection running off the end is clamped, not overrun", past.length <= LEN2 * SR2 && past.length > 0, String(past.length));
+
+  console.log("\n11. The silent-clip safety net");
   // A clip with no sound is the one failure an artist doesn't catch: the video looks perfect and
   // they find out from the post. Reported on Safari, where the audio encoder accepted everything
   // and emitted nothing. This detector is the last line before they download it.
@@ -149,7 +183,7 @@ async function main() {
   check("an empty file is not", !(await blobHasAudio(new Blob([]))));
   check("a marker split across the scan boundary isn't invented", !(await blobHasAudio(new Blob([new TextEncoder().encode("mp4")]))));
 
-  console.log("\n11. The droplr mark is on the plans the pricing decision says");
+  console.log("\n12. The droplr mark is on the plans the pricing decision says");
   // Free gets clips on purpose: every marked reel is distribution that costs nothing, because the
   // render happens on the artist's own machine. The mark is the limit, not a render cap.
   for (const p of ["free", "artist"]) check(`${p}: clip carries the mark`, !planOf(p).removeBranding);

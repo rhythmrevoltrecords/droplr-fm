@@ -117,6 +117,37 @@ export function fft(re: Float32Array, im: Float32Array) {
   }
 }
 
+/**
+ * The selected seconds of a track, copied into a new buffer with the fade already applied to the
+ * samples.
+ *
+ * Deliberately not a GainNode with setValueCurveAtTime. That is how the fade used to be applied in
+ * the preview and in the real-time recorder, and it is the one thing those two had in common that
+ * the WebCodecs path — which bakes the fade into the samples and worked — did not. Automation on an
+ * AudioParam depends on the context's clock and on each browser's implementation of a curve; sample
+ * data doesn't. Baking it here means all three paths now fade identically, by the same function,
+ * with nothing left to schedule.
+ */
+export function clipAudioBuffer(
+  ctx: BaseAudioContext,
+  source: AudioBuffer,
+  start: number,
+  clipLen: number,
+  fadeIn: number,
+  fadeOut: number,
+) {
+  const sampleRate = source.sampleRate;
+  const from = Math.max(0, Math.floor(start * sampleRate));
+  const frames = Math.min(Math.floor(clipLen * sampleRate), Math.max(0, source.length - from));
+  const out = ctx.createBuffer(source.numberOfChannels, Math.max(1, frames), sampleRate);
+  for (let c = 0; c < source.numberOfChannels; c++) {
+    const src = source.getChannelData(c);
+    const dst = out.getChannelData(c);
+    for (let i = 0; i < frames; i++) dst[i] = src[from + i] * fadeGain(i / sampleRate, clipLen, fadeIn, fadeOut);
+  }
+  return out;
+}
+
 // ---------------------------------------------------------------------------------------------
 // Waveform overview
 // ---------------------------------------------------------------------------------------------

@@ -11,21 +11,38 @@
  * detail — it is the reason droplr can offer this at all without becoming a host for other
  * people's masters. See droplr/release-clips-feature.md.
  */
-import { fadeGain, FPS } from "./clip";
+import { clipAudioBuffer, fadeGain, FPS } from "./clip";
 
 export type EncodeKind = "webcodecs" | "mediarecorder";
 
 export type RenderResult = { blob: Blob; ext: "mp4" | "webm"; how: string; kind: EncodeKind; seconds: number; hasAudio: boolean };
 
 /**
- * Does the finished file actually carry an audio track?
+ * Does the finished file actually make a sound?
  *
  * Belt and braces over the encoder checks, because a silent clip is the one failure an artist
- * doesn't notice until it's posted — the video looks perfect. Scans the header for the codec entry:
- * "mp4a" in an MP4 sample description, or the Matroska CodecID string in a WebM Tracks element.
- * Both live near the front of the file, so this reads a few megabytes, not the whole thing.
+ * doesn't notice until it's posted — the video looks perfect.
  */
 export async function blobHasAudio(blob: Blob) {
+  // Decode it and look for actual signal first. A track can be present and silent — that is exactly
+  // what happened when the fade was scheduled on a GainNode instead of baked into the samples, and
+  // a header scan said "has audio" the whole time it was inaudible. Falls back to the scan when the
+  // browser can't decode its own output, and in Node (where there is no window) for the tests.
+  try {
+    const AC = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+    const ctx = new AC();
+    const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+    await ctx.close();
+    let peak = 0;
+    for (let c = 0; c < decoded.numberOfChannels; c++) {
+      const d = decoded.getChannelData(c);
+      // Every 97th sample: a prime stride, so it can't land on a period of the signal and miss it.
+      for (let i = 0; i < d.length; i += 97) { const v = Math.abs(d[i]); if (v > peak) peak = v; }
+    }
+    return peak > 0.001;
+  } catch {
+    /* fall through to the header scan */
+  }
   const head = new Uint8Array(await blob.slice(0, Math.min(blob.size, 4 * 1024 * 1024)).arrayBuffer());
   // Kept to what droplr actually produces — AAC in MP4, Opus or Vorbis in WebM, and Opus in MP4,
   // which some MediaRecorder implementations emit. A longer list would raise the chance of matching
@@ -253,18 +270,11 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
   if (ac.state === "suspended") await ac.resume().catch(() => {});
   const dest = ac.createMediaStreamDestination();
   const src = ac.createBufferSource();
-  src.buffer = buffer;
-  const gain = ac.createGain();
-  src.connect(gain);
-  gain.connect(dest);
-
-  // The same equal-power curve the offline path uses, sampled into a value curve so the recorded
-  // audio and the analysed bars can't drift apart.
-  const steps = 200;
-  const curve = new Float32Array(steps);
-  for (let i = 0; i < steps; i++) curve[i] = fadeGain((i / (steps - 1)) * clipLen, clipLen, args.fadeIn, args.fadeOut);
+  // The clip's samples with the fade already in them, exactly as the WebCodecs path does it. No
+  // GainNode and no automation: a curve scheduled on an AudioParam is what recorded silence.
+  src.buffer = clipAudioBuffer(ac, buffer, args.start, clipLen, args.fadeIn, args.fadeOut);
+  src.connect(dest);
   const startAt = ac.currentTime + 0.06;
-  gain.gain.setValueCurveAtTime(curve, startAt, clipLen);
 
   for (const t of dest.stream.getAudioTracks()) stream.addTrack(t);
   // Adding an audio track to a canvas capture stream is not universally supported, and where it
@@ -280,7 +290,7 @@ async function renderMediaRecorder(args: RenderArgs): Promise<RenderResult> {
 
   onNote(`This browser records in real time, so it takes the full ${clipLen} seconds. Leave the tab in front.`);
   rec.start();
-  src.start(startAt, args.start, clipLen);
+  src.start(startAt);
   const t1 = performance.now();
   await new Promise<void>((resolve, reject) => {
     const tick = () => {
