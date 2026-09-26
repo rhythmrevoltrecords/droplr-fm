@@ -17,7 +17,7 @@
  */
 import {
   analyseClip, ASPECTS, BANDS, bandEdges, buildPeaks, clampFades, clipFileName, CLIP_LENGTHS,
-  clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
+  audioSpecificConfig, clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
 import { blobHasAudio, isIOS, verifyAudio } from "../src/lib/clip-encode";
 import { planOf } from "../src/lib/plans";
@@ -205,11 +205,46 @@ async function main() {
   check("15s at 48kHz is about 704", Math.abs(framesFor(15, 48000) - 704) <= 1, String(framesFor(15, 48000)));
   check("a chunk count far below that means the encoder stopped early", framesFor(30, 48000) > framesFor(4, 48000) * 5);
 
-  console.log("\n13. Clips are a computer feature, and iOS is told so");
+  console.log("\n13. Unwrapping Safari's AAC decoder description");
+  // The bug this defends against: Safari's AudioEncoder returns the whole esds box where the bare
+  // AudioSpecificConfig belongs, mp4-muxer writes those 39 bytes into the audio sample entry, and
+  // the result is a track that is perfectly encoded and that nothing can parse. The video plays and
+  // there is no sound — on an iPhone, with chunks=1409 and 306 bytes per chunk proving the audio
+  // itself was fine. Byte-exact reconstruction of what Safari sent.
+  const ASC = [0x11, 0x90]; // AAC-LC, 48kHz, stereo
+  const safariEsds = new Uint8Array([
+    0x00, 0x00, 0x00, 0x27, 0x65, 0x73, 0x64, 0x73, // size=39, 'esds'
+    0x00, 0x00, 0x00, 0x00,                         // version + flags
+    0x03, 0x19, 0x00, 0x01, 0x00,                   // ES_Descriptor: len 25, ES_ID 1, flags 0
+    0x04, 0x11, 0x40, 0x15, 0x00, 0x00, 0x00, 0x00, 0x01, 0xf4, 0x00, 0x00, 0x01, 0xf4, 0x00,
+    0x05, 0x02, ASC[0], ASC[1],                     // DecoderSpecificInfo: the two bytes we want
+    0x06, 0x01, 0x02,                               // SLConfigDescriptor
+  ]);
+  check("the reconstruction is the 39 bytes the iPhone reported", safariEsds.length === 39, String(safariEsds.length));
+  const got = audioSpecificConfig(safariEsds.buffer);
+  check("the AudioSpecificConfig is pulled out of it", !!got && got.length === 2, got ? `${got.length}B` : "null");
+  check("and it is the right two bytes", !!got && got[0] === ASC[0] && got[1] === ASC[1], got ? [...got].map((b) => b.toString(16)).join(" ") : "null");
+
+  // Chrome already sends the bare config. Touching it would break the browser that works.
+  check("a bare 2-byte config is left alone", audioSpecificConfig(new Uint8Array(ASC).buffer) === null);
+  check("a 5-byte config with SBR signalling is left alone", audioSpecificConfig(new Uint8Array([0x2b, 0x8a, 0x08, 0x00, 0x00]).buffer) === null);
+  // Opus sends a 19-byte OpusHead, which is not a descriptor chain and must not be mangled.
+  check("an Opus header is not mistaken for one", audioSpecificConfig(new TextEncoder().encode("OpusHead\x01\x02\x00\x00\x80\xbb\x00\x00\x00\x00\x00").buffer) === null);
+  check("garbage is refused rather than guessed at", audioSpecificConfig(new Uint8Array(40).fill(0xff).buffer) === null);
+  check("a truncated descriptor doesn't run off the end", audioSpecificConfig(safariEsds.slice(0, 20).buffer) === null);
+  // An esds without the box header around it — the same chain, unwrapped one layer.
+  check("a descriptor chain with no box header still works", (() => {
+    const bare = safariEsds.slice(12);
+    const r = audioSpecificConfig(bare.buffer.slice(bare.byteOffset, bare.byteOffset + bare.length));
+    return !!r && r.length === 2 && r[0] === ASC[0];
+  })());
+  check("an implausible object type is refused", audioSpecificConfig(new Uint8Array([...safariEsds.slice(0, 34), 0xf8, 0x00, ...safariEsds.slice(36)]).buffer) === null);
+
+  console.log("\n14. Knowing when we're on iOS");
   // Every browser on iOS runs Safari's engine, so this is a platform test, not a browser one:
-  // Chrome on an iPhone hits the same wall. It can't record the canvas and an audio track together,
-  // which is how a clip came back with picture and no sound. Saying so before they pick a track
-  // beats saying it after a render that took as long as the clip.
+  // Chrome on an iPhone behaves identically. iOS does have WebCodecs and does render fast — the
+  // earlier belief that it fell back to a real-time recorder was wrong. What it needs is its own
+  // copy for the esds quirk above, and an honest note that a phone is the harder way to do this.
   const asDevice = (ua: string, touch = 0) => {
     const prev = (globalThis as { navigator?: Navigator }).navigator;
     Object.defineProperty(globalThis, "navigator", { value: { userAgent: ua, maxTouchPoints: touch }, configurable: true });
@@ -225,7 +260,7 @@ async function main() {
   check("Windows Chrome is not iOS", !asDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"));
   check("Android is not iOS — it gets the WebM message, not the no-sound one", !asDevice("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36", 5));
 
-  console.log("\n14. The droplr mark is on the plans the pricing decision says");
+  console.log("\n15. The droplr mark is on the plans the pricing decision says");
   // Free gets clips on purpose: every marked reel is distribution that costs nothing, because the
   // render happens on the artist's own machine. The mark is the limit, not a render cap.
   for (const p of ["free", "artist"]) check(`${p}: clip carries the mark`, !planOf(p).removeBranding);
