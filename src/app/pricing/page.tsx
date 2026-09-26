@@ -6,8 +6,9 @@ import { pricingTiers } from "@/lib/pricing-tiers";
 
 export const metadata = { title: "Pricing" };
 
-export default async function PricingPage(props: { searchParams: Promise<{ for?: string }> }) {
-  const sp = await props.searchParams;
+// No searchParams here: reading them makes the route dynamic, and this page is the same for
+// everyone. ?for=label is handled inside AudiencePricing, which is already a client component.
+export default function PricingPage() {
   const cta = ctaCopy();
   const tiers = pricingTiers();
   return (
@@ -26,7 +27,7 @@ export default async function PricingPage(props: { searchParams: Promise<{ for?:
             <p className="mt-5 text-lg text-white/60">Every plan includes email pre-saves in each fan&apos;s timezone, promo plans, share graphics and insights. Prices in Australian dollars (AUD), including any tax, billed monthly or yearly.</p>
           </div>
           <div className="mt-12">
-            <AudiencePricing detailed artist={tiers.artist} label={tiers.label} initial={sp.for === "label" ? "label" : "artist"} />
+            <AudiencePricing detailed fromQuery artist={tiers.artist} label={tiers.label} />
           </div>
           <div className="mx-auto mt-12 max-w-3xl space-y-2 text-center text-sm text-white/55">
             <p>Already have an account? Upgrade from <Link href="/admin/settings/billing" className="underline">Settings → Plan &amp; billing</Link>. Paid plans renew automatically; cancel any time. <Link href="/legal/billing" className="underline">Billing &amp; refunds</Link></p>

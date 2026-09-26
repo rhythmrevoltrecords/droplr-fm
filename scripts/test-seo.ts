@@ -159,6 +159,28 @@ async function main() {
     check(`${route} declares noindex`, src.includes("NOINDEX"), file);
   }
 
+  // --- marketing pages must stay statically rendered ---
+  // Reading searchParams, cookies or headers in a page opts the whole route out of static rendering
+  // in Next 15. /pricing did exactly that — for one query param that preselected a tab — and paid a
+  // serverless invocation per view with `no-store`, measured at 288ms-3.3s against 38ms for every
+  // other marketing page. It is the page people decide to pay on, and the regression is invisible
+  // in review: nothing breaks, it just quietly stops being cached.
+  const MUST_BE_STATIC: [string, string][] = [
+    ["/", "src/app/page.tsx"],
+    ["/pricing", "src/app/pricing/page.tsx"],
+    ["/learn", "src/app/learn/page.tsx"],
+    ["/legal", "src/app/legal/page.tsx"],
+  ];
+  // Comments are stripped first: these files explain why they avoid these APIs, and a naive string
+  // match would fail on the explanation.
+  const withoutComments = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  for (const [route, file] of MUST_BE_STATIC) {
+    const code = withoutComments(readFileSync(file, "utf8"));
+    const dynamicBits = ["searchParams", "cookies(", "headers(", 'dynamic = "force-dynamic"', "noStore("];
+    const found = dynamicBits.filter((b) => code.includes(b));
+    check(`${route} stays static (nothing that forces dynamic rendering)`, found.length === 0, found.join(", "));
+  }
+
   console.log(`\n${pass} passed, ${fails.length} failed`);
   if (fails.length) { console.log(fails.map((f) => ` - ${f}`).join("\n")); process.exit(1); }
 }

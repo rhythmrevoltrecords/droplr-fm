@@ -1,7 +1,7 @@
 "use client";
 import { ArrowRight, Check } from "lucide-react";
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 export type Audience = "artist" | "label";
@@ -20,9 +20,22 @@ export function AudienceToggle({ value, onChange, className }: { value: Audience
   );
 }
 
-/** Plan cards for artists or labels behind one toggle. `detailed` = full feature lists (pricing page). */
-export function AudiencePricing({ artist, label, detailed = false, initial = "artist" }: { artist: PriceTier[]; label: PriceTier[]; detailed?: boolean; initial?: Audience }) {
+/**
+ * Plan cards for artists or labels behind one toggle. `detailed` = full feature lists (pricing page).
+ *
+ * `fromQuery` reads ?for=label here rather than on the server on purpose. Touching searchParams in
+ * the page opts the whole route out of static rendering in Next 15, and /pricing was the only
+ * marketing page paying that: a serverless invocation on every view, `no-store` so the CDN could
+ * never help, and 0.6-3.3s to render. Preselecting a tab is not worth that on the page where people
+ * decide to pay. Reading it in the component that already owns the state costs one effect.
+ */
+export function AudiencePricing({ artist, label, detailed = false, initial = "artist", fromQuery = false }: { artist: PriceTier[]; label: PriceTier[]; detailed?: boolean; initial?: Audience; fromQuery?: boolean }) {
   const [aud, setAud] = useState<Audience>(initial);
+  useEffect(() => {
+    if (!fromQuery) return;
+    // Before paint, so a ?for=label link doesn't flash the artist tab first.
+    if (new URLSearchParams(window.location.search).get("for") === "label") setAud("label");
+  }, [fromQuery]);
   const tiers = aud === "artist" ? artist : label;
   return (
     <div className="space-y-8">
