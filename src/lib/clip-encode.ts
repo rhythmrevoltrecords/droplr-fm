@@ -116,6 +116,18 @@ export type RenderArgs = {
   signal?: AbortSignal;
 };
 
+/**
+ * iOS, including an iPad reporting itself as a Mac.
+ *
+ * Every browser on iOS runs Safari's engine, so this is a platform test rather than a browser one:
+ * Chrome on an iPhone hits exactly the same walls because it is Safari underneath.
+ */
+export function isIOS() {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return /iP(hone|ad|od)/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+}
+
 export const webCodecsAvailable = () =>
   typeof window !== "undefined" &&
   typeof (window as unknown as { VideoEncoder?: unknown }).VideoEncoder === "function" &&
