@@ -35,6 +35,19 @@ export type RenderDiagnostics = {
   audioLayout: string | null;
   /** Chunks the audio encoder actually emitted. Zero means it accepted everything and made nothing. */
   audioChunks: number | null;
+  /**
+   * Total bytes across those chunks, and the mean per chunk. This is the number that separates the
+   * two ways a clip goes silent. AAC spends almost nothing on silence — a quiet frame is tens of
+   * bytes — and hundreds on music. So a healthy mean says the encoder was given real audio and the
+   * problem is further down (muxing, or the player), while a tiny one says it was handed silence.
+   */
+  audioBytes: number | null;
+  /**
+   * Whether the encoder supplied a decoder configuration on its first chunk, and how long its
+   * description is. mp4-muxer writes that description into the file's audio sample entry; without
+   * it, or with a shape the muxer doesn't expect, the track is there and nothing can decode it.
+   */
+  audioConfig: string | null;
   sampleRate: number;
   channels: number;
   audio: AudioVerdict;
@@ -256,8 +269,19 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
     error: (e) => { encoderError = e.message; },
   });
   venc.configure({ codec: codecs.video, width: canvas.width, height: canvas.height, bitrate: 7_000_000, framerate: FPS });
+  let audioBytes = 0;
+  let audioConfig = "never sent";
   const aenc = new W.AudioEncoder({
-    output: (chunk, meta) => { audioChunks++; muxer.addAudioChunk(chunk, meta); },
+    output: (chunk, meta) => {
+      audioChunks++;
+      audioBytes += chunk.byteLength;
+      if (audioConfig === "never sent" && meta?.decoderConfig) {
+        const d = meta.decoderConfig.description;
+        const len = d ? (d as ArrayBuffer).byteLength ?? (d as Uint8Array).length : 0;
+        audioConfig = `${meta.decoderConfig.codec ?? "?"} desc=${d ? `${len}B` : "none"}`;
+      }
+      muxer.addAudioChunk(chunk, meta);
+    },
     error: (e) => { encoderError = e.message; },
   });
   aenc.configure({ codec: codecs.audio, sampleRate, numberOfChannels: channels, bitrate: 192_000 });
@@ -305,6 +329,8 @@ async function renderWebCodecs(args: RenderArgs, codecs: { video: string; audio:
   // with an audio track declared and no samples in it: it plays, it looks right, and it is silent.
   // Found on Safari. Throwing here falls back to MediaRecorder rather than handing over a mute clip.
   diag.audioChunks = audioChunks;
+  diag.audioBytes = audioBytes;
+  diag.audioConfig = audioConfig;
   if (!audioChunks) throw new Error("the audio encoder produced nothing");
   muxer.finalize();
   onProgress(1);
@@ -391,7 +417,7 @@ async function renderMediaRecorder(args: RenderArgs, diag: RenderDiagnostics): P
 export async function renderClip(args: RenderArgs): Promise<RenderResult> {
   const channels = Math.min(2, args.buffer.numberOfChannels);
   const diag: RenderDiagnostics = {
-    path: "webcodecs", videoCodec: null, audioCodec: null, audioLayout: null, audioChunks: null,
+    path: "webcodecs", videoCodec: null, audioCodec: null, audioLayout: null, audioChunks: null, audioBytes: null, audioConfig: null,
     sampleRate: args.buffer.sampleRate, channels, audio: { state: "unknown", peak: null },
   };
   const codecs = await pickMp4Config(args.canvas.width, args.canvas.height, args.buffer.sampleRate, channels);

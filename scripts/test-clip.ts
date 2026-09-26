@@ -193,7 +193,19 @@ async function main() {
   check("and says why", !!verdict.why);
   check("'unknown' is not treated as silent either", verdict.state !== "silent");
 
-  console.log("\n12. Clips are a computer feature, and iOS is told so");
+  // AAC spends almost nothing encoding silence and hundreds of bytes per frame on music, so the
+  // mean chunk size is what separates "the encoder was handed silence" from "the encoder was fine
+  // and the file was muxed wrong". Both look identical from the outside: a video that plays with no
+  // sound. These are the arithmetic behind reading that number.
+  console.log("\n12. Reading an audio chunk count");
+  const AAC_FRAME = 1024;
+  const framesFor = (secs: number, rate: number) => Math.ceil((secs * rate) / AAC_FRAME);
+  check("30s at 48kHz is about 1406 AAC frames", framesFor(30, 48000) === 1407 || framesFor(30, 48000) === 1406, String(framesFor(30, 48000)));
+  check("30s at 44.1kHz is about 1292", Math.abs(framesFor(30, 44100) - 1292) <= 1, String(framesFor(30, 44100)));
+  check("15s at 48kHz is about 704", Math.abs(framesFor(15, 48000) - 704) <= 1, String(framesFor(15, 48000)));
+  check("a chunk count far below that means the encoder stopped early", framesFor(30, 48000) > framesFor(4, 48000) * 5);
+
+  console.log("\n13. Clips are a computer feature, and iOS is told so");
   // Every browser on iOS runs Safari's engine, so this is a platform test, not a browser one:
   // Chrome on an iPhone hits the same wall. It can't record the canvas and an audio track together,
   // which is how a clip came back with picture and no sound. Saying so before they pick a track
@@ -213,7 +225,7 @@ async function main() {
   check("Windows Chrome is not iOS", !asDevice("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36"));
   check("Android is not iOS — it gets the WebM message, not the no-sound one", !asDevice("Mozilla/5.0 (Linux; Android 14) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36", 5));
 
-  console.log("\n13. The droplr mark is on the plans the pricing decision says");
+  console.log("\n14. The droplr mark is on the plans the pricing decision says");
   // Free gets clips on purpose: every marked reel is distribution that costs nothing, because the
   // render happens on the artist's own machine. The mark is the limit, not a render cap.
   for (const p of ["free", "artist"]) check(`${p}: clip carries the mark`, !planOf(p).removeBranding);

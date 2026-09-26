@@ -504,6 +504,12 @@ export function ClipForge(props: ClipForgeProps) {
                   <code className="mt-1 block break-all rounded bg-black/30 p-2 leading-relaxed">
                     path={result.diagnostics.path} video={result.diagnostics.videoCodec ?? "—"} audio={result.diagnostics.audioCodec ?? "—"}{" "}
                     layout={result.diagnostics.audioLayout ?? "—"} chunks={result.diagnostics.audioChunks ?? "—"}{" "}
+                    {result.diagnostics.audioBytes !== null && (
+                      <>bytes={Math.round(result.diagnostics.audioBytes / 1024)}KB avg=
+                        {result.diagnostics.audioChunks ? Math.round(result.diagnostics.audioBytes / result.diagnostics.audioChunks) : 0}B{" "}
+                      </>
+                    )}
+                    {result.diagnostics.audioConfig && <>cfg=[{result.diagnostics.audioConfig}]{" "}</>}
                     {result.diagnostics.sampleRate}Hz×{result.diagnostics.channels} sound={result.diagnostics.audio.state}
                     {result.diagnostics.audio.peak !== null && ` peak=${result.diagnostics.audio.peak}`}
                     {result.diagnostics.audio.why && ` (${result.diagnostics.audio.why})`}
