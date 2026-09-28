@@ -1,8 +1,8 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/components/admin/app-shell";
 import { tourSteps } from "@/lib/tour";
 import { CompNotice } from "@/components/admin/comp-notice";
 import { LegalUpdateNotice } from "@/components/admin/legal-update-notice";
-import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
 import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
 import { compNoticeFor } from "@/lib/plan-copy";
@@ -24,6 +24,9 @@ export const metadata = { ...NOINDEX,
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser("label");
+  // Public signups mean an unconfirmed account could otherwise publish a page on droplr.fm.
+  // The gate is a page of its own so the first screen after signing up is one instruction.
+  if (!user.emailVerifiedAt) redirect("/verify-email");
   const artist = user.organization.kind === "artist";
   const feedbackUnread = (await prisma.feedbackThread.count({ where: { userId: user.id, unreadByUser: true } })) > 0;
   const org = await prisma.organization.findUnique({
@@ -66,7 +69,6 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           code={org.founderCode}
         />
       )}
-      {!user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}
       {children}
     </AppShell>
   );
