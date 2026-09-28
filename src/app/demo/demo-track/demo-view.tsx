@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useMemo } from "react";
 import { ReleaseView } from "@/components/public/release-view";
 
-const LINKS = ["spotify", "appleMusic", "beatport", "traxsource", "bandcamp", "youtubeMusic", "soundcloud", "juno", "amazonMusic", "tidal"].map((p, i) => ({ id: `demo-${i}`, platform: p, label: null, url: "#" }));
+const LINKS = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "tidal", "deezer", "soundcloud", "beatport", "bandcamp", "audiomack"].map((p, i) => ({ id: `demo-${i}`, platform: p, label: null, url: "#" }));
 
 /** Fake release. Dates are relative to "now", so this only reads the clock in the browser (the page itself is static). */
 export function DemoTrackView({ presave, done }: { presave: boolean; done?: string }) {

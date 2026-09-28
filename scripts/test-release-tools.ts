@@ -16,7 +16,7 @@ import { prisma } from "../src/lib/db";
 import { disableReport, enableReport, reportByToken } from "../src/lib/report";
 import { notifyDuePromoSteps, duePromoWork } from "../src/lib/promo-reminders";
 import { promoSteps, stepDate } from "../src/lib/promo";
-import { guessPlatformFromUrl } from "../src/lib/platforms";
+import { guessPlatformFromUrl, isPlatformKey, LISTEN_CHOICES, platformMeta, storeSearchUrl } from "../src/lib/platforms";
 import { setPushSenderForTests } from "../src/lib/push";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -66,10 +66,29 @@ function platformGuessChecks() {
     ["https://juno.co.uk/products/x", "juno"],
     ["https://music.amazon.co.uk/albums/x", "amazonMusic"],
     ["https://listen.tidal.com/album/x", "tidal"],
+    // Added 28 Sep 2026: where a release lands through a DistroKid-style distributor. A label
+    // pastes these; until now each one came back "custom" and showed a generic chip.
+    ["https://www.iheart.com/artist/x/albums/y", "iheartRadio"],
+    ["https://audiomack.com/ototo/song/x", "audiomack"],
+    ["https://open.qobuz.com/album/x", "qobuz"],
+    ["https://play.anghami.com/album/x", "anghami"],
+    ["https://www.boomplay.com/albums/x", "boomplay"],
   ];
   let ok = true;
   for (const [url, want] of real) if (guessPlatformFromUrl(url) !== want) { ok = false; console.log(`    ${url} → ${guessPlatformFromUrl(url)}, wanted ${want}`); }
   check("real store and streaming links resolve to their platform", ok);
+
+  // Juno and Traxsource came off the homepage strip and the fan picker on 28 Sep 2026. They are
+  // still link types on purpose: dance labels sell there, and any release already carrying one of
+  // those links must keep rendering it with its own name and colour rather than a generic chip.
+  check("a saved Traxsource link still knows what it is", guessPlatformFromUrl("https://www.traxsource.com/title/x") === "traxsource" && platformMeta("traxsource").name === "Traxsource");
+  check("a saved Juno link still knows what it is", guessPlatformFromUrl("https://www.junodownload.com/products/x") === "juno" && platformMeta("juno").name === "Juno Download");
+  // Every choice a fan can pick has to be a platform we can actually name back at them in the
+  // release-day email. A typo here would render a blank chip on the email that matters most.
+  const badChoice = LISTEN_CHOICES.filter((k) => !isPlatformKey(k) || platformMeta(k).name === k);
+  check("every \"where do you listen\" choice is a real platform", badChoice.length === 0, badChoice.join(", "));
+  const noSearch = ["iheartRadio", "audiomack", "qobuz", "anghami", "boomplay"].filter((k) => !storeSearchUrl(k, "test song"));
+  check("the new platforms have a store search a label can use", noSearch.length === 0, noSearch.join(", "));
 
   // The hostname is the only thing that counts. A platform name in the path, the query or
   // a longer domain must not borrow that platform's identity on a public release page.
@@ -79,6 +98,8 @@ function platformGuessChecks() {
     "https://open.spotify.com.example.com/x",
     "https://notsoundcloud.com/x",
     "https://beatport.com.example.net/x",
+    "https://audiomack.com.example.net/x",
+    "https://example.com/www.iheart.com/x",
     "javascript:alert(1)//open.spotify.com",
     "not a url",
   ];

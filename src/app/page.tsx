@@ -17,7 +17,12 @@ const DEMO_COVER = "/demo/two-step-theory.svg";
 
 /* ---------- Content ---------- */
 
-const STORES = ["spotify", "appleMusic", "beatport", "youtubeMusic", "soundcloud", "traxsource", "bandcamp", "amazonMusic", "tidal", "deezer", "juno"];
+// Where a release actually lands. Ordered so the strip opens on the ones everyone knows and the
+// less familiar names arrive once it's already reading as credible. Beatport stays — it isn't a
+// DistroKid destination, but dance labels reach it through their own distributor and it's the
+// store their fans buy from. Juno and Traxsource came off on 28 Sep 2026: too niche to earn a slot
+// in a marquee, and still available as link types for the labels that do sell there.
+const STORES = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "tidal", "deezer", "soundcloud", "beatport", "bandcamp", "pandora", "iheartRadio", "audiomack", "qobuz", "anghami", "boomplay"];
 
 const FOR_ARTISTS = [
   { title: "Make the release page", body: "Paste a Spotify link. Artwork, colour and store links fill in, unreleased is fine." },
