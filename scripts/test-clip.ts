@@ -20,6 +20,7 @@ import {
   audioSpecificConfig, clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
 import { blobHasAudio, isIOS, verifyAudio } from "../src/lib/clip-encode";
+import { drawClipFrame, type FrameCopy, STORY_SAFE_BOTTOM, STORY_SAFE_TOP, STORY_STICKER_BAND } from "../src/lib/clip-frame";
 import { planOf } from "../src/lib/plans";
 
 let passed = 0;
@@ -30,6 +31,38 @@ const check = (name: string, ok: boolean, detail = "") => {
   console.log(`  ${ok ? "✓" : "✗"} ${name}${ok || !detail ? "" : ` (${detail})`}`);
 };
 const near = (a: number, b: number, tol = 1e-6) => Math.abs(a - b) <= tol;
+
+
+/**
+ * A canvas that records instead of painting.
+ *
+ * The frame is 200 lines of drawing calls with no return value, so the only way to assert anything
+ * about the composition without a browser is to watch what it asks the context to do. Every method
+ * the frame touches is here; anything it starts calling that isn't will throw rather than pass
+ * quietly.
+ */
+type Op = { kind: "text"; text: string; x: number; y: number } | { kind: "rect"; y: number; h: number };
+function recordFrame(copy: Partial<FrameCopy>, guide: boolean, W = 1080, H = 1920): Op[] {
+  const ops: Op[] = [];
+  const ctx = {
+    fillStyle: "", strokeStyle: "", lineWidth: 0, textAlign: "", font: "",
+    fillRect: (_x: number, y: number, _w: number, h: number) => ops.push({ kind: "rect", y, h }),
+    fillText: (text: string, x: number, y: number) => ops.push({ kind: "text", text, x, y }),
+    measureText: (t: string) => ({ width: t.length * 14 }),
+    createRadialGradient: () => ({ addColorStop: () => {} }),
+    drawImage: () => {},
+    save: () => {}, restore: () => {}, clip: () => {}, stroke: () => {}, fill: () => {},
+    beginPath: () => {}, moveTo: () => {}, arcTo: () => {}, closePath: () => {},
+    setLineDash: () => {},
+  } as unknown as CanvasRenderingContext2D;
+  drawClipFrame({
+    ctx, width: W, height: H, progress: 0.5, bands: null, kick: 0, art: null,
+    accent: "#8B5CF6", accent2: "#22D3EE",
+    copy: { headline: "OUT NOW", link: "droplr.fm/rrr/track", tagline: "Ototo — Mess It Up", mark: "droplr.fm", ...copy },
+    stickerGuide: guide,
+  });
+  return ops;
+}
 
 async function main() {
   console.log("1. Band edges — the bug that shipped twice");
@@ -128,6 +161,35 @@ async function main() {
   check("a square clip says so", clipFileName("x", "square", 15, "webm") === "x-1080x1080-15s.webm");
   check("a hostile slug can't escape the filename", clipFileName("../../etc/passwd", "square", 30, "mp4") === "etc-passwd-1080x1080-30s.mp4", clipFileName("../../etc/passwd", "square", 30, "mp4"));
   check("an empty slug still produces a name", clipFileName("", "square", 30, "mp4") === "release-1080x1080-30s.mp4");
+  // The two files look identical in a camera roll; posting the printed-link one to a Story is the
+  // mistake that wastes the feature, so the name has to say which is which.
+  check("a story cut says so in the name", clipFileName("ototo-messitup", "tall", 30, "mp4", "story") === "ototo-messitup-1080x1920-30s-story.mp4", clipFileName("ototo-messitup", "tall", 30, "mp4", "story"));
+
+  console.log("\n" + "Story layout: room for the link sticker");
+  // Instagram covers the top and bottom ~250px of a Story with its own chrome. Everything drawn
+  // has to sit between them, and so does the band the artist drops the sticker into — a band
+  // under the reply bar would send them to put their only tappable link somewhere invisible.
+  check("the sticker band sits inside Instagram's safe area", STORY_STICKER_BAND.top >= STORY_SAFE_TOP && STORY_STICKER_BAND.bottom <= STORY_SAFE_BOTTOM, `${STORY_STICKER_BAND.top}-${STORY_STICKER_BAND.bottom} vs ${STORY_SAFE_TOP}-${STORY_SAFE_BOTTOM}`);
+  check("…and is tall enough for a link sticker", STORY_STICKER_BAND.bottom - STORY_STICKER_BAND.top >= 180, String(STORY_STICKER_BAND.bottom - STORY_STICKER_BAND.top));
+
+  // The frame is drawn through a recording context, so what matters is provable without a canvas:
+  // in story mode nothing is painted inside the band, and the link line is never drawn.
+  const painted = recordFrame({ link: null }, false);
+  const texts = (ops: Op[]) => ops.filter((op): op is Extract<Op, { kind: "text" }> => op.kind === "text");
+  const inBand = texts(painted).filter((op) => op.y > STORY_STICKER_BAND.top && op.y < STORY_STICKER_BAND.bottom);
+  check("nothing is written into the sticker band", inBand.length === 0, inBand.map((o) => o.text).join(" | "));
+  const outside = texts(painted).filter((op) => op.y <= STORY_SAFE_TOP || op.y >= STORY_SAFE_BOTTOM);
+  check("every line of copy clears Instagram's chrome", outside.length === 0, outside.map((o) => `${o.text}@${Math.round(o.y)}`).join(" | "));
+  const withLink = recordFrame({ link: "droplr.fm/rrr/track" }, false);
+  check("the printed layout still prints the link", texts(withLink).some((op) => op.text === "droplr.fm/rrr/track"));
+  check("the story layout never prints it", !texts(painted).some((op) => op.text.includes("droplr.fm/rrr")));
+
+  // The guide is a note to the artist. Baked into the video it would be the feature backwards.
+  const guided = recordFrame({ link: null }, true);
+  check("the preview shows where the sticker goes", texts(guided).some((op) => op.text.includes("link sticker")));
+  check("…and the render never does", !texts(painted).some((op) => op.text.includes("link sticker")));
+  const square = recordFrame({ link: null }, true, 1080, 1080);
+  check("a square clip never gets the sticker layout", square.length > 0 && !texts(square).some((op) => op.text.includes("link sticker")));
   check("timestamps read as minutes and seconds", mmss(0) === "0:00" && mmss(65) === "1:05" && mmss(-4) === "0:00" && mmss(3600) === "60:00");
 
   console.log("\n9. Shape and length presets");

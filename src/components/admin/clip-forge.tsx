@@ -44,6 +44,9 @@ type Phase = { kind: "idle" } | { kind: "working"; note: string; progress: numbe
 
 export function ClipForge(props: ClipForgeProps) {
   const [aspect, setAspect] = useState<AspectKey>("tall");
+  // "sticker" drops the printed URL and leaves room for Instagram's link sticker. Only meaningful
+  // on a 9:16: a feed post has no sticker, so a square clip without its link has no link at all.
+  const [linkMode, setLinkMode] = useState<"printed" | "sticker">("printed");
   const [clipLen, setClipLen] = useState<number>(30);
   const [selStart, setSelStart] = useState(0);
   const [fadeIn, setFadeIn] = useState(0.25);
@@ -77,19 +80,21 @@ export function ClipForge(props: ClipForgeProps) {
   const size = ASPECTS[aspect];
   const frames = Math.round(clipLen * FPS);
 
+  const story = aspect === "tall" && linkMode === "sticker";
+  const copyLink = props.link.replace(/^https?:\/\//, "");
   const copy: FrameCopy = useMemo(
     () => ({
       headline: headline.trim() || (props.live ? "OUT NOW" : "PRE-SAVE NOW"),
-      link: props.link.replace(/^https?:\/\//, ""),
+      link: story ? null : props.link.replace(/^https?:\/\//, ""),
       tagline: tagline.trim(),
       mark: props.removeBranding ? null : "droplr.fm",
     }),
-    [headline, tagline, props.link, props.live, props.removeBranding],
+    [headline, tagline, props.link, props.live, props.removeBranding, story],
   );
 
   /** One frame of the composition. Index -1 means the resting state. */
   const paint = useCallback(
-    (i: number) => {
+    (i: number, guide = true) => {
       const canvas = frameRef.current;
       const ctx = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
@@ -105,6 +110,7 @@ export function ClipForge(props: ClipForgeProps) {
         accent,
         accent2,
         copy,
+        stickerGuide: guide,
       });
     },
     [accent, accent2, copy, frames],
@@ -320,7 +326,8 @@ export function ClipForge(props: ClipForgeProps) {
       ensureAnalysis();
       const result = await renderClip({
         canvas,
-        drawFrame: paint,
+        // Guide off: the dashed box is a note to the artist, not part of the video.
+        drawFrame: (i: number) => paint(i, false),
         frames,
         buffer: buf,
         start: selStart,
@@ -344,7 +351,7 @@ export function ClipForge(props: ClipForgeProps) {
   const result = phase.kind === "done" ? phase.result : null;
   const downloadUrl = useMemo(() => (result ? URL.createObjectURL(result.blob) : null), [result]);
   useEffect(() => () => { if (downloadUrl) URL.revokeObjectURL(downloadUrl); }, [downloadUrl]);
-  const fileName = result ? clipFileName(props.slug, aspect, clipLen, result.ext) : "";
+  const fileName = result ? clipFileName(props.slug, aspect, clipLen, result.ext, story ? "story" : undefined) : "";
 
   const ready = !!peaks && !decoding;
   const selEnd = Math.min(duration, selStart + clipLen);
@@ -359,6 +366,7 @@ export function ClipForge(props: ClipForgeProps) {
             following the audio, and the glow pulled from the artwork&apos;s own colour. <strong className="text-foreground">The audio never leaves your
             computer.</strong> It&apos;s read, rendered and saved here, so nothing is uploaded and nothing is stored.
             {!props.removeBranding && " A small droplr.fm line sits under your link; Artist Pro and the label plans render it clean."}
+            {" "}For a Story, switch the link to a sticker and droplr leaves the room for it.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-3">
@@ -419,6 +427,27 @@ export function ClipForge(props: ClipForgeProps) {
                 onChange={(v: AspectKey) => { setAspect(v); }}
                 options={(Object.keys(ASPECTS) as AspectKey[]).map((k) => ({ value: k, label: ASPECTS[k].label, hint: ASPECTS[k].hint }))}
               />
+              {/* Only on a 9:16. There is no link sticker on a feed post, so offering it there
+                  would just be an option that removes your link and gives nothing back. */}
+              {aspect === "tall" && (
+                <div className="space-y-1.5">
+                  <Choices
+                    label="The link"
+                    value={linkMode}
+                    onChange={(v: "printed" | "sticker") => setLinkMode(v)}
+                    options={[
+                      { value: "printed" as const, label: "Printed on it", hint: "Your link across the clip — for Reels, TikTok and Shorts, where you can't attach one" },
+                      { value: "sticker" as const, label: "Room for a sticker", hint: "For Instagram Stories: the clip leaves a clear space and you drop the link sticker on it" },
+                    ]}
+                  />
+                  {story && (
+                    <p className="text-xs text-muted-foreground">
+                      Post it to your Story, tap the sticker button, choose <strong className="text-foreground">Link</strong> and paste{" "}
+                      <code className="text-foreground">{copyLink}</code>. Drop it in the space we&apos;ve left. The dashed box is only in this preview — it isn&apos;t in the video.
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-2">
                 <Choices label="Fade in" value={fadeIn} onChange={(v: number) => setFade("in", v)} options={FADE_CHOICES.map((n) => ({ value: n, label: n ? `${n}s` : "None" }))} />
                 <Choices label="Fade out" value={fadeOut} onChange={(v: number) => setFade("out", v)} options={FADE_CHOICES.map((n) => ({ value: n, label: n ? `${n}s` : "None" }))} />
@@ -441,7 +470,11 @@ export function ClipForge(props: ClipForgeProps) {
                 <Label htmlFor="clip-tagline">Line underneath</Label>
                 <Input id="clip-tagline" value={tagline} maxLength={60} onChange={(e) => setTagline(e.target.value)} />
               </div>
-              <p className="sm:col-span-2 text-xs text-muted-foreground">Link on the clip: <code className="text-foreground">{copy.link}</code></p>
+              <p className="sm:col-span-2 text-xs text-muted-foreground">
+                {copy.link
+                  ? <>Link on the clip: <code className="text-foreground">{copy.link}</code></>
+                  : <>No link printed on this one — you&apos;ll add it as a sticker. It&apos;s <code className="text-foreground">{copyLink}</code>.</>}
+              </p>
             </CardContent>
           </Card>
         </div>
@@ -449,7 +482,7 @@ export function ClipForge(props: ClipForgeProps) {
         <Card className="lg:sticky lg:top-4 lg:self-start">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">Preview</CardTitle>
-            <CardDescription>{size.width}×{size.height} · {clipLen}s · {fadeSummary(fadeIn, fadeOut)}</CardDescription>
+            <CardDescription>{size.width}×{size.height} · {clipLen}s · {fadeSummary(fadeIn, fadeOut)}{story && " · link sticker"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
             <div className="mx-auto overflow-hidden rounded-lg ring-1 ring-white/10" style={{ aspectRatio: size.ratio, maxWidth: aspect === "tall" ? 260 : 340 }}>

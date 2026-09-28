@@ -356,9 +356,11 @@ export const isHex = (v: string | null | undefined): v is string => !!v && /^#[0
 // ---------------------------------------------------------------------------------------------
 
 /** A filename an artist can find again in their downloads folder six weeks later. */
-export function clipFileName(slug: string, aspect: AspectKey, seconds: number, ext: string) {
+export function clipFileName(slug: string, aspect: AspectKey, seconds: number, ext: string, variant?: "story") {
   const safe = slug.replace(/[^a-z0-9-]+/gi, "-").replace(/^-+|-+$/g, "").toLowerCase() || "release";
-  return `${safe}-${ASPECTS[aspect].width}x${ASPECTS[aspect].height}-${seconds}s.${ext}`;
+  // The variant is in the name because the two files look almost identical in a camera roll and
+  // posting the storyless one to a Story is the mistake that wastes the feature.
+  return `${safe}-${ASPECTS[aspect].width}x${ASPECTS[aspect].height}-${seconds}s${variant ? `-${variant}` : ""}.${ext}`;
 }
 
 /** mm:ss, for the scrubber. */
