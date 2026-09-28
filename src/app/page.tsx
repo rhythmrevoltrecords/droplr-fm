@@ -46,13 +46,13 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = 
     { title: "Release clips", body: "Pick 30 seconds and droplr renders the video for Reels — artwork moving on the kick, your link on it. It happens in your browser, so your master never leaves your computer." },
     { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
     { title: "Artists linked to your roster", body: "An artist with their own droplr account sees the releases you put out under their name — their numbers, their links, their clips. They stay yours to edit." },
+    { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which nobody but us can see." },
     { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
   { status: "Next", items: [
-    { title: "Metadata checked before you distribute", body: "Bad ISRC, a UPC that fails its check digit, artist naming that doesn't match your last release — caught here instead of by a rejection three days before release day." },
     { title: "Remix comp entries", body: "The gate already gets your stems out. This is the return leg: entries on the same release, with a deadline and everyone's contact in one list instead of thirty DMs." },
   ] },
   { status: "Later", items: [
