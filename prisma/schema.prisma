@@ -110,6 +110,8 @@ model Organization {
   referredBy       Referral?  @relation("ReferralReferred")
   newsEmails       NewsEmail[]
   fanContacts      FanContact[]
+  contests         Contest[]
+  contestEntries   ContestEntry[]
 }
 
 model User {
@@ -237,6 +239,7 @@ model Release {
   clickEvents   ClickEvent[]
   pageViews     PageView[]
   preSaves      PreSave[]
+  contest       Contest?
 
   @@index([organizationId])
   @@index([artistId])
@@ -800,4 +803,103 @@ model FanContact {
   @@unique([organizationId, email])
   @@index([organizationId, status])
   @@index([importId])
+}
+
+/**
+ * A remix contest attached to a release — usually a `kind: "download"` stems pack, since the gate
+ * that hands the stems out and the contest that takes remixes back are two halves of one thing.
+ *
+ * droplr stores links, never audio. Australia has no copyright safe harbour for commercial content
+ * hosts: the 2018 amendments covered carriage service providers, libraries, archives, educational
+ * institutions and disability organisations, and left hosts out deliberately. A US platform hosting
+ * entries sits behind DMCA §512(c); droplr would have no equivalent. So there is no file column
+ * here and there should never be one without a lawyer's sign-off — see lib/contest.ts.
+ *
+ * `closesAt` is the label's own instant, like Release.releaseDate: a deadline that quietly means UTC
+ * is how a Brisbane label closes entries at 10am local.
+ */
+model Contest {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  releaseId      String       @unique
+  release        Release      @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  /** Shown above the form. The prize, the rules, who's judging — the label's words. */
+  headline       String
+  brief          String?
+  prize          String?
+  /** Off until the label publishes. A draft contest renders nothing on the public page. */
+  published      Boolean      @default(false)
+  /** Null means "open as soon as it's published". */
+  opensAt        DateTime?
+  closesAt       DateTime
+  /** Set when the label announces. Until then a closed contest says "judging", not just "closed". */
+  winnerAnnouncedAt DateTime?
+  /** How many live entries one email may hold. 1 means a new link replaces the old one. */
+  maxPerEntrant  Int          @default(1)
+  /** Told to entrants on the form, so nobody finds out after they've entered. */
+  rulesUrl       String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  entries        ContestEntry[]
+
+  @@index([organizationId])
+  @@index([closesAt])
+}
+
+/**
+ * One remix, as a link plus the record of who submitted it and what they agreed to.
+ *
+ * `declarationText` and `declarationVersion` are stored verbatim rather than referenced, because the
+ * whole value of the declaration is being able to say later exactly what this person ticked on the
+ * day. A foreign key to the current wording would rewrite history the next time the text improves.
+ *
+ * `linkNormalised` is the deduplication key — host lower-cased, tracking parameters stripped, no
+ * trailing slash — so the same SoundCloud link shared from the app and from the website is one entry.
+ * `link` keeps exactly what was pasted, because that is what the entrant will say they sent.
+ */
+model ContestEntry {
+  id             String   @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  contestId      String
+  contest        Contest  @relation(fields: [contestId], references: [id], onDelete: Cascade)
+
+  email          String
+  artistName     String
+  /** Exactly what they pasted. */
+  link           String
+  /** Deduplication key. Unique per contest. */
+  linkNormalised String
+  /** Recognised host key from lib/contest.ts ("soundcloud", "drive", …) or null for somewhere new. */
+  linkHost       String?
+  note           String?
+
+  declarationVersion Int
+  declarationText    String
+  declarationAt      DateTime @default(now())
+  /** Hashed, never raw — the same rule the throttle keys follow. */
+  ipHash         String?
+  country        String?
+
+  /** unchecked | ok | gone | blocked — from a HEAD request at submit and again when entries close. */
+  linkCheck      String   @default("unchecked")
+  linkCheckedAt  DateTime?
+  /** new | shortlisted | winner | rejected */
+  status         String   @default("new")
+  /** The label's own notes while judging. Never shown to the entrant. */
+  labelNote      String?
+  /** The entrant pulled it. Keeps the row, so its link stays reserved and the count stays honest. */
+  withdrawnAt    DateTime?
+  withdrawToken  String   @unique
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([contestId, linkNormalised])
+  @@index([contestId, status])
+  @@index([contestId, createdAt])
+  @@index([organizationId])
+  @@index([contestId, email])
 }

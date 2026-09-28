@@ -955,6 +955,143 @@ async function main() {
     const freshDash = await http(ownerA, "GET", "/admin");
     check("an old terms version shows the notice until the login accepts", legalAnon.status === 401 && staleDash.text.includes("updated our Terms") && legalOk.status === 200 && afterAccept?.termsVersion === LEGAL.version && !freshDash.text.includes("updated our Terms"), `${legalAnon.status}/${legalOk.status}`);
 
+    console.log("\n15c. Remix contests");
+    {
+      // droplr never holds entry audio, so the only things worth attacking are the contest config,
+      // the entries and the withdraw token. All three are checked across labels A and B.
+      const close = new Date(Date.now() + 14 * 86_400_000);
+      const closeLocal = new Date(close.getTime() - close.getTimezoneOffset() * 60_000).toISOString().slice(0, 16);
+      const mkA = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Contest A ${RUN}`, published: true, closesAtLocal: closeLocal, maxPerEntrant: 1,
+      });
+      const crossMake = await http(ownerB, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: "Hijacked", published: true, closesAtLocal: closeLocal, maxPerEntrant: 1,
+      });
+      const aContest = await prisma.contest.findUnique({ where: { releaseId: A.release.id } });
+      check("a label can put a contest on its own release, and not on another label's", mkA.status === 200 && crossMake.status === 404 && aContest?.headline === `Contest A ${RUN}` && aContest?.organizationId === A.org.id, `${mkA.status}/${crossMake.status}`);
+
+      const anonMake = await http(null, "PUT", `/api/admin/releases/${A.release.id}/contest`, { headline: "Anon", published: true, closesAtLocal: closeLocal, maxPerEntrant: 1 });
+      const artistMake = await http(artistA, "PUT", `/api/admin/releases/${A.release.id}/contest`, { headline: "Artist", published: true, closesAtLocal: closeLocal, maxPerEntrant: 1 });
+      check("logged out and artist logins can't create or edit a contest", anonMake.status === 401 && artistMake.status === 401 && (await prisma.contest.findUnique({ where: { releaseId: A.release.id } }))?.headline === `Contest A ${RUN}`, `${anonMake.status}/${artistMake.status}`);
+
+      const badOrder = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Contest A ${RUN}`, published: true, closesAtLocal: closeLocal,
+        opensAtLocal: new Date(close.getTime() + 86_400_000 - close.getTimezoneOffset() * 60_000).toISOString().slice(0, 16),
+        maxPerEntrant: 1,
+      });
+      check("a contest can't open after it closes", badOrder.status === 400, `${badOrder.status}`);
+      const earlyWinner = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Contest A ${RUN}`, published: true, closesAtLocal: closeLocal, maxPerEntrant: 1,
+        winnerAnnouncedAtLocal: new Date(Date.now() + 86_400_000 - close.getTimezoneOffset() * 60_000).toISOString().slice(0, 16),
+      });
+      check("a winner can't be announced before entries close", earlyWinner.status === 400, `${earlyWinner.status}`);
+      const junkDate = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Contest A ${RUN}`, published: true, closesAtLocal: "next tuesday", maxPerEntrant: 1,
+      });
+      check("a malformed date is a sentence, not a 500", junkDate.status === 400, `${junkDate.status}`);
+
+      const cid = aContest!.id;
+      const entry = async (over: Record<string, unknown> = {}) =>
+        http(null, "POST", `/api/contest/${cid}/enter`, {
+          email: `remixer-${RUN}@sectest.dev`, artistName: "Remixer", link: `https://soundcloud.com/remixer-${RUN}/one`,
+          declarationAccepted: true, ...over,
+        });
+
+      await prisma.authThrottle.deleteMany({});
+      const first = await entry();
+      const stored = await prisma.contestEntry.findFirst({ where: { contestId: cid } });
+      check("an entry is stored with the org, the declaration and a withdraw token", first.status === 200 && stored?.organizationId === A.org.id && stored?.declarationVersion === 1 && stored.declarationText.length > 40 && !!stored.withdrawToken && stored.linkNormalised === `https://soundcloud.com/remixer-${RUN}/one`, `${first.status} ${first.text.slice(0, 120)}`);
+      check("the raw IP is never stored", !!stored && (stored.ipHash === null || !/^[0-9.]+$|:/.test(stored.ipHash)), String(stored?.ipHash));
+
+      const noTick = await entry({ declarationAccepted: false, link: `https://soundcloud.com/remixer-${RUN}/two` });
+      check("an entry without the declaration is refused", noTick.status === 400 && (await prisma.contestEntry.count({ where: { contestId: cid } })) === 1, `${noTick.status}`);
+
+      const sameLinkOther = await entry({ email: `thief-${RUN}@sectest.dev` });
+      check("someone else can't enter a link that's already in", sameLinkOther.status === 409 && (await prisma.contestEntry.count({ where: { contestId: cid } })) === 1, `${sameLinkOther.status}`);
+
+      // An address is unverified, so it must never let a stranger overwrite a live entry: that would be
+      // one unauthenticated request to swap someone's remix for a dead link, wipe the label's mark, and
+      // rewrite the declaration record naming the author.
+      const takeover = await entry({ artistName: "Impostor", link: `https://soundcloud.com/impostor-${RUN}/x` });
+      const afterReplace = await prisma.contestEntry.findMany({ where: { contestId: cid } });
+      check("a stranger with the entrant's address can't overwrite their entry", takeover.status === 409 && afterReplace.length === 1 && afterReplace[0].artistName === "Remixer" && afterReplace[0].linkNormalised.endsWith("/one"), `${takeover.status} ${afterReplace[0]?.artistName}`);
+      check("…and the refusal tells them to use the withdraw link", takeover.text.includes("withdraw"), takeover.text.slice(0, 140));
+
+      // SSRF: the enter form is anonymous, and checkEntryLink's host list was never a security boundary.
+      const ssrf = await entry({ email: `ssrf-${RUN}@sectest.dev`, link: "http://169.254.169.254/latest/meta-data/" });
+      const ssrfRow = await prisma.contestEntry.findFirst({ where: { contestId: cid, email: `ssrf-${RUN}@sectest.dev` } });
+      check("a link on an internal address is never fetched", !ssrfRow || ssrfRow.linkCheck === "unchecked", `${ssrf.status} ${ssrfRow?.linkCheck}`);
+
+      const droplrLink = await entry({ link: `${BASE}/${A.org.slug}/${A.release.slug}`, email: `loop-${RUN}@sectest.dev` });
+      check("a link pointing back at droplr is refused", droplrLink.status === 400, `${droplrLink.status}`);
+
+      const eid = afterReplace[0].id;
+      const judgeCross = await http(ownerB, "PATCH", `/api/admin/releases/${A.release.id}/contest/entries/${eid}`, { status: "winner" });
+      const judgeCrossOwnRelease = await http(ownerB, "PATCH", `/api/admin/releases/${B.release.id}/contest/entries/${eid}`, { status: "winner" });
+      const judgeOwn = await http(ownerA, "PATCH", `/api/admin/releases/${A.release.id}/contest/entries/${eid}`, { status: "shortlisted", labelNote: "strong" });
+      const judged = await prisma.contestEntry.findUnique({ where: { id: eid } });
+      check("only the owning label can judge an entry — through its own release or any other", judgeCross.status === 404 && judgeCrossOwnRelease.status === 404 && judgeOwn.status === 200 && judged?.status === "shortlisted" && judged?.labelNote === "strong", `${judgeCross.status}/${judgeCrossOwnRelease.status}/${judgeOwn.status}`);
+      const badStatus = await http(ownerA, "PATCH", `/api/admin/releases/${A.release.id}/contest/entries/${eid}`, { status: "withdrawn" });
+      check("'withdrawn' is not a status a label can set", badStatus.status === 400 && (await prisma.contestEntry.findUnique({ where: { id: eid } }))?.status === "shortlisted", `${badStatus.status}`);
+
+      const exportCross = await http(ownerB, "GET", `/api/admin/releases/${A.release.id}/contest/export`);
+      const exportOwn = await http(ownerA, "GET", `/api/admin/releases/${A.release.id}/contest/export`);
+      const exportArtist = await http(artistA, "GET", `/api/admin/releases/${A.release.id}/contest/export`);
+      check("the entries CSV is label-only and carries the declaration", exportCross.status === 404 && exportArtist.status === 401 && exportOwn.status === 200 && exportOwn.text.includes(`remixer-${RUN}@sectest.dev`) && exportOwn.text.includes("declarationText"), `${exportCross.status}/${exportArtist.status}/${exportOwn.status}`);
+
+      const tok = afterReplace[0].withdrawToken;
+      const wrongTok = await http(null, "GET", `/api/contest/withdraw/${"z".repeat(24)}`);
+      // A GET must only ASK. Mail gateways and inbox previews follow links in email, so a GET that
+      // withdrew would silently pull entries from people who never clicked.
+      const asked = await http(null, "GET", `/api/contest/withdraw/${tok}`);
+      const stillIn = await prisma.contestEntry.findUnique({ where: { id: eid } });
+      check("opening the withdraw link only asks; nothing is withdrawn yet", wrongTok.status === 404 && asked.status === 200 && asked.text.includes("Yes, withdraw it") && !stillIn?.withdrawnAt, `${wrongTok.status}/${asked.status}`);
+      const pulled = await http(null, "POST", `/api/contest/withdraw/${tok}`);
+      const afterPull = await prisma.contestEntry.findUnique({ where: { id: eid } });
+      check("pressing the button withdraws it, and leaves the label's mark alone", pulled.status === 200 && !!afterPull?.withdrawnAt && afterPull?.status === "shortlisted", `${pulled.status}/${afterPull?.status}`);
+      const undone = await http(null, "GET", `/api/contest/withdraw/${tok}/undo`);
+      const back = await prisma.contestEntry.findUnique({ where: { id: eid } });
+      check("and it can be put back while entries are open, still shortlisted", undone.status === 200 && !back?.withdrawnAt && back?.status === "shortlisted", `${undone.status}/${back?.status}`);
+
+      // withdraw → enter another link → undo would otherwise hand one person two live entries in a
+      // one-entry contest, as many times as they like.
+      await http(null, "POST", `/api/contest/withdraw/${tok}`);
+      const second = await entry({ link: `https://soundcloud.com/remixer-${RUN}/second` });
+      const undoOver = await http(null, "GET", `/api/contest/withdraw/${tok}/undo`);
+      const liveNow = await prisma.contestEntry.count({ where: { contestId: cid, email: `remixer-${RUN}@sectest.dev`, withdrawnAt: null } });
+      check("withdraw → re-enter → undo can't get past the per-entrant limit", second.status === 200 && undoOver.status === 409 && liveNow === 1, `${second.status}/${undoOver.status} live=${liveNow}`);
+
+      const publicPage = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+      check("the public page shows the contest without leaking an entrant", publicPage.text.includes(`Contest A ${RUN}`) && !publicPage.text.includes(`remixer-${RUN}@sectest.dev`), `${publicPage.status}`);
+
+      // "Invisible" has to mean absent from the HTML, not hidden by the component: a client component's
+      // props are serialised into the RSC payload inlined in the page, so a draft's prize and brief
+      // would sit in View Source while the label believed nothing was public.
+      await prisma.contest.update({ where: { id: cid }, data: { published: false, prize: `Secret prize ${RUN}`, brief: `Secret brief ${RUN}` } });
+      const draftPage = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+      const draftEntry = await entry({ email: `late-${RUN}@sectest.dev`, link: `https://soundcloud.com/late-${RUN}/x` });
+      check("an unpublished contest is absent from the page source and takes nothing", !draftPage.text.includes(`Contest A ${RUN}`) && !draftPage.text.includes(`Secret prize ${RUN}`) && !draftPage.text.includes(`Secret brief ${RUN}`) && !draftPage.text.includes(cid) && draftEntry.status === 409, `${draftEntry.status}`);
+
+      // Withdraw again first, so the "can't be reinstated" check below is actually reachable: an entry
+      // that was never withdrawn would answer "you're still in" and the test would pass for free.
+      await http(null, "POST", `/api/contest/withdraw/${tok}`);
+      await prisma.contest.update({ where: { id: cid }, data: { published: true, closesAt: new Date(Date.now() - 60_000) } });
+      const closedEntry = await entry({ email: `closed-${RUN}@sectest.dev`, link: `https://soundcloud.com/closed-${RUN}/x` });
+      check("a closed contest refuses entries", closedEntry.status === 409 && !(await prisma.contestEntry.findFirst({ where: { contestId: cid, email: `closed-${RUN}@sectest.dev` } })), `${closedEntry.status}`);
+      const undoClosed = await http(null, "GET", `/api/contest/withdraw/${tok}/undo`);
+      check("a withdrawn entry can't be reinstated after the deadline", undoClosed.status === 409 && !!(await prisma.contestEntry.findUnique({ where: { id: eid } }))?.withdrawnAt, `${undoClosed.status}`);
+      const csvHead = await fetch(`${BASE}/api/admin/releases/${A.release.id}/contest/export`, { headers: { cookie: ownerA.cookie } });
+      await csvHead.text();
+      check("the entries CSV is never cached by a proxy", (csvHead.headers.get("cache-control") ?? "").includes("no-store"), csvHead.headers.get("cache-control") ?? "none");
+
+      const delWithEntries = await http(ownerA, "DELETE", `/api/admin/releases/${A.release.id}/contest`);
+      check("a contest with entries can't be deleted", delWithEntries.status === 409 && !!(await prisma.contest.findUnique({ where: { id: cid } })), `${delWithEntries.status}`);
+      await prisma.contestEntry.deleteMany({ where: { contestId: cid } });
+      const delEmpty = await http(ownerA, "DELETE", `/api/admin/releases/${A.release.id}/contest`);
+      check("an empty one can", delEmpty.status === 200 && !(await prisma.contest.findUnique({ where: { id: cid } })), `${delEmpty.status}`);
+      await prisma.authThrottle.deleteMany({});
+    }
+
     console.log("\n16. Owner signup invites");
     await prisma.authThrottle.deleteMany({}); // sign-ups are 5 per IP per hour
     const invByOwner = await http(ownerA, "POST", "/api/platform/invites", { open: true, maxUses: 5 });

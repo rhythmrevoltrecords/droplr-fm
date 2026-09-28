@@ -12,6 +12,10 @@ const include = {
   // downloadUrl is deliberately NOT selected anywhere a page can reach: only the unlock route
   // touches it, which is what stops the destination leaking into the gate page's HTML.
   gateSteps: { orderBy: { position: "asc" as const } },
+  // Same reasoning as gateSteps: one row at most, indexed unique by releaseId, and loading it here
+  // means a page carrying a remix contest doesn't need a second round trip to find out.
+  // _count gives the "23 entries so far" line without pulling anyone's entry onto a public page.
+  contest: { include: { _count: { select: { entries: { where: { withdrawnAt: null } } } } } },
 };
 
 export type PublicRelease = NonNullable<Awaited<ReturnType<typeof loadBySlug>>>;

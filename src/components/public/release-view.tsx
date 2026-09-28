@@ -3,6 +3,7 @@ import { LISTEN_CHOICES, platformMeta } from "@/lib/platforms";
 import { formatInTz } from "@/lib/time";
 import { Countdown } from "./countdown";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme } from "./artwork-shell";
+import { ContestEntry, type ContestView } from "./contest-entry";
 import { PlatformIcon } from "./platform-icon";
 import { TimezoneField } from "./timezone-field";
 
@@ -50,7 +51,7 @@ function buildHref(base: string, params: Record<string, string | undefined | nul
   return s ? `${base}?${s}` : base;
 }
 
-export function ReleaseView({ release, live, variantId, query, spotifyEnabled, deezerEnabled, showBranding, demo, theme = "dark" }: ReleaseViewProps) {
+export function ReleaseView({ release, live, variantId, query, spotifyEnabled, deezerEnabled, showBranding, demo, theme = "dark", contest }: ReleaseViewProps & { contest?: ContestView | null }) {
   const accent = release.accentColor ?? "#8B5CF6";
   const passthrough = {
     variant: variantId ?? undefined,
@@ -191,6 +192,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           </div>
         )}
 
+      {contest && !demo && <ContestEntry contest={contest} orgName={release.org.name} accent={accent} />}
     </ArtworkPageShell>
   );
 }

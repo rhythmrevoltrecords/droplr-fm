@@ -1,6 +1,7 @@
 import { SITE_URL } from "@/lib/env";
 import { GATE_PLATFORMS, isGatePlatform, stepLabel, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
+import { ContestEntry, type ContestView } from "./contest-entry";
 import { GateRefresh } from "./gate-refresh";
 import { PlatformIcon } from "./platform-icon";
 import { TimezoneField } from "./timezone-field";
@@ -48,7 +49,7 @@ const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
  *    normally leak here: the real link sits in a hidden element and View Source skips the gate.
  */
 export function GateView({
-  release, steps, unlocked, query, showBranding, theme = "dark", demo,
+  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest,
 }: {
   release: GateViewData;
   steps: GateStepView[];
@@ -57,6 +58,8 @@ export function GateView({
   showBranding: boolean;
   theme?: PublicTheme;
   demo?: boolean;
+  /** A remix contest on this pack: the return leg of the stems this gate hands out. */
+  contest?: ContestView | null;
 }) {
   const accent = release.accentColor ?? "#8B5CF6";
   const notice = NOTICES[query.done ?? query.notice ?? ""];
@@ -124,6 +127,10 @@ export function GateView({
           </button>
         </div>
       )}
+
+      {/* Below the gate, not above it: the stems have to be in someone's hands before an entry form
+          means anything, and a contest at the top of the page reads as another hoop to jump. */}
+      {contest && !demo && <ContestEntry contest={contest} orgName={release.org.name} accent={accent} />}
     </ArtworkPageShell>
   );
 }
