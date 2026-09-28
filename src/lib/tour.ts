@@ -42,6 +42,12 @@ export function tourSteps(kind: "artist" | "label" | "artistLogin"): TourStep[] 
         body: "Every release you're on, with its links, QR codes and stats. Copy a link straight from here.",
       },
       {
+        href: "/dashboard",
+        target: "nav-releases",
+        title: "And you can make the reel yourself",
+        body: "Your label put the release up, but the clip is yours: hit Make a clip, pick the best 30 seconds and droplr builds the video here in your browser, with the release link on it. Your master never leaves your computer.",
+      },
+      {
         href: "/dashboard/learn",
         target: "nav-knowledge",
         title: "Read this before your next release",

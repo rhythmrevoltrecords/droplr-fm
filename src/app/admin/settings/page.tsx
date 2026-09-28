@@ -8,6 +8,7 @@ import { requireUser } from "@/lib/auth";
 import { emailConfigured } from "@/lib/email";
 import { domainSetupView } from "@/lib/domains";
 import { planOf, customDomainStatus } from "@/lib/plans";
+import { canConnectDomain, DOMAIN_INVITE_ONLY } from "@/lib/launch";
 import { SectionLink } from "@/components/marketing/section-link";
 
 export default async function SettingsPage() {
@@ -28,7 +29,7 @@ export default async function SettingsPage() {
       </nav>
 
       <Card id="identity" className="scroll-mt-24">
-        <CardHeader><CardTitle>{org.kind === "artist" ? "Artist identity" : "Label identity"}</CardTitle><CardDescription>Plan: {plan.name} (<Link className="underline" href="/admin/settings/billing">{plan.name === "Free" ? "upgrade" : "manage billing"}</Link>). Free subdomain: {org.slug}.droplr.fm</CardDescription></CardHeader>
+        <CardHeader><CardTitle>{org.kind === "artist" ? "Artist identity" : "Label identity"}</CardTitle><CardDescription>Plan: {plan.name} (<Link className="underline" href="/admin/settings/billing">{plan.name === "Free" ? "upgrade" : "manage billing"}</Link>). Your droplr link: droplr.fm/{org.slug}</CardDescription></CardHeader>
         <CardContent>
           <IdentityForm
             kind={org.kind === "artist" ? "artist" : "label"}
@@ -79,7 +80,17 @@ export default async function SettingsPage() {
           <CardDescription>Serve every release from your own domain, e.g. {org.kind === "artist" ? "listen.yourname.com" : "listen.yourlabel.com"}/track-name. <Link className="underline" href="/docs/custom-domain">Setup guide</Link></CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <OrgFieldsForm disabled={plan.customDomain ? undefined : org.kind === "artist" ? "Custom domains are on Artist Pro" : "Custom domains are on Pro and Label"} fields={[{ key: "customDomain", label: "Domain", placeholder: org.kind === "artist" ? "listen.yourname.com" : "listen.yourlabel.com" }]} initial={{ customDomain: org.customDomain ?? "" }} />
+          {/* Two reasons the field can be shut: the plan doesn't include domains, or connecting one
+              is still invite-only. Plan first — it's the one they can fix themselves. */}
+          <OrgFieldsForm
+            disabled={
+              !plan.customDomain
+                ? org.kind === "artist" ? "Custom domains are on Artist Pro" : "Custom domains are on Pro and Label"
+                : canConnectDomain(org) ? undefined : DOMAIN_INVITE_ONLY
+            }
+            fields={[{ key: "customDomain", label: "Domain", placeholder: org.kind === "artist" ? "listen.yourname.com" : "listen.yourlabel.com" }]}
+            initial={{ customDomain: org.customDomain ?? "" }}
+          />
           {org.customDomain && !plan.customDomain && (() => {
             const st = customDomainStatus(org);
             return (

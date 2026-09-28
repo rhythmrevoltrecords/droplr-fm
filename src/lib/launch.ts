@@ -16,6 +16,33 @@ export function canSignUp(email: string) {
   return signupsOpen() || signupAllowlist().includes(email.trim().toLowerCase());
 }
 
+/**
+ * The second door, and it opens separately.
+ *
+ * Connecting a custom domain is the one thing in droplr that reaches outside droplr: it adds an
+ * alias on the Netlify site and waits on a Let's Encrypt certificate. That path has only ever been
+ * exercised against a mock, and when it fails it fails quietly — the symptom is a paying
+ * customer's domain that simply never goes live, with nothing in the logs naming the cause.
+ *
+ * So signups can be open to everyone while domains stay with accounts we can ring up. Turning a
+ * single account on is a click on /platform and needs no redeploy; DOMAINS_OPEN=true retires the
+ * gate for everyone once the path has been proven on real domains.
+ *
+ * This gates CONNECTING a domain, never serving one. An account already on a domain keeps it,
+ * keeps changing it, and its links keep resolving, whatever this says.
+ */
+export function domainsOpen() {
+  return process.env.DOMAINS_OPEN === "true";
+}
+
+export function canConnectDomain(org: { domainsAllowedAt: Date | null }) {
+  return domainsOpen() || !!org.domainsAllowedAt;
+}
+
+/** Shown in settings in place of the domain field, and returned by the API when it refuses. */
+export const DOMAIN_INVITE_ONLY =
+  "Connecting your own domain is invite-only while we prove the setup on real domains. Email hello@droplr.fm and we'll switch it on for your account — usually same day.";
+
 export type Cta = { label: string; href: string };
 export type CtaCopy = {
   open: boolean;

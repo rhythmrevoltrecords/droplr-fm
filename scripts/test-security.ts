@@ -508,6 +508,22 @@ async function main() {
     await new Promise<void>((r) => mockServer.listen(4777, "127.0.0.1", () => r()));
     try {
       const dom = `presave-self-${RUN}.sectest.dev`;
+
+      // 8a. The second door. Connecting a domain is the one thing droplr does that reaches outside
+      // droplr — it adds a Netlify alias and waits on a certificate — and that path has only ever
+      // been exercised against the mock three lines above. So signups can be open while this stays
+      // with accounts we can ring. The gate is DOMAINS_OPEN plus a per-account flag; neither is set
+      // for this fixture, so the attempt has to be refused and nothing may be written.
+      const gated = await http(ownerA, "PATCH", "/api/admin/org", { customDomain: dom });
+      const afterGate = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id }, select: { customDomain: true, customDomainToken: true } });
+      check("a domain can't be connected while it's invite-only", gated.status === 403 && afterGate.customDomain === null && afterGate.customDomainToken === null, `${gated.status} ${afterGate.customDomain}`);
+      check("…and the refusal says how to get in, not just no", gated.text.includes("invite-only") && gated.text.includes("hello@droplr.fm"));
+      const gatedSettings = await http(ownerA, "GET", "/admin/settings");
+      check("…and settings says so where the field is", gatedSettings.text.includes("invite-only"), "no note on the settings page");
+      // Granted from /platform (the Domains column). Done here in the database because the platform
+      // console needs PLATFORM_TEST_ADMIN, which these runs don't always have.
+      await prisma.organization.update({ where: { id: A.org.id }, data: { domainsAllowedAt: new Date(), domainsAllowedBy: "sectest" } });
+
       const setRes = await http(ownerA, "PATCH", "/api/admin/org", { customDomain: dom });
       let orgA = await prisma.organization.findUniqueOrThrow({ where: { id: A.org.id } });
       check("saving a domain issues a TXT token and starts unverified", setRes.status === 200 && /^[0-9a-f]{24}$/.test(orgA.customDomainToken ?? "") && !orgA.customDomainVerifiedAt && !orgA.customDomainLiveAt, `${setRes.status} ${orgA.customDomainToken}`);

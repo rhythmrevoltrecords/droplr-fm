@@ -14,17 +14,20 @@ export const dynamic = "force-dynamic";
  *     claimDays?: number       — days after the comp ends that the rate can still be claimed; 0 = no deadline
  *     founderCode?: string     — Stripe promotion code that applies it at checkout }
  *   { kind: "label" | "artist" }  switch account type (blocked while a Stripe subscription or other-type comp exists)
+ *   { domains: boolean }  let this account connect a custom domain while DOMAINS_OPEN is off
  */
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
   const admin = await platformAdmin();
   if (!admin) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
-  const body = (await req.json().catch(() => ({}))) as { compPlan?: unknown; compNote?: unknown; kind?: unknown; compDays?: unknown; founderPrice?: unknown; claimDays?: unknown; founderCode?: unknown };
+  const body = (await req.json().catch(() => ({}))) as { compPlan?: unknown; compNote?: unknown; kind?: unknown; compDays?: unknown; founderPrice?: unknown; claimDays?: unknown; founderCode?: unknown; domains?: unknown };
   const hasComp = "compPlan" in body;
   const hasKind = "kind" in body;
-  if (!hasComp && !hasKind) return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
+  const hasDomains = "domains" in body;
+  if (!hasComp && !hasKind && !hasDomains) return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
   if (hasKind && !isAccountKind(body.kind)) return NextResponse.json({ error: "kind must be label or artist" }, { status: 400 });
+  if (hasDomains && typeof body.domains !== "boolean") return NextResponse.json({ error: "domains must be true or false" }, { status: 400 });
 
   const org = await prisma.organization.findUnique({ where: { id: params.id }, select: { id: true, kind: true, stripeSubscriptionId: true, stripePriceId: true, compPlan: true, compNote: true, compUntil: true } });
   if (!org) return NextResponse.json({ error: "Account not found" }, { status: 404 });
@@ -68,9 +71,12 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       planUpdatedAt: new Date(),
       // A fresh grant resets both notices, so the account is told about this comp and its ending.
       ...(hasComp ? { compPlan, compNote, compUntil, founderPrice, founderOfferUntil, founderCode, compSetAt: new Date(), compSetBy: admin.email, compNoticeAt: null, compEndedNoticeAt: null } : {}),
+      // Letting an account connect its own domain while DOMAINS_OPEN is off. Switching it back off
+      // never touches a domain that's already connected — it only stops them connecting another.
+      ...(hasDomains ? { domainsAllowedAt: body.domains ? new Date() : null, domainsAllowedBy: body.domains ? admin.email : null } : {}),
     },
-    select: { id: true, kind: true, plan: true, compPlan: true, compNote: true, compUntil: true, founderPrice: true, founderOfferUntil: true, founderCode: true },
+    select: { id: true, kind: true, plan: true, compPlan: true, compNote: true, compUntil: true, founderPrice: true, founderOfferUntil: true, founderCode: true, domainsAllowedAt: true },
   });
-  console.info("[platform] account update", { org: org.id, kind: hasKind ? `${org.kind}→${kind}` : undefined, compPlan: hasComp ? compPlan : undefined, compUntil: hasComp ? compUntil : undefined, plan, by: admin.email });
+  console.info("[platform] account update", { org: org.id, kind: hasKind ? `${org.kind}→${kind}` : undefined, compPlan: hasComp ? compPlan : undefined, compUntil: hasComp ? compUntil : undefined, domains: hasDomains ? body.domains : undefined, plan, by: admin.email });
   return NextResponse.json({ ok: true, org: updated });
 }

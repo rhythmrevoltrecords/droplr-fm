@@ -1,4 +1,4 @@
-import { AccountKindControl, CompPlanControl } from "@/components/admin/comp-plan-control";
+import { AccountKindControl, DomainAccessControl, CompPlanControl } from "@/components/admin/comp-plan-control";
 import { PlatformChrome } from "@/components/platform/platform-chrome";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -23,7 +23,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {
-      id: true, name: true, slug: true, kind: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, compUntil: true, founderPrice: true, founderOfferUntil: true, founderCode: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true,
+      id: true, name: true, slug: true, kind: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, compUntil: true, founderPrice: true, founderOfferUntil: true, founderCode: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true, domainsAllowedAt: true, domainsAllowedBy: true,
       users: { where: { role: "owner" }, select: { email: true }, take: 1 },
       _count: { select: { releases: true, users: true } },
     },
@@ -61,7 +61,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
         </Card>
         <Card className="overflow-x-auto p-0">
           <Table>
-            <THead><TR><TH>Account</TH><TH>Type</TH><TH>Owner</TH><TH>Plan</TH><TH>Billing</TH><TH className="text-right">Releases</TH><TH className="text-right">Users</TH><TH>Created</TH><TH>Complimentary plan</TH></TR></THead>
+            <THead><TR><TH>Account</TH><TH>Type</TH><TH>Owner</TH><TH>Plan</TH><TH>Billing</TH><TH className="text-right">Releases</TH><TH className="text-right">Users</TH><TH>Created</TH><TH>Domains</TH><TH>Complimentary plan</TH></TR></THead>
             <TBody>
               {orgs.map((o) => (
                 <TR key={o.id}>
@@ -73,6 +73,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
                   <TD className="text-right tabular-nums">{o._count.releases}</TD>
                   <TD className="text-right tabular-nums">{o._count.users}</TD>
                   <TD className="whitespace-nowrap text-xs text-muted-foreground">{formatInTz(o.createdAt, "Australia/Brisbane", { dateStyle: "medium" })}</TD>
+                  <TD><DomainAccessControl orgId={o.id} allowed={!!o.domainsAllowedAt} by={o.domainsAllowedBy} /></TD>
                   <TD><CompPlanControl orgId={o.id} kind={accountKind(o.kind)} compPlan={o.compPlan} compNote={o.compNote} compUntil={o.compUntil?.toISOString() ?? null} founderPrice={o.founderPrice} founderOfferUntil={o.founderOfferUntil?.toISOString() ?? null} founderCode={o.founderCode} /></TD>
                 </TR>
               ))}
