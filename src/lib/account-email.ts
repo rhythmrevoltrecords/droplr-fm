@@ -80,3 +80,55 @@ ${muted(`If this wasn&apos;t you, reset your password with the button above and 
     text: `Your droplr.fm password was changed on ${stamp}. Every other device has been signed out.\n\nIf this wasn't you, reset it now: ${SITE_URL}/forgot-password and tell us at ${CONTACT.security}.`,
   };
 }
+
+/**
+ * Lands the moment someone confirms their address — the one point where a new account is both
+ * proven and paying attention. It names the next three things to do rather than welcoming them
+ * in the abstract, because the failure mode for a tool like this isn't people disliking it, it's
+ * people signing up and never coming back to make the first link.
+ */
+export function welcomeEmail(kind: "label" | "artist") {
+  const first = kind === "label"
+    ? [
+        ["Add your artists", "Photo, bio, genre, socials. Every press kit and release page is built from it.", `${SITE_URL}/admin/artists`],
+        ["Paste a Spotify link", "droplr builds the pre-save page, pulls the artwork and its colour, and fills in the other stores as they appear.", `${SITE_URL}/admin`],
+        ["Make the clip", "Pick 30 seconds of the track and droplr renders the video for Reels, with your link on it. The audio never leaves your computer.", `${SITE_URL}/admin`],
+      ]
+    : [
+        ["Fill in your profile", "Photo, bio, genre, socials. Your press kit is generated from it, so it's the one thing worth doing properly.", `${SITE_URL}/admin/artists`],
+        ["Paste a Spotify link", "droplr builds the pre-save page, pulls the artwork and its colour, and fills in the other stores as they appear.", `${SITE_URL}/admin`],
+        ["Make the clip", "Pick 30 seconds of the track and droplr renders the video for Reels, with your link on it. The audio never leaves your computer.", `${SITE_URL}/admin`],
+      ];
+  const steps = first
+    .map(([title, body, href], i) => `${p(`<strong style="color:${BRAND.text}">${i + 1}. <a href="${href}" style="color:${BRAND.violet};text-decoration:none">${esc(title)}</a></strong><br/>${esc(body)}`)}`)
+    .join("");
+  return {
+    subject: "You're in — here's where to start",
+    html: accountEmailShell(
+      "You're in",
+      `${p("Your email is confirmed, so the account is fully yours. Three things worth doing in the first ten minutes:")}
+${steps}
+<div style="margin:24px 0">${button(`${SITE_URL}/admin`, "Open droplr")}</div>
+${muted("Stuck on anything, reply to this email. It reaches a person, not a ticket queue.")}`,
+    ),
+    text: `You're in.\n\nYour email is confirmed. Three things worth doing first:\n\n${first.map(([t, b, h], i) => `${i + 1}. ${t} — ${b}\n   ${h}`).join("\n\n")}\n\nStuck on anything, reply to this email.`,
+  };
+}
+
+/**
+ * To droplr's own platform admins when an account is created. Signups are public, so this is both
+ * the first-customer alert and the first sight of anything odd. Never blocks a signup.
+ */
+export function newAccountEmail(a: { name: string; slug: string; kind: string; email: string; plan: string }) {
+  return {
+    subject: `New ${a.kind === "artist" ? "artist" : "label"} account: ${a.name}`,
+    html: accountEmailShell(
+      "Someone signed up",
+      `${p(`<strong style="color:${BRAND.text}">${esc(a.name)}</strong> &middot; ${esc(a.kind)} &middot; ${esc(a.plan)}`)}
+${p(`${esc(a.email)}<br/><span style="color:${BRAND.muted}">droplr.fm/${esc(a.slug)}</span>`)}
+<div style="margin:24px 0">${button(`${SITE_URL}/platform`, "Open the platform console")}</div>
+${muted("They can't do anything until they confirm the address.")}`,
+    ),
+    text: `New ${a.kind} account: ${a.name} (${a.email})\nPlan: ${a.plan}\ndroplr.fm/${a.slug}\n\n${SITE_URL}/platform`,
+  };
+}

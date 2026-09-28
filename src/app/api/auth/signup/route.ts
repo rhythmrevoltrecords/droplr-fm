@@ -1,7 +1,7 @@
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { createSessionCookie, hashPassword, passwordProblem } from "@/lib/auth";
-import { sendVerificationEmail } from "@/lib/email-verification";
+import { notifyNewAccount, sendVerificationEmail } from "@/lib/email-verification";
 import { canSignUp } from "@/lib/launch";
 import { LEGAL } from "@/lib/legal";
 import { isPlatformAdminEmail, RESERVED_EMAIL_ERROR } from "@/lib/platform";
@@ -68,8 +68,15 @@ export async function POST(req: NextRequest) {
   // Refer a friend: the code from droplr.fm/join/{code} (cookie). Rewards only count once this account pays.
   if (await attachReferral(org.id, req.cookies.get(REFERRAL_COOKIE)?.value)) console.info("[referral] signup", { org: org.id });
   await sendVerificationEmail(org.users[0]);
+  // Signups are public, so this is both the first-customer alert and the first sight of anything
+  // odd. Deliberately not awaited into the response path any harder than this: a notification
+  // that fails must never cost someone their account.
+  void notifyNewAccount({ name: org.name, slug: org.slug, kind: org.kind, email, plan: org.plan }).catch(() => {});
   await createSessionCookie(org.users[0]);
-  const res = redirectTo(plan ? `/admin/settings/billing?plan=${plan}` : "/admin?welcome=1");
+  // Straight to the confirm screen: everything, billing included, is behind it now, and landing on
+  // /admin or /billing only to be bounced reads as a broken first screen. Someone who picked a
+  // paid plan on the way in finds Upgrade waiting for them once they're through.
+  const res = redirectTo("/verify-email");
   res.cookies.delete(REFERRAL_COOKIE);
   return res;
 }
