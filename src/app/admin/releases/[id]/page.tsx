@@ -8,6 +8,8 @@ import { StoreFinder } from "@/components/admin/store-finder";
 import { ShareGraphics } from "@/components/admin/share-graphics";
 import { ClipForgeLazy } from "@/components/admin/clip-forge-lazy";
 import { MetadataFindings } from "@/components/admin/metadata-findings";
+import { ContestSetup } from "@/components/admin/contest-setup";
+import { ContestEntries } from "@/components/admin/contest-entries";
 import { checkMetadata } from "@/lib/metadata-check";
 import { PromoPlan } from "@/components/admin/promo-plan";
 import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
@@ -39,6 +41,7 @@ const TABS = [
   { key: "presaves", label: "Pre-saves" },
   { key: "share", label: "Share" },
   { key: "clip", label: "Clip" },
+  { key: "contest", label: "Remix contest" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -212,6 +215,58 @@ export default async function ReleaseDetail(
           removeBranding={plan.removeBranding}
         />
       )}
+
+      {tab === "contest" && (await (async () => {
+        const contest = await prisma.contest.findUnique({
+          where: { releaseId: release.id },
+          include: { _count: { select: { entries: true } } },
+        });
+        const tz = release.organization.timezone;
+        // A sensible default nobody has to think about: four weeks out, 9pm local — late enough that
+        // the last evening of work counts, and not a time anyone has to convert.
+        const defaultClose = new Date(Date.now() + 28 * 86_400_000);
+        defaultClose.setHours(21, 0, 0, 0);
+        const entries = contest
+          ? await prisma.contestEntry.findMany({
+              where: { contestId: contest.id, organizationId: user.organizationId },
+              orderBy: [{ status: "asc" }, { createdAt: "asc" }],
+              take: 2000,
+            })
+          : [];
+        return (
+          <>
+            <ContestSetup
+              releaseId={release.id}
+              exists={!!contest}
+              entryCount={contest?._count.entries ?? 0}
+              locationLabel={release.organization.locationLabel}
+              initial={{
+                headline: contest?.headline ?? `Remix contest: ${release.title}`,
+                brief: contest?.brief ?? "",
+                prize: contest?.prize ?? "",
+                rulesUrl: contest?.rulesUrl ?? "",
+                published: contest?.published ?? false,
+                opensAtLocal: contest?.opensAt ? dateToZonedLocal(contest.opensAt, tz) : "",
+                closesAtLocal: dateToZonedLocal(contest?.closesAt ?? defaultClose, tz),
+                winnerAnnouncedAtLocal: contest?.winnerAnnouncedAt ? dateToZonedLocal(contest.winnerAnnouncedAt, tz) : "",
+                maxPerEntrant: contest?.maxPerEntrant ?? 1,
+              }}
+            />
+            {contest && (
+              <ContestEntries
+                releaseId={release.id}
+                entries={entries.map((e) => ({
+                  id: e.id, artistName: e.artistName, email: e.email, link: e.link, linkHost: e.linkHost,
+                  note: e.note, labelNote: e.labelNote, status: e.status, linkCheck: e.linkCheck,
+                  enteredAt: e.createdAt.toISOString(),
+                  withdrawnAt: e.withdrawnAt ? e.withdrawnAt.toISOString() : null,
+                  country: e.country,
+                }))}
+              />
+            )}
+          </>
+        );
+      })())}
 
       {tab === "settings" && (await (async () => {
         // Siblings are needed for the checks only droplr can run: a UPC or ISRC already used on

@@ -12,6 +12,7 @@ import { requestMeta, resolveSource } from "@/lib/tracking";
 import { OrgView } from "./org-view";
 import { ReleaseView } from "./release-view";
 import { GateView } from "./gate-view";
+import { ContestEntry, type ContestView } from "./contest-entry";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
 import { progressFor, remaining } from "@/lib/downloads";
 
@@ -27,6 +28,32 @@ export function spotifyEnabledFor(org: { plan: string; spotifyAppStatus: string;
   const byo = !!org.spotifyClientIdEncrypted && org.spotifyAppStatus === "active" && planOf(org.plan).byoSpotify && (org.spotifyPublicButton || vip);
   const platform = process.env.SPOTIFY_PLATFORM_FALLBACK === "true" && !!process.env.SPOTIFY_CLIENT_ID;
   return byo || platform;
+}
+
+/**
+ * A remix contest, flattened for the client component. Dates go over as ISO strings because this
+ * crosses the server/client boundary, and only the counts the public page is allowed to see come
+ * with it — never an entry, never an entrant's address.
+ */
+function contestViewOf(c: NonNullable<Resolution & { kind: "release" }>["release"]["contest"]): ContestView | null {
+  if (!c) return null;
+  // Unpublished stops HERE, not in the component. ContestEntry is a client component, so anything
+  // handed to it is serialised into the RSC payload inlined in the page's HTML — a draft's headline,
+  // brief and prize would sit in View Source while the label believed nothing was public.
+  if (!c.published) return null;
+  return {
+    id: c.id,
+    headline: c.headline,
+    brief: c.brief,
+    prize: c.prize,
+    rulesUrl: c.rulesUrl,
+    opensAt: c.opensAt ? c.opensAt.toISOString() : null,
+    closesAt: c.closesAt.toISOString(),
+    winnerAnnouncedAt: c.winnerAnnouncedAt ? c.winnerAnnouncedAt.toISOString() : null,
+    published: c.published,
+    maxPerEntrant: c.maxPerEntrant,
+    entryCount: c._count.entries,
+  };
 }
 
 export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { resolution: Resolution; searchParams: SearchParams; orgHrefBase: (slug: string) => string }) {
@@ -110,6 +137,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         query={query}
         showBranding={!planOf(org.plan).removeBranding}
         theme={publicTheme(org)}
+        contest={contestViewOf(release.contest)}
       />
     );
   }
@@ -138,6 +166,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       deezerEnabled={deezerGloballyEnabled() && org.deezerEnabled}
       showBranding={!planOf(org.plan).removeBranding}
       theme={publicTheme(org)}
+      contest={contestViewOf(release.contest)}
     />
   );
 }
