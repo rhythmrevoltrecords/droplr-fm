@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { PlatformChrome } from "@/components/platform/platform-chrome";
 import { Card } from "@/components/ui/card";
-import { accountEmailShell, passwordChangedEmail, resetPasswordEmail, verifyEmailEmail } from "@/lib/account-email";
+import { accountEmailShell, newAccountEmail, passwordChangedEmail, resetPasswordEmail, verifyEmailEmail, welcomeEmail } from "@/lib/account-email";
 import { button, quote } from "@/lib/email-design";
 import { renderReleaseDayEmail } from "@/lib/email";
 import { SITE_URL } from "@/lib/env";
@@ -31,6 +31,9 @@ export default async function PlatformEmails(props: { searchParams: Promise<{ e?
     { key: "verify", group: "Accounts", label: "Confirm your email", ...verifyEmailEmail(`${SITE_URL}/api/auth/verify-email?t=preview`) },
     { key: "reset", group: "Accounts", label: "Reset password", ...resetPasswordEmail(`${SITE_URL}/reset-password?token=preview`) },
     { key: "changed", group: "Accounts", label: "Password changed", ...passwordChangedEmail(new Date()) },
+    { key: "welcome-label", group: "Accounts", label: "Welcome (label)", ...welcomeEmail("label") },
+    { key: "welcome-artist", group: "Accounts", label: "Welcome (artist)", ...welcomeEmail("artist") },
+    { key: "new-account", group: "Accounts", label: "Someone signed up (to you)", ...newAccountEmail({ name: "Hyperion Sound", slug: "hyperion-sound", kind: "label", email: "hello@hyperionsound.com", plan: "free" }) },
     { key: "fb-team", group: "Feedback", label: "New feedback (to you)", subject: "[droplr feedback] Pre-save email didn't arrive", html: accountEmailShell("New feedback: Pre-save email didn't arrive", `<p style="margin:0 0 14px;color:#a1a1aa;font-size:13px">artist@example.com · Test Records · Artist · Something&#39;s broken</p>${quote("A fan in the UK said they never got the release-day email.")}<div style="margin:24px 0 4px">${button(`${SITE_URL}/platform/feedback`, "Reply in the platform console")}</div>`) },
     { key: "fb-user", group: "Feedback", label: "Team replied (to the user)", subject: "Re: Pre-save email didn't arrive", html: accountEmailShell("The droplr.fm team replied", `<p style="margin:0 0 14px;color:#a1a1aa;font-size:13px">About: Pre-save email didn&#39;t arrive</p>${quote("Thanks for flagging! UK fans get it at 9am their time. Can you check again tomorrow?")}<div style="margin:24px 0 4px">${button(`${SITE_URL}/admin/feedback`, "Read and reply")}</div>`) },
   ];

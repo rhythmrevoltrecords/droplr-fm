@@ -801,11 +801,15 @@ async function main() {
       const ref = await prisma.referral.findUnique({ where: { referredOrgId: artistUser.organizationId } });
       check("sign-up through a referral link is recorded as pending for the referrer", ref?.referrerOrgId === A.org.id && ref.status === "pending");
       check("artist sign-up creates an artist account with its own profile", artistUser.organization.kind === "artist" && artistUser.role === "owner" && artistUser.organization.artists.length === 1 && artistUser.organization.artists[0].name === `Solo Artist ${RUN}`);
+      // Signing up now lands on the confirm screen rather than a dashboard it would bounce off.
+      check("sign-up lands on the confirm screen", su.location.includes("/verify-email"), `${su.status} ${su.location}`);
+      const beforeConfirm = await http(signupJar, "GET", "/admin");
+      check("…and the dashboard isn't reachable until they confirm", [302, 303, 307, 308].includes(beforeConfirm.status) && beforeConfirm.location.includes("/verify-email"), `${beforeConfirm.status} ${beforeConfirm.location}`);
+      await prisma.user.update({ where: { id: artistUser.id }, data: { emailVerifiedAt: new Date() } });
       const nav = await http(signupJar, "GET", "/admin");
       check("artist admin shows Fans and Profile, not Roster", nav.status === 200 && nav.text.includes(">Profile<") && nav.text.includes(">Fans<") && !nav.text.includes(">Roster<"), `${nav.status}`);
       const roster = await http(signupJar, "GET", "/admin/artists");
       check("artist's roster page goes to their own profile", [307, 308].includes(roster.status) && roster.location.includes(`/admin/artists/${artistUser.organization.artists[0].id}`), `${roster.status} ${roster.location}`);
-      await prisma.user.update({ where: { id: artistUser.id }, data: { emailVerifiedAt: new Date() } });
       const wrongTier = await http(signupJar, "POST", "/api/stripe/checkout", { tier: "label", interval: "monthly" });
       check("artist account can't buy a label plan", wrongTier.status === 400, `${wrongTier.status}`);
     }

@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { accountEmailConfigured } from "@/lib/account-email";
 import { getCurrentUser, isLabelRole } from "@/lib/auth";
-import { consumeVerificationToken, sendVerificationEmail } from "@/lib/email-verification";
+import { prisma } from "@/lib/db";
+import { consumeVerificationToken, sendVerificationEmail, sendWelcomeEmail } from "@/lib/email-verification";
 import { hit } from "@/lib/throttle";
 import { redirectTo } from "@/lib/redirect";
 
@@ -11,6 +12,13 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const result = await consumeVerificationToken(req.nextUrl.searchParams.get("t") ?? "");
   if (!result.ok) return redirectTo("/login?verify=invalid");
+  // Confirmation is the one moment a new account is both proven and paying attention, so this is
+  // where the welcome lands. Owners only: an artist a label invited didn't choose droplr and
+  // doesn't need a "three things to do first" — their label already did them.
+  if (result.role === "owner") {
+    const u = await prisma.user.findUnique({ where: { id: result.userId }, select: { id: true, email: true, organization: { select: { kind: true } } } });
+    if (u) await sendWelcomeEmail(u, u.organization.kind === "artist" ? "artist" : "label");
+  }
   const current = await getCurrentUser();
   if (current?.id === result.userId) return redirectTo(`${isLabelRole(current.role) ? "/admin" : "/dashboard"}?verified=1`);
   return redirectTo("/login?verified=1");

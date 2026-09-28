@@ -3,17 +3,12 @@ import { notFound } from "next/navigation";
 import { getCurrentUser } from "./auth";
 
 /**
- * Platform owner (you, running droplr.fm), not a label role.
- * PLATFORM_ADMIN_EMAILS = comma-separated login emails, set in Netlify env. Empty = nobody.
+ * Platform owner (you, running droplr.fm), not a label role. The address list itself lives in
+ * platform-emails.ts so it can be imported outside a request; re-exported here so every existing
+ * caller keeps working and there is still one definition of who counts.
  */
-export function platformAdminEmails() {
-  return (process.env.PLATFORM_ADMIN_EMAILS ?? "").split(",").map((e) => e.trim().toLowerCase()).filter(Boolean);
-}
-
-export const isPlatformAdminEmail = (email: string) => platformAdminEmails().includes(email.trim().toLowerCase());
-
-/** Shown when someone tries to register (sign up / invite) a platform admin address. */
-export const RESERVED_EMAIL_ERROR = "That email can't be used here. Contact support@droplr.fm.";
+export { isPlatformAdminEmail, platformAdminEmails, RESERVED_EMAIL_ERROR } from "./platform-emails";
+import { isPlatformAdminEmail } from "./platform-emails";
 
 export async function platformAdmin() {
   const user = await getCurrentUser();

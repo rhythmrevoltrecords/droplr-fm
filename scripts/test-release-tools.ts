@@ -17,6 +17,8 @@ import { disableReport, enableReport, reportByToken } from "../src/lib/report";
 import { notifyDuePromoSteps, duePromoWork } from "../src/lib/promo-reminders";
 import { promoSteps, stepDate } from "../src/lib/promo";
 import { guessPlatformFromUrl, isPlatformKey, LISTEN_CHOICES, platformMeta, storeSearchUrl } from "../src/lib/platforms";
+import { newAccountEmail, welcomeEmail } from "../src/lib/account-email";
+import { notifyNewAccount } from "../src/lib/email-verification";
 import { setPushSenderForTests } from "../src/lib/push";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -51,7 +53,7 @@ setPushSenderForTests(async (_sub, payload) => {
 
 const TZ = "Australia/Brisbane";
 
-function platformGuessChecks() {
+async function platformGuessChecks() {
   console.log("\n0. Which platform a pasted link belongs to");
   // Real links keep resolving.
   const real: [string, string][] = [
@@ -77,6 +79,29 @@ function platformGuessChecks() {
   let ok = true;
   for (const [url, want] of real) if (guessPlatformFromUrl(url) !== want) { ok = false; console.log(`    ${url} → ${guessPlatformFromUrl(url)}, wanted ${want}`); }
   check("real store and streaming links resolve to their platform", ok);
+
+  console.log("\n0b. The two account emails around confirmation");
+  // The welcome lands the moment an address is confirmed — the one point a new account is both
+  // proven and paying attention — so it has to name what to do rather than say hello.
+  const wLabel = welcomeEmail("label");
+  const wArtist = welcomeEmail("artist");
+  check("the welcome names three things to do first", ["1.", "2.", "3."].every((n) => wLabel.html.includes(n)) && wLabel.text.includes("1.") && wLabel.text.includes("3."));
+  check("…and it's the right three for a label", wLabel.html.includes("Add your artists") && !wLabel.html.includes("Fill in your profile"));
+  check("…and for an artist", wArtist.html.includes("Fill in your profile") && !wArtist.html.includes("Add your artists"));
+  check("both point at the clip, which is the thing they'd otherwise never find", wLabel.html.includes("Make the clip") && wArtist.html.includes("Make the clip"));
+
+  // The account name is typed by a stranger and lands in an inbox droplr's own admin opens. It is
+  // the one place attacker-controlled text reaches us rather than the other way round.
+  const hostile = `<img src=x onerror=alert(1)>Evil ${RUN}`;
+  const notice = newAccountEmail({ name: hostile, slug: "evil", kind: "artist", email: `evil-${RUN}@example.com`, plan: "free" });
+  check("a hostile account name can't inject markup into the signup notice", !notice.html.includes("<img src=x") && notice.html.includes("&lt;img"), notice.html.slice(0, 80));
+  check("the notice says who signed up and links the console", notice.html.includes(`evil-${RUN}@example.com`) && notice.html.includes("/platform") && notice.subject.includes("artist"));
+  // With no admin addresses configured there is nobody to tell, and a signup must not fail over it.
+  const admins = process.env.PLATFORM_ADMIN_EMAILS;
+  delete process.env.PLATFORM_ADMIN_EMAILS;
+  const told = await notifyNewAccount({ name: "Nobody", slug: "nobody", kind: "label", email: "nobody@example.com", plan: "free" });
+  if (admins !== undefined) process.env.PLATFORM_ADMIN_EMAILS = admins;
+  check("no admin addresses configured means nothing is sent, and nothing throws", told === 0);
 
   // Juno and Traxsource came off the homepage strip and the fan picker on 28 Sep 2026. They are
   // still link types on purpose: dance labels sell there, and any release already carrying one of
@@ -108,7 +133,7 @@ function platformGuessChecks() {
 }
 
 async function main() {
-  platformGuessChecks();
+  await platformGuessChecks();
   console.log(`Release tools tests (run ${RUN})`);
 
   const org = await prisma.organization.create({ data: { name: `Tools ${RUN}`, slug: `tools-${RUN}`, plan: "label", kind: "label", timezone: TZ } });

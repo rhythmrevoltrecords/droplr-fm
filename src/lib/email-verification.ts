@@ -1,6 +1,7 @@
-import { accountEmailConfigured, sendAccountEmail, verifyEmailEmail } from "./account-email";
+import { accountEmailConfigured, newAccountEmail, sendAccountEmail, verifyEmailEmail, welcomeEmail } from "./account-email";
 import { randomToken, sha256 } from "./crypto";
 import { prisma } from "./db";
+import { platformAdminEmails } from "./platform-emails";
 import { SITE_URL } from "./env";
 
 /**
@@ -45,4 +46,38 @@ export async function consumeVerificationToken(token: string): Promise<VerifyRes
   if (claimed.count !== 1) return { ok: false };
   if (!record.user.emailVerifiedAt) await prisma.user.update({ where: { id: record.userId }, data: { emailVerifiedAt: new Date() } });
   return { ok: true, userId: record.userId, role: record.user.role };
+}
+
+/**
+ * The two best-effort account emails around confirmation.
+ *
+ * Both swallow their own failures on purpose: neither confirming an address nor creating an
+ * account should fail because Resend is having a bad minute.
+ */
+export async function sendWelcomeEmail(user: { id: string; email: string }, kind: "label" | "artist") {
+  if (!accountEmailConfigured()) return false;
+  try {
+    await sendAccountEmail({ to: user.email, ...welcomeEmail(kind) });
+    return true;
+  } catch (e) {
+    console.error("[welcome] send failed", { user: user.id, error: (e as Error).message });
+    return false;
+  }
+}
+
+/** Tells droplr's own admins that someone signed up. One email per admin address, best effort. */
+export async function notifyNewAccount(a: { name: string; slug: string; kind: string; email: string; plan: string }) {
+  const admins = platformAdminEmails();
+  if (!admins.length || !accountEmailConfigured()) return 0;
+  const msg = newAccountEmail(a);
+  let sent = 0;
+  for (const to of admins) {
+    try {
+      await sendAccountEmail({ to, ...msg });
+      sent++;
+    } catch (e) {
+      console.error("[new-account] notify failed", { to, error: (e as Error).message });
+    }
+  }
+  return sent;
 }
