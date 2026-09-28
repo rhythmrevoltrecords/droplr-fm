@@ -1,7 +1,7 @@
 export type PlatformKey =
   | "spotify" | "appleMusic" | "itunes" | "youtubeMusic" | "youtube" | "amazonMusic" | "deezer" | "tidal"
   | "pandora" | "soundcloud" | "tiktokSound" | "beatport" | "traxsource" | "bandcamp" | "audius" | "juno"
-  | "napster" | "custom";
+  | "napster" | "iheartRadio" | "audiomack" | "qobuz" | "anghami" | "boomplay" | "custom";
 
 export type PlatformMeta = {
   key: PlatformKey;
@@ -35,16 +35,38 @@ export const PLATFORMS: Record<PlatformKey, PlatformMeta> = {
   tiktokSound: { key: "tiktokSound", name: "TikTok Sound", action: "Use", kind: "social", color: "#25F4EE", monogram: "T", weight: 150, hostPattern: /^(www\.|m\.)?tiktok\.com$/ },
   pandora: { key: "pandora", name: "Pandora", action: "Play", kind: "stream", color: "#3668FF", monogram: "P", weight: 160, hostPattern: /^(www\.)?pandora\.com$/ },
   napster: { key: "napster", name: "Napster", action: "Play", kind: "stream", color: "#2259FF", monogram: "N", weight: 170, hostPattern: /^(www\.)?napster\.com$/ },
+  // Everywhere a DistroKid release actually lands that droplr can link to. Added 28 Sep 2026: a
+  // release reaches these whether or not the artist knows it, and a smart link that can't name them
+  // sends a fan who uses one to a store they don't.
+  iheartRadio: { key: "iheartRadio", name: "iHeartRadio", action: "Play", kind: "stream", color: "#C6002B", monogram: "i", weight: 180, hostPattern: /^(www\.)?iheart\.com$/ },
+  audiomack: { key: "audiomack", name: "Audiomack", action: "Play", kind: "stream", color: "#FFA200", monogram: "A", weight: 190, hostPattern: /^(www\.)?audiomack\.com$/ },
+  qobuz: { key: "qobuz", name: "Qobuz", action: "Play", kind: "stream", color: "#0070EF", monogram: "Q", weight: 200, hostPattern: /^(www\.|open\.|play\.)?qobuz\.com$/ },
+  anghami: { key: "anghami", name: "Anghami", action: "Play", kind: "stream", color: "#FF5E00", monogram: "A", weight: 210, hostPattern: /^(www\.|play\.)?anghami\.com$/ },
+  boomplay: { key: "boomplay", name: "Boomplay", action: "Play", kind: "stream", color: "#F25C05", monogram: "B", weight: 220, hostPattern: /^(www\.)?boomplay\.com$/ },
   custom: { key: "custom", name: "Link", action: "Open", kind: "store", color: "#E4E4E7", monogram: "↗", weight: 999 },
 };
 
 export const PLATFORM_KEYS = Object.keys(PLATFORMS) as PlatformKey[];
 
 /** Platforms an admin adds by hand (UPC/ISRC lookups only cover Apple Music and Deezer). */
-export const MANUAL_PLATFORMS: PlatformKey[] = ["beatport", "traxsource", "bandcamp", "juno", "audius", "soundcloud", "tiktokSound", "youtube", "custom"];
+export const MANUAL_PLATFORMS: PlatformKey[] = [
+  "beatport", "bandcamp", "soundcloud", "tiktokSound", "youtube",
+  "iheartRadio", "audiomack", "qobuz", "anghami", "boomplay",
+  // DJ stores: no distributor in the DistroKid mould reaches them, but dance labels get there
+  // through Label Worx and Believe, so the link types stay.
+  "traxsource", "juno", "audius",
+  "custom",
+];
 
-/** "Where do you listen?" on the email pre-save. Their pick leads the release-day email. */
-export const LISTEN_CHOICES: PlatformKey[] = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "soundcloud", "tidal", "deezer", "beatport", "bandcamp", "traxsource", "juno"];
+/**
+ * "Where do you listen?" on the email pre-save. Their pick leads the release-day email.
+ *
+ * Ordered by how many fans actually use them, and kept short on purpose: this is a question asked
+ * of a fan mid-pre-save, not a directory. Juno and Traxsource came off on 28 Sep 2026 — a fan
+ * choosing a DJ download store on a pre-save was close to hypothetical, and the space is better
+ * spent on the ones a release reaches by default.
+ */
+export const LISTEN_CHOICES: PlatformKey[] = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "soundcloud", "tidal", "deezer", "beatport", "bandcamp", "audiomack", "anghami", "boomplay"];
 export const isListenChoice = (v: unknown): v is PlatformKey => typeof v === "string" && (LISTEN_CHOICES as string[]).includes(v);
 
 /** Store search pages, so a label can find a link the lookups can't (no public API: Beatport, Bandcamp, Amazon…). */
@@ -64,6 +86,11 @@ export function storeSearchUrl(key: string, query: string): string | null {
     tidal: `https://tidal.com/search?q=${q}`,
     audius: `https://audius.co/search/${q}`,
     youtube: `https://www.youtube.com/results?search_query=${q}`,
+    iheartRadio: `https://www.iheart.com/search/?q=${q}`,
+    audiomack: `https://audiomack.com/search/${q}`,
+    qobuz: `https://www.qobuz.com/us-en/search?q=${q}`,
+    anghami: `https://play.anghami.com/search/${q}`,
+    boomplay: `https://www.boomplay.com/search/default/${q}`,
   };
   return urls[key as PlatformKey] ?? null;
 }

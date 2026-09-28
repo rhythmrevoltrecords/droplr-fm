@@ -4,7 +4,7 @@ import { tidalConfigured } from "@/lib/odesli";
 import { platformMeta, storeSearchUrl, type PlatformKey } from "@/lib/platforms";
 
 /** Stores droplr can't look up by UPC/ISRC (no public API), plus any a fan asked for that has no link yet. */
-const MANUAL: PlatformKey[] = ["beatport", "traxsource", "bandcamp", "juno", "soundcloud", "youtubeMusic", "amazonMusic", "audius", "youtube"];
+const MANUAL: PlatformKey[] = ["beatport", "bandcamp", "soundcloud", "youtubeMusic", "amazonMusic", "audiomack", "qobuz", "anghami", "boomplay", "traxsource", "juno", "audius", "youtube"];
 export function StoreFinder({ query, have, demand }: { query: string; have: string[]; demand: Record<string, number> }) {
   const AUTO: PlatformKey[] = ["spotify", "appleMusic", "deezer", ...(tidalConfigured() ? (["tidal"] as const) : [])];
   const missing = [...new Set([...MANUAL, ...AUTO, "tidal" as PlatformKey, ...(Object.keys(demand) as PlatformKey[])])].filter((p) => !have.includes(p));
