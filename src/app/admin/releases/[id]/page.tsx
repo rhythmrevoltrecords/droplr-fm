@@ -7,6 +7,8 @@ import { LinkEditor } from "@/components/admin/link-editor";
 import { StoreFinder } from "@/components/admin/store-finder";
 import { ShareGraphics } from "@/components/admin/share-graphics";
 import { ClipForgeLazy } from "@/components/admin/clip-forge-lazy";
+import { MetadataFindings } from "@/components/admin/metadata-findings";
+import { checkMetadata } from "@/lib/metadata-check";
 import { PromoPlan } from "@/components/admin/promo-plan";
 import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
 import { busiestHour } from "@/lib/analytics";
@@ -210,6 +212,16 @@ export default async function ReleaseDetail(
           removeBranding={plan.removeBranding}
         />
       )}
+
+      {tab === "settings" && (await (async () => {
+        // Siblings are needed for the checks only droplr can run: a UPC or ISRC already used on
+        // another of this account's releases. Scoped to the org like everything else.
+        const siblings = await prisma.release.findMany({
+          where: { organizationId: user.organizationId, id: { not: release.id } },
+          select: { id: true, title: true, upc: true, isrc: true },
+        });
+        return <MetadataFindings findings={checkMetadata(release, siblings)} />;
+      })())}
 
       {tab === "settings" && (
         <InterestToggle

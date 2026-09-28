@@ -51,9 +51,9 @@ jobs:
       BASE_URL: http://localhost:3000
 
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v7
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
@@ -116,7 +116,15 @@ jobs:
       - name: Roster links
         run: npx tsx scripts/test-roster-link.ts
 
-      - name: Fan list import
+      - name: Release metadata checks
+        run: npx tsx scripts/test-metadata.ts
+
+      # Both of these are pure functions with no server or database, so they were easy to forget
+      # when CI was set up around the isolation suites. 125 clip tests were running nowhere.
+      - name: Release clips
+        run: npx tsx scripts/test-clip.ts
+
+      - name: Fan import
         run: npx tsx scripts/test-fan-import.ts
 
       - name: Server log on failure
@@ -135,8 +143,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
