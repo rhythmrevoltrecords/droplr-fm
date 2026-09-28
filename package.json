@@ -18,7 +18,8 @@
     "test:tools": "tsx scripts/test-release-tools.ts",
     "test:import": "tsx scripts/test-fan-import.ts",
     "test:domains": "tsx scripts/test-domains.ts",
-    "test:clip": "tsx scripts/test-clip.ts"
+    "test:clip": "tsx scripts/test-clip.ts",
+    "test:metadata": "tsx scripts/test-metadata.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
