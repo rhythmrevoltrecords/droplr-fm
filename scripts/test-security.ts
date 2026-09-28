@@ -121,6 +121,9 @@ async function main() {
     const rid = B.release.id;
     const cross: [string, string, unknown?][] = [
       ["GET", `/admin/releases/${rid}`],
+      // The clip page resolves a release outside the caller's own organisation when a roster link
+      // says so. No link here, so it has to behave exactly like every other release route.
+      ["GET", `/admin/clips/${rid}`],
       ["GET", `/admin/bio/${B.bio.id}`],
       ["PATCH", `/api/admin/releases/${rid}`, { title: "pwned" }],
       ["DELETE", `/api/admin/releases/${rid}`],
@@ -677,7 +680,7 @@ async function main() {
     const shareOk = await fetch(`${BASE}/api/admin/releases/${B.release.id}/share?kind=countdown&format=story`, { headers: { cookie: shareOwnerB.cookie } });
     check("owner gets a countdown story PNG", shareOk.status === 200 && (shareOk.headers.get("content-type") ?? "").includes("image/png"), `${shareOk.status}`);
     const shareCross = await http(ownerA, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=post`);
-    const shareArtist = await http(artistA, "GET", `/api/admin/releases/${A.release.id}/share?kind=out&format=post`);
+    const shareArtist = await http(await login(A.artist.email, "reset-password-" + RUN), "GET", `/api/admin/releases/${A.release.id}/share?kind=out&format=post`);
     check("share images: other label 404, artist 401", shareCross.status === 404 && shareArtist.status === 401, `${shareCross.status}/${shareArtist.status}`);
     const fakeMilestone = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=milestone&n=10000&format=post`);
     const badFormat = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=billboard`);
@@ -689,9 +692,49 @@ async function main() {
     const clipTab = await http(shareOwnerB, "GET", `/admin/releases/${B.release.id}?tab=clip`);
     check("clip tab renders for the owner", clipTab.status === 200 && clipTab.text.includes("never leaves your computer"), `${clipTab.status}`);
     const coverCross = await http(ownerA, "GET", `/api/admin/releases/${B.release.id}/cover`);
-    const coverArtist = await http(artistA, "GET", `/api/admin/releases/${A.release.id}/cover`);
     const coverAnon = await fetch(`${BASE}/api/admin/releases/${B.release.id}/cover`, { redirect: "manual" });
-    check("cover proxy: other label 404, artist 401, logged out 401", coverCross.status === 404 && coverArtist.status === 401 && coverAnon.status === 401, `${coverCross.status}/${coverArtist.status}/${coverAnon.status}`);
+    check("cover proxy: other label 404, logged out 401", coverCross.status === 404 && coverAnon.status === 401, `${coverCross.status}/${coverAnon.status}`);
+    // The artwork proxy is the one /api/admin route an artist-role login reaches, because an artist
+    // making a clip of their own release needs the cover from droplr's origin or the canvas taints.
+    // It is still scoped to releases assigned to them: the label's other artists' are 404, and it
+    // buys them nothing else — every other release route above still refuses an artist role.
+    // A fresh artist session: earlier sections reset that password, so the artistA jar above is
+    // signed out by now and would answer 401 to everything for the wrong reason.
+    const artistLive = await login(A.artist.email, "reset-password-" + RUN);
+    const coverOwnArtist = await http(artistLive, "GET", `/api/admin/releases/${A.release.id}/cover`);
+    const coverOtherArtist = await http(artistLive, "GET", `/api/admin/releases/${A.otherRelease.id}/cover`);
+    const coverArtistCross = await http(artistLive, "GET", `/api/admin/releases/${B.release.id}/cover`);
+    check("cover proxy: an artist gets their own release's artwork and nobody else's",
+      (coverOwnArtist.status === 200 || coverOwnArtist.status === 302 || coverOwnArtist.status === 404) && coverOtherArtist.status === 404 && coverArtistCross.status === 404,
+      `${coverOwnArtist.status}/${coverOtherArtist.status}/${coverArtistCross.status}`);
+    // The artist's clip page is scoped the same way, and is not a way into the label's admin.
+    const artistClip = await http(artistLive, "GET", `/dashboard/clips/${A.release.id}`);
+    const artistClipOther = await http(artistLive, "GET", `/dashboard/clips/${A.otherRelease.id}`);
+    const artistClipCross = await http(artistLive, "GET", `/dashboard/clips/${B.release.id}`);
+    check("artist clip page: own release opens, other artists' and other labels' 404",
+      artistClip.status === 200 && artistClipOther.status === 404 && artistClipCross.status === 404,
+      `${artistClip.status}/${artistClipOther.status}/${artistClipCross.status}`);
+    check("…and it carries none of the label's editing surface", !artistClip.text.includes("Promo plan") && !artistClip.text.includes("Export emails CSV") && !artistClip.text.includes(`href="/admin`), "editing surface on the artist clip page");
+    const labelOnClipRoute = await http(ownerA, "GET", `/dashboard/clips/${A.release.id}`);
+    check("a label role is bounced off the artist route", [302, 303, 307, 308].includes(labelOnClipRoute.status), String(labelOnClipRoute.status));
+    // Clips for a label's release are also reachable by an artist that label has linked, which is
+    // the only way a release resolves outside the caller's organisation. The grant is the whole
+    // gate: with no link, the widened proxy still has to 404, and an in-org artist role still 401s.
+    const clipCross = await http(ownerA, "GET", `/admin/clips/${B.release.id}`);
+    const clipArtistRole = await http(artistLive, "GET", `/admin/clips/${A.release.id}`);
+    check("clip page: other label 404, in-org artist role bounced", clipCross.status === 404 && [302, 303, 307, 308].includes(clipArtistRole.status), `${clipCross.status}/${clipArtistRole.status}`);
+    const coverSrc = readFileSync("src/app/api/admin/releases/[id]/cover/route.ts", "utf8");
+    // Two ways in and no third: the caller's own organisation, or grantedRelease. If a future edit
+    // ever reads the release table without the org filter, that's the hole this catches.
+    // Three ways in and no fourth: own organisation, a roster grant, or a release assigned to the
+    // artist asking. Every one of them is org-scoped. If an edit ever reads the release table here
+    // without a scope, this is the check that fails.
+    const releaseReads = (coverSrc.match(/prisma\.release\./g) ?? []).length;
+    const scoped = (coverSrc.match(/organizationId: user\.organizationId/g) ?? []).length;
+    check("the cover proxy has three scoped ways in and no fourth", releaseReads === 2 && scoped === 2 && coverSrc.includes("grantedRelease(user.id"), `${releaseReads} reads / ${scoped} scoped`);
+    // Own release wins over the grant path: the owner is sent to the full tab, not this thin copy.
+    const clipOwn = await http(shareOwnerB, "GET", `/admin/clips/${B.release.id}`);
+    check("the owner of a release is redirected to its Clip tab", [302, 303, 307, 308].includes(clipOwn.status) && clipOwn.location.includes("tab=clip"), `${clipOwn.status} ${clipOwn.location}`);
     // The proxy only ever fetches the URL already on the release, so it can't be pointed anywhere.
     check("the cover proxy takes no url of its own", !readFileSync("src/app/api/admin/releases/[id]/cover/route.ts", "utf8").includes("searchParams"));
     // Free and Artist render the mark; the gate is the existing removeBranding flag, nothing new.

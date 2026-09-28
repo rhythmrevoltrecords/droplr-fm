@@ -1,3 +1,4 @@
+import { Film } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/admin/copy-button";
 import { QrDownload } from "@/components/admin/qr-download";
@@ -28,6 +29,10 @@ export type GrantedRelease = {
  * organisation, and this artist is not in the label's. The fan list is missing for the same
  * reason it should be — those fans pre-saved a release the label put out, so they're the
  * label's, not the artist's, and no export appears here.
+ *
+ * "Make a clip" is not an exception to that. It reads the title, the artwork and the link — all of
+ * which are on the public release page anyway — and renders in the artist's own browser from a
+ * file on their own computer. Nothing is written and nothing of the label's is uploaded.
  */
 export function GrantedReleases({ releases }: { releases: GrantedRelease[] }) {
   if (releases.length === 0) return null;
@@ -36,7 +41,7 @@ export function GrantedReleases({ releases }: { releases: GrantedRelease[] }) {
       <div>
         <h2 className="text-lg font-semibold">Released by your labels</h2>
         <p className="text-sm text-muted-foreground">
-          Your numbers and your links for releases a label put out under your name. They stay the label&apos;s to edit.
+          Your numbers, your links and your clips for releases a label put out under your name. They stay the label&apos;s to edit.
         </p>
       </div>
       <div className="space-y-3">
@@ -63,6 +68,12 @@ export function GrantedReleases({ releases }: { releases: GrantedRelease[] }) {
                   <CopyButton value={r.url} label="Main link" />
                   {r.variants.map((v) => <CopyButton key={v.slug} value={`${r.url}/${v.slug}`} label={`${v.slug} link`} />)}
                   <QrDownload value={r.url} filename={`${r.slug}-qr`} label="QR download" />
+                  {/* The one thing here that isn't a link: the artist promoting the release is the
+                      one who wants a clip of it, and the render happens entirely in their browser
+                      from a file on their own computer, so nothing about it touches the label's. */}
+                  <Link href={`/admin/clips/${r.id}`} className="inline-flex h-8 items-center gap-1.5 rounded-md border border-violet-500/40 bg-violet-500/10 px-3 text-xs text-foreground hover:bg-violet-500/20">
+                    <Film className="h-3.5 w-3.5" /> Make a clip
+                  </Link>
                   <Link href={r.url} target="_blank" rel="noreferrer" className="inline-flex h-8 items-center rounded-md border px-3 text-xs text-muted-foreground hover:text-foreground">
                     View page ↗
                   </Link>

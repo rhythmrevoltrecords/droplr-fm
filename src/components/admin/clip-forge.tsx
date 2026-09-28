@@ -489,24 +489,28 @@ export function ClipForge(props: ClipForgeProps) {
                   {result.how} · {(result.blob.size / 1048576).toFixed(1)} MB · rendered in {result.seconds.toFixed(1)}s.
                   {result.ext === "webm" && " WebM uploads to Instagram but re-encodes; an MP4 from Chrome or Edge posts cleaner."}
                 </p>
-                {/* Visible on purpose. Sound problems here depend entirely on the browser, and one
-                    line a person can read out is worth more than any amount of guessing from afar. */}
-                <details>
-                  <summary className="cursor-pointer select-none">Technical details</summary>
-                  <code className="mt-1 block break-all rounded bg-black/30 p-2 leading-relaxed">
-                    path={result.diagnostics.path} video={result.diagnostics.videoCodec ?? "—"} audio={result.diagnostics.audioCodec ?? "—"}{" "}
-                    layout={result.diagnostics.audioLayout ?? "—"} chunks={result.diagnostics.audioChunks ?? "—"}{" "}
-                    {result.diagnostics.audioBytes !== null && (
-                      <>bytes={Math.round(result.diagnostics.audioBytes / 1024)}KB avg=
-                        {result.diagnostics.audioChunks ? Math.round(result.diagnostics.audioBytes / result.diagnostics.audioChunks) : 0}B{" "}
-                      </>
-                    )}
-                    {result.diagnostics.audioConfig && <>cfg=[{result.diagnostics.audioConfig}]{" "}</>}
-                    {result.diagnostics.sampleRate}Hz×{result.diagnostics.channels} sound={result.diagnostics.audio.state}
-                    {result.diagnostics.audio.peak !== null && ` peak=${result.diagnostics.audio.peak}`}
-                    {result.diagnostics.audio.why && ` (${result.diagnostics.audio.why})`}
-                  </code>
-                </details>
+                {/* Only when something is actually wrong with the sound. Every browser encodes this
+                    differently and the last bug here was invisible from the outside — one line a
+                    person can read out was worth more than any amount of guessing from afar. When
+                    the clip is fine, none of it belongs on the artist's screen. */}
+                {result.diagnostics.audio.state !== "audible" && (
+                  <details>
+                    <summary className="cursor-pointer select-none">If you report this, copy this line</summary>
+                    <code className="mt-1 block break-all rounded bg-black/30 p-2 leading-relaxed">
+                      path={result.diagnostics.path} video={result.diagnostics.videoCodec ?? "—"} audio={result.diagnostics.audioCodec ?? "—"}{" "}
+                      layout={result.diagnostics.audioLayout ?? "—"} chunks={result.diagnostics.audioChunks ?? "—"}{" "}
+                      {result.diagnostics.audioBytes !== null && (
+                        <>bytes={Math.round(result.diagnostics.audioBytes / 1024)}KB avg=
+                          {result.diagnostics.audioChunks ? Math.round(result.diagnostics.audioBytes / result.diagnostics.audioChunks) : 0}B{" "}
+                        </>
+                      )}
+                      {result.diagnostics.audioConfig && <>cfg=[{result.diagnostics.audioConfig}]{" "}</>}
+                      {result.diagnostics.sampleRate}Hz×{result.diagnostics.channels} sound={result.diagnostics.audio.state}
+                      {result.diagnostics.audio.peak !== null && ` peak=${result.diagnostics.audio.peak}`}
+                      {result.diagnostics.audio.why && ` (${result.diagnostics.audio.why})`}
+                    </code>
+                  </details>
+                )}
               </div>
             )}
 
