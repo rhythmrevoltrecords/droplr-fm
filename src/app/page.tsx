@@ -26,12 +26,12 @@ const STORES = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "tidal",
 
 const FOR_ARTISTS = [
   { title: "Make the release page", body: "Paste a Spotify link. Artwork, colour and store links fill in, unreleased is fine." },
-  { title: "Follow the promo plan", body: "Dated steps from announce day to a week after, each with the graphic or link it needs." },
+  { title: "Follow the promo plan", body: "Dated steps from announce day to a week after, each with the graphic, the link or the reel it needs — pick 30 seconds and droplr renders the video here in your browser." },
   { title: "Let release day run itself", body: "Every pre-saver gets an email at 9am in their own timezone, leading with the store they picked." },
   { title: "Keep the fans", body: "One fan list across every release. Put a free pack behind a download gate to start one, and the fans who opted in to news are yours to email again." },
 ];
 const FOR_LABELS = [
-  { title: "Run the whole roster", body: "Every release, every artist, one account. Artists log in to grab their links and see their stats." },
+  { title: "Run the whole roster", body: "Every release, every artist, one account. Artists log in to grab their links, see their stats and make their own clips — the release stays yours to edit." },
   { title: "A link per placement", body: "/ig, /tiktok, a QR on the flyer: each tracked, so you know which post moved people." },
   { title: "Your domain, connected for you", body: "listen.yourlabel.com with one DNS record. We verify it and issue the certificate." },
   { title: "See what works across releases", body: "Busiest hours, top countries, best sources and the stores fans actually use." },
@@ -39,19 +39,26 @@ const FOR_LABELS = [
 
 type Status = "Live now" | "Next" | "Later";
 const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = [
+  // Kept honest against droplr/platform-vision-roadmap.md. "Next" means the next thing being
+  // built, not the next thing worth wanting — a demo inbox sat here for weeks while the plan had
+  // it at phase 4, which is a promise to everyone who signs up.
   { status: "Live now", items: [
+    { title: "Release clips", body: "Pick 30 seconds and droplr renders the video for Reels — artwork moving on the kick, your link on it. It happens in your browser, so your master never leaves your computer." },
     { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
+    { title: "Artists linked to your roster", body: "An artist with their own droplr account sees the releases you put out under their name — their numbers, their links, their clips. They stay yours to edit." },
     { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
   { status: "Next", items: [
-    { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders." },
-    { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply." },
+    { title: "Metadata checked before you distribute", body: "Bad ISRC, a UPC that fails its check digit, artist naming that doesn't match your last release — caught here instead of by a rejection three days before release day." },
+    { title: "Remix comp entries", body: "The gate already gets your stems out. This is the return leg: entries on the same release, with a deadline and everyone's contact in one list instead of thirty DMs." },
   ] },
   { status: "Later", items: [
-    { title: "Royalties and splits", body: "Import distributor statements, set splits and send artists clear statements." },
+    { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders, and a calendar across the roster so two releases don't collide." },
+    { title: "Royalties and splits", body: "Confirmed split sheets, then distributor statements imported and turned into a clear statement per collaborator. Tracked, never held." },
+    { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply. Waits until there are enough labels for it not to be an empty room." },
     { title: "Unsigned pool", body: "Artists opt in unreleased tracks; labels discover them by genre, BPM and traction." },
     { title: "Contracts", body: "Agreements kept next to the roster and the releases they cover." },
   ] },
