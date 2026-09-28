@@ -619,8 +619,32 @@ async function main() {
     const uvOwner = await prisma.user.create({ data: { email: `owner-uv-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: uvOrg.id } });
     const uvProfile = await prisma.artist.create({ data: { organizationId: uvOrg.id, name: "UV artist", email: `uv-artist-${RUN}@sectest.dev` } });
     const uvJar = await login(uvOwner.email);
+    // Since 28 Sep the whole app is held behind the link, not just the write routes. Signups are
+    // public now, and an account that reaches the dashboard can publish a page on droplr.fm —
+    // so an address nobody has proven they can receive mail at doesn't get that far.
     const uvAdmin = await http(uvJar, "GET", "/admin");
-    check("unconfirmed account sees the confirm-email banner", uvAdmin.status === 200 && uvAdmin.text.includes("Confirm your email"), `${uvAdmin.status}`);
+    check("unconfirmed account is sent to the confirm screen, not the dashboard", [302, 303, 307, 308].includes(uvAdmin.status) && uvAdmin.location.includes("/verify-email"), `${uvAdmin.status} ${uvAdmin.location}`);
+    // Deliberately only the owner side. An artist a label invited onto its roster can't publish
+    // anything — they see the releases assigned to them — so they get the banner, not the wall,
+    // and the label's onboarding isn't held up by an address the artist hasn't clicked yet.
+    const uvGate = await http(uvJar, "GET", "/verify-email");
+    check("the confirm screen names the address and offers a way out", uvGate.status === 200 && uvGate.text.includes(uvOwner.email) && uvGate.text.includes("Resend the link") && uvGate.text.includes("Wrong address?"), `${uvGate.status}`);
+
+    // The gate would be a trap without this: a mistyped address can never receive the link, and
+    // support@ is not reachable from behind a wall. Narrow on purpose — unconfirmed only, the new
+    // address must be free, and a platform admin address is refused exactly as at signup.
+    const takenEmail = A.owner.email;
+    const changeTaken = await http(uvJar, "POST", "/api/auth/email", { email: takenEmail });
+    check("can't move an unconfirmed account onto an address that's taken", changeTaken.status === 409 && (await prisma.user.findUnique({ where: { id: uvOwner.id }, select: { email: true } }))?.email === uvOwner.email, `${changeTaken.status}`);
+    const changeJunk = await http(uvJar, "POST", "/api/auth/email", { email: "not-an-address" });
+    check("…or onto something that isn't an address", changeJunk.status === 400, `${changeJunk.status}`);
+    check("changing an address needs a login", (await http(null, "POST", "/api/auth/email", { email: `anon-${RUN}@sectest.dev` })).status === 401);
+    const fixedEmail = `owner-uv-fixed-${RUN}@sectest.dev`;
+    const changeOk = await http(uvJar, "POST", "/api/auth/email", { email: fixedEmail });
+    const afterChange = await prisma.user.findUnique({ where: { id: uvOwner.id }, select: { email: true, emailVerifiedAt: true } });
+    check("a typo can be corrected from the confirm screen", changeOk.status === 200 && afterChange?.email === fixedEmail && !afterChange?.emailVerifiedAt, `${changeOk.status} ${afterChange?.email}`);
+    check("…and any link already sent to the old address is dropped", (await prisma.emailVerificationToken.count({ where: { userId: uvOwner.id, email: uvOwner.email, usedAt: null } })) === 0);
+    await prisma.user.update({ where: { id: uvOwner.id }, data: { email: uvOwner.email } });
     const uvBlocked = [
       await http(uvJar, "POST", "/api/admin/artists", { email: `x-${RUN}@sectest.dev` }),
       await http(uvJar, "POST", `/api/admin/roster/${uvProfile.id}/invite`, {}),

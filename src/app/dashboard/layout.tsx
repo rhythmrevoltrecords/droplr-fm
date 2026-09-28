@@ -1,7 +1,7 @@
+import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { AppShell } from "@/components/admin/app-shell";
 import { tourSteps } from "@/lib/tour";
 import { LegalUpdateNotice } from "@/components/admin/legal-update-notice";
-import { VerifyEmailBanner } from "@/components/admin/verify-email-banner";
 import { requireUser } from "@/lib/auth";
 import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
 import { prisma } from "@/lib/db";

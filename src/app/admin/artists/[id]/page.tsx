@@ -40,7 +40,11 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
 
   return (
     <div className="space-y-6">
-      <div className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
+      {/* The walkthrough's first step rings this. An artist account is redirected here from
+          /admin/artists, where the same hook sits on the "add an artist" card, so one target name
+          works for both kinds of account. It's the header rather than the whole editor because a
+          spotlight taller than the window dims nothing and reads as a broken overlay. */}
+      <div data-tour="profile-add" className="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-center">
         <ArtistAvatar name={artist.name} photoUrl={artist.photoUrl} accentColor={artist.accentColor} size={72} />
         <div className="min-w-0 flex-1">
           {own ? <p className="text-sm text-muted-foreground">Your profile</p> : <p className="text-sm text-muted-foreground"><Link href="/admin/artists" className="hover:underline">Roster</Link> / Artist</p>}
