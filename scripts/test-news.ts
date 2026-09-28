@@ -10,7 +10,7 @@
 import { randomBytes } from "node:crypto";
 import { prisma } from "../src/lib/db";
 import { canSendNews, findDueNewsEmails, localSendWindow, newsAudience, newsAudienceCount, newsAudienceCounts, processNewsEmail, renderNewsEmail, snapshotAudience } from "../src/lib/news";
-import { zonedDay, zonedLocalToDate } from "../src/lib/time";
+import { LOCAL_SEND_SPREAD_MS, zonedDay, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name];
@@ -256,12 +256,22 @@ async function main() {
     check("the rest are still waiting, not failed", (await prisma.newsEmailDelivery.count({ where: { newsEmailId: localNews.id, sentAt: null, error: null } })) === rows.length - 1);
     check("it is still sending, a day out from finishing", (await prisma.newsEmail.findUnique({ where: { id: localNews.id } }))?.status === "sending");
 
-    // The cron has to pick a local send up before the label's own moment, or UTC+14 misses its 9am.
+    // The cron has to pick a local send up before the label's own moment, or a fan in UTC+14 has
+    // their 9am pass before anything runs. The window is LOCAL_SEND_SPREAD_MS (26 hours), and both
+    // of its sides are asserted here against a fixed offset from now.
+    //
+    // This used to schedule 9am Brisbane on the calendar day 20 hours out, which is a different
+    // number of hours away depending on what time it is when the suite runs — between 4am and 7am
+    // Brisbane the day rolls over and the moment lands 27-29 hours out, outside the window. So the
+    // test failed for three hours of every day, in CI only, on changes that had nothing to do with
+    // it. Offsets from now instead: no wall clock, no timezone, no flake.
     await prisma.newsEmail.update({ where: { id: localNews.id }, data: { status: "scheduled" } });
-    const soonish = zonedLocalToDate(`${zonedDay(new Date(Date.now() + 20 * 3600_000), "Australia/Brisbane")}T09:00`, "Australia/Brisbane");
-    await prisma.newsEmail.update({ where: { id: localNews.id }, data: { scheduledFor: soonish } });
-    const due = await findDueNewsEmails();
-    check("a local send is picked up 26 hours early", due.some((r) => r.id === localNews.id), `${due.length} due`);
+    const inWindow = new Date(Date.now() + (LOCAL_SEND_SPREAD_MS - 3600_000));
+    await prisma.newsEmail.update({ where: { id: localNews.id }, data: { scheduledFor: inWindow } });
+    check("a local send inside the 26-hour window is picked up", (await findDueNewsEmails()).some((r) => r.id === localNews.id));
+    const pastWindow = new Date(Date.now() + LOCAL_SEND_SPREAD_MS + 3600_000);
+    await prisma.newsEmail.update({ where: { id: localNews.id }, data: { scheduledFor: pastWindow } });
+    check("…and one beyond it is left alone until closer to the time", !(await findDueNewsEmails()).some((r) => r.id === localNews.id));
     await prisma.newsEmail.update({ where: { id: localNews.id }, data: { sendMode: "instant", localHour: null } });
     check("an instant send at the same time is not", !(await findDueNewsEmails()).some((r) => r.id === localNews.id));
 

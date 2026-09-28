@@ -1,5 +1,38 @@
+import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
+
+/**
+ * Local demo data. Never production.
+ *
+ * Two guards, because this file creates an OWNER account and the consequence of it reaching a live
+ * database is somebody else holding the keys to a label's releases and fan list.
+ *
+ * 1. It refuses to run against Neon, the same refusal every test script carries.
+ * 2. The passwords are generated per run and printed once. They used to be "admin123" and
+ *    "demo123", hardcoded here and published in the README of a public repository — so anyone who
+ *    read the repo knew the credentials of any deployment where this had ever been run.
+ */
+for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
+  const raw = process.env[name];
+  if (!raw) continue;
+  let host = "";
+  try {
+    host = new URL(raw).hostname;
+  } catch {
+    host = raw;
+  }
+  if (host.includes("neon.tech") && process.env.ALLOW_PROD_SEED !== "1") {
+    console.error(`Refusing to seed: ${name} points at ${host} (production).`);
+    console.error("This creates an owner login with a generated password. It is for local demo data only.");
+    process.exit(1);
+  }
+}
+
+/** A password worth having in a database, even a local one. Printed once, stored nowhere else. */
+const newPassword = () => randomBytes(12).toString("base64url");
+const ownerPassword = newPassword();
+const artistPassword = newPassword();
 
 const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8888").replace(/\/$/, "");
 const cover = (title: string, a: string, b: string) =>
@@ -30,12 +63,12 @@ async function main() {
   const owner = await prisma.user.upsert({
     where: { email: "owner@rhythmrevoltrecords.com" },
     update: {},
-    create: { email: "owner@rhythmrevoltrecords.com", passwordHash: await bcrypt.hash("admin123", 12), role: "owner", organizationId: rrr.id },
+    create: { email: "owner@rhythmrevoltrecords.com", passwordHash: await bcrypt.hash(ownerPassword, 12), role: "owner", organizationId: rrr.id },
   });
   const artist = await prisma.user.upsert({
     where: { email: "artist@rhythmrevoltrecords.com" },
     update: {},
-    create: { email: "artist@rhythmrevoltrecords.com", passwordHash: await bcrypt.hash("demo123", 12), role: "artist", artistName: "OTOTO", organizationId: rrr.id },
+    create: { email: "artist@rhythmrevoltrecords.com", passwordHash: await bcrypt.hash(artistPassword, 12), role: "artist", artistName: "OTOTO", organizationId: rrr.id },
   });
 
   const day = 86400_000;
@@ -167,11 +200,12 @@ async function main() {
 
   console.log("Seeded:");
   console.log("  org      rhythm-revolt  (plan pro, domain presave.rhythmrevoltrecords.com)");
-  console.log(`  owner    ${owner.email} / admin123`);
-  console.log(`  artist   ${artist.email} / demo123`);
+  console.log(`  owner    ${owner.email} / ${ownerPassword}`);
+  console.log(`  artist   ${artist.email} / ${artistPassword}`);
   console.log(`  releases /rhythm-revolt/${upcoming.slug} (pre-save), /rhythm-revolt/${live.slug} (smart link)`);
   console.log("  bio      /b/ototo");
-  console.log("  ⚠ Change both passwords before this goes anywhere public.");
+  console.log("  ⚠ New passwords each run, shown only here. An existing account keeps its old one —");
+  console.log("    upsert leaves it alone, so re-seed doesn't silently rotate a password you're using.");
 }
 
 main()
