@@ -78,7 +78,9 @@ async function main() {
 
   const mine = await prisma.artist.create({ data: { organizationId: label.id, name: `Nathan ${RUN}`, email: artistUser.email } });
   const other = await prisma.artist.create({ data: { organizationId: label.id, name: `Someone Else ${RUN}` } });
-  const mineRelease = await prisma.release.create({ data: { organizationId: label.id, artistProfileId: mine.id, slug: `rl-mine-${RUN}`, title: `Mine ${RUN}`, artistName: "Nathan", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), isPublic: true } });
+  // A droplr-hosted cover on purpose: the proxy redirects rather than fetching for those, so the
+  // test measures who is allowed through instead of whether example.com answered.
+  const mineRelease = await prisma.release.create({ data: { organizationId: label.id, artistProfileId: mine.id, slug: `rl-mine-${RUN}`, title: `Mine ${RUN}`, artistName: "Nathan", coverUrl: `/api/cover/rl-${RUN}.jpg`, releaseDate: new Date(), isPublic: true } });
   const otherRelease = await prisma.release.create({ data: { organizationId: label.id, artistProfileId: other.id, slug: `rl-other-${RUN}`, title: `SECRET OTHER ${RUN}`, artistName: "Someone Else", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), isPublic: true } });
   await prisma.preSave.create({ data: { releaseId: otherRelease.id, platform: "email", email: `labelfan-${RUN}@example.com`, emailConsent: true } });
   const ownRelease = await prisma.release.create({ data: { organizationId: own.id, slug: `rl-ownrel-${RUN}`, title: `My Own ${RUN}`, artistName: "Nathan", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), isPublic: true } });
@@ -135,6 +137,37 @@ async function main() {
     const visible = where ? await prisma.release.findMany({ where, select: { id: true } }) : [];
     check("the grant resolves to exactly one release", visible.length === 1 && visible[0].id === mineRelease.id, `${visible.length}`);
 
+    console.log("\n5b. Clips: the one read-only corner of the label's release they reach");
+    // An artist promoting a release their label put out needs a clip of it, and the render happens
+    // entirely in their browser from a file on their own computer. So the page opens — and it is
+    // the only thing in /admin that resolves a release outside the caller's own organisation.
+    const clip = await http(artistJar, "GET", `/admin/clips/${mineRelease.id}`);
+    check("the clip page opens for the granted release", clip.status === 200, String(clip.status));
+    check("…with the renderer on it", clip.text.includes("never leaves your computer") || clip.text.includes("Loading the clip renderer"), "no renderer");
+    check("…and the label's link, not the artist's own domain", clip.text.includes(`rl-mine-${RUN}`));
+    check("…and it still leaks nothing else of the label's", !clip.text.includes("SECRET OTHER") && !clip.text.includes(`labelfan-${RUN}`));
+    const cover = await http(artistJar, "GET", `/api/admin/releases/${mineRelease.id}/cover`);
+    check("the artwork proxy answers for them", cover.status === 302 || cover.status === 200, String(cover.status));
+    // The narrow half of the grant, tested on the surface that widened: the label's OTHER artist.
+    const clipOther = await http(artistJar, "GET", `/admin/clips/${otherRelease.id}`);
+    check("the clip page 404s for the label's other artist's release", clipOther.status === 404, String(clipOther.status));
+    check("…and leaks nothing by trying", !clipOther.text.includes("SECRET OTHER"));
+    const coverOther = await http(artistJar, "GET", `/api/admin/releases/${otherRelease.id}/cover`);
+    check("the artwork proxy 404s for it too", coverOther.status === 404, String(coverOther.status));
+    // An unrelated account with no grant at all gets nothing, on either.
+    const clipOutsider = await http(outsiderJar, "GET", `/admin/clips/${mineRelease.id}`);
+    const coverOutsider = await http(outsiderJar, "GET", `/api/admin/releases/${mineRelease.id}/cover`);
+    check("an account with no link reaches neither", clipOutsider.status === 404 && coverOutsider.status === 404, `${clipOutsider.status}/${coverOutsider.status}`);
+    const clipAnon = await http(null, "GET", `/admin/clips/${mineRelease.id}`);
+    const coverAnon = await http(null, "GET", `/api/admin/releases/${mineRelease.id}/cover`);
+    check("logged out reaches neither", [301, 302, 303, 307, 308].includes(clipAnon.status) && coverAnon.status === 401, `${clipAnon.status}/${coverAnon.status}`);
+    // It is a clip page, not a back door onto the release: none of the label's editing surface
+    // comes with it, and it doesn't even link at the release page they can't open.
+    // href=, not a bare substring: the artwork proxy this page needs is /api/admin/releases/<id>/cover,
+    // which contains the release path and is exactly the one thing here that should reach it.
+    const leaked = ["Variants &amp; QR", "Promo plan", `href="/admin/releases/${mineRelease.id}`].filter((t) => clip.text.includes(t));
+    check("the clip page carries no editing surface", leaked.length === 0, leaked.join(" / "));
+
     console.log("\n6. Read-only, everywhere");
     const writes: [string, string, unknown?][] = [
       ["PATCH", `/api/admin/releases/${mineRelease.id}`, { title: "pwned" }],
@@ -169,6 +202,9 @@ async function main() {
     const unlinked = await http(artistJar, "DELETE", "/api/roster-link", { artistProfileId: mine.id });
     check("the artist can unlink", unlinked.status === 200, String(unlinked.status));
     check("access goes immediately", !(await http(artistJar, "GET", "/admin")).text.includes(`Mine ${RUN}`), "still visible after unlinking");
+    const clipAfter = await http(artistJar, "GET", `/admin/clips/${mineRelease.id}`);
+    const coverAfter = await http(artistJar, "GET", `/api/admin/releases/${mineRelease.id}/cover`);
+    check("the clip page and the artwork go with it", clipAfter.status === 404 && coverAfter.status === 404, `${clipAfter.status}/${coverAfter.status}`);
     check("the label keeps the release", !!(await prisma.release.findUnique({ where: { id: mineRelease.id } })));
     check("and it is no longer pointed at them", (await prisma.release.findUnique({ where: { id: mineRelease.id }, select: { artistId: true } }))?.artistId === null);
 

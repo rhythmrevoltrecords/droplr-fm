@@ -1,3 +1,5 @@
+import { Film } from "lucide-react";
+import Link from "next/link";
 import { CopyButton } from "@/components/admin/copy-button";
 import { QrDownload } from "@/components/admin/qr-download";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
@@ -36,7 +38,7 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
       {searchParams.verified && <Card className="border-emerald-500/40 bg-emerald-500/10 p-4 text-sm">Email confirmed. Thanks!</Card>}
       <div>
         <h1 className="text-2xl font-semibold">Hey {user.artistName ?? user.email.split("@")[0]}</h1>
-        <p className="text-sm text-muted-foreground">Your releases on {user.organization.name}. Copy a link for each placement so we can see what&apos;s working.</p>
+        <p className="text-sm text-muted-foreground">Your releases on {user.organization.name}. Copy a link for each placement so we can see what&apos;s working, and make a clip for the feed.</p>
       </div>
 
       <div className="space-y-4">
@@ -64,6 +66,11 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
                   <div className="flex flex-wrap gap-2">
                     {links.map((l) => <CopyButton key={l.label} value={l.url} label={l.label} />)}
                     {plan.qr && <QrDownload value={base} filename={`${r.slug}-qr`} label="QR download" />}
+                    {/* The label put the release up, so there's nothing to edit here — but the clip
+                        is the artist's to make, and it renders in their browser from their own file. */}
+                    <Button asChild size="sm" variant="outline" className="border-violet-500/40 bg-violet-500/10">
+                      <Link href={`/dashboard/clips/${r.id}`}><Film className="h-3.5 w-3.5" /> Make a clip</Link>
+                    </Button>
                     {plan.csvExport && <Button asChild size="sm" variant="outline"><a href={`/api/admin/releases/${r.id}/export?type=presaves`}>Export emails CSV</a></Button>}
                   </div>
                 </div>

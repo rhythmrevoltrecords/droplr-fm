@@ -52,10 +52,10 @@ export function grantedReleaseWhere(userId: string, grants: { id: string; organi
 /**
  * Can this account read that one release through a grant?
  *
- * Used by the few read-only routes an artist should reach for a label's release — the share
- * graphics. Never used by anything that writes, and never by the fan export: the fans a
- * label's release collected are the label's, not the artist's, and that stays true whoever
- * made the record.
+ * Used by the few read-only routes an artist should reach for a label's release — the clip page
+ * (/admin/clips/[id]) and the artwork proxy it needs. Never used by anything that writes, and
+ * never by the fan export: the fans a label's release collected are the label's, not the
+ * artist's, and that stays true whoever made the record.
  */
 export async function grantedRelease(userId: string, releaseId: string) {
   const grants = await grantsFor(userId);
