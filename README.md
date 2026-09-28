@@ -63,12 +63,20 @@ netlify dev               # http://localhost:8888
 
 Set `NEXT_PUBLIC_SITE_URL=http://localhost:8888` in `.env` for local dev. In production it must be `https://droplr.fm`. That's the variable this app reads for absolute URLs, redirects, emails and the Spotify callback. `NEXTAUTH_URL` isn't used (auth is custom JWT, not NextAuth), so setting it changes nothing.
 
-### Seeded logins (change these before deploying)
+### Seeded logins
 
-| Role | Email | Password |
-|---|---|---|
-| Owner (Rhythm Revolt Records, Pro plan) | owner@rhythmrevoltrecords.com | admin123 |
-| Artist | artist@rhythmrevoltrecords.com | demo123 |
+`npm run db:seed` creates two local accounts and **prints their passwords once**, in its own output.
+They are generated fresh on every run and written down nowhere else — this repository is public, so
+a password printed here would be a password anyone could use against any deployment where the seed
+had been run.
+
+| Role | Email |
+|---|---|
+| Owner (Rhythm Revolt Records, Pro plan) | owner@rhythmrevoltrecords.com |
+| Artist | artist@rhythmrevoltrecords.com |
+
+The seed refuses to run against a `neon.tech` database. If you ever need to override that, you
+already know why, and `ALLOW_PROD_SEED=1` is how.
 
 The seed also creates the `droplr` platform org, a pre-save release at `/rhythm-revolt/demo-presave` (24 sample email pre-saves) and a live release at `/rhythm-revolt/demo-release` (30 days of sample analytics). Spotify credentials for Rhythm Revolt are left empty on purpose.
 
