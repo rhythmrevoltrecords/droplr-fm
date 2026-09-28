@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { accountEmailConfigured } from "@/lib/account-email";
 import { prisma } from "@/lib/db";
-import { signupAllowlist, signupsOpen } from "@/lib/launch";
+import { domainsOpen, signupAllowlist, signupsOpen } from "@/lib/launch";
 import { requirePlatformAdmin } from "@/lib/platform";
 import { planOf } from "@/lib/plans";
 import { inviteCodeOf, inviteState, inviteUrl } from "@/lib/signup-invites";
@@ -35,6 +35,7 @@ export default async function PlatformAccess() {
   for (const i of invitedEmails) if (i.email && !latestInvite.has(i.email)) latestInvite.set(i.email, i);
 
   const now = new Date();
+  const domainsAreOpen = domainsOpen();
   const open = signupsOpen();
   const allowlist = signupAllowlist();
   const emailReady = accountEmailConfigured();
@@ -55,6 +56,12 @@ export default async function PlatformAccess() {
         </p>
         <p className="text-xs text-muted-foreground">
           SIGNUP_ALLOWLIST (Netlify env): {allowlist.length ? allowlist.join(", ") : "empty"}. Invite links don&apos;t need a redeploy, so use them instead of editing the env. Artists a label adds to its roster are invited from that label&apos;s dashboard, not here.
+        </p>
+        <p className="border-t pt-2 text-xs text-muted-foreground">
+          Custom domains are a separate door: <Badge variant={domainsAreOpen ? "success" : "warning"}>{domainsAreOpen ? "open to every paid plan" : "invite-only"}</Badge>{" "}
+          {domainsAreOpen
+            ? "DOMAINS_OPEN is set, so any account on a domain plan can connect one."
+            : "Turn one on per account from the Domains column on the accounts list — no redeploy. Set DOMAINS_OPEN=true in Netlify once the Netlify alias path has been proven on real domains; the only thing it's been tested against is a mock, and it fails by quietly never going live."}
         </p>
       </Card>
 

@@ -46,11 +46,13 @@ export function planFeatures(k: PlanKey): string[] {
   const common = ["Email pre-saves in each fan's timezone", "Promo plan + share graphics"];
   switch (k) {
     case "free":
-      return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list (view only)", "yourname.droplr.fm links"];
+      // Not "yourname.droplr.fm": *.droplr.fm has no DNS under it, so that link 404s. The path form
+      // is what actually resolves, and it's the one printed on every Free release page.
+      return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list (view only)", "droplr.fm/yourname links", "Release clips for Reels and TikTok"];
     case "artist":
       return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list with news opt-ins + CSV export", "Meta, TikTok and GA4 pixels", "QR codes for flyers and merch"];
     case "artist_pro":
-      return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans (coming soon)"];
+      return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans"];
     case "pro":
       return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Custom domain, connected for you", "Pixels, CSV export, QR codes", "Remove droplr.fm branding", insightsLine(k)];
     case "label":

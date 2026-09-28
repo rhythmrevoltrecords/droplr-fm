@@ -153,3 +153,33 @@ export function AccountKindControl({ orgId, kind, blocker }: { orgId: string; ki
     </div>
   );
 }
+
+/**
+ * Letting one account connect its own domain while the gate is closed.
+ *
+ * Deliberately a plain toggle with no confirm: it grants nothing but the ability to type a
+ * hostname, and turning it off never disconnects a domain that is already live.
+ */
+export function DomainAccessControl({ orgId, allowed, by }: { orgId: string; allowed: boolean; by: string | null }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+
+  async function flip() {
+    setBusy(true);
+    setErr(null);
+    const e = await patch(orgId, { domains: !allowed });
+    setBusy(false);
+    if (e) return setErr(e);
+    router.refresh();
+  }
+
+  return (
+    <div className="flex w-36 flex-col gap-1.5">
+      <Button size="sm" variant={allowed ? "secondary" : "outline"} onClick={flip} disabled={busy}>
+        {busy ? <Loader2 className="animate-spin" /> : allowed ? "Domains on" : "Allow domains"}
+      </Button>
+      {err ? <span className="text-xs text-red-300">{err}</span> : by && allowed ? <span className="text-xs text-muted-foreground">{by === "grandfathered" ? "had one already" : by}</span> : null}
+    </div>
+  );
+}

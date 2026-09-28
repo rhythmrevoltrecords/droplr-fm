@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { apiUser } from "@/lib/auth";
+import { canConnectDomain, DOMAIN_INVITE_ONLY } from "@/lib/launch";
 import { prisma } from "@/lib/db";
 import { DOMAIN_REDIRECT_DAYS, domainProblem, newDomainToken, nextPreviousDomains, queueDetach } from "@/lib/domains";
 import { UNVERIFIED_ERROR } from "@/lib/email-verification";
@@ -40,6 +41,12 @@ export async function PATCH(req: NextRequest) {
   const domain = d.customDomain?.toLowerCase().trim();
   if (domain) {
     if (!user.emailVerifiedAt && domain !== user.organization.customDomain) return NextResponse.json({ error: UNVERIFIED_ERROR }, { status: 403 });
+    // Invite-only until the Netlify attach path has been proven on real domains. Checked only when
+    // the domain actually changes, so an account already on one can still re-save its settings, and
+    // clearing a domain (domain is empty here) is never gated.
+    if (domain !== user.organization.customDomain && !canConnectDomain(user.organization)) {
+      return NextResponse.json({ error: DOMAIN_INVITE_ONLY }, { status: 403 });
+    }
     const problem = domainProblem(domain);
     if (problem) return NextResponse.json({ error: problem }, { status: 400 });
     const clash = await prisma.organization.findUnique({ where: { customDomain: domain } });

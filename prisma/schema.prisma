@@ -26,6 +26,10 @@ model Organization {
   customDomainCheckedAt  DateTime?
   customDomainError      String? // last problem, shown in settings
   customDomainFailures   Int       @default(0) // consecutive failed checks once live (3 → back to droplr.fm links)
+  /// While DOMAINS_OPEN is off, only accounts marked here may connect a NEW domain. Set from /platform.
+  /// Accounts that already had a domain when the gate landed were marked automatically, so nothing existing broke.
+  domainsAllowedAt       DateTime?
+  domainsAllowedBy       String?
   metaPixelId   String?
   tiktokPixelId String?
   ga4Id         String?
