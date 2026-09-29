@@ -34,6 +34,14 @@ jobs:
           languages: javascript-typescript
           # security-extended adds the lower-severity rules; still free on public repos.
           queries: security-extended
+          # scripts/ is the test suites. They assert on URLs with .includes(), which the
+          # "incomplete URL substring sanitization" rule reads as a failed host check — six
+          # findings that are assertions, not sanitisation. Leaving them open means the
+          # Security tab is mostly noise, which is how a real alert gets missed. Nothing in
+          # scripts/ ships: it never runs in production and takes no untrusted input.
+          config: |
+            paths-ignore:
+              - scripts
 
       - uses: github/codeql-action/analyze@v4
         with:
