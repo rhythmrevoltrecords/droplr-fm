@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-25",
-  updated: "25 September 2026",
+  version: "2026-09-29",
+  updated: "29 September 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -52,10 +52,54 @@ export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optiona
 export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
 
 /**
+ * What a remix contest entrant ticks, and the version stored against their entry.
+ *
+ * Unlike the two above, this one is an INTEGER as well as a label: ContestEntry.declarationVersion is
+ * an int column and the gallery compares against it (`declarationVersion >= 2`), so the number has to
+ * be usable in a query. The label is here for the changelog and for anyone auditing what a given
+ * version said; the two move together and neither is edited alone.
+ *
+ * v1 → v2 on 29 Sep 2026: v1 said the label could listen and share it if they won, which is NOT
+ * consent to being listed on a public page under your artist name with a vote button on it. Entries
+ * made under v1 are excluded from the public gallery for exactly that reason, so this text is kept
+ * rather than replaced — an entry's record has to keep meaning what it meant on the day.
+ *
+ * lib/contest.ts re-exports these; nothing else should define contest consent wording.
+ */
+export const CONTEST_DECLARATION_VERSION = 2;
+export const CONTEST_DECLARATION_LABEL = "2026-09-29.contest-entry-v2-public-gallery";
+
+export const CONTEST_DECLARATION_TEXT =
+  "This remix is my own work. I made it from the stems the label provided, I haven't used any sample " +
+  "or vocal I don't have the right to use, and I'm happy for my track to be listed publicly on this " +
+  "page once entries close, under the artist name I gave, where anyone can play it and vote for it. " +
+  "I understand droplr only stores my link and my contact details, not my audio.";
+
+/** The first wording. Kept because entries made under it are still on record — see above. */
+export const CONTEST_DECLARATION_V1_TEXT =
+  "This remix is my own work. I made it from the stems the label provided, I haven't used any sample " +
+  "or vocal I don't have the right to use, and I'm happy for the label to listen to it and share it " +
+  "if I win. I understand droplr only stores my link and my contact details, not my audio.";
+
+/**
  * What changed, newest first. The dashboard shows the entries newer than the version a login accepted,
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-09-29",
+    date: "29 September 2026",
+    summary: [
+      "Remix contests: you can take remix entries on a release page. Entrants paste a link to their own upload — droplr.fm stores the link, the name they gave, their email and a dated copy of what they agreed to, and never the audio. As with a download gate, we can remove an entry's link but we cannot remove a file that isn't on our systems.",
+      "You are the one running the contest, not us. You set the rules, the prize and the deadline, you judge it, and you deal with the winner. We provide the page and the list. Anything a competition or trade-promotion law requires of the person running it is yours to sort out, and we don't advise on it.",
+      "Entrants confirm the remix is their own work, made from stems you provided, with no sample they don't have the right to use. We can't verify that, so an entry you judge is a claim the entrant made — not something we've checked.",
+      "Once entries close, the entries are listed publicly on the release page: the artist name the entrant gave, their note, a player where the host allows one, and a vote button. Nothing is shown while entries are still open. Entrants are told this in the box they tick before entering, and anyone who entered under our earlier wording — which only mentioned the label listening — is left out of that list.",
+      "Fans get one vote each per contest and can move it. Votes are public and advisory: you choose the winner, and we show you how many separate networks a vote count came from so you can judge what it's worth.",
+      "An entrant can withdraw at any time using the link in their confirmation email. That link asks before it acts, and after the deadline a withdrawal can't be undone.",
+      "Running a contest needs a paid plan. Entering one is always free. If your plan lapses while a contest is live it keeps running and stays editable, because your entrants were told a deadline.",
+      "Privacy: what we store for an entrant and for a vote, and how long we keep it. A vote is recorded against the anonymous visitor ID we already set, with a hashed network address and no account.",
+    ],
+  },
   {
     version: "2026-09-25",
     date: "25 September 2026",

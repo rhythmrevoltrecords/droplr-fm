@@ -14,6 +14,7 @@ const toc = [
   { id: "fans", title: "Fan data and email" },
   { id: "reports", title: "Shared release reports" },
   { id: "clips", title: "Release clips" },
+  { id: "contests", title: "Remix contests" },
   { id: "platforms", title: "Spotify, Apple Music and other platforms" },
   { id: "use", title: "Acceptable use" },
   { id: "domains", title: "Custom domains and branding" },
@@ -118,6 +119,20 @@ export default function TermsPage() {
           <li>On plans that don&apos;t include removing droplr.fm branding, a small <span className="whitespace-nowrap">droplr.fm</span> line is drawn under your link inside the video. It&apos;s part of the image, not metadata. Editing it out is your business, but the mark is the reason the feature is included rather than charged for, and we may change which plans render clean.</li>
           <li>Clips are rendered by your own device, so what you get depends on it. Browsers without WebCodecs record in real time and produce a WebM file rather than an MP4, older hardware is slower, and a very long track may exhaust the tab&apos;s memory. We don&apos;t warrant that a clip will render on any particular device or that a platform will accept a particular file.</li>
           <li>Because the render happens on your machine there is no per-clip cost to us and no cap on how many you make. We may still change or withdraw the feature under <Link href="#service">Availability and changes to the service</Link>.</li>
+        </ul>
+      </Section>
+
+      <Section {...s("contests")}>
+        <p><strong>You run the contest. We provide the page.</strong> You set the brief, the prize, the deadline and the rules, you decide who wins, and you deal with the winner. droplr.fm collects the entries and shows them; we are not the promoter, we are not a party to anything you offer an entrant, and we don&apos;t judge, arbitrate or referee. Whatever a competition, trade-promotion or prize law requires of the person running a contest is yours to work out, and nothing here or in the product is advice on it.</p>
+        <ul>
+          <li><strong>We store links, not audio.</strong> An entrant pastes a link to a file they host themselves. We keep the link, the artist name they gave, their email, any note, and a dated copy of the exact wording they agreed to. We never receive the recording. We can remove an entry or its link from your contest; we cannot remove a file that isn&apos;t on our systems, and a takedown for the recording itself has to go to whoever hosts it.</li>
+          <li><strong>An entrant&apos;s promise is theirs, not ours.</strong> Before entering, they confirm the remix is their own work, made from stems you provided, using no sample or vocal they don&apos;t have the right to use. We can&apos;t verify any of that. An entry is a claim the entrant made, recorded with a timestamp — not something we&apos;ve checked. If you release a winning remix, the rights in it are between you and them.</li>
+          <li><strong>You still need the right to the stems.</strong> A contest usually sits on a download gate, and the same promise applies to what you give away as to any other file you put behind one.</li>
+          <li><strong>Entries become public when entries close.</strong> Until then nothing about an entry appears on your page. After the deadline, each entry that agreed to it is listed with the artist name the entrant gave, their note, a player where the host allows one, and a vote button. Entrants are shown this in the box they tick before entering. Anyone who entered under an earlier version of that wording is left out, and we keep every version so an entry&apos;s record keeps meaning what it meant on the day.</li>
+          <li><strong>Votes are public and advisory.</strong> Fans get one vote each per contest and can move it. We count them against the anonymous visitor ID already used for analytics, and we show you how many separate networks a count came from. They do not decide anything — you pick the winner. We don&apos;t warrant that a public vote is free of manipulation, and you must not present a vote count as a verified or audited result.</li>
+          <li><strong>An entrant can withdraw.</strong> The link in their confirmation email pulls their entry, and after the deadline that can&apos;t be reversed. A withdrawn entry leaves your list and its link stays reserved so nobody can enter the same upload under another name.</li>
+          <li><strong>Plans.</strong> Running a contest needs a paid plan. Entering one is always free — an entrant has no account. If your plan lapses while a contest is live it keeps taking entries, keeps its public list and stays editable, because your entrants were told a deadline; you just can&apos;t start another one until you&apos;re back on a paid plan.</li>
+          <li>The declaration entrants tick, and the fact we hold no audio, are the reason there is no store of entry files to be disclosed, subpoenaed or lost from our systems — and also the reason we can&apos;t hand you an entry if the entrant deletes it from their own host.</li>
         </ul>
       </Section>
 

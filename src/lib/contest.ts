@@ -51,6 +51,31 @@ export function contestState(c: ContestWindow, now = new Date()): ContestState {
 export const acceptingEntries = (c: ContestWindow, now = new Date()) => contestState(c, now) === "open";
 
 /**
+ * The deadline written out, in the LABEL's timezone, with the zone named.
+ *
+ * Naming the zone is the whole point. A contest closes at one instant, but an entrant reads a wall
+ * clock — so "Friday 16 October at 9:00 pm" shown to someone in London, from a Brisbane label, is a
+ * deadline they will miss by ten hours while believing they had a day left. `timeZoneName` is what
+ * makes it "9:00 pm AEST" and therefore something they can convert.
+ *
+ * The month is spelled out rather than numbered so 16/10 and 10/16 can't be confused either.
+ */
+export function deadlineText(closesAt: Date, timezone: string | null | undefined): string {
+  // Spelled-out components rather than dateStyle/timeStyle: Intl throws if either of those is
+  // combined with timeZoneName, and naming the zone is the entire reason this function exists.
+  const opts: Intl.DateTimeFormatOptions = {
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
+    hour: "numeric", minute: "2-digit", timeZoneName: "short",
+  };
+  try {
+    return new Intl.DateTimeFormat("en-AU", { ...opts, timeZone: timezone || "Australia/Brisbane" }).format(closesAt);
+  } catch {
+    // An invalid zone must not take a page down; fall back to the default rather than throwing.
+    return new Intl.DateTimeFormat("en-AU", { ...opts, timeZone: "Australia/Brisbane" }).format(closesAt);
+  }
+}
+
+/**
  * Closing time is the label's own moment, in its own timezone, like releaseDate. A deadline that
  * silently means UTC is how a Brisbane label ends up closing a contest at 10am local.
  */
@@ -258,29 +283,20 @@ export function checkEntryLink(raw: string, opts: { closesAt?: Date; now?: Date 
  * person agreed to on the day they entered. A foreign key to whatever the current wording happens
  * to be would quietly rewrite history the next time the text is improved.
  */
-export const DECLARATION_VERSION = 2;
-
-export const DECLARATION_TEXT =
-  "This remix is my own work. I made it from the stems the label provided, I haven't used any sample " +
-  "or vocal I don't have the right to use, and I'm happy for my track to be listed publicly on this " +
-  "page once entries close, under the artist name I gave, where anyone can play it and vote for it. " +
-  "I understand droplr only stores my link and my contact details, not my audio.";
-
 /**
- * The first wording, kept because entries made under it are still on record.
- *
- * v1 said "happy for the label to listen to it and share it if I win" — which is NOT consent to being
- * listed in a public gallery with a vote button on it. So `galleryEligible` below excludes them. There
- * were no live v1 entries when v2 shipped, which is exactly why it was cheap to do properly; the point
- * is that the version column now earns its place instead of being decoration.
+ * Consent wording lives in lib/legal.ts with the other consent versions, so that one file is the
+ * answer to "what did this person agree to, and when did it change". Re-exported here because every
+ * caller in this feature already imports from lib/contest.
  */
-export const DECLARATION_V1_TEXT =
-  "This remix is my own work. I made it from the stems the label provided, I haven't used any sample " +
-  "or vocal I don't have the right to use, and I'm happy for the label to listen to it and share it " +
-  "if I win. I understand droplr only stores my link and my contact details, not my audio.";
+export {
+  CONTEST_DECLARATION_VERSION as DECLARATION_VERSION,
+  CONTEST_DECLARATION_TEXT as DECLARATION_TEXT,
+  CONTEST_DECLARATION_V1_TEXT as DECLARATION_V1_TEXT,
+} from "./legal";
+import { CONTEST_DECLARATION_VERSION } from "./legal";
 
 /** The version from which an entrant agreed to being listed publicly. */
-export const PUBLIC_GALLERY_FROM_VERSION = 2;
+export const PUBLIC_GALLERY_FROM_VERSION = CONTEST_DECLARATION_VERSION;
 
 export const galleryEligible = (e: { declarationVersion: number; withdrawnAt: Date | null }) =>
   !e.withdrawnAt && e.declarationVersion >= PUBLIC_GALLERY_FROM_VERSION;

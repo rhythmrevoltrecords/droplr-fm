@@ -36,7 +36,12 @@ export function spotifyEnabledFor(org: { plan: string; spotifyAppStatus: string;
  * crosses the server/client boundary, and only the counts the public page is allowed to see come
  * with it — never an entry, never an entrant's address.
  */
-async function contestViewOf(c: NonNullable<Resolution & { kind: "release" }>["release"]["contest"]): Promise<ContestView | null> {
+async function contestViewOf(
+  c: NonNullable<Resolution & { kind: "release" }>["release"]["contest"],
+  /** The label's own zone. The deadline is one instant, but an entrant reads a wall clock — so the
+   *  page has to name whose clock it means. */
+  timezone: string,
+): Promise<ContestView | null> {
   if (!c) return null;
   // Unpublished stops HERE, not in the component. ContestEntry is a client component, so anything
   // handed to it is serialised into the RSC payload inlined in the page's HTML — a draft's headline,
@@ -76,6 +81,7 @@ async function contestViewOf(c: NonNullable<Resolution & { kind: "release" }>["r
     : [];
 
   return {
+    timezone,
     gallery,
     id: c.id,
     headline: c.headline,
@@ -172,7 +178,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         query={query}
         showBranding={!planOf(org.plan).removeBranding}
         theme={publicTheme(org)}
-        contest={await contestViewOf(release.contest)}
+        contest={await contestViewOf(release.contest, org.timezone)}
       />
     );
   }
@@ -201,7 +207,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       deezerEnabled={deezerGloballyEnabled() && org.deezerEnabled}
       showBranding={!planOf(org.plan).removeBranding}
       theme={publicTheme(org)}
-      contest={await contestViewOf(release.contest)}
+      contest={await contestViewOf(release.contest, org.timezone)}
     />
   );
 }
