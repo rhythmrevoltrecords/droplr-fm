@@ -115,6 +115,10 @@ const HOSTS: HostRule[] = [
 
 export const hostRuleFor = (hostname: string) => HOSTS.find((h) => h.match.test(hostname)) ?? null;
 
+/** Proper name for a stored host key ("drive" → "Google Drive"), for anything a person reads. */
+export const hostLabelFor = (key: string | null | undefined) =>
+  (key ? HOSTS.find((h) => h.key === key)?.label : null) ?? null;
+
 export type EntryLink = {
   /** Stored form: lower-case host, tracking parameters gone, no trailing slash. */
   normalised: string;

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { SITE_URL } from "@/lib/env";
 import {
-  checkEntryLink, closingMessage, contestState, DECLARATION_TEXT, embedFor, galleryVisible,
+  checkEntryLink, closingMessage, contestState, DECLARATION_TEXT, embedFor, galleryVisible, hostLabelFor,
   type ContestState, type EntryWarning,
 } from "@/lib/contest";
 
@@ -321,7 +321,9 @@ function Gallery({ contest, accent }: { contest: ContestView; accent: string }) 
                   rel="noreferrer nofollow"
                   className="mt-2.5 flex h-11 items-center justify-center rounded-lg border border-white/15 text-sm font-medium transition hover:bg-white/[0.06]"
                 >
-                  Open{e.linkHost ? ` on ${e.linkHost}` : " the track"} ↗
+                  {/* One string, not three: React splits adjacent text nodes with comment markers,
+                      and "Open on Google Drive" should be one phrase in the HTML as well as on screen. */}
+                  {hostLabelFor(e.linkHost) ? `Open on ${hostLabelFor(e.linkHost)} ↗` : "Open the track ↗"}
                 </a>
               )}
 

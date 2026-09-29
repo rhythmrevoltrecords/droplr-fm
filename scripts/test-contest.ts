@@ -20,7 +20,7 @@ import {
   acceptingEntries, checkEntryLink, closingMessage, contestState, DECLARATION_TEXT,
   DECLARATION_VERSION, duplicateMessage, duplicateVerdict, embedFor, entryProblem,
   type ExistingEntry, galleryEligible, galleryVisible, isEntryStatus, judgingSummary,
-  linkCheckFromStatus, linkCheckNote, normaliseEntryUrl, voteConcentration, voteVerdict,
+  hostLabelFor, linkCheckFromStatus, linkCheckNote, normaliseEntryUrl, voteConcentration, voteVerdict,
 } from "../src/lib/contest";
 
 let passed = 0;
@@ -242,6 +242,10 @@ function main() {
   check("Drive gets a link", embedFor("https://drive.google.com/file/d/abc/view") === null);
   check("an artist's own site gets a link", embedFor("https://ototodj.com/remix.wav") === null);
   check("garbage doesn't throw", embedFor("not a url") === null && embedFor("") === null);
+
+  // The gallery shows this to the public, so "drive" is not good enough.
+  check("a stored host key reads as a proper name", hostLabelFor("drive") === "Google Drive" && hostLabelFor("soundcloud") === "SoundCloud" && hostLabelFor("wetransfer") === "WeTransfer");
+  check("an unknown or missing key is null, not the raw key", hostLabelFor("nope") === null && hostLabelFor(null) === null);
 
   console.log("\n16. Votes");
   check("a first vote is new", voteVerdict(null, "e1").kind === "new");
