@@ -11,16 +11,16 @@
     "db:migrate:dev": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
-    "test:security": "tsx scripts/test-security.ts",
-    "test:timing": "tsx scripts/test-release-timing.ts",
+    "test:security": "tsx --env-file-if-exists=.env scripts/test-security.ts",
+    "test:timing": "tsx --env-file-if-exists=.env scripts/test-release-timing.ts",
     "postinstall": "prisma generate",
-    "test:news": "tsx scripts/test-news.ts",
-    "test:tools": "tsx scripts/test-release-tools.ts",
-    "test:import": "tsx scripts/test-fan-import.ts",
-    "test:domains": "tsx scripts/test-domains.ts",
-    "test:clip": "tsx scripts/test-clip.ts",
-    "test:metadata": "tsx scripts/test-metadata.ts",
-    "test:contest": "tsx scripts/test-contest.ts"
+    "test:news": "tsx --env-file-if-exists=.env scripts/test-news.ts",
+    "test:tools": "tsx --env-file-if-exists=.env scripts/test-release-tools.ts",
+    "test:import": "tsx --env-file-if-exists=.env scripts/test-fan-import.ts",
+    "test:domains": "tsx --env-file-if-exists=.env scripts/test-domains.ts",
+    "test:clip": "tsx --env-file-if-exists=.env scripts/test-clip.ts",
+    "test:metadata": "tsx --env-file-if-exists=.env scripts/test-metadata.ts",
+    "test:contest": "tsx --env-file-if-exists=.env scripts/test-contest.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
