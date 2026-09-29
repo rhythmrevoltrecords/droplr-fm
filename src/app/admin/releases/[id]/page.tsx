@@ -10,6 +10,7 @@ import { ClipForgeLazy } from "@/components/admin/clip-forge-lazy";
 import { MetadataFindings } from "@/components/admin/metadata-findings";
 import { ContestSetup } from "@/components/admin/contest-setup";
 import { ContestEntries } from "@/components/admin/contest-entries";
+import { voteConcentration } from "@/lib/contest";
 import { checkMetadata } from "@/lib/metadata-check";
 import { PromoPlan } from "@/components/admin/promo-plan";
 import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
@@ -231,8 +232,31 @@ export default async function ReleaseDetail(
               where: { contestId: contest.id, organizationId: user.organizationId },
               orderBy: [{ status: "asc" }, { createdAt: "asc" }],
               take: 2000,
+              // The hashed addresses behind each entry's votes, so voteConcentration() can say how
+              // few networks a count came from. Hashes only — there is no raw address to leak.
+              include: { votes: { select: { ipHash: true } } },
             })
           : [];
+        if (!contest && !plan.contests) {
+          return (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Remix contest</CardTitle>
+                <CardDescription>
+                  Take remixes back in as links — entrants paste a SoundCloud or Drive link, you get a list to listen
+                  through and mark up, and once entries close the tracks go public on the release page with a vote
+                  button. Entering is always free for the remixer.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3 text-sm">
+                <p className="text-muted-foreground">
+                  Running one needs a paid plan. {planOf("artist").name} is A${planOf("artist").price}/month.
+                </p>
+                <Button asChild><Link href="/admin/settings/billing">See the plans</Link></Button>
+              </CardContent>
+            </Card>
+          );
+        }
         return (
           <>
             <ContestSetup
@@ -261,6 +285,8 @@ export default async function ReleaseDetail(
                   enteredAt: e.createdAt.toISOString(),
                   withdrawnAt: e.withdrawnAt ? e.withdrawnAt.toISOString() : null,
                   country: e.country,
+                  votes: e.votes.length,
+                  voteNote: voteConcentration(e.votes.map((v) => v.ipHash)).note,
                 }))}
               />
             )}

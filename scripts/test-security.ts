@@ -970,6 +970,26 @@ async function main() {
       const aContest = await prisma.contest.findUnique({ where: { releaseId: A.release.id } });
       check("a label can put a contest on its own release, and not on another label's", mkA.status === 200 && crossMake.status === 404 && aContest?.headline === `Contest A ${RUN}` && aContest?.organizationId === A.org.id, `${mkA.status}/${crossMake.status}`);
 
+      // Paid-plan gating is on CREATING, not on running: a live contest keeps taking entries after a
+      // downgrade, because entrants were told a deadline.
+      await prisma.contest.deleteMany({ where: { releaseId: A.release.id } });
+      const planBefore = (await prisma.organization.findUnique({ where: { id: A.org.id } }))!.plan;
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: "free", compPlan: null } });
+      const freeMake = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Free try ${RUN}`, published: true, closesAtLocal: closeLocal, maxPerEntrant: 1,
+      });
+      check("a Free account can't create a contest, and is told why", freeMake.status === 402 && freeMake.text.includes("paid plans") && !(await prisma.contest.findUnique({ where: { releaseId: A.release.id } })), `${freeMake.status}`);
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: planBefore } });
+      const paidMake = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Contest A ${RUN}`, published: true, closesAtLocal: closeLocal, maxPerEntrant: 1,
+      });
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: "free", compPlan: null } });
+      const editOnFree = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/contest`, {
+        headline: `Contest A ${RUN}`, published: true, closesAtLocal: closeLocal, maxPerEntrant: 1, prize: "Still editable",
+      });
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: planBefore } });
+      check("an existing contest survives a downgrade and can still be edited", paidMake.status === 200 && editOnFree.status === 200 && (await prisma.contest.findUnique({ where: { releaseId: A.release.id } }))?.prize === "Still editable", `${paidMake.status}/${editOnFree.status}`);
+
       const anonMake = await http(null, "PUT", `/api/admin/releases/${A.release.id}/contest`, { headline: "Anon", published: true, closesAtLocal: closeLocal, maxPerEntrant: 1 });
       const artistMake = await http(artistA, "PUT", `/api/admin/releases/${A.release.id}/contest`, { headline: "Artist", published: true, closesAtLocal: closeLocal, maxPerEntrant: 1 });
       check("logged out and artist logins can't create or edit a contest", anonMake.status === 401 && artistMake.status === 401 && (await prisma.contest.findUnique({ where: { releaseId: A.release.id } }))?.headline === `Contest A ${RUN}`, `${anonMake.status}/${artistMake.status}`);
@@ -1083,6 +1103,71 @@ async function main() {
       const csvHead = await fetch(`${BASE}/api/admin/releases/${A.release.id}/contest/export`, { headers: { cookie: ownerA.cookie } });
       await csvHead.text();
       check("the entries CSV is never cached by a proxy", (csvHead.headers.get("cache-control") ?? "").includes("no-store"), csvHead.headers.get("cache-control") ?? "none");
+
+      // ---- The public gallery and voting ----------------------------------------------------------
+      // Rebuild a contest with one live entry, because the checks above deleted and withdrew things.
+      await prisma.contestEntry.deleteMany({ where: { contestId: cid } });
+      await prisma.contestVote.deleteMany({ where: { contestId: cid } });
+      await prisma.contest.update({ where: { id: cid }, data: { published: true, closesAt: new Date(Date.now() + 86_400_000), winnerAnnouncedAt: null } });
+      await prisma.authThrottle.deleteMany({});
+      const g1 = await entry({ email: `gal1-${RUN}@sectest.dev`, artistName: `Gallery One ${RUN}`, link: `https://soundcloud.com/gal1-${RUN}/x` });
+      const g2 = await entry({ email: `gal2-${RUN}@sectest.dev`, artistName: `Gallery Two ${RUN}`, link: `https://drive.google.com/file/d/gal2${RUN}/view` });
+      const gEntries = await prisma.contestEntry.findMany({ where: { contestId: cid }, orderBy: { createdAt: "asc" } });
+      check("two entries in for the gallery checks", g1.status === 200 && g2.status === 200 && gEntries.length === 2, `${g1.status}/${g2.status} ${gEntries.length}`);
+
+      // While entries are OPEN the gallery must be absent from the HTML, not merely unrendered: props
+      // of a client component are serialised into the RSC payload inlined in the page.
+      const openPage = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+      check("while open, no entrant appears in the page source at all", !openPage.text.includes(`Gallery One ${RUN}`) && !openPage.text.includes(`gal1-${RUN}@sectest.dev`) && !openPage.text.includes(`soundcloud.com/gal1-${RUN}`), `${openPage.status}`);
+      const earlyVote = await http(null, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[0].id });
+      check("voting is refused while entries are still open", earlyVote.status === 409, `${earlyVote.status}`);
+
+      await prisma.contest.update({ where: { id: cid }, data: { closesAt: new Date(Date.now() - 60_000) } });
+      const closedPage = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+      check("once closed, the entries and a player appear", closedPage.text.includes(`Gallery One ${RUN}`) && closedPage.text.includes("w.soundcloud.com/player"), `${closedPage.status}`);
+      check("…and a host that can't embed gets a link instead of a broken player", closedPage.text.includes(`Gallery Two ${RUN}`) && closedPage.text.includes("Open on drive"), "");
+      check("…and no entrant's email is anywhere in it", !closedPage.text.includes(`gal1-${RUN}@sectest.dev`) && !closedPage.text.includes(`gal2-${RUN}@sectest.dev`));
+      const withLabelNote = await http(ownerA, "PATCH", `/api/admin/releases/${A.release.id}/contest/entries/${gEntries[0].id}`, { labelNote: `PRIVATE ${RUN}` });
+      const afterNote = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+      check("the label's private note never reaches the public page", withLabelNote.status === 200 && !afterNote.text.includes(`PRIVATE ${RUN}`), `${withLabelNote.status}`);
+
+      // Consent: v1 said "happy for the label to listen to it", which is not consent to a public page
+      // with a vote button. The version column has to actually keep them out.
+      await prisma.contestEntry.update({ where: { id: gEntries[1].id }, data: { declarationVersion: 1 } });
+      const v1Page = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
+      const v1Vote = await http(null, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[1].id });
+      check("an entry made under the v1 declaration is not listed and can't be voted for", !v1Page.text.includes(`Gallery Two ${RUN}`) && v1Vote.status === 404, `${v1Vote.status}`);
+      await prisma.contestEntry.update({ where: { id: gEntries[1].id }, data: { declarationVersion: 2 } });
+
+      // One vote per visitor per contest, movable. The cookie is the identity, so no cookie = no vote.
+      const noCookie = await fetch(`${BASE}/api/contest/${cid}/vote`, {
+        method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ entryId: gEntries[0].id }),
+      });
+      await noCookie.text();
+      check("a visitor with no anon cookie can't vote", noCookie.status === 400, `${noCookie.status}`);
+
+      const voter = { cookie: `${"dfm_anon"}=voter-${RUN}` };
+      const vote1 = await http(voter, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[0].id });
+      const vote1again = await http(voter, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[0].id });
+      check("voting twice for the same entry is still one vote", vote1.status === 200 && vote1again.status === 200 && (await prisma.contestVote.count({ where: { contestId: cid } })) === 1, `${vote1.status}/${vote1again.status}`);
+      const moved = await http(voter, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[1].id });
+      const afterMove = await prisma.contestVote.findMany({ where: { contestId: cid } });
+      check("voting for another entry MOVES the vote rather than adding one", moved.status === 200 && afterMove.length === 1 && afterMove[0].entryId === gEntries[1].id, `${moved.status} ${afterMove.length}`);
+      check("the raw address is never stored on a vote", afterMove[0].ipHash === null || !/^[0-9.]+$|:/.test(afterMove[0].ipHash!), String(afterMove[0].ipHash));
+      const otherVoter = await http({ cookie: `dfm_anon=voter2-${RUN}` }, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[0].id });
+      check("a different visitor is a different vote", otherVoter.status === 200 && (await prisma.contestVote.count({ where: { contestId: cid } })) === 2, `${otherVoter.status}`);
+
+      const crossVote = await http({ cookie: `dfm_anon=voter3-${RUN}` }, "POST", `/api/contest/${cid}/vote`, { entryId: "cmxxxxxxxxxxxxxxxxxxxxxx" });
+      check("you can't vote for an entry that isn't in this contest", crossVote.status === 404, `${crossVote.status}`);
+      const withdrawnVote = await prisma.contestEntry.update({ where: { id: gEntries[0].id }, data: { withdrawnAt: new Date() } });
+      const voteWithdrawn = await http({ cookie: `dfm_anon=voter4-${RUN}` }, "POST", `/api/contest/${cid}/vote`, { entryId: withdrawnVote.id });
+      check("a withdrawn entry can't be voted for", voteWithdrawn.status === 404, `${voteWithdrawn.status}`);
+      await prisma.contestEntry.update({ where: { id: gEntries[0].id }, data: { withdrawnAt: null } });
+
+      const votesCsv = await http(ownerA, "GET", `/api/admin/releases/${A.release.id}/contest/export`);
+      check("the CSV carries the vote count and the spread, never a hash", votesCsv.status === 200 && votesCsv.text.includes("votes") && votesCsv.text.includes("voteNetworks") && !votesCsv.text.includes("ipHash"), `${votesCsv.status}`);
+      await prisma.contestVote.deleteMany({ where: { contestId: cid } });
+      await prisma.contest.update({ where: { id: cid }, data: { closesAt: new Date(Date.now() - 60_000) } });
 
       const delWithEntries = await http(ownerA, "DELETE", `/api/admin/releases/${A.release.id}/contest`);
       check("a contest with entries can't be deleted", delWithEntries.status === 409 && !!(await prisma.contest.findUnique({ where: { id: cid } })), `${delWithEntries.status}`);

@@ -254,12 +254,44 @@ export function checkEntryLink(raw: string, opts: { closesAt?: Date; now?: Date 
  * person agreed to on the day they entered. A foreign key to whatever the current wording happens
  * to be would quietly rewrite history the next time the text is improved.
  */
-export const DECLARATION_VERSION = 1;
+export const DECLARATION_VERSION = 2;
 
 export const DECLARATION_TEXT =
   "This remix is my own work. I made it from the stems the label provided, I haven't used any sample " +
+  "or vocal I don't have the right to use, and I'm happy for my track to be listed publicly on this " +
+  "page once entries close, under the artist name I gave, where anyone can play it and vote for it. " +
+  "I understand droplr only stores my link and my contact details, not my audio.";
+
+/**
+ * The first wording, kept because entries made under it are still on record.
+ *
+ * v1 said "happy for the label to listen to it and share it if I win" — which is NOT consent to being
+ * listed in a public gallery with a vote button on it. So `galleryEligible` below excludes them. There
+ * were no live v1 entries when v2 shipped, which is exactly why it was cheap to do properly; the point
+ * is that the version column now earns its place instead of being decoration.
+ */
+export const DECLARATION_V1_TEXT =
+  "This remix is my own work. I made it from the stems the label provided, I haven't used any sample " +
   "or vocal I don't have the right to use, and I'm happy for the label to listen to it and share it " +
   "if I win. I understand droplr only stores my link and my contact details, not my audio.";
+
+/** The version from which an entrant agreed to being listed publicly. */
+export const PUBLIC_GALLERY_FROM_VERSION = 2;
+
+export const galleryEligible = (e: { declarationVersion: number; withdrawnAt: Date | null }) =>
+  !e.withdrawnAt && e.declarationVersion >= PUBLIC_GALLERY_FROM_VERSION;
+
+/**
+ * Is the public allowed to see the entries yet?
+ *
+ * Only once entries have closed. While a contest is open, a visible gallery would mean later entrants
+ * can hear what's already been done, and the first entry submitted collects weeks more plays than the
+ * last — neither of which is a contest. After the deadline it's pure promotion for everyone in it.
+ */
+export function galleryVisible(c: ContestWindow, now = new Date()): boolean {
+  const state = contestState(c, now);
+  return state === "judging" || state === "done";
+}
 
 export type EntryDraft = {
   email: string;
@@ -279,6 +311,101 @@ export function entryProblem(d: EntryDraft): string | null {
   if ((d.note ?? "").length > ENTRY_LIMITS.note) return `Keep the note under ${ENTRY_LIMITS.note} characters.`;
   if (!d.declarationAccepted) return "Tick the box to confirm the remix is yours.";
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Players
+// ---------------------------------------------------------------------------
+
+/**
+ * The embed URL for an entry, or null when the host can't be embedded from a URL alone.
+ *
+ * Only SoundCloud and YouTube make it. SoundCloud's player takes any track URL as a parameter, and a
+ * YouTube id is sitting in the URL. Bandcamp and Audius embeds need a numeric release id that their
+ * public URLs don't carry — it takes an API call each — so those entries get a link instead of a
+ * player. That is deliberate: a dead iframe on a contest page looks like the entrant's track is
+ * broken, which is a worse outcome for them than an honest "open in Bandcamp" button.
+ *
+ * Every returned URL is built from parts this function validated, never by interpolating the entrant's
+ * string into a src attribute.
+ */
+export function embedFor(link: string): { kind: "soundcloud" | "youtube"; src: string; tall: boolean } | null {
+  const parsed = normaliseEntryUrl(link);
+  if (!parsed) return null;
+  const { url } = parsed;
+
+  if (/(^|\.)soundcloud\.com$/i.test(url.hostname)) {
+    // The visual player is 300px+ of artwork; the compact one is a 20px bar. Compact is right here:
+    // twenty entries in a row of giant waveforms is a page nobody scrolls to the bottom of.
+    const p = new URLSearchParams({
+      url: url.toString(),
+      color: "%23ffffff",
+      auto_play: "false",
+      hide_related: "true",
+      show_comments: "false",
+      show_user: "true",
+      show_reposts: "false",
+      show_teaser: "false",
+      visual: "false",
+    });
+    return { kind: "soundcloud", src: `https://w.soundcloud.com/player/?${p.toString()}`, tall: false };
+  }
+
+  if (/(^|\.)youtube\.com$/i.test(url.hostname) || /(^|\.)youtu\.be$/i.test(url.hostname)) {
+    const id =
+      url.hostname.endsWith("youtu.be")
+        ? url.pathname.slice(1).split("/")[0]
+        : url.searchParams.get("v") ?? url.pathname.match(/^\/(?:embed|shorts|live)\/([^/?]+)/)?.[1] ?? "";
+    // YouTube ids are 11 characters of [A-Za-z0-9_-]. Refusing anything else is what keeps a crafted
+    // path out of the iframe src.
+    if (!/^[A-Za-z0-9_-]{11}$/.test(id)) return null;
+    return { kind: "youtube", src: `https://www.youtube-nocookie.com/embed/${id}`, tall: true };
+  }
+
+  return null;
+}
+
+// ---------------------------------------------------------------------------
+// Votes
+// ---------------------------------------------------------------------------
+
+/**
+ * One vote per visitor per contest, movable.
+ *
+ * Not a heart on every entry: that rewards whoever asks the most people to tap the most buttons. One
+ * pick, changeable, is the closest a public vote gets to meaning "this is the best one" — and it makes
+ * the count legible to the label, because the numbers across a contest add up to the number of people
+ * who voted rather than to nothing in particular.
+ *
+ * It is still only a signal. `voteConcentration` below is why: the label sees how few distinct
+ * addresses those votes came from before treating them as a verdict.
+ */
+export type VoteVerdict =
+  | { kind: "new" }
+  | { kind: "moved"; from: string }
+  | { kind: "same" };
+
+export function voteVerdict(existingEntryId: string | null, entryId: string): VoteVerdict {
+  if (!existingEntryId) return { kind: "new" };
+  if (existingEntryId === entryId) return { kind: "same" };
+  return { kind: "moved", from: existingEntryId };
+}
+
+/**
+ * How suspicious a vote count is, from the spread of hashed addresses behind it.
+ *
+ * Deliberately a description, not a judgement: droplr can't tell a share in a group chat on one office
+ * network from one person with a VPN, so it reports the shape and lets the label decide. Anything under
+ * four votes says nothing at all, because on small numbers every ratio looks alarming.
+ */
+export function voteConcentration(ipHashes: (string | null)[]): { votes: number; sources: number; note: string | null } {
+  const votes = ipHashes.length;
+  const sources = new Set(ipHashes.filter(Boolean)).size;
+  if (votes < 4 || sources === 0) return { votes, sources, note: null };
+  const ratio = votes / sources;
+  if (ratio >= 3) return { votes, sources, note: `${votes} votes from only ${sources} network${sources === 1 ? "" : "s"} — worth a look.` };
+  if (ratio >= 2) return { votes, sources, note: `${votes} votes from ${sources} networks.` };
+  return { votes, sources, note: null };
 }
 
 // ---------------------------------------------------------------------------

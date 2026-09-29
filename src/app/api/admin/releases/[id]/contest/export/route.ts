@@ -26,6 +26,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     where: { contestId: contest.id, organizationId: got.release.organizationId },
     orderBy: { createdAt: "asc" },
     take: 50_000,
+    include: { votes: { select: { ipHash: true } } },
   });
 
   const csv = toCsv(
@@ -38,6 +39,10 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       linkCheck: r.linkCheck,
       linkCheckedAt: r.linkCheckedAt,
       status: r.status,
+      votes: r.votes.length,
+      // The spread matters as much as the count, and a spreadsheet is where someone actually compares
+      // them. Hashes are never exported — only how many distinct ones there were.
+      voteNetworks: new Set(r.votes.map((v) => v.ipHash).filter(Boolean)).size,
       note: r.note ?? "",
       labelNote: r.labelNote ?? "",
       withdrawnAt: r.withdrawnAt,

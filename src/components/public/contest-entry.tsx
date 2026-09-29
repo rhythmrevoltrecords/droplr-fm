@@ -2,12 +2,25 @@
 import { useState } from "react";
 import { SITE_URL } from "@/lib/env";
 import {
-  checkEntryLink, closingMessage, contestState, DECLARATION_TEXT,
+  checkEntryLink, closingMessage, contestState, DECLARATION_TEXT, embedFor, galleryVisible,
   type ContestState, type EntryWarning,
 } from "@/lib/contest";
 
+/** One entry as the public may see it. No email, no label note, no address — see contestViewOf. */
+export type GalleryEntry = {
+  id: string;
+  artistName: string;
+  link: string;
+  linkHost: string | null;
+  note: string | null;
+  winner: boolean;
+  votes: number;
+};
+
 export type ContestView = {
   id: string;
+  /** Empty until entries close. Not loaded at all before then, so it can't leak through the payload. */
+  gallery: GalleryEntry[];
   headline: string;
   brief: string | null;
   prize: string | null;
@@ -103,6 +116,7 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
   }
 
   if (state !== "open") {
+    const showGallery = galleryVisible(window_) && contest.gallery.length > 0;
     return (
       <Frame>
         <p className="mt-3 text-sm text-white/70">{closingMessage(window_)}</p>
@@ -110,6 +124,7 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
           <p className="mt-1 text-sm text-white/50">Opens {window_.opensAt.toLocaleDateString(undefined, { day: "numeric", month: "long" })}.</p>
         )}
         {contest.brief && <p className="mt-3 whitespace-pre-line text-sm text-white/70">{contest.brief}</p>}
+        {showGallery && <Gallery contest={contest} accent={accent} />}
       </Frame>
     );
   }
@@ -204,5 +219,120 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
         </p>
       </form>
     </Frame>
+  );
+}
+
+/**
+ * The entries, once the contest has closed.
+ *
+ * Deliberately not a leaderboard. Entries stay in the order they arrived, the vote counts sit small
+ * and grey, and the only entry that moves is the winner once one is announced. A page that reorders
+ * itself by votes turns a remix contest into a popularity contest before the label has even listened —
+ * and the label is the one picking, so the page shouldn't pretend otherwise.
+ *
+ * One vote per visitor per contest, movable. Tapping a second entry moves your vote rather than
+ * adding one, which is what makes the counts add up to the number of people who voted.
+ */
+function Gallery({ contest, accent }: { contest: ContestView; accent: string }) {
+  const [votedFor, setVotedFor] = useState<string | null>(null);
+  const [counts, setCounts] = useState<Record<string, number>>(
+    Object.fromEntries(contest.gallery.map((e) => [e.id, e.votes])),
+  );
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function vote(entryId: string) {
+    setBusy(entryId);
+    setMsg(null);
+    try {
+      const res = await fetch(`/api/contest/${contest.id}/vote`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ entryId }),
+      });
+      const j = (await res.json().catch(() => ({}))) as { error?: string; counts?: Record<string, number>; votedFor?: string | null };
+      if (!res.ok) setMsg(j.error ?? "Couldn't register that just now.");
+      else {
+        if (j.counts) setCounts(j.counts);
+        setVotedFor(j.votedFor ?? null);
+      }
+    } catch {
+      setMsg("Couldn't register that just now.");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  const winner = contest.gallery.find((e) => e.winner);
+  const rest = contest.gallery.filter((e) => !e.winner);
+  const ordered = winner ? [winner, ...rest] : contest.gallery;
+
+  return (
+    <div className="mt-5 space-y-3 border-t border-white/10 pt-5">
+      <p className="text-sm font-semibold">
+        {contest.gallery.length} {contest.gallery.length === 1 ? "entry" : "entries"}
+        <span className="ml-2 font-normal text-white/50">
+          {winner ? "The winner's at the top." : "Have a listen. Vote for the one you'd sign."}
+        </span>
+      </p>
+      {msg && <p role="alert" className="text-sm text-amber-200">{msg}</p>}
+
+      <ul className="space-y-3">
+        {ordered.map((e) => {
+          const embed = embedFor(e.link);
+          const mine = votedFor === e.id;
+          return (
+            <li
+              key={e.id}
+              className={`rounded-2xl border p-3.5 ${e.winner ? "border-emerald-400/40 bg-emerald-400/[0.07]" : "border-white/15 bg-white/[0.04]"}`}
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <p className="font-semibold">
+                  {e.artistName}
+                  {e.winner && <span className="ml-2 text-xs font-medium text-emerald-300">Winner</span>}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => vote(e.id)}
+                  disabled={busy !== null}
+                  aria-pressed={mine}
+                  aria-label={mine ? `Your vote is on ${e.artistName}` : `Vote for ${e.artistName}`}
+                  className={`flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1 text-xs transition disabled:opacity-50 ${mine ? "border-transparent text-black" : "border-white/20 text-white/70 hover:text-white"}`}
+                  style={mine ? { backgroundColor: accent } : undefined}
+                >
+                  <span aria-hidden>{mine ? "♥" : "♡"}</span>
+                  <span>{counts[e.id] ?? 0}</span>
+                </button>
+              </div>
+
+              {embed ? (
+                <iframe
+                  title={`${e.artistName} — remix`}
+                  src={embed.src}
+                  loading="lazy"
+                  allow="autoplay; encrypted-media; picture-in-picture"
+                  referrerPolicy="strict-origin-when-cross-origin"
+                  className={`mt-2.5 w-full rounded-lg border-0 ${embed.tall ? "aspect-video" : "h-[120px]"}`}
+                />
+              ) : (
+                <a
+                  href={e.link}
+                  target="_blank"
+                  rel="noreferrer nofollow"
+                  className="mt-2.5 flex h-11 items-center justify-center rounded-lg border border-white/15 text-sm font-medium transition hover:bg-white/[0.06]"
+                >
+                  Open{e.linkHost ? ` on ${e.linkHost}` : " the track"} ↗
+                </a>
+              )}
+
+              {e.note && <p className="mt-2 whitespace-pre-line text-xs text-white/60">{e.note}</p>}
+            </li>
+          );
+        })}
+      </ul>
+      <p className="text-xs text-white/40">
+        One vote each — tapping another entry moves it. Votes help the label; they don&apos;t decide it.
+      </p>
+    </div>
   );
 }
