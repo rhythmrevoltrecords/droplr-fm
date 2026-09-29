@@ -43,6 +43,7 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?
   // built, not the next thing worth wanting — a demo inbox sat here for weeks while the plan had
   // it at phase 4, which is a promise to everyone who signs up.
   { status: "Live now", items: [
+    { title: "Exclusivity warnings", body: "Tell droplr a release is exclusive to Beatport and it warns you when a link you're about to publish breaks the window — because it's the only thing that knows both. Beatport, LabelWorx and Symphonic publish different rules about what counts; droplr answers under your distributor's and says which." },
     { title: "Remix contests", body: "Your stems go out through a gate; remixes come back as links on the same release, with a deadline, a prize and everyone's contact in one list instead of thirty DMs. When entries close the tracks go public with a play button and a vote. Free to enter, always." },
     { title: "Release clips", body: "Pick 30 seconds and droplr renders the video for Reels — artwork moving on the kick, your link on it. It happens in your browser, so your master never leaves your computer." },
     { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },

@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSoundCloudCreds, soundcloudAuthorizeUrl, soundcloudRedirectUri } from "@/lib/soundcloud";
 import { packState, releasePageUrl, requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
-import { SITE_URL } from "@/lib/env";
+import { SITE_URL, soundcloudGateEnforcement } from "@/lib/env";
 import { ANON_COOKIE } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +28,13 @@ export async function GET(req: NextRequest) {
     releasePageUrl(req, step.release.organization, step.release.slug),
     `${SITE_URL}/${step.release.organization.slug}/${step.release.slug}`,
   );
+
+  // Degraded: the gate page is already offering this step as a plain visit, so a stale or
+  // hand-typed /login link must not start an authorisation droplr won't act on. Sending them back
+  // with the same notice the page shows for an unavailable step keeps one explanation, not two.
+  if (soundcloudGateEnforcement() !== "enforced") {
+    return NextResponse.redirect(withParam(back, "notice", "soundcloud-unavailable"), 302);
+  }
 
   const creds = await getSoundCloudCreds(step.release.organizationId);
   // No key connected and no platform fallback: say so instead of bouncing them to a broken

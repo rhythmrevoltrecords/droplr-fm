@@ -143,6 +143,7 @@ export default function TermsPage() {
           <li><strong>Bring-your-own Spotify app.</strong> Automatic Spotify saves run through a Spotify developer app you create and own. You&apos;re responsible for complying with Spotify&apos;s Developer Terms and for any limits Spotify puts on your app, such as the Development Mode user cap. We don&apos;t promise Spotify will approve extended access.</li>
           <li>Tracking pixels you add (Meta, TikTok, GA4) send data to those companies under their own terms. You&apos;re responsible for having whatever notices and consents your fans&apos; locations require. See the <Link href="/legal/cookies">Cookie Policy</Link>.</li>
           <li>Store links found automatically from a UPC or ISRC come from public catalogue lookups and can be wrong or missing. Check your links before you share them.</li>
+          <li><strong>Exclusivity warnings.</strong> If you tell us a release is exclusive to a store, we&apos;ll warn you when a link on that release looks like it breaks the window, based on the rules that store and the distributor you picked publish. Those are our reading of published rules that change without notice, and we only see the links on this release — not your edits, your pre-orders elsewhere, or what your distributor actually delivered. It isn&apos;t legal or commercial advice, and your agreement with your distributor and the store governs. Check anything that matters with them.</li>
         </ul>
       </Section>
 

@@ -16,7 +16,7 @@
 import { randomBytes } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
-import { downloadUrlProblem, proofOf, GATE_PLATFORMS, stepLabel } from "../src/lib/downloads";
+import { downloadUrlProblem, effectiveProof, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -92,6 +92,40 @@ async function main() {
     check("no platform note claims to check the uncheckable",
       (["instagram", "tiktok", "youtube", "spotify", "facebook"] as const).every((p) => /trust|can't check|no follow check|will not/i.test(GATE_PLATFORMS[p].note)));
     check("a follow step reads as a follow", stepLabel("instagram", "follow", "Ototo").includes("Follow"));
+
+    // --- enforcement degradation -----------------------------------------
+    //
+    // SoundCloud paused Hypeddit's gate API on 10 June 2026 and every enforced gate in that scene
+    // became voluntary overnight. These checks are the promise that the same day here costs a label
+    // nothing: the gate keeps working, the page stops claiming the step was checked, and the
+    // enforced path is not weakened in the process.
+    console.log("\n1b. When a performed step stops being performed");
+    check("enforced SoundCloud is still performed", effectiveProof("soundcloud", "enforced") === "performed");
+    check("voluntary SoundCloud degrades to unverified, never to given",
+      effectiveProof("soundcloud", "voluntary") === "unverified");
+    check("unavailable SoundCloud degrades to unverified too",
+      effectiveProof("soundcloud", "unavailable") === "unverified");
+    check("email is untouched by enforcement — it depends on nobody else's API",
+      (["enforced", "voluntary", "unavailable"] as Enforcement[]).every((e) => effectiveProof("email", e) === "given"));
+    check("degrading never upgrades an unverified platform",
+      (["enforced", "voluntary", "unavailable"] as Enforcement[]).every((e) =>
+        ["instagram", "tiktok", "youtube", "spotify", "facebook", "link"].every((pf) => effectiveProof(pf, e) === "unverified")));
+    check("an unknown platform can't be talked up by any enforcement state",
+      (["enforced", "voluntary", "unavailable"] as Enforcement[]).every((e) => effectiveProof("myspace", e) === "unverified"));
+    check("only enforced actually performs", isPerforming("soundcloud", "enforced") && !isPerforming("soundcloud", "voluntary"));
+    check("only unavailable drops the step from the gate",
+      isDropped("soundcloud", "unavailable") && !isDropped("soundcloud", "voluntary") && !isDropped("soundcloud", "enforced"));
+    check("an unverified step is never dropped by enforcement",
+      (["enforced", "voluntary", "unavailable"] as Enforcement[]).every((e) => !isDropped("instagram", e)));
+    check("the builder says nothing when nothing is wrong", enforcementNote("soundcloud", "enforced") === null);
+    check("the builder explains a voluntary step in plain language",
+      (enforcementNote("soundcloud", "voluntary") ?? "").length > 60 && /isn't checked|on the click/i.test(enforcementNote("soundcloud", "voluntary") ?? ""));
+    check("the builder explains a dropped step too", (enforcementNote("soundcloud", "unavailable") ?? "").length > 40);
+    check("no note is invented for a platform that was never performed",
+      (["enforced", "voluntary", "unavailable"] as Enforcement[]).every((e) => enforcementNote("instagram", e) === null));
+    check("a typo in the env var can't weaken a gate",
+      !isEnforcement("Voluntary ") && !isEnforcement("off") && !isEnforcement("") && !isEnforcement(undefined));
+    check("the three real states are accepted", ["enforced", "voluntary", "unavailable"].every(isEnforcement));
 
     console.log("\n2. Where the file may live");
     check("a droplr.fm destination is refused", !!downloadUrlProblem("https://droplr.fm/secret"));
