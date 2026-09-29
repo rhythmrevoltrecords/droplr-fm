@@ -1210,7 +1210,12 @@ async function main() {
       const invUser = await prisma.user.findUnique({ where: { email: bound }, include: { organization: true } });
       if (invUser) extraOrgs.push(invUser.organizationId);
       const o = invUser?.organization;
-      check("invite works while signups are closed (email not in the allowlist)", ok.location.includes("/admin?welcome=1") && !!invUser, `${ok.status} ${ok.location}`);
+      // Lands on /verify-email, not /admin: since "Hold a new account at the door until it confirms
+      // its address", NO sign-up reaches the dashboard until the address is confirmed — an invite
+      // doesn't confirm anything, which is itself asserted a few lines further down. What this check
+      // is for is that the invite got them *through* sign-up while the allowlist would have refused
+      // them, so the test is "an account exists and they weren't bounced back to /signup".
+      check("invite works while signups are closed (email not in the allowlist)", ok.location.includes("/verify-email") && !!invUser, `${ok.status} ${ok.location}`);
       check("invited account: type fixed by the invite (form can't override), Free plan, no comp", o?.kind === "artist" && o.plan === "free" && o.compPlan === null && o.signupInviteId === stored?.id, JSON.stringify({ kind: o?.kind, plan: o?.plan }));
       const again = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Again ${RUN}`, email: bound.replace("inv-", "inv2-"), password: PW, terms: "yes", inviteCode: code });
       check("a used invite can't be used again", !again.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: bound.replace("inv-", "inv2-") } })), again.location);
@@ -1221,7 +1226,10 @@ async function main() {
       const o2 = await http({ cookie: "" }, "POST", "/api/auth/signup", undefined, { kind: "label", orgName: `Open2 ${RUN}`, email: `open2-${RUN}@sectest.dev`, password: PW, terms: "yes", inviteCode: openCode });
       const u1 = await prisma.user.findUnique({ where: { email: `open1-${RUN}@sectest.dev` }, include: { organization: true } });
       if (u1) extraOrgs.push(u1.organizationId);
-      check("open link: works for anyone up to its limit, on the Free plan", o1.location.includes("/admin") && u1?.organization.kind === "label" && u1.organization.plan === "free" && u1.organization.compPlan === null && !o2.location.includes("/admin") && !(await prisma.user.findUnique({ where: { email: `open2-${RUN}@sectest.dev` } })), `${o1.location} / ${o2.location}`);
+      // Same reasoning: a successful sign-up now ends at /verify-email. The second one is refused
+      // outright, so it never gets there — which is what separates "used its one slot" from "signed
+      // up and is waiting to confirm".
+      check("open link: works for anyone up to its limit, on the Free plan", o1.location.includes("/verify-email") && u1?.organization.kind === "label" && u1.organization.plan === "free" && u1.organization.compPlan === null && !o2.location.includes("/verify-email") && !(await prisma.user.findUnique({ where: { email: `open2-${RUN}@sectest.dev` } })), `${o1.location} / ${o2.location}`);
 
       const rv = JSON.parse((await http(pa, "POST", "/api/platform/invites", { open: true, maxUses: 5, note })).text) as { created: { id: string; url: string }[] };
       const rvByOwner = await http(ownerA, "POST", `/api/platform/invites/${rv.created[0].id}`, { action: "revoke" });

@@ -107,6 +107,12 @@ output: `PLATFORM_TEST_ADMIN` (platform-owner checks), `NETLIFY_MOCK=1` with the
 (domain alias checks), `SIGNUP_ALLOWLIST` (artist sign-up), `VAPID_*` (push). A clean run is
 "N passed, 0 failed" with those lines present.
 
+> **A local pass is not a CI pass.** CI sets all of those, so it runs roughly 50 checks a bare local
+> run skips — and the difference is where a failure hides. On 29 Sep a local run said 262 passed, 0
+> failed while CI had been red for three days on two checks that only exist when
+> `PLATFORM_TEST_ADMIN` is set. **Look at the Actions tab after pushing**, or run locally with the
+> same variables CI uses (`.github/workflows/security-tests.yml` lists them) before believing green.
+
 ### Seeded logins
 
 `npm run db:seed` creates two local accounts and **prints their passwords once**, in its own output.
