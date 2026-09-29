@@ -5,6 +5,8 @@ import { resolveReleaseArtist } from "@/lib/artists";
 import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { isReleased, zonedLocalToDate } from "@/lib/time";
+import { isRulebook } from "@/lib/exclusivity";
+import { isPlatformKey } from "@/lib/platforms";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 const schema = z.object({
@@ -26,6 +28,16 @@ const schema = z.object({
   rollout: z.enum(["local", "global"]).optional(),
   // Intent only: nothing is shared with anyone until the unreleased pool exists.
   poolOptIn: z.boolean().optional(),
+  /**
+   * Store exclusivity. "" clears each one, so the form can unset an exclusive without a second
+   * endpoint. The rulebook is which distributor's published rules droplr should answer under —
+   * Beatport, LabelWorx and Symphonic genuinely contradict each other, so there is no neutral
+   * default and "unknown" means "warn on anything any of them would call a breach".
+   */
+  exclusiveStore: z.string().max(30).nullable().optional().or(z.literal("")),
+  exclusiveFromLocal: z.string().max(10).optional(),
+  exclusiveWeeks: z.number().int().min(1).max(52).nullable().optional(),
+  exclusiveRulebook: z.string().max(20).optional(),
 });
 
 export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
@@ -54,6 +66,39 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if ((d.upc !== undefined && normaliseUpc(d.upc) !== g.release.upc) || (d.isrc !== undefined && normaliseIsrc(d.isrc) !== g.release.isrc)) {
     data.resolvedAt = null; // new identifiers → let the job look again
   }
+  // Exclusivity. Validated here rather than trusted from the form because the same route is the
+  // only writer, and a rulebook string that isn't one of the four would make the validator answer
+  // under "unknown" silently — a wrong answer dressed as a cautious one.
+  if (d.exclusiveStore !== undefined) {
+    const store = d.exclusiveStore || null;
+    if (store && !isPlatformKey(store)) return NextResponse.json({ error: "That isn't a store droplr knows." }, { status: 400 });
+    data.exclusiveStore = store;
+    // Clearing the store clears the window with it. Leaving a stale end date on a release with no
+    // exclusive is how a validator starts warning about a window that ended months ago.
+    if (!store) {
+      data.exclusiveFrom = null;
+      data.exclusiveWeeks = null;
+      data.exclusiveRulebook = null;
+    }
+  }
+  if (d.exclusiveRulebook !== undefined && d.exclusiveStore !== "") {
+    if (d.exclusiveRulebook && !isRulebook(d.exclusiveRulebook)) {
+      return NextResponse.json({ error: "Pick one of Beatport, LabelWorx, Symphonic, or leave it unset." }, { status: 400 });
+    }
+    data.exclusiveRulebook = d.exclusiveRulebook || null;
+  }
+  if (d.exclusiveFromLocal !== undefined && d.exclusiveStore !== "") {
+    if (!d.exclusiveFromLocal) data.exclusiveFrom = null;
+    else if (!/^\d{4}-\d{2}-\d{2}$/.test(d.exclusiveFromLocal)) {
+      return NextResponse.json({ error: "Check the exclusivity start date." }, { status: 400 });
+    } else {
+      // The store's live date in the label's own timezone, same contract as releaseDate. A window
+      // that quietly means UTC is how a Brisbane label's 4 weeks becomes 4 weeks minus ten hours.
+      data.exclusiveFrom = zonedLocalToDate(`${d.exclusiveFromLocal}T00:00`, g.user.organization.timezone);
+    }
+  }
+  if (d.exclusiveWeeks !== undefined && d.exclusiveStore !== "") data.exclusiveWeeks = d.exclusiveWeeks;
+
   if (d.slug !== undefined) {
     const slug = slugify(d.slug);
     if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "Invalid slug" }, { status: 400 });

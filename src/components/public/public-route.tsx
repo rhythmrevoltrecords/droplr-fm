@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { after } from "next/server";
 import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { deezerGloballyEnabled } from "@/lib/env";
+import { deezerGloballyEnabled, soundcloudGateEnforcement } from "@/lib/env";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { publicTheme } from "./artwork-shell";
 import { planOf } from "@/lib/plans";
@@ -149,9 +149,17 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
     const via = progress?.via ?? [];
     // Hide a SoundCloud step rather than show one that can't work: without a key the fan would
     // bounce to a SoundCloud error page and blame the artist.
-    const scCreds = release.gateSteps.some((s) => s.platform === "soundcloud")
-      ? await getSoundCloudCreds(release.organizationId)
-      : null;
+    //
+    // `enforcement` is the second reason a step can stop working, and it comes from outside droplr
+    // entirely — SoundCloud pausing the connection droplr performs actions through. Resolved here,
+    // per request, so the day it changes every live gate degrades on its own. A performed step that
+    // has gone voluntary still needs its `target` URL to send the fan somewhere, so it only stays
+    // available if it has one.
+    const enforcement = soundcloudGateEnforcement();
+    const scCreds =
+      enforcement === "enforced" && release.gateSteps.some((s) => s.platform === "soundcloud")
+        ? await getSoundCloudCreds(release.organizationId)
+        : null;
     const steps = release.gateSteps.map((s) => ({
       id: s.id,
       platform: s.platform,
@@ -159,11 +167,16 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       target: s.target,
       required: s.required,
       done: via.includes(s.platform),
-      available: s.platform !== "soundcloud" || (!!scCreds && !!s.targetId),
+      available:
+        s.platform !== "soundcloud" ? true
+        : enforcement === "enforced" ? !!scCreds && !!s.targetId
+        : enforcement === "voluntary" ? !!s.target
+        : false,
     }));
     const usable = steps.filter((s) => s.available);
     return (
       <GateView
+        enforcement={enforcement}
         release={{
           id: release.id,
           title: release.title,

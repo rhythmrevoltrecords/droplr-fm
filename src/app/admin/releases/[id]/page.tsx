@@ -12,6 +12,8 @@ import { ContestSetup } from "@/components/admin/contest-setup";
 import { ContestEntries } from "@/components/admin/contest-entries";
 import { voteConcentration } from "@/lib/contest";
 import { checkMetadata } from "@/lib/metadata-check";
+import { exclusivityFindings, exclusivitySummary, exclusivityWindowOf } from "@/lib/exclusivity";
+import { ExclusivityFindings } from "@/components/admin/exclusivity-findings";
 import { PromoPlan } from "@/components/admin/promo-plan";
 import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
 import { busiestHour } from "@/lib/analytics";
@@ -304,6 +306,18 @@ export default async function ReleaseDetail(
         return <MetadataFindings findings={checkMetadata(release, siblings)} />;
       })())}
 
+      {tab === "settings" && release.exclusiveStore && (
+        <ExclusivityFindings
+          summary={exclusivitySummary(exclusivityWindowOf(release), new Date(), release.organization.timezone)}
+          findings={exclusivityFindings(
+            exclusivityWindowOf(release),
+            release.links.map((l) => ({ platform: l.platform, url: l.url, visible: l.visible })),
+            new Date(),
+            release.organization.timezone,
+          )}
+        />
+      )}
+
       {tab === "settings" && (
         <InterestToggle
           endpoint={`/api/admin/releases/${release.id}`}
@@ -327,6 +341,10 @@ export default async function ReleaseDetail(
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
                 releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistProfileId: release.artistProfileId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
                 spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic, rollout: release.rollout === "global" ? "global" : "local",
+                exclusiveStore: release.exclusiveStore ?? "",
+                exclusiveFromLocal: release.exclusiveFrom ? dateToZonedLocal(release.exclusiveFrom, release.organization.timezone).slice(0, 10) : "",
+                exclusiveWeeks: release.exclusiveWeeks == null ? "" : String(release.exclusiveWeeks),
+                exclusiveRulebook: release.exclusiveRulebook ?? "",
               }}
             />
           </CardContent>

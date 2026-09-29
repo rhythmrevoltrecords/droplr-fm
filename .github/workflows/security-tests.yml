@@ -127,6 +127,18 @@ jobs:
       - name: Fan import
         run: npx tsx scripts/test-fan-import.ts
 
+      # Same omission as the clip suite above, made again: remix contests shipped on 29 Sep with
+      # 142 pure checks and none of them ran in CI, and the custom-domain suite has never run here
+      # either. When a suite exists but nothing invokes it, it is documentation, not a test.
+      - name: Remix contests
+        run: npx tsx scripts/test-contest.ts
+
+      - name: Custom domains
+        run: npx tsx scripts/test-domains.ts
+
+      - name: Store exclusivity
+        run: npx tsx scripts/test-exclusivity.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

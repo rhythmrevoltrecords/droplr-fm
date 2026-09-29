@@ -7,7 +7,7 @@ import { DownloadForm } from "@/components/admin/download-form";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
 import { GATE_PLATFORMS, isGatePlatform, type GateAction, type GatePlatform } from "@/lib/downloads";
 import { publicReleaseUrl } from "@/lib/releases";
-import { SITE_URL } from "@/lib/env";
+import { SITE_URL, soundcloudGateEnforcement } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Download" };
@@ -67,6 +67,7 @@ export default async function EditDownloadPage(props: { params: Promise<{ id: st
 
       <DownloadForm
         soundcloudConnected={!!sc}
+        enforcement={soundcloudGateEnforcement()}
         initial={{
           id: r.id,
           title: r.title,

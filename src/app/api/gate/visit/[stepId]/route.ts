@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { completeStep, proofOf } from "@/lib/downloads";
+import { completeStep, effectiveProof } from "@/lib/downloads";
+import { soundcloudGateEnforcement } from "@/lib/env";
 import { ANON_COOKIE, isBot, requestMeta } from "@/lib/tracking";
 
 export const dynamic = "force-dynamic";
@@ -17,6 +18,12 @@ export const dynamic = "force-dynamic";
  *
  * Refuses to mark a *provable* platform done. Otherwise a SoundCloud step could be completed by
  * visiting this URL instead of authorising, which would turn "performed" into a lie.
+ *
+ * "Provable" is judged against the *current* enforcement state, not the platform's declared one. If
+ * SoundCloud's connection is paused (SOUNDCLOUD_GATE_ENFORCEMENT=voluntary) then a SoundCloud step
+ * genuinely is a visit, and this route is the only way a fan can finish it — without that, a paused
+ * API would leave every live gate with a required step nobody can complete. Under "enforced" the
+ * refusal is unchanged, which is what stops this being a bypass.
  */
 export async function GET(req: NextRequest, ctx: { params: Promise<{ stepId: string }> }) {
   const { stepId } = await ctx.params;
@@ -27,7 +34,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ stepId: str
   if (!step || step.release.kind !== "download" || !step.release.isPublic) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
-  if (proofOf(step.platform) !== "unverified") {
+  if (effectiveProof(step.platform, soundcloudGateEnforcement()) !== "unverified") {
     return NextResponse.json({ error: "That step has to be completed properly" }, { status: 400 });
   }
 

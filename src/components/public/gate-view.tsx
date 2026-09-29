@@ -1,5 +1,5 @@
 import { SITE_URL } from "@/lib/env";
-import { GATE_PLATFORMS, isGatePlatform, stepLabel, type Proof } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, effectiveProof, isGatePlatform, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { GateRefresh } from "./gate-refresh";
@@ -49,7 +49,7 @@ const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
  *    normally leak here: the real link sits in a hidden element and View Source skips the gate.
  */
 export function GateView({
-  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest,
+  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest, enforcement = "enforced",
 }: {
   release: GateViewData;
   steps: GateStepView[];
@@ -58,6 +58,13 @@ export function GateView({
   showBranding: boolean;
   theme?: PublicTheme;
   demo?: boolean;
+  /**
+   * Whether droplr can still perform a "performed" step right now. Passed in rather than read here
+   * because it comes from a server-only env var, and because the demo page renders this component
+   * with no server around it. Defaults to "enforced" so a caller that forgets it cannot silently
+   * downgrade a real gate's honesty in the wrong direction.
+   */
+  enforcement?: Enforcement;
   /** A remix contest on this pack: the return leg of the stems this gate hands out. */
   contest?: ContestView | null;
 }) {
@@ -112,7 +119,7 @@ export function GateView({
           <ul className="space-y-2.5">
             {shown.map((s) => (
               <li key={s.id}>
-                <GateStepRow step={s} release={release} accent={accent} demo={demo} query={query} />
+                <GateStepRow step={s} release={release} accent={accent} demo={demo} query={query} enforcement={enforcement} />
               </li>
             ))}
           </ul>
@@ -142,13 +149,17 @@ function ProofNote({ proof }: { proof: Proof }) {
 }
 
 function GateStepRow({
-  step, release, accent, demo, query,
+  step, release, accent, demo, query, enforcement,
 }: {
   step: GateStepView; release: GateViewData; accent: string; demo?: boolean; query: Record<string, string | undefined>;
+  enforcement: Enforcement;
 }) {
-  const spec = isGatePlatform(step.platform) ? GATE_PLATFORMS[step.platform] : null;
-  const proof: Proof = spec?.proof ?? "unverified";
   const label = stepLabel(step.platform, step.action, release.artistName);
+  // The proof this step can offer *now*, not the one its platform claims. When SoundCloud's
+  // connection is paused the note under the step has to say "on trust" like any other visit,
+  // because that is what it has become.
+  const proof: Proof = effectiveProof(step.platform, enforcement);
+  const performing = proof === "performed";
 
   if (step.done) {
     return (
@@ -193,9 +204,11 @@ function GateStepRow({
 
   const href =
     demo ? "#"
-    : step.platform === "soundcloud" ? `/api/gate/soundcloud/login?step=${step.id}`
+    : performing ? `/api/gate/soundcloud/login?step=${step.id}`
     : `/api/gate/visit/${step.id}`;
-  const external = step.platform !== "soundcloud";
+  // A performed step stays in the tab because droplr is about to act for them and bring them back.
+  // A degraded one is an ordinary outbound visit, so it opens away like every other visit step.
+  const external = !performing;
 
   return (
     <a
@@ -209,7 +222,7 @@ function GateStepRow({
         <ProofNote proof={proof} />
       </span>
       <span className="text-xs font-semibold" style={{ color: accent }}>
-        {step.platform === "soundcloud" ? "Connect" : "Open ↗"}
+        {performing ? "Connect" : "Open ↗"}
       </span>
     </a>
   );
