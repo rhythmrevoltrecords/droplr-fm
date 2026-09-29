@@ -8,7 +8,7 @@ import { BRAND, button, esc, layout, muted, p, safeHex } from "./email-design";
 import { sendBatch, emailConfigured } from "./email";
 import { CONTACT } from "./legal";
 import {
-  acceptingEntries, checkEntryLink, DECLARATION_TEXT, DECLARATION_VERSION, duplicateMessage,
+  acceptingEntries, checkEntryLink, deadlineText, DECLARATION_TEXT, DECLARATION_VERSION, duplicateMessage,
   duplicateVerdict, entryProblem, ENTRY_LIMITS, linkCheckFromStatus, type EntryWarning,
 } from "./contest";
 import { isEmail, normalizeEmail } from "./fan-import";
@@ -234,9 +234,8 @@ export function entryReceiptEmail(args: {
   showBranding: boolean;
 }) {
   const accent = safeHex(args.accentColor);
-  const closes = new Intl.DateTimeFormat("en-AU", {
-    dateStyle: "full", timeStyle: "short", timeZone: args.timezone,
-  }).format(args.closesAt);
+  // Named zone, because this email goes to someone who may be nowhere near the label. See deadlineText.
+  const closes = deadlineText(args.closesAt, args.timezone);
 
   const warningHtml = args.warnings.length
     ? `<div style="margin:0 0 20px;padding:14px 16px;border:1px solid ${BRAND.line};border-radius:10px;background:${BRAND.card}">

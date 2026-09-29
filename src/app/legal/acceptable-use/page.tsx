@@ -11,6 +11,7 @@ const toc = [
   { id: "email", title: "Email and fan data" },
   { id: "downloads", title: "Download gates" },
   { id: "clips", title: "Release clips" },
+  { id: "contests", title: "Remix contests" },
   { id: "streaming", title: "Streaming manipulation" },
   { id: "platform", title: "Using the platform" },
   { id: "report", title: "Reporting abuse" },
@@ -74,6 +75,19 @@ export default function AcceptableUsePage() {
           <li>Don&apos;t remove or obscure the droplr.fm line on a plan that includes it and then present the clip as made elsewhere. The mark is the reason clips are included rather than charged for.</li>
         </ul>
         <p>Because the file never touches our systems, we can&apos;t take a clip down for you. A takedown has to go to whichever platform it was posted on. We can act on the droplr.fm account behind it.</p>
+      </Section>
+
+      <Section {...s("contests")}>
+        <p>If you run a remix contest:</p>
+        <ul>
+          <li>Don&apos;t offer a prize you can&apos;t give, or state rules, a deadline or a judging basis you don&apos;t intend to follow.</li>
+          <li>Don&apos;t require an entrant to pay, buy or subscribe to enter, and don&apos;t collect anything from them beyond what the entry form asks for.</li>
+          <li>Don&apos;t claim rights in an entry you haven&apos;t agreed with the entrant. Entering is not a transfer of anything — releasing a remix is a separate deal with that person.</li>
+          <li>Don&apos;t use entrants&apos; email addresses for anything other than the contest unless they separately opted in to hear from you. An entry is not a mailing-list subscription, and we don&apos;t add entrants to your fan list.</li>
+          <li>Don&apos;t present a public vote count as verified or audited, and don&apos;t manufacture one — no voting from multiple devices, addresses or browsers to inflate an entry, and no paid or incentivised voting.</li>
+          <li>Don&apos;t enter your own contest under another name, and don&apos;t use a contest to collect tracks you intend to use without the entrant&apos;s agreement.</li>
+        </ul>
+        <p>If you&apos;re entering someone&apos;s contest: don&apos;t submit work that isn&apos;t yours, don&apos;t submit the same upload under more than one name, and don&apos;t link to anything that isn&apos;t the track you&apos;re entering.</p>
       </Section>
 
       <Section {...s("streaming")}>

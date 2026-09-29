@@ -103,6 +103,7 @@ export default function BillingPolicyPage() {
           <li>release-day emails go to the plan&apos;s number of pre-savers per release (on Free, the first 250). Fans past that still pre-save, and your admin shows how many won&apos;t be emailed;</li>
           <li>analytics history is limited to the plan&apos;s range. Older data is kept, and comes back if you upgrade;</li>
           <li>pixels, CSV export, QR codes and branding removal switch off;</li>
+          <li>a remix contest that is already live <strong>keeps running</strong> — it goes on taking entries, keeps its public list of entries, and stays editable so you can fix the brief or announce the winner. You just can&apos;t start a new one until you&apos;re back on a paid plan. We leave live contests alone because the people who entered were told a deadline, and that isn&apos;t theirs to lose;</li>
           <li>you can&apos;t add or change a custom domain or connect a new Spotify app. A custom domain that&apos;s already set up keeps working for 14 days after your plan changes. After that, visitors to it are sent to the same pages on droplr.fm, so links you&apos;ve shared keep working, and upgrading switches the domain back on. Spotify saves fans have already made keep working for now, but we may switch them off on Free after giving you 14 days&apos; notice.</li>
         </ul>
         <p>Your settings are kept, so paid features come back if you upgrade again. The Free plan&apos;s limits may change; we&apos;ll give 30 days&apos; notice of any reduction.</p>

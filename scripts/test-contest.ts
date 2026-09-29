@@ -20,7 +20,7 @@ import {
   acceptingEntries, checkEntryLink, closingMessage, contestState, DECLARATION_TEXT,
   DECLARATION_VERSION, duplicateMessage, duplicateVerdict, embedFor, entryProblem,
   type ExistingEntry, galleryEligible, galleryVisible, isEntryStatus, judgingSummary,
-  hostLabelFor, linkCheckFromStatus, linkCheckNote, normaliseEntryUrl, voteConcentration, voteVerdict,
+  deadlineText, hostLabelFor, linkCheckFromStatus, linkCheckNote, normaliseEntryUrl, voteConcentration, voteVerdict,
 } from "../src/lib/contest";
 
 let passed = 0;
@@ -68,6 +68,20 @@ function main() {
   check("one hour is singular", closingMessage(win({ closesAt: new Date(NOW.getTime() + 3_600_000) }), NOW) === "1 hour left.");
   check("the last hour says so", closingMessage(win({ closesAt: new Date(NOW.getTime() + 60_000) }), NOW) === "Closing within the hour.");
   check("judging explains itself rather than just saying closed", closingMessage(win({ closesAt: day(-1) }), NOW).includes("hasn't been announced"));
+
+  console.log("\n2b. The deadline, written for someone who isn't where the label is");
+  // A contest closes at one instant; an entrant reads a wall clock. Without the zone named, a Brisbane
+  // label's "Friday at 9:00 pm" is a deadline a London entrant misses by ten hours while thinking
+  // they have a day left. This is the check that stops that regressing.
+  const bne = deadlineText(new Date("2026-10-16T11:00:00Z"), "Australia/Brisbane");
+  const lon = deadlineText(new Date("2026-10-16T11:00:00Z"), "Europe/London");
+  check("the zone is always named", /\b[A-Z]{2,5}\b|GMT|UTC/.test(bne) && /\b[A-Z]{2,5}\b|GMT|UTC/.test(lon), `${bne} / ${lon}`);
+  check("the same instant reads differently in two zones", bne !== lon, `${bne} / ${lon}`);
+  check("Brisbane renders as 9 pm", bne.includes("9:00") && bne.includes("pm"), bne);
+  check("…and London as midday the same day", lon.includes("12:00") && lon.includes("pm"), lon);
+  check("the month is spelled out, so 16/10 can't be read as 10/16", bne.includes("October"), bne);
+  check("a missing zone falls back rather than throwing", deadlineText(new Date("2026-10-16T11:00:00Z"), null).includes("October"));
+  check("a nonsense zone falls back rather than throwing", deadlineText(new Date("2026-10-16T11:00:00Z"), "Not/AZone").includes("October"));
 
   console.log("\n3. Links that are certainly wrong");
   check("empty is refused", !checkEntryLink("", { now: NOW }).ok);

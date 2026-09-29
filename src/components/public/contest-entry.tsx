@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { SITE_URL } from "@/lib/env";
 import {
-  checkEntryLink, closingMessage, contestState, DECLARATION_TEXT, embedFor, galleryVisible, hostLabelFor,
+  checkEntryLink, closingMessage, contestState, deadlineText, DECLARATION_TEXT, embedFor, galleryVisible, hostLabelFor,
   type ContestState, type EntryWarning,
 } from "@/lib/contest";
 
@@ -19,6 +19,8 @@ export type GalleryEntry = {
 
 export type ContestView = {
   id: string;
+  /** The label's IANA zone. Every absolute time on this page is named with it. */
+  timezone: string;
   /** Empty until entries close. Not loaded at all before then, so it can't leak through the payload. */
   gallery: GalleryEntry[];
   headline: string;
@@ -121,7 +123,7 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
       <Frame>
         <p className="mt-3 text-sm text-white/70">{closingMessage(window_)}</p>
         {state === "waiting" && window_.opensAt && (
-          <p className="mt-1 text-sm text-white/50">Opens {window_.opensAt.toLocaleDateString(undefined, { day: "numeric", month: "long" })}.</p>
+          <p className="mt-1 text-sm text-white/50">Opens {deadlineText(window_.opensAt, contest.timezone)}.</p>
         )}
         {contest.brief && <p className="mt-3 whitespace-pre-line text-sm text-white/70">{contest.brief}</p>}
         {showGallery && <Gallery contest={contest} accent={accent} />}
@@ -135,6 +137,10 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
         {closingMessage(window_)}
         {contest.entryCount > 0 && ` ${contest.entryCount} ${contest.entryCount === 1 ? "entry" : "entries"} so far.`}
       </p>
+      {/* "3 days left" is friendly; it is not something you can plan a weekend of work around, and it
+          says nothing about whose Friday. The exact deadline, with its zone named, is the fact an
+          entrant actually needs — especially one in another country. */}
+      <p className="mt-0.5 text-xs text-white/40">Closes {deadlineText(window_.closesAt, contest.timezone)}</p>
       {contest.prize && <p className="mt-3 text-sm"><span className="text-white/50">Prize: </span>{contest.prize}</p>}
       {contest.brief && <p className="mt-3 whitespace-pre-line text-sm text-white/70">{contest.brief}</p>}
       {contest.rulesUrl && (

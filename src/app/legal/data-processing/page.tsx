@@ -10,6 +10,7 @@ const toc = [
   { id: "details", title: "Details of the processing" },
   { id: "instructions", title: "Your instructions" },
   { id: "label", title: "Your responsibilities" },
+  { id: "contests", title: "Remix contest entries" },
   { id: "imported", title: "Lists you import" },
   { id: "confidentiality", title: "Confidentiality and security" },
   { id: "subprocessors", title: "Sub-processors" },
@@ -59,6 +60,16 @@ export default function DataProcessingPage() {
           <li>You follow the anti-spam, pixel and consent requirements in the <Link href="/legal/terms#fans">Terms</Link> and <Link href="/legal/cookies">Cookie Policy</Link>.</li>
           <li>Where you import a list, everything in <Link href="#imported">Lists you import</Link> applies.</li>
         </ul>
+      </Section>
+
+      <Section {...s("contests")}>
+        <p>When someone enters a remix contest on your page, what they give us is collected <strong>for your account</strong>, on the same footing as a pre-save: you are the controller, we process it for you, and everything in these terms applies to it.</p>
+        <p>Two things are specific to entries:</p>
+        <ul>
+          <li><strong>The declaration is part of the record.</strong> We store the exact wording an entrant ticked and the time they ticked it, and we keep old versions rather than overwriting them, because the point of the record is what that person agreed to on the day. It is evidence of a claim they made, not a check we carried out.</li>
+          <li><strong>An entry is not a subscription.</strong> We never add an entrant to your fan list, and an entrant&apos;s address is not available to any send. Their email is there so you can contact them about the contest they entered. If you want them on your list, ask them separately and record that consent the normal way.</li>
+        </ul>
+        <p>We act on your instructions for entries as for anything else: delete a contest or a release and its entries and votes go with it. An entrant can also withdraw an entry themselves from the link in their confirmation, which removes it from your contest and from the public page — we&apos;ll action a deletion request from an entrant directly and tell you it happened.</p>
       </Section>
 
       <Section {...s("imported")}>
