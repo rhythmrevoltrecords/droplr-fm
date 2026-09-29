@@ -35,7 +35,10 @@ export async function sendAccountEmail(msg: { to: string; subject: string; html:
  */
 export const accountEmailShell = (title: string, body: string) =>
   layout({
-    preheader: title.replace(/<[^>]+>/g, ""),
+    // `title` is plain text and layout() escapes the preheader, so there is nothing to strip here.
+    // A tag-stripping regex was doing that job badly: one pass can't handle nested angle brackets, and
+    // it silently ate real text out of user-supplied feedback subjects like "a<b".
+    preheader: title,
     brand: "droplr",
     body: `${h1(title)}${body}`,
     footer: `Need help? Reply to this email or contact <a href="mailto:${CONTACT.support}" style="color:${BRAND.muted}">${CONTACT.support}</a>.<br/>droplr.fm · Brisbane, Australia`,

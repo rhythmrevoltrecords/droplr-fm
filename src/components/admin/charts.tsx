@@ -23,8 +23,15 @@ export function DailyChart({ data }: { data: { date: string; views: number; clic
   );
 }
 
+/**
+ * TIDAL's brand colour is #FFFFFF and `custom` is near-white: on a near-black chart those bars read as the
+ * loudest thing on screen regardless of how small the number is. Dim them here only — `platformMeta().color`
+ * stays brand-accurate for the public page icons, where near-white is the `data-mono` light-theme sentinel.
+ */
+const chartFill = (hex: string) => (/^#f{3}(f{3})?$/i.test(hex) || hex.toLowerCase() === "#e4e4e7" ? "#9aa7b4" : hex);
+
 export function PlatformBars({ data }: { data: { platform: string; clicks: number; label?: string | null; key?: string }[] }) {
-  const rows = data.map((d) => ({ name: d.label || platformMeta(d.platform).name, clicks: d.clicks, fill: platformMeta(d.platform).color }));
+  const rows = data.map((d) => ({ name: d.label || platformMeta(d.platform).name, clicks: d.clicks, fill: chartFill(platformMeta(d.platform).color) }));
   if (!rows.length) return <p className="py-10 text-center text-sm text-muted-foreground">No clicks yet.</p>;
   return (
     <div className="w-full" style={{ height: Math.max(160, rows.length * 34) }}>
