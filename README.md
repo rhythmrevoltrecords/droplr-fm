@@ -63,6 +63,50 @@ netlify dev               # http://localhost:8888
 
 Set `NEXT_PUBLIC_SITE_URL=http://localhost:8888` in `.env` for local dev. In production it must be `https://droplr.fm`. That's the variable this app reads for absolute URLs, redirects, emails and the Spotify callback. `NEXTAUTH_URL` isn't used (auth is custom JWT, not NextAuth), so setting it changes nothing.
 
+## A local Postgres, and running the test suites
+
+`netlify dev` above points at Neon. Don't run the test suites against it: `test:security` deletes
+every `AuthThrottle` row and creates and removes organisations, and its safety check only looks at
+whether the hostname says `neon.tech` — it can't tell a Neon branch from production. Give the suites
+their own database instead. Once, on a Mac:
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+/opt/homebrew/opt/postgresql@16/bin/createdb droplr_dev
+```
+
+Then point `.env` at it — the same URL in both variables, no `sslmode`, no password (Homebrew's
+cluster uses trust auth for local connections):
+
+```
+NETLIFY_DATABASE_URL="postgresql://<your-mac-username>@localhost:5432/droplr_dev"
+NETLIFY_DATABASE_URL_UNPOOLED="postgresql://<your-mac-username>@localhost:5432/droplr_dev"
+NEXT_PUBLIC_SITE_URL="http://localhost:3000"
+```
+
+`npx prisma migrate deploy` then builds the whole schema from nothing, which is also the only real
+test that the migration chain still applies cleanly end to end.
+
+**The five database-backed suites need a running server as well as a database** — they drive real
+HTTP against it. `BASE_URL` defaults to `http://localhost:3000`, which is what `npm run dev` serves,
+so `netlify dev` on 8888 needs `BASE_URL=http://localhost:8888`.
+
+```bash
+npm run dev                  # leave running
+npm run test:security        # in another shell
+```
+
+Every `test:*` script loads `.env` itself (`--env-file-if-exists`). It has to: Next.js and the Prisma
+CLI read `.env` automatically, but a bare `tsx script.ts` does not, and the failure looks like a
+missing database rather than a missing env file. The three pure suites — `test:metadata`,
+`test:clip`, `test:contest` — need neither a database nor a server and run anywhere.
+
+Some sections skip themselves rather than fail when optional config is absent, and say so in their
+output: `PLATFORM_TEST_ADMIN` (platform-owner checks), `NETLIFY_MOCK=1` with the mock Netlify env
+(domain alias checks), `SIGNUP_ALLOWLIST` (artist sign-up), `VAPID_*` (push). A clean run is
+"N passed, 0 failed" with those lines present.
+
 ### Seeded logins
 
 `npm run db:seed` creates two local accounts and **prints their passwords once**, in its own output.
