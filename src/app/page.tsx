@@ -38,11 +38,12 @@ const FOR_LABELS = [
 ];
 
 type Status = "Live now" | "Next" | "Later";
-const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = [
+const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?: string }[] = [
   // Kept honest against droplr/platform-vision-roadmap.md. "Next" means the next thing being
   // built, not the next thing worth wanting — a demo inbox sat here for weeks while the plan had
   // it at phase 4, which is a promise to everyone who signs up.
   { status: "Live now", items: [
+    { title: "Remix contests", body: "Your stems go out through a gate; remixes come back as links on the same release, with a deadline, a prize and everyone's contact in one list instead of thirty DMs. When entries close the tracks go public with a play button and a vote. Free to enter, always." },
     { title: "Release clips", body: "Pick 30 seconds and droplr renders the video for Reels — artwork moving on the kick, your link on it. It happens in your browser, so your master never leaves your computer." },
     { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
     { title: "Artists linked to your roster", body: "An artist with their own droplr account sees the releases you put out under their name — their numbers, their links, their clips. They stay yours to edit." },
@@ -52,9 +53,10 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[] }[] = 
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
-  { status: "Next", items: [
-    { title: "Remix comp entries", body: "The gate already gets your stems out. This is the return leg: entries on the same release, with a deadline and everyone's contact in one list instead of thirty DMs." },
-  ] },
+  // Deliberately empty. Everything that could honestly be built without users is built; the next
+  // thing comes from the first artists and labels using it. An invented item here would be the same
+  // mistake as the demo inbox that sat in this column for weeks.
+  { status: "Next", items: [], note: "Nothing's queued here on purpose. Everything that could be built without knowing real artists' problems is built. What comes next is decided by the people using droplr now — not by a list written before anyone turned up." },
   { status: "Later", items: [
     { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders, and a calendar across the roster so two releases don't collide." },
     { title: "Royalties and splits", body: "Confirmed split sheets, then distributor statements imported and turned into a clear statement per collaborator. Tracked, never held." },
@@ -358,6 +360,7 @@ export default function Landing() {
                   </li>
                 ))}
               </ul>
+              {col.note && <p className="mt-5 text-sm leading-relaxed text-white/60">{col.note}</p>}
             </div>
           ))}
         </div>
