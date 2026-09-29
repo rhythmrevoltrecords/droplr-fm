@@ -20,6 +20,9 @@ export type EntryRow = {
   enteredAt: string;
   withdrawnAt: string | null;
   country: string | null;
+  votes: number;
+  /** null when there's nothing worth saying — see lib/contest voteConcentration. */
+  voteNote: string | null;
 };
 
 const STATUS_LABEL: Record<EntryStatus, string> = {
@@ -43,6 +46,13 @@ export function ContestEntries({ releaseId, entries }: { releaseId: string; entr
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | EntryStatus>("all");
+  // Default order is arrival, not votes. Sorting by votes is one click away and never the thing you
+  // open onto, because the moment the list is ranked by popularity you start judging the ranking.
+  const [sort, setSort] = useState<"arrival" | "votes">("arrival");
+  const [notes, setNotes] = useState<Record<string, string>>(
+    Object.fromEntries(entries.map((e) => [e.id, e.labelNote ?? ""])),
+  );
+  const totalVotes = entries.reduce((n, e) => n + e.votes, 0);
   const summary = judgingSummary(entries.map((e) => ({ status: e.status, linkCheck: e.linkCheck, withdrawnAt: e.withdrawnAt ? new Date(e.withdrawnAt) : null })));
 
   async function patch(entryId: string, body: Record<string, unknown>) {
@@ -56,7 +66,8 @@ export function ContestEntries({ releaseId, entries }: { releaseId: string; entr
     router.refresh();
   }
 
-  const shown = filter === "all" ? entries : entries.filter((e) => e.status === filter);
+  const filtered = filter === "all" ? entries : entries.filter((e) => e.status === filter);
+  const shown = sort === "votes" ? [...filtered].sort((a, b) => b.votes - a.votes) : filtered;
 
   if (entries.length === 0) {
     return (
@@ -77,6 +88,7 @@ export function ContestEntries({ releaseId, entries }: { releaseId: string; entr
           {summary.total} in{summary.unheard > 0 ? `, ${summary.unheard} you haven't marked` : ", all marked"}
           {summary.broken > 0 && ` · ${summary.broken} with a link that won't open`}
           {summary.withdrawn > 0 && ` · ${summary.withdrawn} withdrawn`}
+          {totalVotes > 0 && ` · ${totalVotes} public ${totalVotes === 1 ? "vote" : "votes"}`}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -91,6 +103,15 @@ export function ContestEntries({ releaseId, entries }: { releaseId: string; entr
               {k === "all" ? "All" : STATUS_LABEL[k]}
             </button>
           ))}
+          {totalVotes > 0 && (
+            <button
+              type="button"
+              onClick={() => setSort(sort === "votes" ? "arrival" : "votes")}
+              className="rounded-full border px-3 py-1 text-xs text-muted-foreground transition hover:text-foreground"
+            >
+              {sort === "votes" ? "Back to entry order" : "Sort by votes"}
+            </button>
+          )}
           <a
             href={`/api/admin/releases/${releaseId}/contest/export`}
             className="ml-auto text-xs text-muted-foreground underline underline-offset-2 hover:text-foreground"
@@ -122,10 +143,22 @@ export function ContestEntries({ releaseId, entries }: { releaseId: string; entr
                       {e.country ? ` · ${e.country}` : ""}
                     </p>
                   </div>
-                  {e.status !== "new" && (
-                    <Badge variant={e.status === "winner" ? "default" : "secondary"}>{STATUS_LABEL[e.status as EntryStatus] ?? e.status}</Badge>
-                  )}
+                  <div className="flex shrink-0 items-center gap-2">
+                    {e.votes > 0 && (
+                      <span className="text-xs text-muted-foreground" title="Public votes. A signal, not a verdict.">
+                        ♥ {e.votes}
+                      </span>
+                    )}
+                    {e.status !== "new" && (
+                      <Badge variant={e.status === "winner" ? "default" : "secondary"}>{STATUS_LABEL[e.status as EntryStatus] ?? e.status}</Badge>
+                    )}
+                  </div>
                 </div>
+
+                {/* The difference between a signal and a leaderboard: how few networks those votes
+                    came from. droplr can't tell a group chat on one office wifi from one person with
+                    a VPN, so it reports the shape and leaves the conclusion to you. */}
+                {e.voteNote && <p className="mt-1.5 text-xs text-amber-300/80">{e.voteNote}</p>}
 
                 {note && (
                   <p className="mt-2 flex items-center gap-2 text-xs text-amber-300">
@@ -153,6 +186,18 @@ export function ContestEntries({ releaseId, entries }: { releaseId: string; entr
                     {busy === e.id && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" aria-hidden />}
                   </div>
                 )}
+
+                <textarea
+                  rows={1}
+                  value={notes[e.id] ?? ""}
+                  onChange={(ev) => setNotes((n) => ({ ...n, [e.id]: ev.target.value }))}
+                  onBlur={() => {
+                    if ((notes[e.id] ?? "") !== (e.labelNote ?? "")) patch(e.id, { labelNote: notes[e.id] || null });
+                  }}
+                  placeholder="Your note — never shown to the entrant"
+                  maxLength={2000}
+                  className="mt-2 w-full resize-y rounded-md border bg-background px-2.5 py-1.5 text-xs placeholder:text-muted-foreground/60"
+                />
               </li>
             );
           })}

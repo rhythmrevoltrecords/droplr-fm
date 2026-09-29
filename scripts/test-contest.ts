@@ -18,8 +18,9 @@
  */
 import {
   acceptingEntries, checkEntryLink, closingMessage, contestState, DECLARATION_TEXT,
-  duplicateMessage, duplicateVerdict, entryProblem, type ExistingEntry, isEntryStatus,
-  judgingSummary, linkCheckFromStatus, linkCheckNote, normaliseEntryUrl,
+  DECLARATION_VERSION, duplicateMessage, duplicateVerdict, embedFor, entryProblem,
+  type ExistingEntry, galleryEligible, galleryVisible, isEntryStatus, judgingSummary,
+  linkCheckFromStatus, linkCheckNote, normaliseEntryUrl, voteConcentration, voteVerdict,
 } from "../src/lib/contest";
 
 let passed = 0;
@@ -193,6 +194,71 @@ function main() {
   check("unheard counts only new ones still standing", s.unheard === 2);
   check("broken links are surfaced", s.broken === 1);
   check("the shortlist and winner are counted", s.shortlisted === 1 && s.winner === 1);
+
+  console.log("\n13. When the public can hear the entries");
+  // Never while it's open: later entrants would hear what's been done, and the first entry in would
+  // collect weeks more plays than the last.
+  check("hidden while entries are open", !galleryVisible(win(), NOW));
+  check("hidden before it opens", !galleryVisible(win({ opensAt: day(3) }), NOW));
+  check("hidden while it's a draft", !galleryVisible(win({ published: false, closesAt: day(-1) }), NOW));
+  check("visible once entries close", galleryVisible(win({ closesAt: day(-1) }), NOW));
+  check("…and still visible after the winner is announced", galleryVisible(win({ closesAt: day(-7), winnerAnnouncedAt: day(-1) }), NOW));
+
+  console.log("\n14. Who appears in it");
+  const ge = (over: Partial<{ declarationVersion: number; withdrawnAt: Date | null }> = {}) =>
+    galleryEligible({ declarationVersion: DECLARATION_VERSION, withdrawnAt: null, ...over });
+  check("a current entry appears", ge());
+  check("a withdrawn one doesn't", !ge({ withdrawnAt: day(-1) }));
+  // v1 said "happy for the label to listen to it" — that is not consent to a public page with a vote
+  // button. The version column exists for exactly this and has to be load-bearing, not decoration.
+  check("someone who agreed to the v1 wording is NOT listed publicly", !ge({ declarationVersion: 1 }));
+  check("the declaration now says entries are listed publicly", DECLARATION_TEXT.includes("publicly"));
+  check("…and that it happens once entries close", DECLARATION_TEXT.includes("once entries close"));
+  check("…and mentions voting", DECLARATION_TEXT.includes("vote"));
+  check("…and still says droplr doesn't hold the audio", DECLARATION_TEXT.includes("not my audio"));
+
+  console.log("\n15. Players");
+  const sc = embedFor("https://soundcloud.com/ototo/mess-it-up-remix");
+  check("a SoundCloud track gets a player", sc?.kind === "soundcloud");
+  check("…built from the normalised URL, not the raw string", sc!.src.startsWith("https://w.soundcloud.com/player/?") && sc!.src.includes(encodeURIComponent("https://soundcloud.com/ototo/mess-it-up-remix")));
+  check("…compact, not a wall of artwork", sc?.tall === false && sc!.src.includes("visual=false"));
+  check("a private SoundCloud share link still plays", embedFor("https://soundcloud.com/ototo/remix/s-AbCdEf")?.kind === "soundcloud");
+  for (const [u, id] of [
+    ["https://youtu.be/dQw4w9WgXcQ", "dQw4w9WgXcQ"],
+    ["https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=30", "dQw4w9WgXcQ"],
+    ["https://www.youtube.com/shorts/dQw4w9WgXcQ", "dQw4w9WgXcQ"],
+    ["https://www.youtube.com/embed/dQw4w9WgXcQ", "dQw4w9WgXcQ"],
+  ] as const) {
+    const e = embedFor(u);
+    check(`${u} → ${id}`, e?.kind === "youtube" && e.src === `https://www.youtube-nocookie.com/embed/${id}`, e?.src ?? "null");
+  }
+  check("YouTube embeds are the no-cookie host", embedFor("https://youtu.be/dQw4w9WgXcQ")!.src.includes("youtube-nocookie"));
+  // The id is the only thing interpolated into an iframe src, so its shape is a security check.
+  check("a crafted YouTube path is refused, not embedded", embedFor("https://www.youtube.com/watch?v=../../evil") === null);
+  check("a short YouTube id is refused", embedFor("https://youtu.be/abc") === null);
+  check("a YouTube channel page is not a player", embedFor("https://www.youtube.com/@ototo") === null);
+  // Honest nulls: an iframe that fails looks like the entrant's track is broken.
+  check("Bandcamp gets a link, not a broken player", embedFor("https://ototo.bandcamp.com/track/remix") === null);
+  check("Drive gets a link", embedFor("https://drive.google.com/file/d/abc/view") === null);
+  check("an artist's own site gets a link", embedFor("https://ototodj.com/remix.wav") === null);
+  check("garbage doesn't throw", embedFor("not a url") === null && embedFor("") === null);
+
+  console.log("\n16. Votes");
+  check("a first vote is new", voteVerdict(null, "e1").kind === "new");
+  check("voting for the same entry again changes nothing", voteVerdict("e1", "e1").kind === "same");
+  const moved = voteVerdict("e1", "e2");
+  check("voting for a different entry moves the vote", moved.kind === "moved" && moved.from === "e1");
+
+  console.log("\n17. Telling the label how much a vote count is worth");
+  // A description, never a verdict: droplr can't tell a group chat on one office wifi from one person
+  // with a VPN, so it reports the shape and lets the label decide.
+  check("small numbers say nothing — every ratio looks alarming", voteConcentration(["a", "a", "a"]).note === null);
+  check("spread-out votes say nothing", voteConcentration(["a", "b", "c", "d", "e"]).note === null);
+  check("votes from very few networks are flagged", voteConcentration(["a", "a", "a", "a", "a", "a"]).note?.includes("only 1 network") === true, voteConcentration(["a","a","a","a","a","a"]).note ?? "");
+  check("…and it's singular for one network", !voteConcentration(["a", "a", "a", "a"]).note?.includes("1 networks"));
+  check("a middling spread is reported without alarm", voteConcentration(["a", "a", "b", "b"]).note === "4 votes from 2 networks.", voteConcentration(["a","a","b","b"]).note ?? "");
+  check("counts are reported either way", voteConcentration(["a", "b"]).votes === 2 && voteConcentration(["a", "b"]).sources === 2);
+  check("missing hashes don't crash or inflate the spread", voteConcentration([null, null, "a", "a", "a", "a"]).sources === 1);
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {

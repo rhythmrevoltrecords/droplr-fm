@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
 import { labelRelease } from "@/lib/admin-guard";
 import { prisma } from "@/lib/db";
+import { planOf } from "@/lib/plans";
 import { zonedLocalToDate } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
@@ -45,9 +46,22 @@ export async function PUT(req: NextRequest, ctx: { params: Promise<{ id: string 
   const d = parsed.data;
   const org = await prisma.organization.findUnique({
     where: { id: got.release.organizationId },
-    select: { timezone: true },
+    select: { timezone: true, plan: true },
   });
   const tz = org?.timezone ?? null;
+
+  // Gated on CREATING, never on running. A contest that went live and then the account downgraded
+  // keeps taking entries and keeps its gallery — entrants were told the deadline, and breaking that
+  // because the label's card expired would punish the wrong people. Same posture as releases, which
+  // stay live past a downgrade. Editing an existing one is allowed for the same reason: a label on
+  // Free still needs to be able to fix a typo in the brief or announce the winner.
+  const existing = await prisma.contest.findUnique({ where: { releaseId: got.release.id }, select: { id: true } });
+  if (!existing && !planOf(org?.plan).contests) {
+    return NextResponse.json(
+      { error: "Remix contests are on the paid plans. Upgrade and you can run one on any release." },
+      { status: 402 },
+    );
+  }
   const closesAt = zonedLocalToDate(d.closesAtLocal, tz);
   const opensAt = d.opensAtLocal ? zonedLocalToDate(d.opensAtLocal, tz) : null;
   const announced = d.winnerAnnouncedAtLocal ? zonedLocalToDate(d.winnerAnnouncedAtLocal, tz) : null;

@@ -12,7 +12,8 @@ import { requestMeta, resolveSource } from "@/lib/tracking";
 import { OrgView } from "./org-view";
 import { ReleaseView } from "./release-view";
 import { GateView } from "./gate-view";
-import { ContestEntry, type ContestView } from "./contest-entry";
+import { ContestEntry, type ContestView, type GalleryEntry } from "./contest-entry";
+import { galleryVisible, PUBLIC_GALLERY_FROM_VERSION } from "@/lib/contest";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
 import { progressFor, remaining } from "@/lib/downloads";
 
@@ -35,13 +36,47 @@ export function spotifyEnabledFor(org: { plan: string; spotifyAppStatus: string;
  * crosses the server/client boundary, and only the counts the public page is allowed to see come
  * with it — never an entry, never an entrant's address.
  */
-function contestViewOf(c: NonNullable<Resolution & { kind: "release" }>["release"]["contest"]): ContestView | null {
+async function contestViewOf(c: NonNullable<Resolution & { kind: "release" }>["release"]["contest"]): Promise<ContestView | null> {
   if (!c) return null;
   // Unpublished stops HERE, not in the component. ContestEntry is a client component, so anything
   // handed to it is serialised into the RSC payload inlined in the page's HTML — a draft's headline,
   // brief and prize would sit in View Source while the label believed nothing was public.
   if (!c.published) return null;
+
+  // The gallery is a second query on purpose, and only once entries have closed. Putting it in the
+  // shared release loader would pay for it on every release page in the product to serve the handful
+  // that have a closed contest — and, worse, would carry entrants' rows into the RSC payload of pages
+  // that must not show them. Not loading it is a stronger guarantee than not rendering it.
+  const gallery: GalleryEntry[] = galleryVisible(c)
+    ? (
+        await prisma.contestEntry.findMany({
+          where: {
+            contestId: c.id,
+            withdrawnAt: null,
+            // Entered under a wording that said so. v1 said "happy for the label to listen to it",
+            // which is not consent to a public page with a vote button on it.
+            declarationVersion: { gte: PUBLIC_GALLERY_FROM_VERSION },
+          },
+          orderBy: { createdAt: "asc" },
+          take: 300,
+          select: {
+            id: true, artistName: true, link: true, linkHost: true, note: true, status: true,
+            _count: { select: { votes: true } },
+          },
+        })
+      ).map((e) => ({
+        id: e.id,
+        artistName: e.artistName,
+        link: e.link,
+        linkHost: e.linkHost,
+        note: e.note,
+        winner: e.status === "winner",
+        votes: e._count.votes,
+      }))
+    : [];
+
   return {
+    gallery,
     id: c.id,
     headline: c.headline,
     brief: c.brief,
@@ -137,7 +172,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         query={query}
         showBranding={!planOf(org.plan).removeBranding}
         theme={publicTheme(org)}
-        contest={contestViewOf(release.contest)}
+        contest={await contestViewOf(release.contest)}
       />
     );
   }
@@ -166,7 +201,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       deezerEnabled={deezerGloballyEnabled() && org.deezerEnabled}
       showBranding={!planOf(org.plan).removeBranding}
       theme={publicTheme(org)}
-      contest={contestViewOf(release.contest)}
+      contest={await contestViewOf(release.contest)}
     />
   );
 }

@@ -844,6 +844,7 @@ model Contest {
   updatedAt      DateTime     @updatedAt
 
   entries        ContestEntry[]
+  votes          ContestVote[]
 
   @@index([organizationId])
   @@index([closesAt])
@@ -897,9 +898,42 @@ model ContestEntry {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  votes          ContestVote[]
+
   @@unique([contestId, linkNormalised])
   @@index([contestId, status])
   @@index([contestId, createdAt])
   @@index([organizationId])
   @@index([contestId, email])
+}
+
+/**
+ * One public vote for one entry.
+ *
+ * Unique on (contestId, anonId): a visitor picks ONE favourite per contest and can move it, rather
+ * than hearting everything. A heart per entry rewards whoever gets the most people to tap the most
+ * buttons; one movable pick is the closest a public vote comes to meaning "this is the best one", and
+ * it makes the numbers legible — they add up to the number of people who voted.
+ *
+ * `ipHash` exists so the label can see how few networks a count came from before treating it as a
+ * verdict (lib/contest.ts voteConcentration). It is hashed, never raw, like every other address in
+ * this schema.
+ *
+ * Votes are advisory. Nothing in the code picks a winner from them; a label does, in /admin.
+ */
+model ContestVote {
+  id        String       @id @default(cuid())
+  contestId String
+  contest   Contest      @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  entryId   String
+  entry     ContestEntry @relation(fields: [entryId], references: [id], onDelete: Cascade)
+  /** The anonymous visitor id the middleware already sets. No account, no email. */
+  anonId    String
+  ipHash    String?
+  country   String?
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  @@unique([contestId, anonId])
+  @@index([entryId])
 }
