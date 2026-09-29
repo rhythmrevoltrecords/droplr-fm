@@ -1010,7 +1010,9 @@ async function main() {
       });
       check("a malformed date is a sentence, not a 500", junkDate.status === 400, `${junkDate.status}`);
 
-      const cid = aContest!.id;
+      // Re-read: the plan-gating checks above deleted the first contest and created a fresh one, so
+      // `aContest` is a row that no longer exists. Everything below works on the current contest.
+      const cid = (await prisma.contest.findUnique({ where: { releaseId: A.release.id }, select: { id: true } }))!.id;
       const entry = async (over: Record<string, unknown> = {}) =>
         http(null, "POST", `/api/contest/${cid}/enter`, {
           email: `remixer-${RUN}@sectest.dev`, artistName: "Remixer", link: `https://soundcloud.com/remixer-${RUN}/one`,
@@ -1020,7 +1022,7 @@ async function main() {
       await prisma.authThrottle.deleteMany({});
       const first = await entry();
       const stored = await prisma.contestEntry.findFirst({ where: { contestId: cid } });
-      check("an entry is stored with the org, the declaration and a withdraw token", first.status === 200 && stored?.organizationId === A.org.id && stored?.declarationVersion === 1 && stored.declarationText.length > 40 && !!stored.withdrawToken && stored.linkNormalised === `https://soundcloud.com/remixer-${RUN}/one`, `${first.status} ${first.text.slice(0, 120)}`);
+      check("an entry is stored with the org, the declaration and a withdraw token", first.status === 200 && stored?.organizationId === A.org.id && stored?.declarationVersion === 2 && stored.declarationText.length > 40 && !!stored.withdrawToken && stored.linkNormalised === `https://soundcloud.com/remixer-${RUN}/one`, `${first.status} ${first.text.slice(0, 120)}`);
       check("the raw IP is never stored", !!stored && (stored.ipHash === null || !/^[0-9.]+$|:/.test(stored.ipHash)), String(stored?.ipHash));
 
       const noTick = await entry({ declarationAccepted: false, link: `https://soundcloud.com/remixer-${RUN}/two` });
@@ -1119,13 +1121,13 @@ async function main() {
       // of a client component are serialised into the RSC payload inlined in the page.
       const openPage = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
       check("while open, no entrant appears in the page source at all", !openPage.text.includes(`Gallery One ${RUN}`) && !openPage.text.includes(`gal1-${RUN}@sectest.dev`) && !openPage.text.includes(`soundcloud.com/gal1-${RUN}`), `${openPage.status}`);
-      const earlyVote = await http(null, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[0].id });
+      const earlyVote = await http({ cookie: `dfm_anon=early-${RUN}` }, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[0].id });
       check("voting is refused while entries are still open", earlyVote.status === 409, `${earlyVote.status}`);
 
       await prisma.contest.update({ where: { id: cid }, data: { closesAt: new Date(Date.now() - 60_000) } });
       const closedPage = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
       check("once closed, the entries and a player appear", closedPage.text.includes(`Gallery One ${RUN}`) && closedPage.text.includes("w.soundcloud.com/player"), `${closedPage.status}`);
-      check("…and a host that can't embed gets a link instead of a broken player", closedPage.text.includes(`Gallery Two ${RUN}`) && closedPage.text.includes("Open on drive"), "");
+      check("…and a host that can't embed gets a link instead of a broken player", closedPage.text.includes(`Gallery Two ${RUN}`) && closedPage.text.includes("Open on Google Drive"), "");
       check("…and no entrant's email is anywhere in it", !closedPage.text.includes(`gal1-${RUN}@sectest.dev`) && !closedPage.text.includes(`gal2-${RUN}@sectest.dev`));
       const withLabelNote = await http(ownerA, "PATCH", `/api/admin/releases/${A.release.id}/contest/entries/${gEntries[0].id}`, { labelNote: `PRIVATE ${RUN}` });
       const afterNote = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
@@ -1135,7 +1137,7 @@ async function main() {
       // with a vote button. The version column has to actually keep them out.
       await prisma.contestEntry.update({ where: { id: gEntries[1].id }, data: { declarationVersion: 1 } });
       const v1Page = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
-      const v1Vote = await http(null, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[1].id });
+      const v1Vote = await http({ cookie: `dfm_anon=v1voter-${RUN}` }, "POST", `/api/contest/${cid}/vote`, { entryId: gEntries[1].id });
       check("an entry made under the v1 declaration is not listed and can't be voted for", !v1Page.text.includes(`Gallery Two ${RUN}`) && v1Vote.status === 404, `${v1Vote.status}`);
       await prisma.contestEntry.update({ where: { id: gEntries[1].id }, data: { declarationVersion: 2 } });
 
