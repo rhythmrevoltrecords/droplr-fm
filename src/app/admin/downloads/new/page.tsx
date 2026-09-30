@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { DownloadForm } from "@/components/admin/download-form";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
+import { soundcloudGateEnforcement } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "New download" };
@@ -11,7 +12,7 @@ export default async function NewDownloadPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">New download</h1>
-      <DownloadForm soundcloudConnected={!!sc} />
+      <DownloadForm soundcloudConnected={!!sc} enforcement={soundcloudGateEnforcement()} />
     </div>
   );
 }

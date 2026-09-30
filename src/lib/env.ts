@@ -1,3 +1,5 @@
+import { isEnforcement, type Enforcement } from "./gate-steps";
+
 export const SITE_URL = (process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8888").replace(/\/$/, "");
 export const SITE_HOST = new URL(SITE_URL).host;
 
@@ -26,3 +28,17 @@ export function platformSubdomain(host: string | null | undefined) {
 }
 
 export const deezerGloballyEnabled = () => process.env.DEEZER_ENABLED === "true" && !!process.env.DEEZER_APP_ID;
+
+/**
+ * Current enforcement state for gate steps droplr performs on the fan's behalf (SoundCloud).
+ *
+ * Server-side only — deliberately not NEXT_PUBLIC_, because the public gate page receives it as a
+ * prop from the server component rather than reading it in the browser. Set
+ * SOUNDCLOUD_GATE_ENFORCEMENT to "voluntary" the day the API is paused and every live gate degrades
+ * on the next request; set it to "unavailable" to drop the step entirely. An unrecognised value
+ * falls back to "enforced" rather than silently weakening every gate on a typo.
+ */
+export function soundcloudGateEnforcement(): Enforcement {
+  const v = process.env.SOUNDCLOUD_GATE_ENFORCEMENT?.trim().toLowerCase();
+  return isEnforcement(v) ? v : "enforced";
+}

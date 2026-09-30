@@ -4,9 +4,10 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
+import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook } from "@/lib/exclusivity";
 import type { ArtistOption } from "./release-create-form";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global" };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string };
 
 export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane", soloArtist = false }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string; soloArtist?: boolean }) {
   const router = useRouter();
@@ -19,7 +20,14 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
     setBusy(true);
     // Only send the artist when it changed: a legacy release assigned to a login without a profile keeps its access.
     const { artistProfileId, ...rest } = f;
-    const payload = { ...rest, accentColor: f.accentColor || null, ...(artistProfileId !== initial.artistProfileId ? { artistProfileId: artistProfileId || null } : {}) };
+    const payload = {
+      ...rest,
+      accentColor: f.accentColor || null,
+      // "" is lifetime, which is a real Beatport option, so it has to travel as null rather than
+      // being dropped — dropping it would silently keep whatever window was there before.
+      exclusiveWeeks: f.exclusiveStore ? (f.exclusiveWeeks ? Number(f.exclusiveWeeks) : null) : null,
+      ...(artistProfileId !== initial.artistProfileId ? { artistProfileId: artistProfileId || null } : {}),
+    };
     const res = await fetch(`/api/admin/releases/${releaseId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
     const j = await res.json();
     setBusy(false);
@@ -57,6 +65,56 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
         {field("spotifyArtistId", "Spotify artist ID (follow)")}
         {field("upc", "UPC (finds Apple Music, Deezer, Spotify, TIDAL)")}
         {field("isrc", "ISRC")}
+
+        {/*
+          Exclusivity. Four fields rather than one because the rulebook is the load-bearing part:
+          Beatport says streaming is fine, LabelWorx counts Apple Music, TIDAL and SoundCloud, and
+          Symphonic lets radio edits stream. droplr can only give a useful answer if it knows whose
+          rules to apply, so it asks instead of averaging them.
+        */}
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Store exclusive</Label>
+          <Select value={f.exclusiveStore} onChange={(e) => set("exclusiveStore", e.target.value)}>
+            <option value="">No exclusive</option>
+            <option value="beatport">Beatport</option>
+            <option value="traxsource">Traxsource</option>
+          </Select>
+          <p className="text-xs text-muted-foreground">
+            droplr will warn you if a link on this release breaks the window — a Bandcamp button going live inside a
+            Beatport exclusive costs you the premium price and the Hype chart.
+          </p>
+        </div>
+
+        {f.exclusiveStore && (
+          <>
+            <div className="space-y-2">
+              <Label>Whose rules?</Label>
+              <Select value={f.exclusiveRulebook} onChange={(e) => set("exclusiveRulebook", e.target.value)}>
+                {RULEBOOKS.map((r) => <option key={r.key} value={r.key === "unknown" ? "" : r.key}>{r.label}</option>)}
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {RULEBOOKS.find((r) => r.key === (isRulebook(f.exclusiveRulebook) ? f.exclusiveRulebook : "unknown"))?.note}
+              </p>
+            </div>
+            <div className="space-y-2">
+              <Label>Window</Label>
+              <Select value={f.exclusiveWeeks} onChange={(e) => set("exclusiveWeeks", e.target.value)}>
+                {WEEKS_BY_RULEBOOK[isRulebook(f.exclusiveRulebook) ? f.exclusiveRulebook : "unknown"].map((w) => (
+                  <option key={w} value={String(w)}>{w} weeks</option>
+                ))}
+                <option value="">Lifetime</option>
+              </Select>
+            </div>
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Window starts ({locationLabel})</Label>
+              <Input type="date" value={f.exclusiveFromLocal} onChange={(e) => set("exclusiveFromLocal", e.target.value)} />
+              <p className="text-xs text-muted-foreground">
+                The store&apos;s own live date, which for an exclusive is earlier than the release date above. Beatport
+                asks for at least 7 business days&apos; notice before a window opens.
+              </p>
+            </div>
+          </>
+        )}
         {!soloArtist && <div className="space-y-2">
           <Label>Roster artist</Label>
           <Select

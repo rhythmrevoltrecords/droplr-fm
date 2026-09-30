@@ -195,6 +195,23 @@ model Release {
   emailsSentAt   DateTime?
   createdAt      DateTime     @default(now())
 
+  /**
+   * Store exclusivity, so droplr can warn when a link it is about to publish breaks it.
+   *
+   * This is the one thing droplr knows that neither Beatport nor the distributor does: the window
+   * AND the list of links scheduled on the same record. `exclusiveRulebook` exists because Beatport,
+   * LabelWorx and Symphonic publish three different answers about what counts as a breach — droplr
+   * answers under the label's own distributor and cites it, rather than averaging three sources into
+   * something true of none of them. See lib/exclusivity.ts.
+   *
+   * `exclusiveWeeks` null with a store set means lifetime. `exclusiveFrom` is the store's own live
+   * date, which for an exclusive is earlier than `releaseDate`.
+   */
+  exclusiveStore    String?
+  exclusiveFrom     DateTime?
+  exclusiveWeeks    Int?
+  exclusiveRulebook String?
+
   /** Shareable release report: off until the label turns it on, revocable by rotating the token. */
   reportToken    String?   @unique
   reportSharedAt DateTime?

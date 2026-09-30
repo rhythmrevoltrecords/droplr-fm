@@ -97,6 +97,66 @@ export const proofOf = (platform: string): Proof =>
   isGatePlatform(platform) ? GATE_PLATFORMS[platform].proof : "unverified";
 export const isProvable = (platform: string) => proofOf(platform) !== "unverified";
 
+/**
+ * Whether a "performed" platform can still actually perform, right now.
+ *
+ * On 10 June 2026 SoundCloud paused Hypeddit's API connection and every enforced download gate in
+ * that scene became voluntary overnight. SoundCloud's own staff said they had not blocked such
+ * services in general, so this is a risk rather than a prohibition — but their API Terms bar using
+ * the API to "add followers, like sounds or make comments on behalf of a user, unless those actions
+ * are specifically and deliberately initiated by the user", which is the clause droplr's performed
+ * step sits under.
+ *
+ * So enforcement is a runtime state, not a fact about the platform:
+ *
+ *  - "enforced"    — today. droplr performs the action and the step is only done if it succeeded.
+ *  - "voluntary"   — the step is still asked for and still opens SoundCloud, but it completes on
+ *    the click, like any unverified step, and says so. This is the state Hypeddit landed in.
+ *  - "unavailable" — the step is dropped from the gate entirely.
+ *
+ * A live campaign has to survive the transition without the label touching it, which is why this is
+ * resolved at render time rather than written onto the GateStep row. A label that sold a follow for
+ * a download three weeks ago cannot be asked to go and edit six gates the morning an API goes away.
+ */
+export type Enforcement = "enforced" | "voluntary" | "unavailable";
+
+export const ENFORCEMENTS: readonly Enforcement[] = ["enforced", "voluntary", "unavailable"];
+export const isEnforcement = (v: string | null | undefined): v is Enforcement =>
+  !!v && (ENFORCEMENTS as readonly string[]).includes(v);
+
+/**
+ * The proof a step can actually offer, given the current enforcement state.
+ *
+ * Only affects platforms that claim "performed" — a degraded state cannot make an unverified step
+ * more trustworthy, and "given" (email) does not depend on anyone else's API. Degrading always
+ * lands on "unverified", never on "given": the fan clicked, and a click is all there is.
+ */
+export function effectiveProof(platform: string, enforcement: Enforcement): Proof {
+  const declared = proofOf(platform);
+  if (declared !== "performed") return declared;
+  return enforcement === "enforced" ? "performed" : "unverified";
+}
+
+/** True when this platform's step is performed on the fan's behalf right now. */
+export const isPerforming = (platform: string, enforcement: Enforcement) =>
+  effectiveProof(platform, enforcement) === "performed";
+
+/** True when the step should not be shown at all. */
+export const isDropped = (platform: string, enforcement: Enforcement) =>
+  proofOf(platform) === "performed" && enforcement === "unavailable";
+
+/**
+ * What to tell the artist in the gate builder when a platform is degraded. Returns null when
+ * nothing is wrong, so the builder shows no reassuring noise in the normal case.
+ */
+export function enforcementNote(platform: string, enforcement: Enforcement): string | null {
+  if (proofOf(platform) !== "performed" || enforcement === "enforced") return null;
+  const label = isGatePlatform(platform) ? GATE_PLATFORMS[platform].label : platform;
+  return enforcement === "voluntary"
+    ? `${label} has paused the connection droplr used to carry this out, so right now this step opens ${label} and completes on the click. Your fans still see it and your gate still works — it just isn't checked, and the page says so.`
+    : `${label} steps are switched off right now, so droplr has left this one out of the gate rather than showing your fans a step they can't finish.`;
+}
+
 /** What the fan is told a step will do, before they do it. */
 export function stepLabel(platform: string, action: string, orgName: string): string {
   const name = isGatePlatform(platform) ? GATE_PLATFORMS[platform].label : platform;

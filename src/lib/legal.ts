@@ -98,6 +98,7 @@ export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }
       "An entrant can withdraw at any time using the link in their confirmation email. That link asks before it acts, and after the deadline a withdrawal can't be undone.",
       "Running a contest needs a paid plan. Entering one is always free. If your plan lapses while a contest is live it keeps running and stays editable, because your entrants were told a deadline.",
       "Privacy: what we store for an entrant and for a vote, and how long we keep it. A vote is recorded against the anonymous visitor ID we already set, with a hashed network address and no account.",
+      "Exclusivity warnings: tell us a release is exclusive to a store and we'll warn you when a link on it looks like it breaks the window. That warning is our reading of rules Beatport and the distributors publish and change without notice, and we only see the links on that release — not your edits, your pre-orders elsewhere, or what your distributor actually delivered. It isn't legal or commercial advice, and your agreement with your distributor and the store governs.",
     ],
   },
   {
