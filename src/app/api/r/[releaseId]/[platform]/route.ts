@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { verifyLegacyToken, verifyToken } from "@/lib/crypto";
 import { deezerGloballyEnabled, SITE_URL } from "@/lib/env";
@@ -13,8 +13,19 @@ export const dynamic = "force-dynamic";
 
 /**
  * Every outbound button on a release page goes through here.
- * Logs the ClickEvent server-side FIRST, then redirects. Works with JavaScript disabled.
  * GET  = smart link buttons.  POST = pre-save form buttons (carries email + consent).
+ *
+ * Logging happens server-side in `after()` — registered before the response, run after it is sent.
+ * It used to be awaited *before* the redirect, which put a write to Neon in Sydney on the critical
+ * path of every outbound click. The fan waited for droplr's bookkeeping before they reached Spotify.
+ *
+ * This is still server-side, so it works with JavaScript disabled, and it is the same pattern the
+ * download gate's visit route already uses for its own click logging. The trade is that a click can
+ * be lost if the function is torn down before `after()` finishes. That is the right way round: a fan
+ * who leaves is gone for good, an analytics row is a row. Nothing about the destination depends on
+ * the write, so nothing the fan sees can be wrong because of it.
+ *
+ * Reads stay on the critical path, because the destination genuinely depends on them.
  */
 async function handle(req: NextRequest, params: { releaseId: string; platform: string }, method: "GET" | "POST") {
   const q = req.nextUrl.searchParams;
@@ -34,55 +45,57 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
   const { host } = requestOrigin(req);
   const source = resolveSource({ variantSource: variant?.source, utmSource: q.get("utm_source"), referrer: meta.referrer, selfHosts: [host] });
 
-  // Release-day email click? (signed pst token → PreSave id)
-  let convertedToPreSave = false;
-  // Legacy pst links (emailed before audiences) have ps and no act/sub claim.
-  const pst =
-    (await verifyToken<{ ps: string }>(q.get("pst"), "pst")) ??
-    (await verifyLegacyToken<{ ps?: string; act?: string; sub?: string }>(q.get("pst")).then((t) => (t && !t.act && !t.sub ? t : null)));
-  if (pst?.ps) {
-    const ps = await prisma.preSave.findFirst({ where: { id: pst.ps, releaseId: release.id } });
-    if (ps) {
-      convertedToPreSave = true;
-      if (ps.status === "emailed" || ps.status === "pending") {
-        await prisma.preSave.update({ where: { id: ps.id }, data: { status: "emailed_and_clicked", clickedAt: new Date() } });
-      } else if (!ps.clickedAt) {
-        await prisma.preSave.update({ where: { id: ps.id }, data: { clickedAt: new Date() } });
-      }
-    }
-  }
-
   // Which button? ?l={linkId} identifies it exactly (needed when a platform appears more than once,
   // e.g. three SoundCloud links on a mashup pack). Older links without ?l fall back to the first match.
+  // An in-memory lookup over links already loaded above — no extra query, so it stays here.
   const linkParam = q.get("l");
   const link =
     (linkParam ? release.links.find((l) => l.id === linkParam) : undefined) ??
     release.links.find((l) => l.platform === params.platform);
 
-  // 1) LOG before redirect
+  // 1) LOG, after the response. Values are captured now because the request may not outlive it.
   if (!meta.bot) {
-    await prisma.$transaction([
-      prisma.clickEvent.create({
-        data: {
-          releaseId: release.id,
-          variantId: variant?.id,
-          platform: params.platform,
-          linkId: link?.platform === params.platform ? link.id : null,
-          source,
-          utm_source: capText(q.get("utm_source")),
-          utm_medium: capText(q.get("utm_medium")),
-          utm_campaign: capText(q.get("utm_campaign") ?? variant?.utm_campaign),
-          referrer: meta.referrer?.slice(0, 500),
-          country: meta.country,
-          timezone: meta.timezone,
-          deviceType: meta.deviceType,
-          ipHash: meta.ipHash,
-          anonId,
-          convertedToPreSave,
-        },
-      }),
-      ...(variant ? [prisma.linkVariant.update({ where: { id: variant.id }, data: { clicks: { increment: 1 } } })] : []),
-    ]);
+    const pstParam = q.get("pst");
+    const logged = {
+      releaseId: release.id,
+      variantId: variant?.id,
+      platform: params.platform,
+      linkId: link?.platform === params.platform ? link.id : null,
+      source,
+      utm_source: capText(q.get("utm_source")),
+      utm_medium: capText(q.get("utm_medium")),
+      utm_campaign: capText(q.get("utm_campaign") ?? variant?.utm_campaign),
+      referrer: meta.referrer?.slice(0, 500),
+      country: meta.country,
+      timezone: meta.timezone,
+      deviceType: meta.deviceType,
+      ipHash: meta.ipHash,
+      anonId,
+    };
+    after(async () => {
+      // Release-day email click? (signed pst token → PreSave id.) Marking the pre-save as clicked is
+      // bookkeeping too, and the fan's destination never depended on it, so it comes along.
+      // Legacy pst links (emailed before audiences) have ps and no act/sub claim.
+      let convertedToPreSave = false;
+      const pst =
+        (await verifyToken<{ ps: string }>(pstParam, "pst")) ??
+        (await verifyLegacyToken<{ ps?: string; act?: string; sub?: string }>(pstParam).then((t) => (t && !t.act && !t.sub ? t : null)));
+      if (pst?.ps) {
+        const ps = await prisma.preSave.findFirst({ where: { id: pst.ps, releaseId: logged.releaseId } });
+        if (ps) {
+          convertedToPreSave = true;
+          if (ps.status === "emailed" || ps.status === "pending") {
+            await prisma.preSave.update({ where: { id: ps.id }, data: { status: "emailed_and_clicked", clickedAt: new Date() } });
+          } else if (!ps.clickedAt) {
+            await prisma.preSave.update({ where: { id: ps.id }, data: { clickedAt: new Date() } });
+          }
+        }
+      }
+      await prisma.$transaction([
+        prisma.clickEvent.create({ data: { ...logged, convertedToPreSave } }),
+        ...(variant ? [prisma.linkVariant.update({ where: { id: variant.id }, data: { clicks: { increment: 1 } } })] : []),
+      ]);
+    });
   }
 
   const finish = (url: string) => {
