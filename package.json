@@ -20,7 +20,12 @@
     "test:domains": "tsx --env-file-if-exists=.env scripts/test-domains.ts",
     "test:clip": "tsx --env-file-if-exists=.env scripts/test-clip.ts",
     "test:metadata": "tsx --env-file-if-exists=.env scripts/test-metadata.ts",
-    "test:contest": "tsx --env-file-if-exists=.env scripts/test-contest.ts"
+    "test:contest": "tsx --env-file-if-exists=.env scripts/test-contest.ts",
+    "test:gate": "tsx --env-file-if-exists=.env scripts/test-gate.ts",
+    "test:comp": "tsx --env-file-if-exists=.env scripts/test-comp.ts",
+    "test:seo": "tsx --env-file-if-exists=.env scripts/test-seo.ts",
+    "test:roster": "tsx --env-file-if-exists=.env scripts/test-roster-link.ts",
+    "test:exclusivity": "tsx --env-file-if-exists=.env scripts/test-exclusivity.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

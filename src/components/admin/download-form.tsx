@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
-import { GATE_PLATFORMS, type GateAction, type GatePlatform } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, effectiveProof, enforcementNote, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
 import { slugify } from "@/lib/utils";
 
 type Step = { platform: GatePlatform; action: GateAction; target: string; required: boolean };
@@ -36,7 +36,20 @@ const EMPTY: DownloadFormValues = {
  * can and can't prove. They're deciding what to ask their own fans to do, so they should know
  * which of those asks is checked and which is a link and a hope.
  */
-export function DownloadForm({ initial, soundcloudConnected }: { initial?: DownloadFormValues; soundcloudConnected: boolean }) {
+export function DownloadForm({
+  initial,
+  soundcloudConnected,
+  enforcement = "enforced",
+}: {
+  initial?: DownloadFormValues;
+  soundcloudConnected: boolean;
+  /**
+   * Whether droplr can still perform a performed step. A label must never be shown a "Verified"
+   * badge for a step that is currently completing on a click — that badge is the reason they chose
+   * droplr, and a stale one is worse than no badge at all.
+   */
+  enforcement?: Enforcement;
+}) {
   const router = useRouter();
   const [v, setV] = useState<DownloadFormValues>(initial ?? EMPTY);
   const [busy, setBusy] = useState(false);
@@ -167,19 +180,23 @@ export function DownloadForm({ initial, soundcloudConnected }: { initial?: Downl
         <ul className="space-y-3">
           {v.steps.map((s, i) => {
             const spec = GATE_PLATFORMS[s.platform];
-            const scMissing = s.platform === "soundcloud" && !soundcloudConnected;
+            const proof = effectiveProof(s.platform, enforcement);
+            const degraded = enforcementNote(s.platform, enforcement);
+            // A missing key only matters while the action is actually being performed; once the
+            // step is a plain visit there is nothing to connect.
+            const scMissing = s.platform === "soundcloud" && !soundcloudConnected && enforcement === "enforced";
             return (
               <li key={`${s.platform}-${i}`} className="rounded-lg border p-3">
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-medium">{spec.label}</span>
-                  {spec.proof === "performed" && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400">Verified</span>}
-                  {spec.proof === "given" && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400">You keep this</span>}
-                  {spec.proof === "unverified" && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">Can&apos;t be checked</span>}
+                  {proof === "performed" && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400">Verified</span>}
+                  {proof === "given" && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400">You keep this</span>}
+                  {proof === "unverified" && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">Can&apos;t be checked</span>}
                   <button type="button" onClick={() => set("steps", v.steps.filter((_, n) => n !== i))} className="ml-auto text-muted-foreground hover:text-foreground" aria-label={`Remove ${spec.label} step`}>
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <p className="mt-1 text-xs text-muted-foreground">{spec.note}</p>
+                <p className="mt-1 text-xs text-muted-foreground">{degraded ?? spec.note}</p>
 
                 {spec.actions.length > 1 && (
                   <Select className="mt-2.5" value={s.action} onChange={(e) => patchStep(i, { action: e.target.value as GateAction })}>

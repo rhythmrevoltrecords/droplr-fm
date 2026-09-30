@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { GATE_PLATFORMS, isGatePlatform, type GatePlatform } from "@/lib/downloads";
 import { clientCredentialsToken, getSoundCloudCreds, parseSoundCloudUrl, resolveId } from "@/lib/soundcloud";
+import { soundcloudGateEnforcement } from "@/lib/env";
 
 export const stepsSchema = z
   .array(
@@ -56,16 +57,22 @@ export async function resolveGateSteps(
       if (s.action === "follow" && parsed.isTrack) return { error: "For a follow, use your profile link, not a track." };
       if (s.action !== "follow" && !parsed.isTrack) return { error: `For a ${s.action}, link the track, not your profile.` };
 
-      if (scToken === undefined) {
-        const creds = await getSoundCloudCreds(organizationId);
-        scToken = creds ? await clientCredentialsToken(creds) : null;
+      // The numeric id is only needed to *perform* the action. While SoundCloud's connection is
+      // paused the step is a plain visit, so requiring credentials and a successful resolve would
+      // mean a paused API also blocked labels from building new gates — punishing them twice for
+      // someone else's outage. The URL-shape checks above still apply either way.
+      if (soundcloudGateEnforcement() === "enforced") {
+        if (scToken === undefined) {
+          const creds = await getSoundCloudCreds(organizationId);
+          scToken = creds ? await clientCredentialsToken(creds) : null;
+        }
+        if (!scToken) {
+          return { error: "Connect SoundCloud in Settings → Integrations before adding a SoundCloud step." };
+        }
+        const resolved = await resolveId(scToken, parsed.url);
+        if (!resolved) return { error: "SoundCloud didn't recognise that link. Check it opens in a browser." };
+        targetId = String(resolved.id);
       }
-      if (!scToken) {
-        return { error: "Connect SoundCloud in Settings → Integrations before adding a SoundCloud step." };
-      }
-      const resolved = await resolveId(scToken, parsed.url);
-      if (!resolved) return { error: "SoundCloud didn't recognise that link. Check it opens in a browser." };
-      targetId = String(resolved.id);
     }
 
     out.push({ position: i, platform, action: s.action, target, targetId, required: s.required });
