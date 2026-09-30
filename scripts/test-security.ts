@@ -690,6 +690,7 @@ async function main() {
     const pre = await http(null, "GET", `/${A.org.slug}/${A.release.slug}`);
     check("pre-save page asks where the fan listens and has a Follow on Spotify button", pre.text.includes("Where do you listen?") && pre.text.includes(`/api/r/${A.release.id}/spotifyFollow`), `${pre.status}`);
     const follow = await http(null, "GET", `/api/r/${A.release.id}/spotifyFollow`);
+    await new Promise((r) => setTimeout(r, 400)); // after() writes the click once the redirect is already on its way
     check("follow click is logged and goes to the artist on Spotify", follow.status === 302 && follow.location === "https://open.spotify.com/artist/70Xz86ytGtHqZfHFEZ4w0V" && (await prisma.clickEvent.count({ where: { releaseId: A.release.id, platform: "spotifyFollow" } })) >= 1, `${follow.status} ${follow.location}`);
     const fanEmail = `tzfan-${RUN}@fans.dev`;
     await http({ cookie: "" }, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: fanEmail, consent: "yes", tz: "America/Los_Angeles", listenOn: "beatport" });
