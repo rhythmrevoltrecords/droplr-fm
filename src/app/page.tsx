@@ -26,7 +26,7 @@ const STORES = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "tidal",
 
 const FOR_ARTISTS = [
   { title: "Make the release page", body: "Paste a Spotify link. Artwork, colour and store links fill in, unreleased is fine." },
-  { title: "Follow the promo plan", body: "Dated steps from announce day to a week after, each with the graphic, the link or the reel it needs — pick 30 seconds and droplr renders the video here in your browser." },
+  { title: "Follow the promo plan", body: "Dated steps from announce day to two months after, each with the graphic, the link or the reel it needs — pick 30 seconds and droplr renders the video here in your browser." },
   { title: "Let release day run itself", body: "Every pre-saver gets an email at 9am in their own timezone, leading with the store they picked." },
   { title: "Keep the fans", body: "One fan list across every release. Put a free pack behind a download gate to start one, and the fans who opted in to news are yours to email again." },
 ];
@@ -196,10 +196,10 @@ function Bento() {
       <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-2">
         <div className="flex items-center gap-2 text-sm text-violet-200"><ImageIcon className="h-4 w-4" /> Share graphics</div>
         <h3 className="mt-3 text-xl font-semibold tracking-tight">Stories that make themselves.</h3>
-        <p className="mt-2 text-sm text-white/60">Countdown, out now and pre-save milestones, sized for Instagram, made from your artwork and your logo.</p>
+        <p className="mt-2 text-sm text-white/60">Countdown, out now, pre-save milestones and a lyric card, sized for Instagram, made from your artwork, your logo and a line you pick.</p>
         <div className="relative mt-6 flex h-40 items-end justify-center" aria-hidden>
-          {[{ r: -10, x: -46, t: "7 days to go" }, { r: 0, x: 0, t: "Out now" }, { r: 10, x: 46, t: "500 pre-saves" }].map((c, i) => (
-            <div key={c.t} className="absolute bottom-0 flex h-36 w-20 flex-col items-center justify-end rounded-xl border border-white/15 p-2 shadow-xl" style={{ transform: `translateX(${c.x}px) rotate(${c.r}deg)`, zIndex: i === 1 ? 2 : 1, background: "radial-gradient(90% 60% at 50% 20%, rgba(168,85,247,.7), rgba(15,15,20,1) 75%)" }}>
+          {[{ r: -14, x: -70, t: "7 days to go" }, { r: -5, x: -24, t: "Out now" }, { r: 5, x: 24, t: "500 pre-saves" }, { r: 14, x: 70, t: "\u201CLyric\u201D" }].map((c, i) => (
+            <div key={c.t} className="absolute bottom-0 flex h-36 w-20 flex-col items-center justify-end rounded-xl border border-white/15 p-2 shadow-xl" style={{ transform: `translateX(${c.x}px) rotate(${c.r}deg)`, zIndex: i === 1 || i === 2 ? 2 : 1, background: "radial-gradient(90% 60% at 50% 20%, rgba(168,85,247,.7), rgba(15,15,20,1) 75%)" }}>
               <span className="mb-auto mt-2 aspect-square w-12 rounded-md bg-[linear-gradient(135deg,#f0abfc,#7c3aed)]" />
               <span className="rounded-full bg-white px-1.5 py-0.5 text-[7px] font-bold text-black">{c.t}</span>
             </div>

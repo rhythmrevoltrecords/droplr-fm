@@ -7,7 +7,7 @@ import { Input, Label, Select } from "@/components/ui/input";
 import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook } from "@/lib/exclusivity";
 import type { ArtistOption } from "./release-create-form";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string };
 
 export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane", soloArtist = false }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string; soloArtist?: boolean }) {
   const router = useRouter();
@@ -65,6 +65,17 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
         {field("spotifyArtistId", "Spotify artist ID (follow)")}
         {field("upc", "UPC (finds Apple Music, Deezer, Spotify, TIDAL)")}
         {field("isrc", "ISRC")}
+
+        {/*
+          Full width and its own row: it is a sentence, not an identifier, and it reads wrong in a
+          120px box next to a UPC. Only ever typed here — droplr never looks a lyric up, which is
+          what keeps it the artist's content rather than a licensing question.
+        */}
+        <div className="space-y-2 sm:col-span-2">
+          <Label>Lyric line <span className="font-normal text-muted-foreground">— one line, for the lyric share graphic</span></Label>
+          <Input value={f.lyricLine} maxLength={120} placeholder="Your strongest line" onChange={(e) => set("lyricLine", e.target.value)} />
+          <p className="text-xs text-muted-foreground">{f.lyricLine.length}/120. Leave it empty and the lyric card isn&apos;t offered.</p>
+        </div>
 
         {/*
           Exclusivity. Four fields rather than one because the rulebook is the load-bearing part:
