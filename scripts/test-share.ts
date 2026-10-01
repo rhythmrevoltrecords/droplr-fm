@@ -31,6 +31,7 @@ const check = (name: string, ok: boolean, detail = "") => {
 const BASE: Parameters<typeof shareVersion>[0] & { accentColor: string | null; now: Date } = {
   coverUrl: "https://cdn.example.com/art.jpg",
   logoUrl: "https://cdn.example.com/logo.png",
+  lyricLine: "I only call when the city's asleep",
   accentColor: "#8b5cf6",
   orgAccentColor: "#111827",
   title: "California Dreaming",
@@ -58,6 +59,8 @@ function main() {
     ["cover changed", { coverUrl: "https://cdn.example.com/art2.jpg" }],
     ["logo changed", { logoUrl: "https://cdn.example.com/logo2.png" }],
     ["logo removed", { logoUrl: null }],
+    ["lyric changed", { lyricLine: "Two steps and the lights go out" }],
+    ["lyric removed", { lyricLine: null }],
     ["release accent changed", { accentColor: "#ff0066" }],
     ["release accent cleared (falls back to the org's)", { accentColor: null }],
     ["org accent changed", { orgAccentColor: "#00ffaa" }],

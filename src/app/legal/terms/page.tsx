@@ -13,6 +13,7 @@ const toc = [
   { id: "content", title: "Your content" },
   { id: "fans", title: "Fan data and email" },
   { id: "reports", title: "Shared release reports" },
+  { id: "graphics", title: "Share graphics" },
   { id: "clips", title: "Release clips" },
   { id: "contests", title: "Remix contests" },
   { id: "platforms", title: "Spotify, Apple Music and other platforms" },
@@ -108,6 +109,16 @@ export default function TermsPage() {
           <li>The page shows <strong>counts only</strong>. No fan is named, no email address appears, and nothing on it identifies an individual.</li>
           <li>The address is unguessable but it is not password-protected: anyone you send it to can open it and can forward it. Treat it like a private link, and reissue it if it goes somewhere you didn&apos;t intend. We ask search engines not to index it, which most but not all of them honour.</li>
           <li>The figures come from our own analytics and are provided as-is. They aren&apos;t audited, they won&apos;t match a streaming service&apos;s or distributor&apos;s own reporting, and you shouldn&apos;t present them as if they do.</li>
+        </ul>
+      </Section>
+
+      <Section {...s("graphics")}>
+        <p>droplr.fm draws ready-made images for a release — a countdown, an out-now post, a milestone, and a lyric card — using your artwork, your release details and, on the lyric card, a line of lyrics you type yourself.</p>
+        <ul>
+          <li><strong>The lyric line is yours and only ever yours.</strong> We never fetch lyrics from a lyrics service or any other third party, and there is nothing to pre-fill the field from. What appears on the card is what you typed, so you confirm you have the right to reproduce and publish that line — which is a separate right from the recording and the artwork, and one you may not hold on a cover, a remix or a track you did not write.</li>
+          <li><strong>The image is yours.</strong> We claim no ownership of it and no licence to it beyond drawing it for you.</li>
+          <li>Unlike a clip, a share graphic is drawn on our servers from the release details we hold, so the lyric line is stored on your release and we can clear it. We still can&apos;t take down an image you have already posted somewhere — that has to go to the platform you posted it on.</li>
+          <li>On plans that don&apos;t include removing droplr.fm branding, a small <span className="whitespace-nowrap">droplr.fm</span> line is drawn into the image, the same way it is in a clip.</li>
         </ul>
       </Section>
 

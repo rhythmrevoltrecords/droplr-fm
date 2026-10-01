@@ -734,6 +734,20 @@ async function main() {
     check("share images: other label 404, artist 401", shareCross.status === 404 && shareArtist.status === 401, `${shareCross.status}/${shareArtist.status}`);
     const fakeMilestone = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=milestone&n=10000&format=post`);
     const badFormat = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=out&format=billboard`);
+    // The lyric card is refused until a line exists, rather than rendering an empty one: a blank
+    // card is indistinguishable from a failed render, so the artist would report it as broken.
+    const lyricUnset = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=lyric&format=story`);
+    check("a lyric card is refused until a line is set, and says where to set it",
+      lyricUnset.status === 400 && /Settings/i.test(lyricUnset.text), `${lyricUnset.status} ${lyricUnset.text.slice(0, 80)}`);
+    await prisma.release.update({ where: { id: B.release.id }, data: { lyricLine: "  I only call when the city's asleep  " } });
+    const lyricSet = await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=lyric&format=story`);
+    check("…and renders once it is", lyricSet.status === 200, String(lyricSet.status));
+    // Whitespace-only is the same as unset, or a space would unlock a blank card.
+    await prisma.release.update({ where: { id: B.release.id }, data: { lyricLine: "   " } });
+    check("a whitespace-only line counts as unset",
+      (await http(shareOwnerB, "GET", `/api/admin/releases/${B.release.id}/share?kind=lyric&format=story`)).status === 400);
+    await prisma.release.update({ where: { id: B.release.id }, data: { lyricLine: null } });
+
     check("can't make a milestone that wasn't reached, or an unknown format", fakeMilestone.status === 400 && badFormat.status === 400, `${fakeMilestone.status}/${badFormat.status}`);
 
     // The clip renderer draws the cover onto a canvas and reads it back, so the artwork has to be

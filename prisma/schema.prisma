@@ -176,6 +176,8 @@ model Release {
   artistName     String
   coverUrl       String
   accentColor    String?
+  /** One line of the artist's own lyric, for the lyric share graphic. Never fetched from anywhere. */
+  lyricLine      String?
   spotifyUrl     String?
   spotifyAlbumId String?
   spotifyTrackId String?

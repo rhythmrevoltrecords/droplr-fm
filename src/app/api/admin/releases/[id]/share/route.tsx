@@ -18,7 +18,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const q = req.nextUrl.searchParams;
   const format = (q.get("format") ?? "story") as ShareFormat;
   const kind = (q.get("kind") ?? "countdown") as ShareKind;
-  if (!(format in SHARE_FORMATS) || !["countdown", "out", "milestone"].includes(kind)) return NextResponse.json({ error: "Unknown format" }, { status: 400 });
+  if (!(format in SHARE_FORMATS) || !["countdown", "out", "milestone", "lyric"].includes(kind)) return NextResponse.json({ error: "Unknown format" }, { status: 400 });
 
   const release = await prisma.release.findUniqueOrThrow({ where: { id: g.release.id }, include: { organization: true } });
   let milestone: number | undefined;
@@ -29,10 +29,13 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
     if (!MILESTONES.includes(milestone) || milestone > count) return NextResponse.json({ error: "That milestone hasn't been reached yet" }, { status: 400 });
   }
   if (kind === "countdown" && isReleased(release.releaseDate)) return NextResponse.json({ error: "This release is already out" }, { status: 400 });
+  // Refused rather than rendered empty: a card with nothing on it looks like a broken feature, and
+  // the artist has no way to tell the difference from a render that failed.
+  if (kind === "lyric" && !release.lyricLine?.trim()) return NextResponse.json({ error: "Add a lyric line in this release's Settings first" }, { status: 400 });
 
   const url = publicReleaseUrl(release.organization, release.slug, SITE_URL).replace(/^https?:\/\//, "");
   const img = await renderShareImage({
-    format, kind, milestone, url,
+    format, kind, milestone, url, lyric: release.lyricLine,
     title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, logoUrl: release.organization.logoUrl, accentColor: release.accentColor ?? release.organization.accentColor,
     labelName: release.organization.name, releaseDate: release.releaseDate, timezone: release.organization.timezone,
     showBranding: !planOf(release.organization.plan).removeBranding,

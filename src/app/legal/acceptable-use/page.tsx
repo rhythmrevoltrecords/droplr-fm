@@ -10,6 +10,7 @@ const toc = [
   { id: "links", title: "Links and redirects" },
   { id: "email", title: "Email and fan data" },
   { id: "downloads", title: "Download gates" },
+  { id: "graphics", title: "Share graphics" },
   { id: "clips", title: "Release clips" },
   { id: "contests", title: "Remix contests" },
   { id: "streaming", title: "Streaming manipulation" },
@@ -64,6 +65,16 @@ export default function AcceptableUsePage() {
           <li>Each step must comply with the rules of the platform it points at. A follow or repost you ask for has to be something that platform allows you to ask for.</li>
         </ul>
         <p>If we&apos;re told a gated file infringes someone&apos;s rights, we can switch the gate off. We can&apos;t remove the file itself — it isn&apos;t ours and it isn&apos;t on our systems. See <Link href="/legal/copyright">Copyright &amp; Trade Marks</Link>.</p>
+      </Section>
+
+      <Section {...s("graphics")}>
+        <p>We draw share graphics from what&apos;s on your release, including the lyric line you type for a lyric card. We don&apos;t check whether you have the right to that line, and nothing pre-fills it — it is only ever what you typed.</p>
+        <ul>
+          <li>Only put a lyric on a card when you have the right to reproduce and publish it. The words are a separate right from the recording, so a cover, a remix or a track you didn&apos;t write may not be yours to quote.</li>
+          <li>Don&apos;t use the field for anything that isn&apos;t a lyric from that release — it is not a free text banner for claims, abuse or someone else&apos;s branding.</li>
+          <li>Don&apos;t present a graphic as official, licensed or endorsed when it isn&apos;t, and don&apos;t strip the droplr.fm line on a plan that includes it and then pass the image off as made elsewhere.</li>
+        </ul>
+        <p>The lyric line is stored on your release, so unlike a clip we can clear it if we&apos;re told it infringes someone&apos;s rights. We can&apos;t take down an image you have already posted; that goes to the platform.</p>
       </Section>
 
       <Section {...s("clips")}>

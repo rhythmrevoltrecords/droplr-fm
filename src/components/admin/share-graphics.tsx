@@ -24,7 +24,7 @@ type State = "loading" | "ready" | "error";
  *  - a render that is slow or fails now says so and offers a retry. Before, a failed <img> left
  *    an empty bordered box that looked identical to one still loading, forever.
  */
-export function ShareGraphics({ releaseId, live, milestones, presaves, version }: { releaseId: string; live: boolean; milestones: number[]; presaves: number; version: string }) {
+export function ShareGraphics({ releaseId, live, milestones, presaves, version, hasLyric, settingsHref }: { releaseId: string; live: boolean; milestones: number[]; presaves: number; version: string; /** A lyric card needs a line on the release; without one the card is offered as a prompt instead. */ hasLyric: boolean; settingsHref: string }) {
   const base = `/api/admin/releases/${releaseId}/share`;
   const [nonce, setNonce] = useState(0);
   const [state, setState] = useState<Record<string, State>>({});
@@ -32,6 +32,7 @@ export function ShareGraphics({ releaseId, live, milestones, presaves, version }
   const items: Item[] = [
     ...(!live ? [{ key: "countdown", title: "Countdown", hint: "Days to go, updates each day you download it", query: "kind=countdown" }] : []),
     { key: "out", title: "Out now", hint: live ? "For today's posts" : "Download now, post on release day", query: "kind=out" },
+    ...(hasLyric ? [{ key: "lyric", title: "Lyric card", hint: "Your strongest line, big, with the link under it", query: "kind=lyric" }] : []),
     ...milestones.map((n) => ({ key: `m${n}`, title: `${n.toLocaleString("en-AU")} pre-saves`, hint: "Thank fans and show momentum", query: `kind=milestone&n=${n}` })),
   ];
 
@@ -53,6 +54,12 @@ export function ShareGraphics({ releaseId, live, milestones, presaves, version }
               Instagram story (9:16) and post (4:5) images made from the artwork, with the link written on them. Add the link as a story sticker too. On a phone, Share posts it straight to a story.
               {milestones.length === 0 && ` Milestone graphics unlock at 25 pre-saves (${presaves} so far).`}
             </CardDescription>
+            {/* Not a disabled card: an empty lyric graphic looks broken, so the offer is the prompt. */}
+            {!hasLyric && (
+              <CardDescription>
+                Want a lyric card too? Put your strongest line in <a className="underline hover:text-foreground" href={settingsHref}>this release&apos;s Settings</a> and it appears here.
+              </CardDescription>
+            )}
           </div>
           {/* Never disabled. Cards below the fold load lazily, so they don't report until they are
               scrolled into view — gating the button on "everything has reported" would leave it dead
