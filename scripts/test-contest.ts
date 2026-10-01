@@ -16,6 +16,7 @@
  * Pure functions, no database, no server:
  *   npx tsx scripts/test-contest.ts
  */
+import { isPrivateIp } from "../src/lib/color";
 import {
   acceptingEntries, checkEntryLink, closingMessage, contestState, DECLARATION_TEXT,
   DECLARATION_VERSION, duplicateMessage, duplicateVerdict, embedFor, entryProblem,
@@ -277,6 +278,35 @@ function main() {
   check("a middling spread is reported without alarm", voteConcentration(["a", "a", "b", "b"]).note === "4 votes from 2 networks.", voteConcentration(["a","a","b","b"]).note ?? "");
   check("counts are reported either way", voteConcentration(["a", "b"]).votes === 2 && voteConcentration(["a", "b"]).sources === 2);
   check("missing hashes don't crash or inflate the spread", voteConcentration([null, null, "a", "a", "a", "a"]).sources === 1);
+
+
+  console.log("\n18. Which addresses the entry-link check refuses to touch");
+  // The link check resolves the entrant's host and refuses non-public addresses. These are the
+  // spellings a hostile DNS answer can use to reach something internal.
+  const ipCases: [string, boolean, string][] = [
+    ["8.8.8.8", false, "public IPv4"],
+    ["10.1.2.3", true, "10/8"],
+    ["169.254.169.254", true, "cloud metadata"],
+    ["192.0.0.8", true, "192.0.0/24"],
+    ["198.18.5.5", true, "198.18/15 benchmarking"],
+    ["::1", true, "IPv6 loopback"],
+    ["::7f00:1", true, "IPv4-compatible ::127.0.0.1"],
+    ["::127.0.0.1", true, "IPv4-compatible, dotted"],
+    ["::ffff:127.0.0.1", true, "IPv4-mapped loopback"],
+    ["::ffff:7f00:1", true, "IPv4-mapped loopback, hex"],
+    ["::ffff:8.8.8.8", false, "IPv4-mapped public"],
+    ["::ffff:0:a00:1", true, "IPv4-translated 10.0.0.1"],
+    ["fec0::1", true, "site local"],
+    ["64:ff9b::7f00:1", true, "NAT64 to loopback"],
+    ["64:ff9b::808:808", false, "NAT64 to public"],
+    ["2002:7f00:1::", true, "6to4 wrapping loopback"],
+    ["2002:808:808::", false, "6to4 wrapping public"],
+    ["2001:0:1::", true, "Teredo"],
+    ["fd00::1", true, "unique local"],
+    ["fe80::1", true, "link local"],
+    ["2606:4700::1111", false, "public IPv6"],
+  ];
+  for (const [ip, priv, why] of ipCases) check(`${why} (${ip}) is ${priv ? "refused" : "allowed"}`, isPrivateIp(ip) === priv);
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {

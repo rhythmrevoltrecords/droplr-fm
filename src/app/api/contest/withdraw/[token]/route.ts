@@ -9,8 +9,8 @@ const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt
 /**
  * Pull an entry, from the link in the entrant's own receipt.
  *
- * **GET only asks; POST acts.** The unsubscribe route acts on GET and that is fine there, because
- * unsubscribing is harmless and reversible for 30 days. This isn't: withdrawing takes a track out of
+ * **GET only asks; POST acts.** The unsubscribe route follows the same rule (it used to act on GET,
+ * and scanners silently unsubscribed fans). Withdrawing matters even more: it takes a track out of
  * a contest, and after the deadline it can't be undone. Mail gateways, link scanners and inbox
  * preview fetchers all follow GET links in email, so a GET that withdrew would silently pull entries
  * from people who never clicked anything.

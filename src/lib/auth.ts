@@ -7,7 +7,7 @@ import { signToken, verifyToken } from "./crypto";
 
 export const SESSION_COOKIE = "dfm_session";
 export type Role = "owner" | "admin" | "artist";
-export type SessionPayload = { sub: string; org: string; role: Role; iat?: number };
+export type SessionPayload = { sub: string; org: string; role: Role; iat?: number; exp?: number; jti?: string };
 
 export const hashPassword = (pw: string) => bcrypt.hash(pw, 12);
 
@@ -26,7 +26,8 @@ export const sessionCutoffNow = () => new Date(Math.floor(Date.now() / 1000) * 1
 export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, hash);
 
 export async function createSessionCookie(user: { id: string; organizationId: string; role: string }) {
-  const token = await signToken({ sub: user.id, org: user.organizationId, role: user.role }, "30d", "session");
+  // jti: lets "Log out" revoke this one session (RevokedSession) without signing out every device.
+  const token = await signToken({ sub: user.id, org: user.organizationId, role: user.role, jti: crypto.randomUUID() }, "30d", "session");
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -38,6 +39,26 @@ export async function createSessionCookie(user: { id: string; organizationId: st
 
 export async function clearSession() {
   (await cookies()).delete(SESSION_COOKIE);
+}
+
+/**
+ * Log out: revoke this session server-side, then drop the cookie. Deleting the cookie alone left a
+ * copied token valid for up to 30 days. Other devices stay signed in ("sign out everywhere" is separate).
+ */
+export async function endSession() {
+  try {
+    const s = await getSession();
+    if (s?.jti && typeof s.jti === "string") {
+      const expiresAt = new Date(typeof s.exp === "number" ? s.exp * 1000 : Date.now() + 30 * 86_400_000);
+      await prisma.revokedSession.upsert({ where: { jti: s.jti }, create: { jti: s.jti, expiresAt }, update: {} });
+      if (Math.random() < 0.05) await prisma.revokedSession.deleteMany({ where: { expiresAt: { lt: new Date() } } }).catch(() => {});
+    }
+  } catch (e) {
+    // A database blip must never stop someone logging out of this browser.
+    console.error("[logout] couldn't record revocation", e);
+  } finally {
+    await clearSession();
+  }
 }
 
 export async function getSession() {
@@ -53,7 +74,11 @@ export async function getSession() {
 export async function getCurrentUser() {
   const s = await getSession();
   if (!s?.sub || typeof s.sub !== "string") return null;
-  const user = await prisma.user.findUnique({ where: { id: s.sub }, include: { organization: true } });
+  const [user, revoked] = await Promise.all([
+    prisma.user.findUnique({ where: { id: s.sub }, include: { organization: true } }),
+    typeof s.jti === "string" ? prisma.revokedSession.findUnique({ where: { jti: s.jti }, select: { jti: true } }) : null,
+  ]);
+  if (revoked) return null; // logged out on this device
   if (!user || !user.organizationId || !user.organization) return null;
   // Revoked by a password change/reset or "sign out everywhere".
   if (user.sessionsValidFrom && (typeof s.iat !== "number" || s.iat * 1000 < user.sessionsValidFrom.getTime())) return null;
