@@ -208,11 +208,14 @@ export default async function ReleaseDetail(
             live={live}
             presaves={count}
             milestones={MILESTONES.filter((m) => m <= count).slice(-3).reverse()}
+            hasLyric={!!release.lyricLine?.trim()}
+            settingsHref={`/admin/releases/${release.id}?tab=settings`}
             // Lets each graphic be cached permanently instead of for five minutes: the key changes
             // whenever anything that changes the picture does, today's date included.
             version={shareVersion({
               coverUrl: release.coverUrl,
               logoUrl: release.organization.logoUrl,
+              lyricLine: release.lyricLine,
               accentColor: release.accentColor,
               orgAccentColor: release.organization.accentColor,
               title: release.title,
@@ -369,6 +372,7 @@ export default async function ReleaseDetail(
                 exclusiveFromLocal: release.exclusiveFrom ? dateToZonedLocal(release.exclusiveFrom, release.organization.timezone).slice(0, 10) : "",
                 exclusiveWeeks: release.exclusiveWeeks == null ? "" : String(release.exclusiveWeeks),
                 exclusiveRulebook: release.exclusiveRulebook ?? "",
+                lyricLine: release.lyricLine ?? "",
               }}
             />
           </CardContent>

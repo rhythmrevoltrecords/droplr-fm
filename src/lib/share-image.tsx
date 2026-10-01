@@ -14,7 +14,7 @@ import { formatInTz, zonedDay } from "./time";
  */
 export const SHARE_FORMATS = { story: { width: 1080, height: 1920 }, post: { width: 1080, height: 1350 } } as const;
 export type ShareFormat = keyof typeof SHARE_FORMATS;
-export type ShareKind = "countdown" | "out" | "milestone";
+export type ShareKind = "countdown" | "out" | "milestone" | "lyric";
 export const MILESTONES = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000];
 
 /**
@@ -116,6 +116,7 @@ function rgba(hex: string, a: number) {
 export function shareVersion(r: {
   coverUrl: string;
   logoUrl: string | null;
+  lyricLine: string | null;
   accentColor: string | null;
   orgAccentColor: string | null;
   title: string;
@@ -128,7 +129,7 @@ export function shareVersion(r: {
   now?: Date;
 }) {
   const parts = [
-    r.coverUrl, r.logoUrl ?? "", r.accentColor ?? "", r.orgAccentColor ?? "", r.title, r.artistName, r.slug, r.labelName,
+    r.coverUrl, r.logoUrl ?? "", r.lyricLine ?? "", r.accentColor ?? "", r.orgAccentColor ?? "", r.title, r.artistName, r.slug, r.labelName,
     r.releaseDate.toISOString(), r.timezone, r.showBranding ? "mark" : "clean",
     zonedDay(r.now ?? new Date(), r.timezone),
   ];
@@ -156,6 +157,8 @@ export async function renderShareImage(opts: {
   /** The organisation's logo, drawn beside the name on the top line. Null when it hasn't set one. */
   logoUrl?: string | null;
   milestone?: number;
+  /** The artist's own line, for kind "lyric". Always typed by them — never fetched from anywhere. */
+  lyric?: string | null;
   showBranding: boolean;
 }) {
   const size = SHARE_FORMATS[opts.format];
@@ -172,14 +175,30 @@ export async function renderShareImage(opts: {
 
   const dateLabel = formatInTz(opts.releaseDate, opts.timezone, { weekday: "long", day: "numeric", month: "long" });
   const days = daysUntil(opts.releaseDate, opts.timezone);
-  const eyebrow = opts.kind === "out" ? "Out now" : opts.kind === "milestone" ? "Thank you" : days <= 0 ? "Out today" : `Out ${dateLabel}`;
+  const eyebrow = opts.kind === "lyric" ? opts.title : opts.kind === "out" ? "Out now" : opts.kind === "milestone" ? "Thank you" : days <= 0 ? "Out today" : `Out ${dateLabel}`;
   const badge =
+    // Not "Pre-save now": that is what the line under the pill already says, and the two sat on top
+    // of each other reading the same words. The countdown's own badge is the right one here.
+    opts.kind === "lyric" ? (days <= 0 ? "Listen now" : days === 1 ? "Out tomorrow" : `${days} days to go`) :
     opts.kind === "out" ? "Listen now" :
     opts.kind === "milestone" ? `${(opts.milestone ?? 0).toLocaleString("en-AU")} pre-saves` :
     days <= 0 ? "Out today" : days === 1 ? "Out tomorrow" : `${days} days to go`;
-  const cta = opts.kind === "out" ? "Link in bio" : "Pre-save now";
-  const coverSize = story ? 820 : 640;
-  const titleSize = opts.title.length > 34 ? (story ? 64 : 54) : opts.title.length > 20 ? (story ? 80 : 66) : story ? 96 : 80;
+  const cta = opts.kind === "out" || (opts.kind === "lyric" && days <= 0) ? "Link in bio" : "Pre-save now";
+  const lyric = opts.kind === "lyric" ? (opts.lyric ?? "").trim() : "";
+  /**
+   * The lyric card is the same composition with one substitution: the line takes the slot the title
+   * holds on the other three, the title moves up to the eyebrow so the song is still named, and the
+   * artwork shrinks to give the words room. Reusing the layout rather than writing a second one is
+   * what keeps the four graphics looking like one set — and keeps the logo, the mark, the link and
+   * the version key working without a second code path to remember.
+   */
+  const coverSize = opts.kind === "lyric" ? (story ? 420 : 360) : story ? 820 : 640;
+  // A lyric is longer than a title and is the thing being read, so it steps down more gently.
+  const headline = opts.kind === "lyric" ? `\u201C${lyric}\u201D` : opts.title;
+  const titleSize =
+    opts.kind === "lyric"
+      ? headline.length > 90 ? (story ? 52 : 44) : headline.length > 55 ? (story ? 64 : 54) : headline.length > 30 ? (story ? 76 : 64) : story ? 88 : 74
+      : opts.title.length > 34 ? (story ? 64 : 54) : opts.title.length > 20 ? (story ? 80 : 66) : story ? 96 : 80;
 
   return new ImageResponse(
     (
@@ -209,7 +228,7 @@ export async function renderShareImage(opts: {
             <div style={{ width: coverSize, height: coverSize, borderRadius: 36, display: "flex", backgroundImage: `linear-gradient(135deg, ${rgba(accent, 0.9)}, rgba(20,20,26,1))` }} />
           )}
           <div style={{ display: "flex", marginTop: story ? 64 : 44, fontSize: story ? 34 : 28, fontWeight: 500, letterSpacing: "0.16em", textTransform: "uppercase", color: "rgba(255,255,255,0.75)" }}>{eyebrow}</div>
-          <div style={{ display: "flex", marginTop: 14, fontSize: titleSize, fontWeight: 700, lineHeight: 1.04, letterSpacing: "-0.03em", textAlign: "center", maxWidth: size.width - 160, justifyContent: "center" }}>{opts.title}</div>
+          <div style={{ display: "flex", marginTop: 14, fontSize: titleSize, fontWeight: 700, lineHeight: opts.kind === "lyric" ? 1.18 : 1.04, letterSpacing: "-0.03em", textAlign: "center", maxWidth: size.width - 160, justifyContent: "center", wordBreak: "break-word" }}>{headline}</div>
           <div style={{ display: "flex", marginTop: 12, fontSize: story ? 48 : 40, fontWeight: 500, color: "rgba(255,255,255,0.8)" }}>{opts.artistName}</div>
         </div>
 
