@@ -29,10 +29,22 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if ("status" in found) return new NextResponse(found.status === 401 ? "Unauthorised" : "Not found", { status: found.status, headers: SAFE_HEADERS });
   const release = found;
 
-  // Already ours: hand back a redirect rather than proxying our own blob store through a function.
-  if (release.coverUrl.startsWith("/")) return NextResponse.redirect(new URL(release.coverUrl, _req.nextUrl), 302);
+  /**
+   * `?part=logo` serves the organisation's own logo instead of the artwork, for the band above the
+   * cover in a clip. It rides on this route rather than getting its own because the question it has
+   * to answer is identical — "may you see this release?" — and coverFor already answers it, by name,
+   * three ways. A second endpoint would be a second copy of that scoping to keep in step.
+   *
+   * Not plan-gated: logoUrl is already public on the release page, in the OG image and on fan
+   * emails, so gating it here would be a limit that only applies where it is least visible.
+   */
+  const target = _req.nextUrl.searchParams.get("part") === "logo" ? release.logoUrl : release.coverUrl;
+  if (!target) return new NextResponse("Not found", { status: 404, headers: SAFE_HEADERS });
 
-  const buf = await fetchPublicImage(release.coverUrl);
+  // Already ours: hand back a redirect rather than proxying our own blob store through a function.
+  if (target.startsWith("/")) return NextResponse.redirect(new URL(target, _req.nextUrl), 302);
+
+  const buf = await fetchPublicImage(target);
   if (!buf) return new NextResponse("Not found", { status: 404, headers: SAFE_HEADERS });
   return new NextResponse(new Uint8Array(buf), {
     headers: {
@@ -62,23 +74,32 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
  * Everything else is a 404, including a signed-in label asking about an id that isn't theirs, so no
  * one learns which ids exist.
  */
-async function coverFor(id: string): Promise<{ coverUrl: string } | { status: 401 | 404 }> {
+async function coverFor(id: string): Promise<{ coverUrl: string; logoUrl: string | null } | { status: 401 | 404 }> {
   const user = await apiUser();
   if (!user) return { status: 401 };
-  const pick = { coverUrl: true } as const;
+  // The logo comes from the release's own organisation, so it is scoped by exactly the same row the
+  // artwork is — never from the signed-in user's org, which on the roster path is a different one.
+  const pick = { coverUrl: true, organization: { select: { logoUrl: true } } } as const;
+  const shape = (r: { coverUrl: string; organization: { logoUrl: string | null } }) => ({ coverUrl: r.coverUrl, logoUrl: r.organization.logoUrl });
 
   if (isLabelRole(user.role)) {
     const own = await prisma.release.findFirst({ where: { id, organizationId: user.organizationId }, select: pick });
-    if (own?.coverUrl) return { coverUrl: own.coverUrl };
+    if (own?.coverUrl) return shape(own);
     const granted = await grantedRelease(user.id, id);
-    return granted?.coverUrl ? { coverUrl: granted.coverUrl } : { status: 404 };
+    if (!granted?.coverUrl) return { status: 404 };
+    // grantedRelease returns the release without its organisation, so the logo is read by the
+    // release's own organizationId. Not the signed-in user's org: on this path they are different,
+    // and the rule the clip pages already follow is that the same release makes the same clip
+    // whichever side renders it. Dropping the logo here would quietly break that for roster artists.
+    const org = await prisma.organization.findUnique({ where: { id: granted.organizationId }, select: { logoUrl: true } });
+    return { coverUrl: granted.coverUrl, logoUrl: org?.logoUrl ?? null };
   }
 
   const assigned = await prisma.release.findFirst({
     where: { id, organizationId: user.organizationId, OR: [{ artistId: user.id }, { artistProfile: { userId: user.id } }] },
     select: pick,
   });
-  return assigned?.coverUrl ? { coverUrl: assigned.coverUrl } : { status: 404 };
+  return assigned?.coverUrl ? shape(assigned) : { status: 404 };
 }
 
 function contentType(buf: Buffer) {
