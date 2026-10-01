@@ -6,6 +6,7 @@ import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
 import { exchangeCode, getMe, getSpotifyCreds, saveToLibrary } from "@/lib/spotify";
 import { isReleasedFor, isValidTimeZone } from "@/lib/time";
 import { requestMeta } from "@/lib/tracking";
+import { oauthEmailConsent } from "@/lib/fan-consent";
 
 export const dynamic = "force-dynamic";
 
@@ -30,10 +31,11 @@ export async function GET(req: NextRequest) {
     if (!token.refresh_token) throw new Error("No refresh token returned");
 
     const existing = await prisma.preSave.findFirst({ where: { releaseId: release.id, platform: "spotify", spotifyUserId: me.id } });
+    const consent = await oauthEmailConsent(state.em, release.organizationId);
     const data = {
       refreshTokenEncrypted: encrypt(token.refresh_token),
-      email: state.em ?? existing?.email ?? null,
-      emailConsent: !!state.em || !!existing?.emailConsent,
+      // A fresh consent carries its own timestamp and wording version; otherwise keep what the row had.
+      ...(consent ?? { email: existing?.email ?? null, emailConsent: !!existing?.emailConsent }),
       sourceVariantId: state.vid ?? existing?.sourceVariantId ?? null,
       source: state.src ?? existing?.source ?? null,
       anonId: state.anon ?? null,

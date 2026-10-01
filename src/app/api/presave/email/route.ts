@@ -2,6 +2,7 @@ import { FAN_EMAIL_CONSENT_VERSION } from "@/lib/legal";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { notifyPresaveMilestone } from "@/lib/push";
 import { prisma } from "@/lib/db";
+import { isOptedOut } from "@/lib/fan-consent";
 import { SITE_URL } from "@/lib/env";
 import { releasePageUrl, requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
 import { allow, emailKey, ipKey } from "@/lib/throttle";
@@ -45,8 +46,7 @@ export async function POST(req: NextRequest) {
 
   // Someone who unsubscribed from this label can't be re-subscribed by a form post (anyone can type their
   // address). Silently show the normal success page so this doesn't reveal who unsubscribed.
-  const unsubscribed = await prisma.preSave.findFirst({ where: { email, status: "unsubscribed", release: { organizationId: release.organizationId } }, select: { id: true } });
-  if (unsubscribed) return NextResponse.redirect(withParam(pageUrl, "done", "email"), 303);
+  if (await isOptedOut(email, release.organizationId)) return NextResponse.redirect(withParam(pageUrl, "done", "email"), 303);
 
   const existing = await prisma.preSave.findFirst({ where: { releaseId, email, platform: "email" } });
   if (existing) {
