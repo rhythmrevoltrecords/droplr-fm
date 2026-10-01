@@ -38,6 +38,11 @@ export function xmlSitemap(entries: SitemapEntry[]) {
     headers: {
       "content-type": "application/xml; charset=utf-8",
       "cache-control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      // The body depends on which host asked (each domain lists only its own releases), and the route
+      // reads x-forwarded-host before host. Key the CDN cache on both, so a request carrying another
+      // domain's x-forwarded-host can't plant that domain's sitemap under droplr.fm's cache entry.
+      vary: "Host, X-Forwarded-Host",
+      "netlify-vary": "header=Host|X-Forwarded-Host",
     },
   });
 }

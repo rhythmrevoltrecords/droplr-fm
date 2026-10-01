@@ -17,6 +17,11 @@ export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
   const host = req.headers.get("x-forwarded-host") ?? req.headers.get("host") ?? "";
 
+  // 0) /host/<domain>/… is the internal target of the tenant rewrite below, never a public URL. Reached
+  // directly, any domain (or droplr.fm) could render another label's page — pixels included — on its own
+  // origin. Middleware doesn't run again for its own rewrites, so this only catches outside requests.
+  if (url.pathname === "/host" || url.pathname.startsWith("/host/")) return new NextResponse("Not found", { status: 404 });
+
   // 1) Auth guard (full role checks happen server-side)
   if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/platform")) {
     const token = req.cookies.get("dfm_session")?.value;

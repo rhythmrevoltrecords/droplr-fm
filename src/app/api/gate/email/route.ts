@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isOptedOut } from "@/lib/fan-consent";
 import { SITE_URL } from "@/lib/env";
 import { DOWNLOAD_CONSENT_VERSION } from "@/lib/legal";
 import { completeStep } from "@/lib/downloads";
@@ -42,10 +43,7 @@ export async function POST(req: NextRequest) {
   if (!okIp || !(await allow(emailKey("gate-email", email), 5, 24 * 60 * 60 * 1000))) return fail();
 
   // Someone who unsubscribed from this org never gets silently re-added by a gate.
-  const gone = await prisma.preSave.findFirst({
-    where: { email, status: "unsubscribed", release: { organizationId: release.organizationId } },
-    select: { id: true },
-  });
+  const gone = await isOptedOut(email, release.organizationId);
 
   const anonId = req.cookies.get(ANON_COOKIE)?.value;
   if (!anonId) return fail();

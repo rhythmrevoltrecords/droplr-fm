@@ -38,6 +38,8 @@ model Organization {
   stripeCustomerId String? @unique
   stripeSubscriptionId String? @unique
   stripePriceId String?
+  /// The last Checkout session started for this org. Expired before a new one is created, so only one can ever be paid.
+  stripeCheckoutSessionId String?
   planUpdatedAt DateTime?
   // Complimentary plan set by the platform owner (/platform). Acts as a floor: Stripe can raise the plan, never drop below it.
   compPlan      String?
@@ -498,6 +500,15 @@ model AuthThrottle {
   createdAt DateTime @default(now())
 
   @@index([key, createdAt])
+}
+
+/// One logged-out session token (by jti). Checked on every authenticated request; pruned once the token would have expired anyway.
+model RevokedSession {
+  jti       String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([expiresAt])
 }
 
 /// Domain aliases to remove from the Netlify site (domain changed or cleared). Retried by the domain cron until done.

@@ -43,3 +43,6 @@ export async function clear(key: string) {
 /** Keys never contain raw emails or IPs. */
 export const emailKey = (scope: string, email: string) => `${scope}:email:${sha256(email.trim().toLowerCase()).slice(0, 32)}`;
 export const ipKey = (scope: string, ip: string | null) => `${scope}:ip:${sha256(`${ip ?? "unknown"}|${process.env.JWT_SECRET ?? ""}`).slice(0, 32)}`;
+/** One address from one IP. Lets a per-account limit bite on a guesser without letting a stranger lock the owner out. */
+export const emailIpKey = (scope: string, email: string, ip: string | null) =>
+  `${scope}:email-ip:${sha256(`${email.trim().toLowerCase()}|${ip ?? "unknown"}|${process.env.JWT_SECRET ?? ""}`).slice(0, 32)}`;

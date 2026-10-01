@@ -195,7 +195,12 @@ async function publicOnly(raw: string): Promise<URL | null> {
   } catch {
     return null;
   }
-  if (url.protocol !== "https:" && url.protocol !== "http:") return null;
+  // https only. The address is checked here and then fetch() resolves the name again, so a hostile
+  // DNS server (TTL 0) could answer public for the check and 10.x for the fetch. Over https that
+  // second connection has to present a valid certificate for the attacker's name, which an internal
+  // service can't — the same reason lib/color.ts is https-only. Plain-http links stay "unchecked",
+  // which this check already treats as "don't know" rather than "broken".
+  if (url.protocol !== "https:") return null;
   if (url.username || url.password) return null;
   const host = url.hostname.replace(/^\[|\]$/g, "");
   const addrs = isIP(host) ? [{ address: host }] : await lookup(host, { all: true }).catch(() => []);

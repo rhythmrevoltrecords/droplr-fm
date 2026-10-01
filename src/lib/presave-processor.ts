@@ -1,6 +1,7 @@
 // Shared by Netlify functions (release-check, process-presaves-background) and the manual cron API route.
 // Relative imports only — this file is bundled by Netlify's esbuild outside Next.
 import { prisma } from "./db";
+import { optedOutAmong } from "./fan-consent";
 import { decrypt, encrypt } from "./crypto";
 import { SITE_URL, deezerGloballyEnabled } from "./env";
 import { normaliseIsrc, normaliseUpc, resolveFromSpotifyUri, resolveStores } from "./odesli";
@@ -305,12 +306,7 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
 
       // Unsubscribing from any release of this label covers all of its releases, including rows that
       // were (re)consented later, e.g. via a Spotify pre-save. Mark those so they never loop again.
-      const optedOut = await prisma.preSave.findMany({
-        where: { email: { in: [...new Set(rows.map((r) => r.email!))] }, status: "unsubscribed", release: { organizationId: release.organizationId } },
-        select: { email: true },
-        distinct: ["email"],
-      });
-      const optedOutSet = new Set(optedOut.map((r) => r.email!.toLowerCase()));
+      const optedOutSet = await optedOutAmong(rows.map((r) => r.email!), release.organizationId);
       const blocked = rows.filter((r) => optedOutSet.has(r.email!.toLowerCase()));
       if (blocked.length) {
         const ids = blocked.map((r) => r.id);

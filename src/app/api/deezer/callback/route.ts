@@ -5,6 +5,7 @@ import { encrypt } from "@/lib/crypto";
 import { deezerGloballyEnabled } from "@/lib/env";
 import { deezerExchange, deezerMe } from "@/lib/deezer";
 import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
+import { oauthEmailConsent } from "@/lib/fan-consent";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,8 @@ export async function GET(req: NextRequest) {
     const token = await deezerExchange(sp.get("code")!);
     const userId = await deezerMe(token);
     const existing = userId ? await prisma.preSave.findFirst({ where: { releaseId: state.rid, platform: "deezer", deezerUserId: userId } }) : null;
-    const data = { refreshTokenEncrypted: encrypt(token), email: state.em ?? null, emailConsent: !!state.em, sourceVariantId: state.vid ?? null, source: state.src ?? null, anonId: state.anon ?? null };
+    const consent = await oauthEmailConsent(state.em, state.org);
+    const data = { refreshTokenEncrypted: encrypt(token), ...(consent ?? { email: null, emailConsent: false }), sourceVariantId: state.vid ?? null, source: state.src ?? null, anonId: state.anon ?? null };
     if (existing) await prisma.preSave.update({ where: { id: existing.id }, data });
     else {
       await prisma.preSave.create({ data: { ...data, releaseId: state.rid, platform: "deezer", deezerUserId: userId, status: "pending" } });
