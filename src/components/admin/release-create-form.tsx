@@ -99,7 +99,7 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
   }
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+    <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
       <div className="space-y-6">
         <Card>
           <CardHeader>
@@ -183,7 +183,7 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
                   <input type="checkbox" checked={l.visible} onChange={(e) => setLinks((ls) => ls.map((x, j) => (j === i ? { ...x, visible: e.target.checked } : x)))} className="h-4 w-4" />
                   <PlatformIcon platform={l.platform} />
                   <span className="w-32 text-sm font-medium">{platformMeta(l.platform).name}</span>
-                  <span className="truncate text-xs text-muted-foreground">{l.url}</span>
+                  <span className="min-w-0 truncate text-xs text-muted-foreground">{l.url}</span>
                   {l.platform !== "spotify" && r.via[l.platform as "appleMusic" | "deezer"] && <span className="ml-auto shrink-0 text-[11px] text-emerald-400">via {r.via[l.platform as "appleMusic" | "deezer"]}</span>}
                 </label>
               ))}
