@@ -9,6 +9,7 @@ import { compNoticeFor } from "@/lib/plan-copy";
 import { planOf } from "@/lib/plans";
 import { formatInTz } from "@/lib/time";
 import { prisma } from "@/lib/db";
+import { isPlatformAdminUser } from "@/lib/platform";
 import { NOINDEX } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
@@ -53,6 +54,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         { href: "/admin/learn", label: "Knowledge", tour: "nav-knowledge" },
         { href: "/admin/templates", label: "Templates", tour: "nav-templates" },
         { href: "/admin/settings", label: "Settings" },
+        // The platform console has no other way in: nothing else in the app links to /platform, so
+        // reaching it meant typing the URL — impossible in the installed app, which has no address
+        // bar. Not `wide`: that hides an item below 2xl on desktop, and this is the one item with
+        // no fallback route. Absent from the array entirely for everyone else, so the console's
+        // existence isn't advertised in the RSC payload either.
+        ...(isPlatformAdminUser(user) ? [{ href: "/platform", label: "Platform" }] : []),
         { href: "/admin/settings/integrations", label: "Integrations", wide: true },
         { href: "/admin/settings/billing", label: "Billing", wide: true },
       ]}
