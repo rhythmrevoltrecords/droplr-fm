@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-type Item = { href: string; label: string; /** data-tour hook for the first-login walkthrough. */ tour?: string; /** Also reachable from Settings: hidden on narrower desktops so the bar never wraps. */ wide?: boolean };
+type Item = { href: string; label: string; /** data-tour hook for the first-login walkthrough. */ tour?: string; /** Kept out of the desktop bar below 2xl so it never wraps — for items with another way in (Settings, or the address bar). MobileNav ignores this and shows every item. */ wide?: boolean };
 
 /** The nav item for this page: the longest href the path starts with (so /admin/settings/billing is Billing, not Settings). */
 function activeHref(nav: Item[], path: string) {
