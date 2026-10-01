@@ -55,6 +55,16 @@ export type FrameArgs = {
   /** Low-end level 0..1, drives the artwork pulse. */
   kick: number;
   art: CanvasImageSource | null;
+  /**
+   * The family for every non-monospace string, as a canvas font-family list. Required rather than
+   * defaulted: a default here is what hid the Archivo bug for as long as it lasted.
+   */
+  fontFamily: string;
+  /**
+   * The label's or artist's own logo, for the empty band above the artwork. Dimensions come with it
+   * so a wide logo isn't squashed into a square. Never drawn on a Story — see drawLogo.
+   */
+  logo: { img: CanvasImageSource; width: number; height: number } | null;
   accent: string;
   accent2: string;
   copy: FrameCopy;
@@ -86,10 +96,52 @@ function fitText(x: CanvasRenderingContext2D, text: string, max: number, weight:
   return s;
 }
 
-const SANS = "Archivo, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif";
+/**
+ * The link line stays monospace on purpose: a URL set in a proportional face reads as a sentence,
+ * and the whole point of that line is that it reads as something you type. System monospace differs
+ * between platforms, but "Menlo vs Consolas on a 32px URL" is not a brand problem.
+ *
+ * Everything else takes `fontFamily` from the caller. It used to be a module constant reading
+ * "Archivo, ui-sans-serif, system-ui, …", and Archivo appeared exactly once in this repo — in that
+ * string. It was never installed, never declared, never loaded. So every clip fell through to
+ * ui-sans-serif, which means the typeface in an artist's video was decided by their operating
+ * system: SF Pro on macOS, Segoe UI on Windows, Roboto on Android. Nobody could notice, because
+ * each artist only ever sees their own render. clip-forge.tsx now resolves the app's real font off
+ * the document and passes it, so a clip matches the share graphics and matches itself everywhere.
+ */
 const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
-export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, kick, art, accent, accent2, copy, stickerGuide }: FrameArgs) {
+/**
+ * The label's logo, centred in the empty band between the top of the frame and the artwork.
+ *
+ * Not drawn on a Story, and that is a measurement rather than a shortcut: a Story's artwork starts
+ * at STORY_SAFE_TOP (250px), which is exactly where Instagram's own profile row ends. There is no
+ * band above it to draw into, and anything placed there sits *behind* the artist's own avatar and
+ * handle — so the logo would be both hidden and redundant.
+ *
+ * Aspect ratio is preserved from the source. Logos are wide far more often than square, and a logo
+ * squashed into a box is worse than no logo: it is the artist's own mark, rendered wrong, by us.
+ */
+function drawLogo(x: CanvasRenderingContext2D, logo: NonNullable<FrameArgs["logo"]>, W: number, bandTop: number, bandBottom: number, scale: number) {
+  const band = bandBottom - bandTop;
+  if (band < 70 * scale) return; // No room: better nothing than a logo jammed against the artwork.
+  const h = Math.min(Math.round(72 * scale), Math.round(band * 0.42));
+  const ratio = logo.height > 0 ? logo.width / logo.height : 1;
+  // A very wide mark is bounded by width instead, so it can't run into the edges of the frame.
+  const maxW = W * 0.42;
+  const w = Math.min(Math.round(h * ratio), Math.round(maxW));
+  const drawH = Math.round(w / Math.max(ratio, 0.0001));
+  // A mark wide enough to be width-bounded down to a sliver is not legible at 1080 wide, and a
+  // 10px-tall smear of someone's logo looks like a rendering fault rather than their brand. Leave
+  // it out instead. (A 20:1 wordmark still clears this; 40:1 does not, and shouldn't.)
+  if (drawH < 18 * scale) return;
+  x.save();
+  x.globalAlpha = 0.95;
+  x.drawImage(logo.img, Math.round((W - w) / 2), Math.round(bandTop + (band - drawH) / 2), w, drawH);
+  x.restore();
+}
+
+export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, kick, art, fontFamily: SANS, logo, accent, accent2, copy, stickerGuide }: FrameArgs) {
   const vertical = H > W;
   const k = kick || 0;
   // A Story lays out differently because it has to make room for something drawn on top of it
@@ -118,6 +170,10 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
   g2.addColorStop(1, "rgba(11,10,16,0)");
   x.fillStyle = g2;
   x.fillRect(0, 0, W, H);
+
+  // The label's own mark, in the band the composition already leaves empty above the artwork.
+  // Before the artwork is drawn, so a tall logo can never sit on top of the cover.
+  if (logo && !story) drawLogo(x, logo, W, Math.round(40 * scale), ay, scale);
 
   // Artwork, pulsing on the kick. Capped near 5%: more than that reads cheap.
   const side = Math.round(artSide * (1 + 0.055 * k));
