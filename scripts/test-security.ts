@@ -245,6 +245,15 @@ async function main() {
     check("comp API is 404 for a label owner", platApi.status === 404, `got ${platApi.status}`);
     check("label owner can't comp themselves", (await prisma.organization.findUnique({ where: { id: A.org.id } }))?.compPlan == null);
     check("/platform needs login", (await http(null, "GET", "/platform")).status === 307);
+    // The admin nav gained a Platform link so the console is reachable from the installed app, which
+    // has no address bar. For anyone who isn't the platform owner the item must be absent from the
+    // nav array entirely — not hidden with CSS. The nav is handed to a "use client" component, so a
+    // rendered-but-hidden item would still sit in the RSC payload and advertise that the console is
+    // there. Checking the admin HTML rather than the component is the point: it is the payload.
+    const adminHome = await http(ownerA, "GET", "/admin");
+    check("a label owner's admin never mentions the platform console",
+      adminHome.status === 200 && !adminHome.text.includes('"/platform"') && !adminHome.text.includes('href="/platform'),
+      `${adminHome.status}${adminHome.text.includes("/platform") ? " — /platform appears in the page source" : ""}`);
 
     const adminEmail = (process.env.PLATFORM_TEST_ADMIN ?? "").trim().toLowerCase();
     if (!adminEmail) {
