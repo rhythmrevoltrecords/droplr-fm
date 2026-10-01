@@ -33,12 +33,17 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const url = publicReleaseUrl(release.organization, release.slug, SITE_URL).replace(/^https?:\/\//, "");
   const img = await renderShareImage({
     format, kind, milestone, url,
-    title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? release.organization.accentColor,
+    title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, logoUrl: release.organization.logoUrl, accentColor: release.accentColor ?? release.organization.accentColor,
     labelName: release.organization.name, releaseDate: release.releaseDate, timezone: release.organization.timezone,
     showBranding: !planOf(release.organization.plan).removeBranding,
   });
   const headers = new Headers(img.headers);
-  headers.set("Cache-Control", "private, max-age=300");
+  // `v` is shareVersion(): a key over every field that changes the picture, plus the label's own
+  // calendar day. When it's present the URL fully describes the image, so cache it hard — an edit
+  // produces a different URL and is visible immediately. Without it, caching can only be wrong,
+  // so don't: a plain `max-age` served a five-minute-stale graphic from an unchanged URL, which is
+  // the "I can't make it re-render" bug.
+  headers.set("Cache-Control", q.get("v") ? "private, max-age=31536000, immutable" : "private, no-store");
   if (q.get("download") === "1") headers.set("Content-Disposition", `attachment; filename="${slugify(release.title) || "release"}-${kind}${milestone ? `-${milestone}` : ""}-${format}.png"`);
   return new Response(img.body, { status: 200, headers });
 }

@@ -18,7 +18,7 @@ import { PromoPlan } from "@/components/admin/promo-plan";
 import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
 import { busiestHour } from "@/lib/analytics";
 import { zonedDay } from "@/lib/time";
-import { MILESTONES } from "@/lib/share-image";
+import { MILESTONES, shareVersion } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
 import { InterestToggle } from "@/components/admin/interest-toggle";
@@ -202,7 +202,29 @@ export default async function ReleaseDetail(
 
       {tab === "share" && (async () => {
         const count = await prisma.preSave.count({ where: { releaseId: release.id } });
-        return <ShareGraphics releaseId={release.id} live={live} presaves={count} milestones={MILESTONES.filter((m) => m <= count).slice(-3).reverse()} />;
+        return (
+          <ShareGraphics
+            releaseId={release.id}
+            live={live}
+            presaves={count}
+            milestones={MILESTONES.filter((m) => m <= count).slice(-3).reverse()}
+            // Lets each graphic be cached permanently instead of for five minutes: the key changes
+            // whenever anything that changes the picture does, today's date included.
+            version={shareVersion({
+              coverUrl: release.coverUrl,
+              logoUrl: release.organization.logoUrl,
+              accentColor: release.accentColor,
+              orgAccentColor: release.organization.accentColor,
+              title: release.title,
+              artistName: release.artistName,
+              slug: release.slug,
+              labelName: release.organization.name,
+              releaseDate: release.releaseDate,
+              timezone: release.organization.timezone,
+              showBranding: !plan.removeBranding,
+            })}
+          />
+        );
       })()}
 
       {tab === "clip" && (
@@ -212,6 +234,8 @@ export default async function ReleaseDetail(
           title={release.title}
           artistName={release.artistName}
           coverSrc={`/api/admin/releases/${release.id}/cover`}
+          // Only when there is one: pointing at the proxy with no logo behind it just buys a 404.
+          logoSrc={release.organization.logoUrl ? `/api/admin/releases/${release.id}/cover?part=logo` : null}
           accentColor={release.accentColor ?? release.organization.accentColor}
           link={url}
           live={live}

@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
@@ -16,15 +17,70 @@ export type ShareFormat = keyof typeof SHARE_FORMATS;
 export type ShareKind = "countdown" | "out" | "milestone";
 export const MILESTONES = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000];
 
-async function font(file: string) {
-  try {
-    return await readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans", file));
-  } catch {
-    return null;
+/**
+ * Fonts and covers are cached for the life of the process, because one page of this tab asks for
+ * up to eight images at once and every one of them used to re-read both fonts off disk and
+ * re-fetch + re-encode the same artwork. Eight identical 1000x1000 sharp passes is where the
+ * "graphics take a long time to show up" went.
+ */
+const fontCache = new Map<string, Promise<Buffer | null>>();
+
+function font(file: string) {
+  let hit = fontCache.get(file);
+  if (!hit) {
+    hit = readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans", file)).catch(() => null);
+    fontCache.set(file, hit);
   }
+  return hit;
 }
 
-async function coverDataUri(coverUrl: string) {
+// Keyed by cover URL. Small on purpose: this exists to serve one page of one release, not to be
+// a cache layer. A changed cover is a changed URL, so a stale entry is not reachable.
+const coverCache = new Map<string, Promise<string | null>>();
+const COVER_CACHE_MAX = 8;
+
+function coverDataUri(coverUrl: string) {
+  let hit = coverCache.get(coverUrl);
+  if (!hit) {
+    hit = renderCoverDataUri(coverUrl);
+    coverCache.set(coverUrl, hit);
+    // Don't let a long-lived container accumulate base64 artwork for every release it ever served.
+    if (coverCache.size > COVER_CACHE_MAX) coverCache.delete(coverCache.keys().next().value!);
+    // A failed fetch must not be remembered, or one blip breaks the tab until the next cold start.
+    void hit.then((v) => { if (v === null) coverCache.delete(coverUrl); });
+  }
+  return hit;
+}
+
+/**
+ * The organisation's own logo, for the top line. `fit: "inside"` rather than the cover's "cover":
+ * a logo is usually wider than it is tall, and cropping an artist's own mark to a square is worse
+ * than leaving it off. PNG, not JPEG, so a transparent background stays transparent on the dark
+ * frame instead of arriving as a white box.
+ */
+const logoCache = new Map<string, Promise<string | null>>();
+
+function logoDataUri(logoUrl: string) {
+  let hit = logoCache.get(logoUrl);
+  if (!hit) {
+    hit = (async () => {
+      try {
+        const buf = await fetchPublicImage(logoUrl);
+        if (!buf) return null;
+        const png = await sharp(buf, { limitInputPixels: 60_000_000 }).rotate().resize(320, 160, { fit: "inside", withoutEnlargement: true }).png().toBuffer();
+        return `data:image/png;base64,${png.toString("base64")}`;
+      } catch {
+        return null;
+      }
+    })();
+    logoCache.set(logoUrl, hit);
+    if (logoCache.size > COVER_CACHE_MAX) logoCache.delete(logoCache.keys().next().value!);
+    void hit.then((v) => { if (v === null) logoCache.delete(logoUrl); });
+  }
+  return hit;
+}
+
+async function renderCoverDataUri(coverUrl: string) {
   try {
     const own = coverUrl.startsWith(`${SITE_URL}/api/cover/`) ? coverUrl.slice(`${SITE_URL}/api/cover/`.length) : null;
     let buf: Buffer | null = null;
@@ -47,6 +103,38 @@ function rgba(hex: string, a: number) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 
+/**
+ * A short key over everything that changes what the image looks like, including the label's own
+ * calendar day (the countdown says "3 days to go", so yesterday's render is wrong today).
+ *
+ * This exists so the route can be cached hard instead of guessed at. The old header was
+ * `max-age=300`, which is a staleness bug in both directions: edit the accent colour and the
+ * browser serves the old graphic for five minutes from an unchanged URL, with nothing to click
+ * that would force it. With the key in the URL, a changed release is a changed URL — fresh at
+ * once — and an unchanged one is served from cache instantly instead of re-rasterising 1080x1920.
+ */
+export function shareVersion(r: {
+  coverUrl: string;
+  logoUrl: string | null;
+  accentColor: string | null;
+  orgAccentColor: string | null;
+  title: string;
+  artistName: string;
+  slug: string;
+  labelName: string;
+  releaseDate: Date;
+  timezone: string;
+  showBranding: boolean;
+  now?: Date;
+}) {
+  const parts = [
+    r.coverUrl, r.logoUrl ?? "", r.accentColor ?? "", r.orgAccentColor ?? "", r.title, r.artistName, r.slug, r.labelName,
+    r.releaseDate.toISOString(), r.timezone, r.showBranding ? "mark" : "clean",
+    zonedDay(r.now ?? new Date(), r.timezone),
+  ];
+  return createHash("sha256").update(parts.join("\u0000")).digest("base64url").slice(0, 16);
+}
+
 /** Whole calendar days until release in the label's timezone. */
 export function daysUntil(releaseDate: Date, tz: string, now = new Date()) {
   const a = Date.parse(`${zonedDay(now, tz)}T00:00:00Z`);
@@ -65,13 +153,18 @@ export async function renderShareImage(opts: {
   releaseDate: Date;
   timezone: string;
   url: string; // shown as text, e.g. presave.label.com/track
+  /** The organisation's logo, drawn beside the name on the top line. Null when it hasn't set one. */
+  logoUrl?: string | null;
   milestone?: number;
   showBranding: boolean;
 }) {
   const size = SHARE_FORMATS[opts.format];
   const story = opts.format === "story";
   const accent = opts.accentColor && /^#[0-9a-f]{6}$/i.test(opts.accentColor) ? opts.accentColor : "#8b5cf6";
-  const [bold, medium, cover] = await Promise.all([font("Geist-Bold.ttf"), font("Geist-Medium.ttf"), coverDataUri(opts.coverUrl)]);
+  const [bold, medium, cover, logo] = await Promise.all([
+    font("Geist-Bold.ttf"), font("Geist-Medium.ttf"), coverDataUri(opts.coverUrl),
+    opts.logoUrl ? logoDataUri(opts.logoUrl) : null,
+  ]);
   const fonts = [
     ...(bold ? [{ name: "Geist", data: bold, weight: 700 as const, style: "normal" as const }] : []),
     ...(medium ? [{ name: "Geist", data: medium, weight: 500 as const, style: "normal" as const }] : []),
@@ -99,7 +192,14 @@ export async function renderShareImage(opts: {
           color: "#fff", fontFamily: fonts.length ? "Geist" : undefined,
         }}
       >
-        <div style={{ display: "flex", fontSize: story ? 34 : 28, fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>{opts.labelName}</div>
+        {/* The name stays even when there is a logo: a mark nobody recognises yet is not a name. */}
+        <div style={{ display: "flex", alignItems: "center", gap: story ? 22 : 18 }}>
+          {logo && (
+            // eslint-disable-next-line @next/next/no-img-element, jsx-a11y/alt-text
+            <img src={logo} height={story ? 56 : 46} style={{ objectFit: "contain" }} />
+          )}
+          <div style={{ display: "flex", fontSize: story ? 34 : 28, fontWeight: 500, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(255,255,255,0.7)" }}>{opts.labelName}</div>
+        </div>
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
           {cover ? (
