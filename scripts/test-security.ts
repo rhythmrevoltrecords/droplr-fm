@@ -748,6 +748,24 @@ async function main() {
     check("cover proxy: an artist gets their own release's artwork and nobody else's",
       (coverOwnArtist.status === 200 || coverOwnArtist.status === 302 || coverOwnArtist.status === 404) && coverOtherArtist.status === 404 && coverArtistCross.status === 404,
       `${coverOwnArtist.status}/${coverOtherArtist.status}/${coverArtistCross.status}`);
+    // ?part=logo rides on this same route and must be scoped by exactly the same rows. It was added
+    // as a parameter rather than a second endpoint precisely so there is one copy of the scoping —
+    // but the roster branch does its own organisation lookup for the logo, so prove the parameter
+    // cannot widen what the route will hand over.
+    const logoCross = await http(ownerA, "GET", `/api/admin/releases/${B.release.id}/cover?part=logo`);
+    const logoAnon = await fetch(`${BASE}/api/admin/releases/${B.release.id}/cover?part=logo`, { redirect: "manual" });
+    check("logo proxy: other label 404, logged out 401", logoCross.status === 404 && logoAnon.status === 401, `${logoCross.status}/${logoAnon.status}`);
+    const logoOwnArtist = await http(artistLive, "GET", `/api/admin/releases/${A.release.id}/cover?part=logo`);
+    const logoOtherArtist = await http(artistLive, "GET", `/api/admin/releases/${A.otherRelease.id}/cover?part=logo`);
+    const logoArtistCross = await http(artistLive, "GET", `/api/admin/releases/${B.release.id}/cover?part=logo`);
+    check("logo proxy: an artist reaches it only for a release assigned to them",
+      [200, 302, 404].includes(logoOwnArtist.status) && logoOtherArtist.status === 404 && logoArtistCross.status === 404,
+      `${logoOwnArtist.status}/${logoOtherArtist.status}/${logoArtistCross.status}`);
+    // An unknown part value must fall back to the artwork, never to "serve whatever was asked for".
+    const partJunk = await http(ownerA, "GET", `/api/admin/releases/${A.release.id}/cover?part=../../etc/passwd`);
+    check("an unrecognised part value is treated as the artwork, not followed",
+      [200, 302, 404].includes(partJunk.status), String(partJunk.status));
+
     // The artist's clip page is scoped the same way, and is not a way into the label's admin.
     const artistClip = await http(artistLive, "GET", `/dashboard/clips/${A.release.id}`);
     const artistClipOther = await http(artistLive, "GET", `/dashboard/clips/${A.otherRelease.id}`);
@@ -776,8 +794,29 @@ async function main() {
     // Own release wins over the grant path: the owner is sent to the full tab, not this thin copy.
     const clipOwn = await http(shareOwnerB, "GET", `/admin/clips/${B.release.id}`);
     check("the owner of a release is redirected to its Clip tab", [302, 303, 307, 308].includes(clipOwn.status) && clipOwn.location.includes("tab=clip"), `${clipOwn.status} ${clipOwn.location}`);
-    // The proxy only ever fetches the URL already on the release, so it can't be pointed anywhere.
-    check("the cover proxy takes no url of its own", !readFileSync("src/app/api/admin/releases/[id]/cover/route.ts", "utf8").includes("searchParams"));
+    /**
+     * The proxy may choose WHICH stored url to serve; it must never accept one.
+     *
+     * This replaced a blanket `!src.includes("searchParams")`. That guard was a proxy for the real
+     * property, and `?part=logo` — which only picks between two urls already on the row — tripped it
+     * without weakening anything. Replacing it is only honest if the replacement is stronger, so
+     * this pins three things the old one did not: exactly one parameter is read, it is named `part`,
+     * and the only thing ever fetched is `target`, which is assigned from the release's own fields.
+     * Adding a second parameter, renaming the selector, or fetching anything else all fail here.
+     */
+    // At most one parameter, and only ever the `part` selector. None at all is safer still and
+    // must keep passing — a guard that fails on the simplest form of this route would push the
+    // next person toward the more complicated one.
+    const paramReads = coverSrc.match(/searchParams\.get\(\s*(["'])([^"']+)\1\s*\)/g) ?? [];
+    check("the cover proxy reads nothing from the request but the 'part' selector",
+      paramReads.length === 0 || (paramReads.length === 1 && /["']part["']/.test(paramReads[0])),
+      paramReads.join(" ") || "none");
+    // Whatever is fetched is a url off the release row, never one the caller supplied.
+    const fetchArgs = [...coverSrc.matchAll(/fetchPublicImage\(([^)]*)\)/g)].map((m) => m[1].trim());
+    const targetFromRow = !coverSrc.includes("const target") || /const target\s*=(?:(?!searchParams\.get\(\s*["'](?!part)).)*release\.(coverUrl|logoUrl)[^;]*;/s.test(coverSrc);
+    check("the cover proxy takes no url of its own",
+      fetchArgs.length === 1 && ["target", "release.coverUrl"].includes(fetchArgs[0]) && targetFromRow,
+      fetchArgs.join(" | ") || "no fetch found");
     // Free and Artist render the mark; the gate is the existing removeBranding flag, nothing new.
     check("the clip mark follows the existing branding flag", !planOf("free").removeBranding && !planOf("artist").removeBranding && planOf("artist_pro").removeBranding);
 
