@@ -146,6 +146,25 @@ async function main() {
 
   const other = await prisma.organization.create({ data: { name: `Other ${RUN}`, slug: `other-${RUN}`, plan: "label", kind: "label", timezone: TZ } });
 
+  // --- The promo plan's own shape -------------------------------------------------------------
+  // Pure checks, no database. A tick is stored in PromoTaskDone keyed by `key`, so a duplicate key
+  // would make two steps tick each other — silent, and only visible to the customer.
+  for (const kind of ["label", "artist"] as const) {
+    const all = promoSteps(kind);
+    const keys = all.map((x) => x.key);
+    check(`${kind}: step keys are unique`, new Set(keys).size === keys.length,
+      keys.filter((k, i) => keys.indexOf(k) !== i).join(", "));
+    check(`${kind}: steps are in date order`, all.every((x, i) => i === 0 || x.day >= all[i - 1].day),
+      all.map((x) => x.day).join(" "));
+    check(`${kind}: every step says something`, all.every((x) => x.title.trim() && x.body.trim()));
+    // The plan used to stop at +7, which left the artist with nothing to do for a release that
+    // lives for months — and never mentioned the two features droplr is most differentiated by.
+    check(`${kind}: the plan continues past release week`, all.some((x) => x.day > 7),
+      `last day ${Math.max(...all.map((x) => x.day))}`);
+    check(`${kind}: the plan points at the clip renderer`, all.some((x) => x.tab === "clip"));
+    check(`${kind}: the plan points at remix contests`, all.some((x) => x.tab === "contest"));
+  }
+
   // A release whose "-7 days" step came due a few hours ago.
   const steps = promoSteps("label");
   const sevenOut = steps.find((s) => s.key === "countdown-7")!;
