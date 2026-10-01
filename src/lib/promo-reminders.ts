@@ -11,9 +11,18 @@ import { pushConfigured, sendPush, teamUserIds } from "./push";
  */
 const WINDOW_MS = 2 * 86_400_000;
 
-/** Releases close enough to release day that the plan is live. */
+/**
+ * Releases close enough to release day that the plan is live.
+ *
+ * TO_MS is derived from the plan rather than written down. It was a hardcoded 10 days, which was
+ * right while the last step was +7 — and silently wrong the moment steps were added at +14 through
+ * +60: the release drops out of this query before they come due, so those steps would appear on the
+ * Promo tab and never nudge, which is worse than not having them. Deriving it means the next person
+ * who adds a later step gets the reminder for free instead of a bug nobody can see.
+ */
+const LAST_DAY = Math.max(...promoSteps("label").map((s) => s.day), ...promoSteps("artist").map((s) => s.day));
 const FROM_MS = 45 * 86_400_000;
-const TO_MS = 10 * 86_400_000;
+const TO_MS = LAST_DAY * 86_400_000 + WINDOW_MS;
 
 export async function notifyDuePromoSteps(now = new Date(), force = false) {
   if (!force && !pushConfigured()) return 0;
