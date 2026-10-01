@@ -1,6 +1,7 @@
 import { Film } from "lucide-react";
 import Link from "next/link";
 import { CopyButton } from "@/components/admin/copy-button";
+import { GuideSlot } from "@/components/admin/guide-slot";
 import { QrDownload } from "@/components/admin/qr-download";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { Badge } from "@/components/ui/badge";
@@ -80,6 +81,8 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
         })}
         {!releases.length && <Card className="p-10 text-center text-sm text-muted-foreground">No releases assigned to you yet. Your label adds them.</Card>}
       </div>
+
+      {!releases.length && <GuideSlot guide="walkthrough" />}
 
       {releases.length > 0 && (
         <section className="space-y-4">

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { GuideSlot } from "@/components/admin/guide-slot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
@@ -43,6 +44,8 @@ export default async function NewsPage() {
         </div>
         {allowed && <Button asChild><Link href="/admin/news/new">Write an email</Link></Button>}
       </div>
+
+      <GuideSlot guide="superfans" />
 
       {!allowed && (
         <Card className="border-violet-500/30 bg-violet-500/5">

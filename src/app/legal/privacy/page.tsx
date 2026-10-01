@@ -13,6 +13,7 @@ const toc = [
   { id: "imported", title: "Lists a label brings with them" },
   { id: "use", title: "How we use it" },
   { id: "bases", title: "Legal bases (EU and UK)" },
+  { id: "embeds", title: "Videos embedded from YouTube" },
   { id: "share", title: "Who we share it with" },
   { id: "overseas", title: "Where it's stored and overseas disclosure" },
   { id: "security", title: "Security and data breaches" },
@@ -127,6 +128,15 @@ export default function PrivacyPage() {
         </ul>
       </Section>
 
+      <Section {...s("embeds")}>
+        <p>Two places on droplr.fm show a video that lives on YouTube rather than on our servers, and in both of them YouTube receives information directly from your browser — your IP address, your browser and device details, and the address of the page you were on — because the player is loaded from Google, not from us. We never send YouTube your name, your email address or anything else from your account.</p>
+        <ul>
+          <li><strong>&quot;Watch the guide&quot; cards in your dashboard.</strong> These show a still picture and a play button, and <strong>nothing is loaded from the player until you press play</strong>. The still picture itself comes from YouTube&apos;s image servers, which is a request for a picture and sets no cookies. Press play and the player loads from <code>youtube-nocookie.com</code>, Google&apos;s reduced-tracking address, which doesn&apos;t set its usual advertising cookies for a video you only watch — but it is still a connection to Google, and it still happens under your account&apos;s session in your browser. You can close any of these cards for good, and you can watch the same video on YouTube instead if you&apos;d rather keep it away from this tab.</li>
+          <li><strong>Remix contest entries on a public release page.</strong> Where an entrant&apos;s track is hosted somewhere that allows a player, we embed it so people can listen without leaving the page. <strong>This one loads as you scroll to it rather than waiting for a click</strong>, so for a YouTube-hosted entry your browser contacts Google as soon as that part of the page is reached. We are telling you this plainly because it is the one place a <em>fan</em> — not an account holder — meets a third-party player on droplr.fm. We use the same <code>youtube-nocookie.com</code> address there.</li>
+        </ul>
+        <p>What Google does with what it receives is governed by its own privacy policy, not ours, and we have no access to it. If you would rather no YouTube request happened at all, a content blocker or your browser&apos;s third-party content settings will stop the embed loading, and the rest of the page works without it.</p>
+      </Section>
+
       <Section {...s("share")}>
         <p>We share personal information only as needed to run droplr.fm:</p>
         <div className="overflow-x-auto">
@@ -141,6 +151,7 @@ export default function PrivacyPage() {
               <tr><td>Spotify, Deezer</td><td>Only when a fan chooses to connect their account</td><td>Per those providers</td></tr>
               <tr><td>Apple, Google, Microsoft, Mozilla (push services)</td><td>Only if you turn on notifications: we hand the encrypted notification to the push service your device uses so it can deliver it</td><td>Per those providers</td></tr>
               <tr><td>Meta, TikTok, Google</td><td>Only on label pages where the label has added its own pixel</td><td>Per those providers</td></tr>
+              <tr><td>YouTube (Google)</td><td>Video players embedded in the dashboard and on a release page that is running a remix contest — see <Link href="#embeds">Videos embedded from YouTube</Link></td><td>Per Google</td></tr>
             </tbody>
           </table>
         </div>
