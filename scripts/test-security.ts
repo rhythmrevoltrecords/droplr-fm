@@ -748,6 +748,24 @@ async function main() {
     check("cover proxy: an artist gets their own release's artwork and nobody else's",
       (coverOwnArtist.status === 200 || coverOwnArtist.status === 302 || coverOwnArtist.status === 404) && coverOtherArtist.status === 404 && coverArtistCross.status === 404,
       `${coverOwnArtist.status}/${coverOtherArtist.status}/${coverArtistCross.status}`);
+    // ?part=logo rides on this same route and must be scoped by exactly the same rows. It was added
+    // as a parameter rather than a second endpoint precisely so there is one copy of the scoping —
+    // but the roster branch does its own organisation lookup for the logo, so prove the parameter
+    // cannot widen what the route will hand over.
+    const logoCross = await http(ownerA, "GET", `/api/admin/releases/${B.release.id}/cover?part=logo`);
+    const logoAnon = await fetch(`${BASE}/api/admin/releases/${B.release.id}/cover?part=logo`, { redirect: "manual" });
+    check("logo proxy: other label 404, logged out 401", logoCross.status === 404 && logoAnon.status === 401, `${logoCross.status}/${logoAnon.status}`);
+    const logoOwnArtist = await http(artistLive, "GET", `/api/admin/releases/${A.release.id}/cover?part=logo`);
+    const logoOtherArtist = await http(artistLive, "GET", `/api/admin/releases/${A.otherRelease.id}/cover?part=logo`);
+    const logoArtistCross = await http(artistLive, "GET", `/api/admin/releases/${B.release.id}/cover?part=logo`);
+    check("logo proxy: an artist reaches it only for a release assigned to them",
+      [200, 302, 404].includes(logoOwnArtist.status) && logoOtherArtist.status === 404 && logoArtistCross.status === 404,
+      `${logoOwnArtist.status}/${logoOtherArtist.status}/${logoArtistCross.status}`);
+    // An unknown part value must fall back to the artwork, never to "serve whatever was asked for".
+    const partJunk = await http(ownerA, "GET", `/api/admin/releases/${A.release.id}/cover?part=../../etc/passwd`);
+    check("an unrecognised part value is treated as the artwork, not followed",
+      [200, 302, 404].includes(partJunk.status), String(partJunk.status));
+
     // The artist's clip page is scoped the same way, and is not a way into the label's admin.
     const artistClip = await http(artistLive, "GET", `/dashboard/clips/${A.release.id}`);
     const artistClipOther = await http(artistLive, "GET", `/dashboard/clips/${A.otherRelease.id}`);

@@ -352,7 +352,12 @@ export function ClipForge(props: ClipForgeProps) {
   async function render() {
     const buf = bufferRef.current;
     const canvas = frameRef.current;
-    if (!buf || !canvas || phase.kind === "working") return;
+    if (phase.kind === "working") return; // Already going: the button says so.
+    // Say something. A click that returns silently is indistinguishable from a dead button, and
+    // that is exactly how the unmounted-canvas bug above survived — the artist could only report
+    // "it does nothing", which is true and tells nobody where to look.
+    if (!buf) { setError("The track isn't loaded yet. Pick the file again and wait for the waveform."); return; }
+    if (!canvas) { setError("The preview canvas went missing, which is a bug — please reload the page and tell us."); return; }
     stop();
     setError(null);
     const controller = new AbortController();
@@ -524,12 +529,21 @@ export function ClipForge(props: ClipForgeProps) {
             <CardDescription>{size.width}×{size.height} · {clipLen}s · {fadeSummary(fadeIn, fadeOut)}{story && " · link sticker"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="mx-auto overflow-hidden rounded-lg ring-1 ring-white/10" style={{ aspectRatio: size.ratio, maxWidth: aspect === "tall" ? 260 : 340 }}>
-              {result && downloadUrl ? (
+            {/*
+              The canvas stays mounted for the life of the panel and the finished video is laid over
+              it, rather than the two swapping places.
+
+              Swapping is what broke "Render again". render() reads frameRef.current, and a canvas
+              inside the false branch of a ternary unmounts the moment a result exists — so after one
+              successful render the ref was null, render() hit its early return, and the button did
+              nothing at all. Leaving the tab and coming back remounted the panel at phase "idle",
+              which is why that looked like the only way to get a second clip.
+            */}
+            <div className="relative mx-auto overflow-hidden rounded-lg ring-1 ring-white/10" style={{ aspectRatio: size.ratio, maxWidth: aspect === "tall" ? 260 : 340 }}>
+              <canvas ref={frameRef} className="h-full w-full" />
+              {result && downloadUrl && (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video src={downloadUrl} controls playsInline className="h-full w-full bg-black" />
-              ) : (
-                <canvas ref={frameRef} className="h-full w-full" />
+                <video src={downloadUrl} controls playsInline className="absolute inset-0 h-full w-full bg-black" />
               )}
             </div>
 
