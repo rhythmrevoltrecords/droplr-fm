@@ -794,8 +794,29 @@ async function main() {
     // Own release wins over the grant path: the owner is sent to the full tab, not this thin copy.
     const clipOwn = await http(shareOwnerB, "GET", `/admin/clips/${B.release.id}`);
     check("the owner of a release is redirected to its Clip tab", [302, 303, 307, 308].includes(clipOwn.status) && clipOwn.location.includes("tab=clip"), `${clipOwn.status} ${clipOwn.location}`);
-    // The proxy only ever fetches the URL already on the release, so it can't be pointed anywhere.
-    check("the cover proxy takes no url of its own", !readFileSync("src/app/api/admin/releases/[id]/cover/route.ts", "utf8").includes("searchParams"));
+    /**
+     * The proxy may choose WHICH stored url to serve; it must never accept one.
+     *
+     * This replaced a blanket `!src.includes("searchParams")`. That guard was a proxy for the real
+     * property, and `?part=logo` — which only picks between two urls already on the row — tripped it
+     * without weakening anything. Replacing it is only honest if the replacement is stronger, so
+     * this pins three things the old one did not: exactly one parameter is read, it is named `part`,
+     * and the only thing ever fetched is `target`, which is assigned from the release's own fields.
+     * Adding a second parameter, renaming the selector, or fetching anything else all fail here.
+     */
+    // At most one parameter, and only ever the `part` selector. None at all is safer still and
+    // must keep passing — a guard that fails on the simplest form of this route would push the
+    // next person toward the more complicated one.
+    const paramReads = coverSrc.match(/searchParams\.get\(\s*(["'])([^"']+)\1\s*\)/g) ?? [];
+    check("the cover proxy reads nothing from the request but the 'part' selector",
+      paramReads.length === 0 || (paramReads.length === 1 && /["']part["']/.test(paramReads[0])),
+      paramReads.join(" ") || "none");
+    // Whatever is fetched is a url off the release row, never one the caller supplied.
+    const fetchArgs = [...coverSrc.matchAll(/fetchPublicImage\(([^)]*)\)/g)].map((m) => m[1].trim());
+    const targetFromRow = !coverSrc.includes("const target") || /const target\s*=(?:(?!searchParams\.get\(\s*["'](?!part)).)*release\.(coverUrl|logoUrl)[^;]*;/s.test(coverSrc);
+    check("the cover proxy takes no url of its own",
+      fetchArgs.length === 1 && ["target", "release.coverUrl"].includes(fetchArgs[0]) && targetFromRow,
+      fetchArgs.join(" | ") || "no fetch found");
     // Free and Artist render the mark; the gate is the existing removeBranding flag, nothing new.
     check("the clip mark follows the existing branding flag", !planOf("free").removeBranding && !planOf("artist").removeBranding && planOf("artist_pro").removeBranding);
 
