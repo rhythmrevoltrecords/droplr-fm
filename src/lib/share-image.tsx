@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ImageResponse } from "next/og";
@@ -16,15 +17,42 @@ export type ShareFormat = keyof typeof SHARE_FORMATS;
 export type ShareKind = "countdown" | "out" | "milestone";
 export const MILESTONES = [25, 50, 100, 250, 500, 1000, 2500, 5000, 10000, 25000, 50000, 100000];
 
-async function font(file: string) {
-  try {
-    return await readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans", file));
-  } catch {
-    return null;
+/**
+ * Fonts and covers are cached for the life of the process, because one page of this tab asks for
+ * up to eight images at once and every one of them used to re-read both fonts off disk and
+ * re-fetch + re-encode the same artwork. Eight identical 1000x1000 sharp passes is where the
+ * "graphics take a long time to show up" went.
+ */
+const fontCache = new Map<string, Promise<Buffer | null>>();
+
+function font(file: string) {
+  let hit = fontCache.get(file);
+  if (!hit) {
+    hit = readFile(join(process.cwd(), "node_modules/geist/dist/fonts/geist-sans", file)).catch(() => null);
+    fontCache.set(file, hit);
   }
+  return hit;
 }
 
-async function coverDataUri(coverUrl: string) {
+// Keyed by cover URL. Small on purpose: this exists to serve one page of one release, not to be
+// a cache layer. A changed cover is a changed URL, so a stale entry is not reachable.
+const coverCache = new Map<string, Promise<string | null>>();
+const COVER_CACHE_MAX = 8;
+
+function coverDataUri(coverUrl: string) {
+  let hit = coverCache.get(coverUrl);
+  if (!hit) {
+    hit = renderCoverDataUri(coverUrl);
+    coverCache.set(coverUrl, hit);
+    // Don't let a long-lived container accumulate base64 artwork for every release it ever served.
+    if (coverCache.size > COVER_CACHE_MAX) coverCache.delete(coverCache.keys().next().value!);
+    // A failed fetch must not be remembered, or one blip breaks the tab until the next cold start.
+    void hit.then((v) => { if (v === null) coverCache.delete(coverUrl); });
+  }
+  return hit;
+}
+
+async function renderCoverDataUri(coverUrl: string) {
   try {
     const own = coverUrl.startsWith(`${SITE_URL}/api/cover/`) ? coverUrl.slice(`${SITE_URL}/api/cover/`.length) : null;
     let buf: Buffer | null = null;
@@ -45,6 +73,37 @@ function rgba(hex: string, a: number) {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   const n = m ? parseInt(m[1], 16) : 0x8b5cf6;
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+}
+
+/**
+ * A short key over everything that changes what the image looks like, including the label's own
+ * calendar day (the countdown says "3 days to go", so yesterday's render is wrong today).
+ *
+ * This exists so the route can be cached hard instead of guessed at. The old header was
+ * `max-age=300`, which is a staleness bug in both directions: edit the accent colour and the
+ * browser serves the old graphic for five minutes from an unchanged URL, with nothing to click
+ * that would force it. With the key in the URL, a changed release is a changed URL — fresh at
+ * once — and an unchanged one is served from cache instantly instead of re-rasterising 1080x1920.
+ */
+export function shareVersion(r: {
+  coverUrl: string;
+  accentColor: string | null;
+  orgAccentColor: string | null;
+  title: string;
+  artistName: string;
+  slug: string;
+  labelName: string;
+  releaseDate: Date;
+  timezone: string;
+  showBranding: boolean;
+  now?: Date;
+}) {
+  const parts = [
+    r.coverUrl, r.accentColor ?? "", r.orgAccentColor ?? "", r.title, r.artistName, r.slug, r.labelName,
+    r.releaseDate.toISOString(), r.timezone, r.showBranding ? "mark" : "clean",
+    zonedDay(r.now ?? new Date(), r.timezone),
+  ];
+  return createHash("sha256").update(parts.join("\u0000")).digest("base64url").slice(0, 16);
 }
 
 /** Whole calendar days until release in the label's timezone. */
