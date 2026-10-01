@@ -196,7 +196,7 @@ function Bento() {
       <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-2">
         <div className="flex items-center gap-2 text-sm text-violet-200"><ImageIcon className="h-4 w-4" /> Share graphics</div>
         <h3 className="mt-3 text-xl font-semibold tracking-tight">Stories that make themselves.</h3>
-        <p className="mt-2 text-sm text-white/60">Countdown, out now and pre-save milestones, sized for Instagram, made from your artwork.</p>
+        <p className="mt-2 text-sm text-white/60">Countdown, out now and pre-save milestones, sized for Instagram, made from your artwork and your logo.</p>
         <div className="relative mt-6 flex h-40 items-end justify-center" aria-hidden>
           {[{ r: -10, x: -46, t: "7 days to go" }, { r: 0, x: 0, t: "Out now" }, { r: 10, x: 46, t: "500 pre-saves" }].map((c, i) => (
             <div key={c.t} className="absolute bottom-0 flex h-36 w-20 flex-col items-center justify-end rounded-xl border border-white/15 p-2 shadow-xl" style={{ transform: `translateX(${c.x}px) rotate(${c.r}deg)`, zIndex: i === 1 ? 2 : 1, background: "radial-gradient(90% 60% at 50% 20%, rgba(168,85,247,.7), rgba(15,15,20,1) 75%)" }}>

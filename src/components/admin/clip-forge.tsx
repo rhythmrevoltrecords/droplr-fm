@@ -33,6 +33,8 @@ export type ClipForgeProps = {
   artistName: string;
   /** Same-origin proxy, so the artwork can't taint the canvas whatever store it came from. */
   coverSrc: string;
+  /** The same proxy for the org's logo, or null when there isn't one. Same tainting rule applies. */
+  logoSrc: string | null;
   accentColor: string | null;
   link: string;
   live: boolean;
@@ -59,6 +61,7 @@ export function ClipForge(props: ClipForgeProps) {
   const [duration, setDuration] = useState(0);
   const [peaks, setPeaks] = useState<Float32Array | null>(null);
   const [artReady, setArtReady] = useState(false);
+  const [logoReady, setLogoReady] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
@@ -69,6 +72,7 @@ export function ClipForge(props: ClipForgeProps) {
   const waveRef = useRef<HTMLCanvasElement>(null);
   const bufferRef = useRef<AudioBuffer | null>(null);
   const artRef = useRef<HTMLImageElement | null>(null);
+  const logoRef = useRef<{ img: HTMLImageElement; width: number; height: number } | null>(null);
   const analysisRef = useRef<ClipAnalysis | null>(null);
   const audioCtxRef = useRef<AudioContext | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
@@ -92,6 +96,21 @@ export function ClipForge(props: ClipForgeProps) {
     [headline, tagline, props.link, props.live, props.removeBranding, story],
   );
 
+  /**
+   * The family canvas text is drawn in. Read off the document rather than written down, because
+   * next/font serves Geist under a generated family name that nothing can hardcode — and a
+   * hardcoded name is what produced the Archivo bug, where the name was never loaded at all and
+   * every clip silently fell back to the operating system's default face.
+   *
+   * Resolved in an effect, not at module scope: on the server there is no document, and reading it
+   * during render would differ between the server and client passes.
+   */
+  const [fontFamily, setFontFamily] = useState("ui-sans-serif, system-ui, sans-serif");
+  useEffect(() => {
+    const resolved = getComputedStyle(document.body).fontFamily;
+    if (resolved) setFontFamily(resolved);
+  }, []);
+
   /** One frame of the composition. Index -1 means the resting state. */
   const paint = useCallback(
     (i: number, guide = true) => {
@@ -107,13 +126,17 @@ export function ClipForge(props: ClipForgeProps) {
         bands: a && i >= 0 ? a.bands.map((b) => b[Math.min(i, b.length - 1)]) : null,
         kick: a && i >= 0 ? a.low[Math.min(i, a.low.length - 1)] : 0,
         art: artRef.current,
+        fontFamily,
+        logo: logoRef.current,
         accent,
         accent2,
         copy,
         stickerGuide: guide,
       });
     },
-    [accent, accent2, copy, frames],
+    // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
+    // is the dependency that triggers the repaint, the same way artReady does for the cover.
+    [accent, accent2, copy, frames, fontFamily, logoReady],
   );
 
   // Ask the browser whether it can actually encode H.264, not just whether the API exists. A
@@ -134,6 +157,22 @@ export function ClipForge(props: ClipForgeProps) {
     img.src = props.coverSrc;
     return () => { img.onload = null; img.onerror = null; };
   }, [props.coverSrc]);
+
+  // --- the label's logo ------------------------------------------------------------------------
+  // A missing or broken logo is not an error worth telling the artist about: the clip is complete
+  // without it, and the cover loader above already owns the one image whose absence matters.
+  useEffect(() => {
+    if (!props.logoSrc) { logoRef.current = null; setLogoReady(false); return; }
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+    img.onload = () => {
+      logoRef.current = { img, width: img.naturalWidth, height: img.naturalHeight };
+      setLogoReady(true);
+    };
+    img.onerror = () => { logoRef.current = null; setLogoReady(false); };
+    img.src = props.logoSrc;
+    return () => { img.onload = null; img.onerror = null; };
+  }, [props.logoSrc]);
 
   // --- canvas size and repaint -----------------------------------------------------------------
   useEffect(() => {
@@ -313,7 +352,12 @@ export function ClipForge(props: ClipForgeProps) {
   async function render() {
     const buf = bufferRef.current;
     const canvas = frameRef.current;
-    if (!buf || !canvas || phase.kind === "working") return;
+    if (phase.kind === "working") return; // Already going: the button says so.
+    // Say something. A click that returns silently is indistinguishable from a dead button, and
+    // that is exactly how the unmounted-canvas bug above survived — the artist could only report
+    // "it does nothing", which is true and tells nobody where to look.
+    if (!buf) { setError("The track isn't loaded yet. Pick the file again and wait for the waveform."); return; }
+    if (!canvas) { setError("The preview canvas went missing, which is a bug — please reload the page and tell us."); return; }
     stop();
     setError(null);
     const controller = new AbortController();
@@ -485,12 +529,21 @@ export function ClipForge(props: ClipForgeProps) {
             <CardDescription>{size.width}×{size.height} · {clipLen}s · {fadeSummary(fadeIn, fadeOut)}{story && " · link sticker"}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="mx-auto overflow-hidden rounded-lg ring-1 ring-white/10" style={{ aspectRatio: size.ratio, maxWidth: aspect === "tall" ? 260 : 340 }}>
-              {result && downloadUrl ? (
+            {/*
+              The canvas stays mounted for the life of the panel and the finished video is laid over
+              it, rather than the two swapping places.
+
+              Swapping is what broke "Render again". render() reads frameRef.current, and a canvas
+              inside the false branch of a ternary unmounts the moment a result exists — so after one
+              successful render the ref was null, render() hit its early return, and the button did
+              nothing at all. Leaving the tab and coming back remounted the panel at phase "idle",
+              which is why that looked like the only way to get a second clip.
+            */}
+            <div className="relative mx-auto overflow-hidden rounded-lg ring-1 ring-white/10" style={{ aspectRatio: size.ratio, maxWidth: aspect === "tall" ? 260 : 340 }}>
+              <canvas ref={frameRef} className="h-full w-full" />
+              {result && downloadUrl && (
                 // eslint-disable-next-line jsx-a11y/media-has-caption
-                <video src={downloadUrl} controls playsInline className="h-full w-full bg-black" />
-              ) : (
-                <canvas ref={frameRef} className="h-full w-full" />
+                <video src={downloadUrl} controls playsInline className="absolute inset-0 h-full w-full bg-black" />
               )}
             </div>
 
