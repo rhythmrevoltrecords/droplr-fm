@@ -212,6 +212,7 @@ export default async function ReleaseDetail(
             // whenever anything that changes the picture does, today's date included.
             version={shareVersion({
               coverUrl: release.coverUrl,
+              logoUrl: release.organization.logoUrl,
               accentColor: release.accentColor,
               orgAccentColor: release.organization.accentColor,
               title: release.title,
@@ -233,6 +234,8 @@ export default async function ReleaseDetail(
           title={release.title}
           artistName={release.artistName}
           coverSrc={`/api/admin/releases/${release.id}/cover`}
+          // Only when there is one: pointing at the proxy with no logo behind it just buys a 404.
+          logoSrc={release.organization.logoUrl ? `/api/admin/releases/${release.id}/cover?part=logo` : null}
           accentColor={release.accentColor ?? release.organization.accentColor}
           link={url}
           live={live}

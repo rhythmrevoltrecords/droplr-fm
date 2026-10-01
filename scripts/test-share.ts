@@ -30,6 +30,7 @@ const check = (name: string, ok: boolean, detail = "") => {
 
 const BASE: Parameters<typeof shareVersion>[0] & { accentColor: string | null; now: Date } = {
   coverUrl: "https://cdn.example.com/art.jpg",
+  logoUrl: "https://cdn.example.com/logo.png",
   accentColor: "#8b5cf6",
   orgAccentColor: "#111827",
   title: "California Dreaming",
@@ -51,8 +52,12 @@ function main() {
   check("same inputs on a second call are not time-sensitive", shareVersion({ ...BASE, now: new Date("2026-10-01T09:00:00Z") }) === base);
 
   // Every field that reaches the image.
+  // The logo is drawn into the image, so it has to be in the key — otherwise an artist uploads a
+  // logo in Settings and their graphics keep arriving without it, cached, for a year.
   const variants: [string, Partial<typeof BASE>][] = [
     ["cover changed", { coverUrl: "https://cdn.example.com/art2.jpg" }],
+    ["logo changed", { logoUrl: "https://cdn.example.com/logo2.png" }],
+    ["logo removed", { logoUrl: null }],
     ["release accent changed", { accentColor: "#ff0066" }],
     ["release accent cleared (falls back to the org's)", { accentColor: null }],
     ["org accent changed", { orgAccentColor: "#00ffaa" }],

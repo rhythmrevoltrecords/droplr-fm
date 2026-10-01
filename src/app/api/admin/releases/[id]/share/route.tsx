@@ -33,7 +33,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
   const url = publicReleaseUrl(release.organization, release.slug, SITE_URL).replace(/^https?:\/\//, "");
   const img = await renderShareImage({
     format, kind, milestone, url,
-    title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? release.organization.accentColor,
+    title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, logoUrl: release.organization.logoUrl, accentColor: release.accentColor ?? release.organization.accentColor,
     labelName: release.organization.name, releaseDate: release.releaseDate, timezone: release.organization.timezone,
     showBranding: !planOf(release.organization.plan).removeBranding,
   });

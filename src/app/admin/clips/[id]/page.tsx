@@ -73,6 +73,9 @@ export default async function GrantedClipPage(props: { params: Promise<{ id: str
         title={release.title}
         artistName={release.artistName}
         coverSrc={`/api/admin/releases/${release.id}/cover`}
+        // The label's logo, for the same reason the plan above is the label's: one release
+        // makes one clip whichever side renders it.
+        logoSrc={label.logoUrl ? `/api/admin/releases/${release.id}/cover?part=logo` : null}
         accentColor={release.accentColor ?? label.accentColor}
         link={url}
         live={live}

@@ -20,7 +20,7 @@ import {
   audioSpecificConfig, clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
 import { blobHasAudio, isIOS, verifyAudio } from "../src/lib/clip-encode";
-import { drawClipFrame, type FrameCopy, STORY_SAFE_BOTTOM, STORY_SAFE_TOP, STORY_STICKER_BAND } from "../src/lib/clip-frame";
+import { drawClipFrame, type FrameArgs, type FrameCopy, STORY_SAFE_BOTTOM, STORY_SAFE_TOP, STORY_STICKER_BAND } from "../src/lib/clip-frame";
 import { planOf } from "../src/lib/plans";
 
 let passed = 0;
@@ -41,22 +41,32 @@ const near = (a: number, b: number, tol = 1e-6) => Math.abs(a - b) <= tol;
  * the frame touches is here; anything it starts calling that isn't will throw rather than pass
  * quietly.
  */
-type Op = { kind: "text"; text: string; x: number; y: number } | { kind: "rect"; y: number; h: number };
-function recordFrame(copy: Partial<FrameCopy>, guide: boolean, W = 1080, H = 1920): Op[] {
+type Op =
+  // `font` rides along on every text op so the suite can prove which family was actually used.
+  // Before this, the family was a module constant naming a font that was never loaded, and no test
+  // could have seen it.
+  | { kind: "text"; text: string; x: number; y: number; font: string }
+  | { kind: "rect"; y: number; h: number }
+  | { kind: "image"; src: unknown; x: number; y: number; w: number; h: number };
+
+const TEST_FAMILY = "__AppFont__, sans-serif";
+
+function recordFrame(copy: Partial<FrameCopy>, guide: boolean, W = 1080, H = 1920, logo: FrameArgs["logo"] = null): Op[] {
   const ops: Op[] = [];
   const ctx = {
     fillStyle: "", strokeStyle: "", lineWidth: 0, textAlign: "", font: "",
     fillRect: (_x: number, y: number, _w: number, h: number) => ops.push({ kind: "rect", y, h }),
-    fillText: (text: string, x: number, y: number) => ops.push({ kind: "text", text, x, y }),
+    fillText: (text: string, x: number, y: number) => ops.push({ kind: "text", text, x, y, font: (ctx as { font: string }).font }),
     measureText: (t: string) => ({ width: t.length * 14 }),
     createRadialGradient: () => ({ addColorStop: () => {} }),
-    drawImage: () => {},
+    drawImage: (src: unknown, x: number, y: number, w: number, h: number) => ops.push({ kind: "image", src, x, y, w, h }),
     save: () => {}, restore: () => {}, clip: () => {}, stroke: () => {}, fill: () => {},
     beginPath: () => {}, moveTo: () => {}, arcTo: () => {}, closePath: () => {},
     setLineDash: () => {},
   } as unknown as CanvasRenderingContext2D;
   drawClipFrame({
     ctx, width: W, height: H, progress: 0.5, bands: null, kick: 0, art: null,
+    fontFamily: TEST_FAMILY, logo,
     accent: "#8B5CF6", accent2: "#22D3EE",
     copy: { headline: "OUT NOW", link: "droplr.fm/rrr/track", tagline: "Ototo — Mess It Up", mark: "droplr.fm", ...copy },
     stickerGuide: guide,
@@ -327,6 +337,65 @@ async function main() {
   // render happens on the artist's own machine. The mark is the limit, not a render cap.
   for (const p of ["free", "artist"]) check(`${p}: clip carries the mark`, !planOf(p).removeBranding);
   for (const p of ["artist_pro", "pro", "label", "enterprise"]) check(`${p}: clip renders clean`, planOf(p).removeBranding);
+
+  // --- typeface -------------------------------------------------------------------------------
+  // The family used to be a module constant reading "Archivo, …" — a font that appears nowhere else
+  // in this repo, is not a dependency and was never loaded. Every clip fell through to the OS
+  // default, so the typeface in an artist's video was decided by their operating system and nobody
+  // could see it. These assert the caller's family actually reaches the canvas.
+  const feedText = recordFrame({}, false).filter((o): o is Extract<Op, { kind: "text" }> => o.kind === "text");
+  check("frame draws text at all", feedText.length > 0);
+  const nonMono = feedText.filter((o) => !/monospace/.test(o.font));
+  check("every proportional string uses the family the caller passed", nonMono.length > 0 && nonMono.every((o) => o.font.includes(TEST_FAMILY)),
+    nonMono.find((o) => !o.font.includes(TEST_FAMILY))?.font ?? "no proportional text drawn");
+  check("no font name is hardcoded in the frame", !feedText.some((o) => /Archivo/.test(o.font)));
+  const linkOps = feedText.filter((o) => o.text.includes("droplr.fm/rrr/track"));
+  check("the link line stays monospace on purpose", linkOps.length > 0 && linkOps.every((o) => /monospace/.test(o.font)));
+
+  // --- the label's logo -----------------------------------------------------------------------
+  const wideLogo = { img: {} as CanvasImageSource, width: 600, height: 150 };  // 4:1, the usual shape
+  const sqLogo = { img: {} as CanvasImageSource, width: 400, height: 400 };
+  const imagesOf = (ops: Op[]) => ops.filter((o): o is Extract<Op, { kind: "image" }> => o.kind === "image");
+
+  const feedLogo = imagesOf(recordFrame({}, false, 1080, 1920, wideLogo));
+  check("feed clip draws the logo", feedLogo.length === 1, `${feedLogo.length} images drawn`);
+  check("no logo passed, nothing drawn", imagesOf(recordFrame({}, false, 1080, 1920, null)).length === 0);
+
+  if (feedLogo.length === 1) {
+    const L = feedLogo[0];
+    // Squashing an artist's own mark into a square is worse than leaving it out.
+    check("logo keeps its aspect ratio", Math.abs(L.w / L.h - 600 / 150) < 0.02, `drew ${L.w}x${L.h}`);
+    // The band above the artwork. ay is 415 on a 1080x1920 feed clip; the logo must clear the cover.
+    check("logo sits above the artwork", L.y + L.h <= 415, `bottom at ${L.y + L.h}`);
+    check("logo stays inside the frame", L.x >= 0 && L.x + L.w <= 1080, `${L.x}..${L.x + L.w}`);
+    check("logo is horizontally centred", Math.abs(L.x + L.w / 2 - 540) <= 1, `centre ${L.x + L.w / 2}`);
+  }
+
+  const sq = imagesOf(recordFrame({}, false, 1080, 1920, sqLogo));
+  check("square logo also keeps its ratio", sq.length === 1 && Math.abs(sq[0].w / sq[0].h - 1) < 0.02);
+
+  // A Story's artwork starts at STORY_SAFE_TOP, which is where Instagram's profile row ends. There
+  // is no band to draw into, and anything there sits behind the artist's own avatar and handle.
+  const storyLogo = imagesOf(recordFrame({ link: null }, false, 1080, 1920, wideLogo));
+  check("story draws no logo (no room, and Instagram covers that band)", storyLogo.length === 0, `${storyLogo.length} drawn`);
+
+  // A wide mark must be bounded by width, not run off the edges.
+  const wordmark = imagesOf(recordFrame({}, false, 1080, 1920, { img: {} as CanvasImageSource, width: 2000, height: 100 }));  // 20:1
+  check("a wide wordmark is bounded by width, not the frame", wordmark.length === 1 && wordmark[0].x >= 0 && wordmark[0].x + wordmark[0].w <= 1080,
+    wordmark.length === 1 ? `${wordmark[0].x}..${wordmark[0].x + wordmark[0].w}` : "not drawn");
+  // The real invariant is the height that follows from the width, within a pixel of rounding —
+  // asserting the ratio itself is too tight once the drawn height is only tens of pixels.
+  check("a wide wordmark keeps its ratio", wordmark.length === 1 && Math.abs(wordmark[0].h - wordmark[0].w / 20) <= 1,
+    wordmark.length === 1 ? `${wordmark[0].w}x${wordmark[0].h}` : "not drawn");
+
+  // Past about 25:1 the width bound would leave a sliver a few pixels tall. That reads as a broken
+  // render, not as a brand, so it is dropped rather than drawn badly.
+  const sliver = imagesOf(recordFrame({}, false, 1080, 1920, { img: {} as CanvasImageSource, width: 4000, height: 100 }));  // 40:1
+  check("an unusably wide logo is left out rather than drawn as a sliver", sliver.length === 0, `${sliver.length} drawn`);
+
+  // Zero height would be a divide-by-zero in the ratio maths.
+  const degenerate = imagesOf(recordFrame({}, false, 1080, 1920, { img: {} as CanvasImageSource, width: 100, height: 0 }));
+  check("a zero-height logo doesn't produce NaN geometry", degenerate.every((o) => Number.isFinite(o.w) && Number.isFinite(o.h) && o.w > 0 && o.h > 0));
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {
