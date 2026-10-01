@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-09-29",
-  updated: "29 September 2026",
+  version: "2026-10-01",
+  updated: "1 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -86,6 +86,17 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-01",
+    date: "1 October 2026",
+    summary: [
+      "Lyric cards: a share graphic that puts one line of your lyrics over your artwork. You type the line yourself in the release's settings — we never fetch lyrics from a lyrics service, and there is nothing to pre-fill it from, so the card only ever shows words you entered.",
+      "You confirm you have the right to reproduce and publish that line. The words are a separate right from the recording and the artwork, and on a cover, a remix or a track you didn't write it may not be yours to quote.",
+      "Unlike a clip, a share graphic is drawn on our servers, so the lyric line is stored on your release and we can clear it if we're told it infringes someone's rights. We still can't take down an image you've already posted — that goes to the platform you posted it on.",
+      "The image is yours. We claim no ownership of it and no licence to it beyond drawing it for you, and on plans without branding removal the droplr.fm line is drawn into it the same way it is in a clip.",
+      "Privacy: the lyric line is the only new thing stored, and it sits with your other release content.",
+    ],
+  },
   {
     version: "2026-09-29",
     date: "29 September 2026",

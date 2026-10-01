@@ -50,7 +50,7 @@ export default function PrivacyPage() {
         <ul>
           <li><strong>Account details</strong>: email address, label name, artist name, role, and your password, which we store only as a one-way bcrypt hash.</li>
           <li><strong>Label settings</strong>: logo, timezone and location, theme, custom domain, reply-to address, and the IDs of any Meta, TikTok or Google Analytics pixels you add.</li>
-          <li><strong>Content</strong>: release titles, artwork, UPC/ISRC codes, store links, bio pages and invites you send, including the invitee&apos;s email address.</li>
+          <li><strong>Content</strong>: release titles, artwork, UPC/ISRC codes, store links, the lyric line you type for a share graphic, bio pages and invites you send, including the invitee&apos;s email address.</li>
           <li><strong>Spotify developer credentials</strong>, if you connect your own Spotify app. These are encrypted with AES-256-GCM before storage.</li>
           <li><strong>SoundCloud developer credentials</strong>, if you connect your own SoundCloud app for download gates, encrypted the same way, along with the SoundCloud profile your gates point at.</li>
           <li><strong>Download gates</strong>: the link to wherever your files are kept, and the steps you ask fans to take. We store the link; the files stay with whoever hosts them, which is not us.</li>

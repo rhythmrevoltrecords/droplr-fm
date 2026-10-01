@@ -21,6 +21,11 @@ const schema = z.object({
   spotifyAlbumId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyArtistId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
+  /**
+   * One line for the lyric graphic. Capped here rather than in the column so the limit can move
+   * without a migration, and so an over-long line is a sentence instead of a 500. "" clears it.
+   */
+  lyricLine: z.string().max(120).nullable().optional().or(z.literal("")),
   upc: z.string().max(20).optional(),
   isrc: z.string().max(20).optional(),
   autoReResolve: z.boolean().optional(),
@@ -69,6 +74,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   // Exclusivity. Validated here rather than trusted from the form because the same route is the
   // only writer, and a rulebook string that isn't one of the four would make the validator answer
   // under "unknown" silently — a wrong answer dressed as a cautious one.
+  if (d.lyricLine !== undefined) data.lyricLine = d.lyricLine?.trim() || null;
   if (d.exclusiveStore !== undefined) {
     const store = d.exclusiveStore || null;
     if (store && !isPlatformKey(store)) return NextResponse.json({ error: "That isn't a store droplr knows." }, { status: 400 });
