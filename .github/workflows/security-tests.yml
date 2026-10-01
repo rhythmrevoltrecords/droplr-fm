@@ -139,6 +139,9 @@ jobs:
       - name: Store exclusivity
         run: npx tsx scripts/test-exclusivity.ts
 
+      - name: Share graphics
+        run: npx tsx scripts/test-share.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
