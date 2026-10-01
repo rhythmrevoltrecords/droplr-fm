@@ -38,11 +38,11 @@ and a signable Data Processing Agreement are public at droplr.fm/legal.
 | Control | Implementation |
 |---|---|
 | Tenant isolation | Every database query is scoped by `organizationId`. A request for another label's release returns 404, not 403 — you cannot even confirm a record exists. |
-| Proof of isolation | 239 automated tests exist solely to prove one label cannot read, write or enumerate another's data. They run on every single push. |
-| Total test suite | 592 automated tests across eight suites, all gated in CI. A red suite blocks the change. |
+| Proof of isolation | A 359-check security suite, most of it there solely to prove one label cannot read, write or enumerate another's data. They run on every single push. |
+| Total test suite | 1,418 automated checks across fifteen suites, all gated in CI. A red suite blocks the change. |
 | Passwords | bcrypt, cost factor 12. Never stored or logged in plain text. |
 | Third-party credentials | AES-256-GCM field-level encryption at rest (Spotify, Deezer, SoundCloud secrets and refresh tokens, OAuth state, invite codes). |
-| Sessions | Signed JWTs in secure, HTTP-only, same-site cookies. |
+| Sessions | Signed JWTs in secure, HTTP-only, same-site cookies. Logging out revokes that session server-side, so a copied cookie stops working; a password change or "sign out everywhere" revokes every session. Login lockout is per account per network, so a stranger can't lock an owner out. |
 | Fan IP addresses | Never stored raw. One-way hash, salted with a secret *and the date*, so the hash changes daily and cannot be correlated across days. |
 | Transport | HTTPS everywhere, HSTS, no mixed content. |
 | Static analysis | GitHub CodeQL on every push, PR and weekly — injection, XSS, path traversal, SSRF. |

@@ -1,7 +1,7 @@
-import { clearSession } from "@/lib/auth";
+import { endSession } from "@/lib/auth";
 import { redirectTo } from "@/lib/redirect";
 
 export async function POST() {
-  await clearSession();
+  await endSession();
   return redirectTo("/login");
 }

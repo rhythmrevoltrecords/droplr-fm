@@ -19,6 +19,11 @@
  *  13. Artist accounts, fan list + news opt-in, promo plan (artist sign-up needs SIGNUP_ALLOWLIST=artist-signup-test@sectest.dev on the server).
  *  12. Insights + share graphics: analytics page renders, share images scoped to the label, milestones must be real.
  *  11. Local release time: fan timezone + store pick saved on pre-save, per-fan "out" check, Spotify follow link.
+ *  17. Security review fixes (Oct 2026): unsubscribe asks on GET, OAuth pre-save consent is versioned,
+ *      login lockout can't be triggered from another IP, logout revokes the token, /host/ isn't public,
+ *      the release sitemap varies on host.
+ *  18. Cross-tenant gaps: B's news emails, downloads, report and roster links via A's session; A's own news, releases,
+ *      downloads and link editors can't reference B's ids; a non-owner admin can't change the org's Spotify/SoundCloud apps.
  *  10. Email verification: unconfirmed accounts can't invite / connect domains or Spotify; links are single-use,
  *      expire and die if the address changes; invites don't count as proof; a password reset by email does.
  * Everything it creates is deleted at the end. Never point it at production.
@@ -32,6 +37,8 @@ import { createVerificationToken } from "../src/lib/email-verification";
 import { prisma } from "../src/lib/db";
 import { LEGAL } from "../src/lib/legal";
 import { linkCustomDomain, planOf } from "../src/lib/plans";
+import { oauthEmailConsent } from "../src/lib/fan-consent";
+import { FAN_EMAIL_CONSENT_VERSION } from "../src/lib/legal";
 
 // The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -335,11 +342,12 @@ async function main() {
       // Unsubscribe, then the "didn't mean to" link on that page: only the fan can use it.
     const unsubFan = await prisma.preSave.findFirst({ where: { releaseId: B.release.id, email: { not: null } } });
     if (unsubFan) {
-      const unsubPage = await http(null, "GET", `/api/unsubscribe?t=${await signToken({ ps: unsubFan.id, act: "unsub" }, "1h", "unsub")}`);
+      // GET only shows the confirm form; pressing it (POST confirm=1) is what unsubscribes. See section 17.
+      const unsubPage = await http(null, "POST", `/api/unsubscribe?t=${await signToken({ ps: unsubFan.id, act: "unsub" }, "1h", "unsub")}`, undefined, { confirm: "1" });
       const undoUrl = unsubPage.text.match(/\/api\/unsubscribe\/undo\?t=([\w.-]+)/)?.[1] ?? "";
       const afterUnsub = await prisma.preSave.findUnique({ where: { id: unsubFan.id } });
       const wrongAct = await http(null, "GET", `/api/unsubscribe/undo?t=${await signToken({ ps: unsubFan.id, act: "unsub" }, "1h", "unsub")}`);
-      const undo = await http(null, "GET", `/api/unsubscribe/undo?t=${undoUrl}`);
+      const undo = await http(null, "POST", `/api/unsubscribe/undo?t=${undoUrl}`);
       const afterUndo = await prisma.preSave.findUnique({ where: { id: unsubFan.id } });
       check("unsubscribe offers a way back, and only a real re-subscribe token works", unsubPage.status === 200 && !!undoUrl && afterUnsub?.status === "unsubscribed" && wrongAct.status === 400 && undo.status === 200 && afterUndo?.emailConsent === true && afterUndo.status !== "unsubscribed" && !afterUndo.newsConsent, `${unsubPage.status}/${wrongAct.status}/${undo.status} ${afterUndo?.status}`);
       const undoJunk = await http(null, "GET", "/api/unsubscribe/undo?t=nope");
@@ -1290,6 +1298,190 @@ async function main() {
       await prisma.signupInvite.deleteMany({ where: { note } });
     } else {
       console.log("  (skipped platform invite checks: needs PLATFORM_TEST_ADMIN)");
+    }
+
+    console.log("\n17. Security review fixes");
+    {
+      // Unsubscribe: GET only asks. Mail scanners follow GET links, so a GET that acted unsubscribed fans silently.
+      const fanU = `unsub-${RUN}@fans.dev`;
+      const psU = await prisma.preSave.create({ data: { releaseId: A.release.id, platform: "email", email: fanU, emailConsent: true, newsConsent: true, status: "pending" } });
+      const tU = await signToken({ ps: psU.id, act: "unsub" }, "1h", "unsub");
+      const looked = await http(null, "GET", `/api/unsubscribe?t=${tU}`);
+      const afterGet = await prisma.preSave.findUnique({ where: { id: psU.id } });
+      check("unsubscribe GET only asks", looked.status === 200 && looked.text.includes('method="post"') && !!afterGet?.emailConsent && afterGet.status === "pending", `${looked.status} ${afterGet?.emailConsent} ${afterGet?.status}`);
+      const badGet = await http(null, "GET", `/api/unsubscribe?t=not-a-token`);
+      check("unsubscribe GET with a bad token says expired (and reflects nothing)", badGet.status === 400 && !badGet.text.includes("not-a-token"), `${badGet.status}`);
+      const pressed = await http(null, "POST", `/api/unsubscribe?t=${tU}`, undefined, { confirm: "1" });
+      const afterPost = await prisma.preSave.findUnique({ where: { id: psU.id } });
+      check("pressing the button unsubscribes", pressed.status === 200 && pressed.text.includes("You're unsubscribed") && !afterPost?.emailConsent && afterPost?.status === "unsubscribed", `${pressed.status} ${afterPost?.status}`);
+      const undoHref = pressed.text.match(/\/api\/unsubscribe\/undo\?t=([^"]+)/)?.[1] ?? "";
+      const undoLook = await http(null, "GET", `/api/unsubscribe/undo?t=${undoHref}`);
+      check("undo GET only asks", undoLook.status === 200 && undoLook.text.includes('method="post"') && !(await prisma.preSave.findUnique({ where: { id: psU.id } }))?.emailConsent, `${undoLook.status}`);
+      const undone = await http(null, "POST", `/api/unsubscribe/undo?t=${undoHref}`);
+      const afterUndo = await prisma.preSave.findUnique({ where: { id: psU.id } });
+      check("undo POST re-consents with the current wording version", undone.status === 200 && !!afterUndo?.emailConsent && afterUndo.consentVersion === FAN_EMAIL_CONSENT_VERSION, `${undone.status} ${afterUndo?.consentVersion}`);
+      // RFC 8058: the mail client POSTs List-Unsubscribe=One-Click itself, and gets JSON.
+      const oneClick = await fetch(`${BASE}/api/unsubscribe?t=${tU}`, { method: "POST", headers: { "content-type": "application/x-www-form-urlencoded" }, body: "List-Unsubscribe=One-Click" });
+      const afterOne = await prisma.preSave.findUnique({ where: { id: psU.id } });
+      check("one-click unsubscribe still works", oneClick.status === 200 && (await oneClick.json()).ok === true && !afterOne?.emailConsent, `${oneClick.status}`);
+
+      // OAuth pre-saves: email consent records when and which wording; an unsubscriber isn't re-consented.
+      const fresh = await oauthEmailConsent(`oauth-${RUN}@fans.dev`, A.org.id);
+      check("OAuth pre-save consent carries consentAt + version", !!fresh?.consentAt && fresh.consentVersion === FAN_EMAIL_CONSENT_VERSION && fresh.emailConsent === true);
+      check("OAuth pre-save can't re-consent someone who unsubscribed from this label", (await oauthEmailConsent(fanU, A.org.id)) === null);
+      check("…but that unsubscribe doesn't block another label", !!(await oauthEmailConsent(fanU, B.org.id)));
+      check("no email, no consent", (await oauthEmailConsent(null, A.org.id)) === null);
+      // A fan who only ever pre-saved through Spotify has no platform:"email" row to mark "unsubscribed" —
+      // the opt-out is the consent turning off. That must still block re-consent, by form or by OAuth.
+      const spOnly = `sponly-${RUN}@fans.dev`;
+      const spRow = await prisma.preSave.create({ data: { releaseId: A.release.id, platform: "spotify", spotifyUserId: `sp-${RUN}`, email: spOnly, emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+      await http(null, "POST", `/api/unsubscribe?t=${await signToken({ ps: spRow.id, act: "unsub" }, "1h", "unsub")}`, undefined, { confirm: "1" });
+      check("Spotify-only unsubscriber: OAuth pre-save doesn't re-consent", (await oauthEmailConsent(spOnly, A.org.id)) === null);
+      await http(null, "POST", "/api/presave/email", undefined, { releaseId: A.release.id, email: spOnly, consent: "yes" });
+      const spRows = await prisma.preSave.findMany({ where: { email: spOnly } });
+      check("Spotify-only unsubscriber: the email form doesn't re-consent either", spRows.length === 1 && !spRows[0].emailConsent, JSON.stringify(spRows.map((r) => [r.platform, r.emailConsent])));
+      await prisma.preSave.deleteMany({ where: { email: spOnly } });
+
+      // Login lockout is per account per IP: a stranger elsewhere can't lock the owner out.
+      await prisma.authThrottle.deleteMany({});
+      const loginFrom = (ip: string, password: string) =>
+        fetch(`${BASE}/api/auth/login`, { method: "POST", redirect: "manual", headers: { "content-type": "application/x-www-form-urlencoded", "x-nf-client-connection-ip": ip }, body: new URLSearchParams({ email: B.owner.email, password }) });
+      for (let i = 0; i < 10; i++) await loginFrom("198.51.100.7", "wrong-" + i);
+      const attackerIp = await loginFrom("198.51.100.7", PW);
+      check("the guessing IP is locked, even with the right password", (attackerIp.headers.get("location") ?? "").includes("error=locked"), attackerIp.headers.get("location") ?? "");
+      const ownerIp = await loginFrom("192.0.2.44", PW);
+      check("the owner on another IP still logs in", ownerIp.status === 303 || ownerIp.status === 307 ? !(ownerIp.headers.get("location") ?? "").includes("error=") : false, `${ownerIp.status} ${ownerIp.headers.get("location")}`);
+      // Refused attempts don't fill the per-account backstop, so one IP can't spill a lockout onto every IP.
+      await prisma.authThrottle.deleteMany({});
+      for (let i = 0; i < 40; i++) await loginFrom("198.51.100.8", "wrong-" + i);
+      const backstop = await prisma.authThrottle.count({ where: { key: { startsWith: "login:email:" } } });
+      check("attempts refused per-IP don't count toward the per-account limit", backstop === 10, `${backstop} counted`);
+      await prisma.authThrottle.deleteMany({});
+
+      // Logout revokes this session server-side; a copy of the cookie stops working. Other devices stay in.
+      // B's owner: A's password was changed back in section 3.
+      const devA = await login(B.owner.email);
+      const devB = await login(B.owner.email);
+      const copied = { cookie: devA.cookie };
+      await http(devA, "POST", "/api/auth/logout");
+      const replay = await http(copied, "GET", "/admin");
+      check("a copied session cookie is dead after logout", replay.status === 307 && replay.location.includes("/login"), `${replay.status} ${replay.location}`);
+      const other = await http(devB, "GET", "/admin");
+      check("logging out one device leaves the other signed in", other.status === 200, `${other.status}`);
+
+      // /host/<domain>/… is the tenant rewrite's internal target, never a public URL.
+      const direct = await http(null, "GET", `/host/example.com/${A.release.slug}`);
+      check("/host/ isn't reachable directly", direct.status === 404, `${direct.status}`);
+
+      // The release sitemap's CDN cache is keyed on the host that asked.
+      // (It 404s when nothing is live, so put one live release up first.)
+      await prisma.release.create({ data: { organizationId: A.org.id, artistId: A.artist.id, slug: `sectest-live-${RUN}`, title: "Live", artistName: "X", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() - 86400_000), isPublic: true, status: "live" } });
+      const sm = await fetch(`${BASE}/sitemap-releases.xml`);
+      check("release sitemap varies on X-Forwarded-Host", (sm.headers.get("vary") ?? "").toLowerCase().includes("x-forwarded-host") && (sm.headers.get("netlify-vary") ?? "").includes("X-Forwarded-Host"), `${sm.status} ${sm.headers.get("vary")} / ${sm.headers.get("netlify-vary")}`);
+
+      await prisma.preSave.deleteMany({ where: { email: fanU } });
+    }
+    console.log("\n18. Cross-tenant gaps");
+    {
+      // Label A's owner (still signed in from the start; the password changed in section 3, the session didn't).
+      check("A's owner session still works", (await http(ownerA, "GET", "/admin")).status === 200);
+      const leaks = (t: string) => t.includes(`Secret b`) || t.includes(`fan-b-${RUN}`) || t.includes(`B news ${RUN}`) || t.includes(`B download ${RUN}`);
+
+      // ---- News emails: B's id through every news route --------------------------------------------
+      const bNews = await prisma.newsEmail.create({ data: { organizationId: B.org.id, subject: `B news ${RUN}`, body: "For B's fans only", status: "scheduled", scheduledFor: new Date(Date.now() + 7 * 86400_000), createdById: B.owner.id } });
+      const bNewsSame = async () => {
+        const n = await prisma.newsEmail.findUnique({ where: { id: bNews.id } });
+        return !!n && n.organizationId === B.org.id && n.subject === `B news ${RUN}` && n.body === "For B's fans only" && n.status === "scheduled" && !!n.scheduledFor && n.filterReleaseId === null;
+      };
+      const nPatch = await http(ownerA, "PATCH", `/api/admin/news/${bNews.id}`, { subject: "pwned", body: "pwned" });
+      check("A can't edit B's news email", nPatch.status === 404 && !leaks(nPatch.text) && (await bNewsSame()), `got ${nPatch.status}`);
+      const nCancel = await http(ownerA, "POST", `/api/admin/news/${bNews.id}/send`, { action: "cancel" });
+      check("A can't cancel B's scheduled news email", nCancel.status === 404 && !leaks(nCancel.text) && (await bNewsSame()), `got ${nCancel.status}`);
+      const nSend = await http(ownerA, "POST", `/api/admin/news/${bNews.id}/send`, { action: "send" });
+      check("A can't send B's news email", nSend.status === 404 && (await bNewsSame()) && (await prisma.newsEmailDelivery.count({ where: { newsEmailId: bNews.id } })) === 0, `got ${nSend.status}`);
+      const nPage = await http(ownerA, "GET", `/admin/news/${bNews.id}`);
+      check("A can't open B's news email page", nPage.status === 404 && !leaks(nPage.text), `got ${nPage.status}`);
+      const nDel = await http(ownerA, "DELETE", `/api/admin/news/${bNews.id}`);
+      check("A can't delete B's news email", nDel.status === 404 && (await bNewsSame()), `got ${nDel.status}`);
+
+      // ---- News audience filter can't point at B's release ----------------------------------------
+      const aNewsBefore = await prisma.newsEmail.count({ where: { organizationId: A.org.id } });
+      const nCreate = await http(ownerA, "POST", "/api/admin/news", { subject: `A news ${RUN}`, body: "hello", filterReleaseId: B.release.id });
+      check("A's new news email can't target B's release", nCreate.status === 404 && (await prisma.newsEmail.count({ where: { organizationId: A.org.id } })) === aNewsBefore && (await prisma.newsEmail.count({ where: { filterReleaseId: B.release.id } })) === 0, `got ${nCreate.status}`);
+      const aNews = await prisma.newsEmail.create({ data: { organizationId: A.org.id, subject: `A draft ${RUN}`, body: "draft", createdById: A.owner.id } });
+      const nRetarget = await http(ownerA, "PATCH", `/api/admin/news/${aNews.id}`, { subject: "changed", filterReleaseId: B.release.id });
+      const aNewsNow = await prisma.newsEmail.findUnique({ where: { id: aNews.id } });
+      check("A's own news email can't be retargeted at B's release", nRetarget.status === 404 && aNewsNow?.filterReleaseId === null && aNewsNow?.subject === `A draft ${RUN}`, `got ${nRetarget.status} ${aNewsNow?.filterReleaseId}`);
+
+      // ---- Release report + download page --------------------------------------------------------
+      const rep = await http(ownerA, "POST", `/api/admin/releases/${B.release.id}/report`, { action: "enable" });
+      const bRelRep = await prisma.release.findUnique({ where: { id: B.release.id }, select: { reportToken: true, reportSharedAt: true } });
+      check("A can't turn on B's release report", rep.status === 404 && !leaks(rep.text) && bRelRep?.reportToken === null && bRelRep?.reportSharedAt === null, `got ${rep.status}`);
+      const bDl = await prisma.release.create({ data: { organizationId: B.org.id, kind: "download", slug: `sectest-dl-b-${RUN}`, title: `B download ${RUN}`, artistName: "X", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), status: "live", downloadUrl: "https://example.com/b-secret-file.zip" } });
+      const dlPage = await http(ownerA, "GET", `/admin/downloads/${bDl.id}`);
+      const bDlNow = await prisma.release.findUnique({ where: { id: bDl.id } });
+      check("A can't open B's download page", dlPage.status === 404 && !leaks(dlPage.text) && !dlPage.text.includes("b-secret-file") && bDlNow?.organizationId === B.org.id && bDlNow?.title === `B download ${RUN}`, `got ${dlPage.status}`);
+
+      // ---- Roster links ---------------------------------------------------------------------------
+      // B's roster profile, linked to an account in label A (a real cross-label link, so A's people are near it).
+      const bProfile = await prisma.artist.create({ data: { organizationId: B.org.id, name: `B roster ${RUN}`, email: `b-roster-${RUN}@sectest.dev`, linkedUserId: A.artist2.id, linkedAt: new Date() } });
+      const bProfileSame = async () => {
+        const p = await prisma.artist.findUnique({ where: { id: bProfile.id } });
+        return !!p && p.organizationId === B.org.id && p.linkedUserId === A.artist2.id && !!p.linkedAt && p.email === `b-roster-${RUN}@sectest.dev`;
+      };
+      const linkPost = await http(ownerA, "POST", `/api/admin/roster/${bProfile.id}/link`, { email: `hijack-${RUN}@sectest.dev` });
+      check("A can't send a link invite for B's roster profile", linkPost.status === 404 && (await bProfileSame()) && (await prisma.invite.count({ where: { artistProfileId: bProfile.id } })) === 0 && (await prisma.invite.count({ where: { email: `hijack-${RUN}@sectest.dev` } })) === 0, `got ${linkPost.status}`);
+      const linkDel = await http(ownerA, "DELETE", `/api/admin/roster/${bProfile.id}/link`);
+      check("A can't end the link on B's roster profile", linkDel.status === 404 && (await bProfileSame()), `got ${linkDel.status}`);
+      // The artist-side DELETE only finds profiles linked to the caller: A's owner isn't the linked account.
+      const unlink = await http(ownerA, "DELETE", "/api/roster-link", { artistProfileId: bProfile.id });
+      check("a login that isn't the linked account can't end a roster link", unlink.status === 404 && (await bProfileSame()), `got ${unlink.status}`);
+
+      // ---- New releases / downloads can't be filed under B's artist --------------------------------
+      const relSlug = `sectest-xrel-${RUN}`;
+      const relPost = await http(ownerA, "POST", "/api/admin/releases", { title: "Hijack", artistName: "X", coverUrl: "https://example.com/c.jpg", slug: relSlug, releaseDateLocal: "2030-01-01T00:00", artistProfileId: bProfile.id });
+      check("A can't create a release under B's roster profile", relPost.status === 400 && !(await prisma.release.findUnique({ where: { slug: relSlug } })) && (await prisma.release.count({ where: { artistProfileId: bProfile.id } })) === 0, `got ${relPost.status} ${relPost.text}`);
+      const dlSlug = `sectest-xdl-${RUN}`;
+      const dlPost = await http(ownerA, "POST", "/api/admin/downloads", { title: "Hijack", artistName: "X", coverUrl: "https://example.com/c.jpg", slug: dlSlug, downloadUrl: "https://example.com/f.zip", artistProfileId: bProfile.id, steps: [] });
+      check("A can't create a download under B's roster profile", dlPost.status === 400 && !(await prisma.release.findUnique({ where: { slug: dlSlug } })) && (await prisma.release.count({ where: { artistProfileId: bProfile.id } })) === 0, `got ${dlPost.status} ${dlPost.text}`);
+
+      // ---- A's own bio / release, B's link ids ------------------------------------------------------
+      const bBioLinksBefore = await prisma.bioLink.findMany({ where: { bioPageId: B.bio.id }, orderBy: { id: "asc" } });
+      const bRelLinksBefore = await prisma.releaseLink.findMany({ where: { releaseId: B.release.id }, orderBy: { id: "asc" } });
+      const bioPut = await http(ownerA, "PUT", `/api/admin/bio/${A.bio.id}/links`, { links: bBioLinksBefore.map((l) => ({ id: l.id, platform: "custom", url: "https://evil.example/hijack18", visible: false })) });
+      const bBioLinksAfter = await prisma.bioLink.findMany({ where: { bioPageId: B.bio.id }, orderBy: { id: "asc" } });
+      const aBioLinks = await prisma.bioLink.findMany({ where: { bioPageId: A.bio.id } });
+      check("A's bio link save with B's link ids leaves B's links alone", bioPut.status === 200 && bBioLinksBefore.length > 0 && JSON.stringify(bBioLinksAfter) === JSON.stringify(bBioLinksBefore) && aBioLinks.every((l) => !bBioLinksBefore.some((b) => b.id === l.id)), `got ${bioPut.status}`);
+      const relPut = await http(ownerA, "PUT", `/api/admin/releases/${A.release.id}/links`, { links: bRelLinksBefore.map((l) => ({ id: l.id, platform: "spotify", url: "https://evil.example/hijack18", visible: false })) });
+      const bRelLinksAfter = await prisma.releaseLink.findMany({ where: { releaseId: B.release.id }, orderBy: { id: "asc" } });
+      const aRelLinks = await prisma.releaseLink.findMany({ where: { releaseId: A.release.id } });
+      check("A's release link save with B's link ids leaves B's links alone", relPut.status === 200 && bRelLinksBefore.length > 0 && JSON.stringify(bRelLinksAfter) === JSON.stringify(bRelLinksBefore) && aRelLinks.every((l) => !bRelLinksBefore.some((b) => b.id === l.id)), `got ${relPut.status}`);
+
+      // ---- Invites ----------------------------------------------------------------------------------
+      const invDel = await http(ownerA, "DELETE", `/api/admin/artists?inviteId=${B.invite.id}`);
+      check("A deleting B's invite by id is a no-op", invDel.status === 200 && !!(await prisma.invite.findUnique({ where: { id: B.invite.id } })), `got ${invDel.status}`);
+
+      // ---- A non-owner admin can't touch the org's Spotify / SoundCloud apps ------------------------
+      const adminA = await prisma.user.create({ data: { email: `admin18-a-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "admin", organizationId: A.org.id, emailVerifiedAt: new Date() } });
+      const orgCreds = { spotifyClientIdEncrypted: encrypt("c".repeat(32)), spotifyClientSecretEncrypted: encrypt("d".repeat(32)), spotifyAppStatus: "active", spotifyPublicButton: false, soundcloudClientIdEncrypted: encrypt("sc-client-" + RUN), soundcloudClientSecretEncrypted: encrypt("sc-secret-" + RUN), soundcloudAppStatus: "active", soundcloudUserId: "12345", soundcloudUsername: "sectest" };
+      await prisma.organization.update({ where: { id: A.org.id }, data: orgCreds });
+      const orgSame = async () => {
+        const o = await prisma.organization.findUnique({ where: { id: A.org.id } });
+        return !!o && (Object.keys(orgCreds) as (keyof typeof orgCreds)[]).every((k) => o[k] === orgCreds[k]);
+      };
+      const adminJar = await login(adminA.email);
+      check("A's admin can still use label admin", (await http(adminJar, "GET", "/admin")).status === 200);
+      const roleCalls: [string, string, unknown?][] = [
+        ["POST", "/api/admin/org/spotify", { clientId: "e".repeat(32), clientSecret: "f".repeat(32) }],
+        ["PATCH", "/api/admin/org/spotify", { publicButton: true }],
+        ["DELETE", "/api/admin/org/spotify"],
+        ["POST", "/api/admin/org/soundcloud", { clientId: "admin-client-id", clientSecret: "admin-client-secret" }],
+        ["DELETE", "/api/admin/org/soundcloud"],
+      ];
+      for (const [m, p, body] of roleCalls) {
+        const r = await http(adminJar, m, p, body);
+        check(`admin (not owner) ${m} ${p} refused`, r.status === 401 && (await orgSame()), `got ${r.status}`);
+      }
     }
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
