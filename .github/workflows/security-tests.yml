@@ -148,6 +148,9 @@ jobs:
       - name: Dashboard notices
         run: npx tsx scripts/test-platform-messages.ts
 
+      - name: Stripe API version pin
+        run: npx tsx scripts/test-stripe.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
