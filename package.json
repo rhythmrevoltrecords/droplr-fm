@@ -26,7 +26,8 @@
     "test:seo": "tsx --env-file-if-exists=.env scripts/test-seo.ts",
     "test:roster": "tsx --env-file-if-exists=.env scripts/test-roster-link.ts",
     "test:exclusivity": "tsx --env-file-if-exists=.env scripts/test-exclusivity.ts",
-    "test:share": "tsx --env-file-if-exists=.env scripts/test-share.ts"
+    "test:share": "tsx --env-file-if-exists=.env scripts/test-share.ts",
+    "test:guides": "tsx --env-file-if-exists=.env scripts/test-guides.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

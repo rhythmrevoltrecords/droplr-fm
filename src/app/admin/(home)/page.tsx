@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { CreateLinkModal } from "@/components/admin/create-link-modal";
+import { GuideSlot } from "@/components/admin/guide-slot";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -120,6 +121,8 @@ export default async function AdminHome(
         </div>
         <CreateLinkModal releaseLimitReached={atLimit} />
       </div>
+
+      {!releases.length && <GuideSlot guide="walkthrough" />}
 
       {/* Phones: one card per release (a 9-column table is unreadable at 390px). */}
       <div className="space-y-3 md:hidden">

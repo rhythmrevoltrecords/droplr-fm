@@ -138,6 +138,7 @@ model User {
   // Which push notifications this login wants: { milestones, releaseLive, feedback, referrals } (missing = on).
   pushPrefs      Json?
   tourDoneAt     DateTime? // finished or skipped the first-login walkthrough
+  guidesDismissed String[] @default([]) // keys from lib/guides.ts this login has closed; see the migration for why it's an array
   /** Roster rows on other labels that have been granted read access to this account. */
   linkedRosterRows Artist[] @relation("LinkedRoster")
 }

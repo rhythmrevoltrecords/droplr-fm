@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
+import { GuideSlot } from "@/components/admin/guide-slot";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input, Select } from "@/components/ui/input";
@@ -75,6 +76,8 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
           )}
         </div>
       </div>
+
+      <GuideSlot guide="superfans" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[

@@ -30,6 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { getStats, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
+import { GuideSlot } from "@/components/admin/guide-slot";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
@@ -102,6 +103,7 @@ export default async function ReleaseDetail(
       </nav>
       </ScrollActiveIntoView>
 
+      {tab === "links" && <GuideSlot guide="bio-link" />}
       {tab === "links" && (
         <Card>
           <CardHeader>
@@ -123,6 +125,7 @@ export default async function ReleaseDetail(
         />
       )}
 
+      {tab === "variants" && <GuideSlot guide="tracking" />}
       {tab === "variants" && (
         <Card>
           <CardHeader><CardTitle>Link variants</CardTitle><CardDescription>One URL per placement, so every click and pre-save is attributed to its source.</CardDescription></CardHeader>
@@ -134,6 +137,7 @@ export default async function ReleaseDetail(
 
       {tab === "analytics" && (
         <div className="space-y-4">
+          <GuideSlot guide="tracking" />
           <div className="flex flex-wrap items-center justify-between gap-2">
             <RangeTabs base={`/admin/releases/${release.id}?tab=analytics`} days={days} maxDays={plan.insightsDays} />
             {plan.csvExport && (
@@ -197,7 +201,12 @@ export default async function ReleaseDetail(
             date: formatInTz(d, tz, { weekday: "short", day: "numeric", month: "short" }), overdue: day < today, today: day === today, done: doneKeys.has(s.key),
           };
         });
-        return <PromoPlan releaseId={release.id} items={items} automatic={AUTOMATIC} bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null} />;
+        return (
+          <div className="space-y-4">
+            <GuideSlot guide={live ? "after-release" : "checklist"} />
+            <PromoPlan releaseId={release.id} items={items} automatic={AUTOMATIC} bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null} />
+          </div>
+        );
       })()}
 
       {tab === "share" && (async () => {
