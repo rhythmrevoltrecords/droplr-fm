@@ -50,7 +50,7 @@ export default function DataProcessingPage() {
       </Section>
 
       <Section {...s("instructions")}>
-        <p>We process fan data only to provide the service as you configure it, and on your other documented instructions. Your settings and actions in the dashboard are instructions. We&apos;ll tell you if we believe an instruction breaks the law. We won&apos;t use fan data for our own purposes, sell it, or combine it with other labels&apos; data, except in aggregated, de-identified form to secure and improve the service.</p>
+        <p>We process fan data only to provide the service as you configure it, and on your other documented instructions. Your settings and actions in the dashboard are instructions. We&apos;ll tell you if we believe an instruction breaks the law. We won&apos;t use fan data for our own purposes, sell it, or combine it with other labels&apos; data, except in aggregated, de-identified form to secure and improve the service, and to describe how much the service is used overall. That last one means counts and nothing else — how many links, fans and accounts there are across droplr.fm — and no address, name or any other individual detail ever leaves in that form, nor is any label identified.</p>
       </Section>
 
       <Section {...s("label")}>
