@@ -31,6 +31,7 @@
 import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { messagesFor } from "../src/lib/platform-messages";
 import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
 import { createVerificationToken } from "../src/lib/email-verification";
@@ -1506,6 +1507,72 @@ async function main() {
         check(`admin (not owner) ${m} ${p} refused`, r.status === 401 && (await orgSame()), `got ${r.status}`);
       }
     }
+    console.log("\n16. Dashboard notices");
+    {
+      // A notice written for one account must never reach another, and the dismiss route must not
+      // become a way to confirm that somebody else's notice exists. The rows are made directly
+      // rather than through the console route, because the console needs a platform admin and the
+      // isolation being proven here is the read path, which every logged-in account exercises.
+      const mkBroadcast = await prisma.platformMessage.create({
+        data: { body: `Broadcast ${RUN}`, createdBy: "test@sectest.dev" },
+      });
+      const mkForA = await prisma.platformMessage.create({
+        data: { body: `Private to A ${RUN}`, organizationId: A.org.id, createdBy: "test@sectest.dev" },
+      });
+      const revoked = await prisma.platformMessage.create({
+        data: { body: `Pulled ${RUN}`, createdBy: "test@sectest.dev", revokedAt: new Date() },
+      });
+      const future = await prisma.platformMessage.create({
+        data: { body: `Later ${RUN}`, createdBy: "test@sectest.dev", startsAt: new Date(Date.now() + 86_400_000) },
+      });
+      const expired = await prisma.platformMessage.create({
+        data: { body: `Over ${RUN}`, createdBy: "test@sectest.dev", endsAt: new Date(Date.now() - 1000) },
+      });
+      const msgIds = [mkBroadcast.id, mkForA.id, revoked.id, future.id, expired.id];
+
+      try {
+        const forA = await messagesFor({ id: A.owner.id, organizationId: A.org.id });
+        const forB = await messagesFor({ id: B.owner.id, organizationId: B.org.id });
+
+        check("a broadcast reaches both labels", forA.some((m) => m.id === mkBroadcast.id) && forB.some((m) => m.id === mkBroadcast.id));
+        check("a notice for A reaches A", forA.some((m) => m.id === mkForA.id));
+        check("a notice for A never reaches B", !forB.some((m) => m.id === mkForA.id));
+        check("a pulled notice reaches nobody", !forA.some((m) => m.id === revoked.id) && !forB.some((m) => m.id === revoked.id));
+        check("a notice that hasn't started yet reaches nobody", !forA.some((m) => m.id === future.id));
+        check("a notice past its end date reaches nobody", !forA.some((m) => m.id === expired.id));
+        check("a notice carries no author address to the browser", forA.every((m) => !("createdBy" in m)));
+
+        // Dismissal is per login. B's owner dismissing the broadcast must not hide it from A's.
+        const noticeB = await login(B.owner.email);
+        const dismiss = await http(noticeB, "POST", "/api/messages/seen", { id: mkBroadcast.id });
+        check("a logged-in account can dismiss a broadcast", dismiss.status === 200, String(dismiss.status));
+        check("...and it stops showing to them", !(await messagesFor({ id: B.owner.id, organizationId: B.org.id })).some((m) => m.id === mkBroadcast.id));
+        check("...but still shows to the other label", (await messagesFor({ id: A.owner.id, organizationId: A.org.id })).some((m) => m.id === mkBroadcast.id));
+
+        const twice = await http(noticeB, "POST", "/api/messages/seen", { id: mkBroadcast.id });
+        check("dismissing twice is a no-op, not an error", twice.status === 200, String(twice.status));
+
+        const other = await http(noticeB, "POST", "/api/messages/seen", { id: mkForA.id });
+        check("B cannot dismiss a notice written for A, and is told 404 not 403", other.status === 404, String(other.status));
+        check("...and no seen row was written for it", (await prisma.platformMessageSeen.count({ where: { messageId: mkForA.id, userId: B.owner.id } })) === 0);
+
+        const bogus = await http(noticeB, "POST", "/api/messages/seen", { id: `nope-${RUN}` });
+        check("an unknown id is 404, the same as someone else's", bogus.status === 404, String(bogus.status));
+        check("a missing id is 400", (await http(noticeB, "POST", "/api/messages/seen", {})).status === 400);
+        check("dismissing while logged out is 401", (await http(null, "POST", "/api/messages/seen", { id: mkBroadcast.id })).status === 401);
+
+        // Only a platform admin may write one. An ordinary owner must get the console's 404.
+        const write = await http(noticeB, "POST", "/api/platform/messages", { body: `Nice try ${RUN}` });
+        check("an ordinary account cannot write a notice", write.status === 404, String(write.status));
+        const pull = await http(noticeB, "PATCH", "/api/platform/messages", { id: mkBroadcast.id, revoked: true });
+        check("an ordinary account cannot pull one", pull.status === 404, String(pull.status));
+        check("...and neither attempt changed anything", (await prisma.platformMessage.count({ where: { body: `Nice try ${RUN}` } })) === 0 && !(await prisma.platformMessage.findUnique({ where: { id: mkBroadcast.id }, select: { revokedAt: true } }))!.revokedAt);
+        check("writing one logged out is refused too", (await http(null, "POST", "/api/platform/messages", { body: `Anon ${RUN}` })).status === 404);
+      } finally {
+        await prisma.platformMessage.deleteMany({ where: { id: { in: msgIds } } }).catch(() => {});
+      }
+    }
+
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

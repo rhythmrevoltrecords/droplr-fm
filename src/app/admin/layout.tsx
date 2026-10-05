@@ -2,6 +2,8 @@ import { redirect } from "next/navigation";
 import { AppShell } from "@/components/admin/app-shell";
 import { tourSteps } from "@/lib/tour";
 import { CompNotice } from "@/components/admin/comp-notice";
+import { DashboardNotices } from "@/components/admin/dashboard-notices";
+import { messagesFor } from "@/lib/platform-messages";
 import { LegalUpdateNotice } from "@/components/admin/legal-update-notice";
 import { requireUser } from "@/lib/auth";
 import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
@@ -67,6 +69,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       ]}
     >
       {needsReaccept(user.termsVersion) && <LegalUpdateNotice updates={updatesSince(user.termsVersion)} updated={LEGAL.updated} />}
+      <DashboardNotices messages={await messagesFor(user)} />
       {compNotice && org?.compPlan && (
         <CompNotice
           kind={compNotice}

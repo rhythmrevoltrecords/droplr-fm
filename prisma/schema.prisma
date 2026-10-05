@@ -108,6 +108,7 @@ model Organization {
   bioPages  BioPage[]
   artists   Artist[]
   feedbackThreads  FeedbackThread[]
+  platformMessages PlatformMessage[]
   referralsMade    Referral[] @relation("ReferralReferrer")
   referredBy       Referral?  @relation("ReferralReferred")
   newsEmails       NewsEmail[]
@@ -135,6 +136,7 @@ model User {
   artistProfile  Artist? // roster profile this login belongs to (role artist)
   feedbackThreads FeedbackThread[]
   pushSubscriptions PushSubscription[]
+  messagesSeen    PlatformMessageSeen[]
   // Which push notifications this login wants: { milestones, releaseLive, feedback, referrals } (missing = on).
   pushPrefs      Json?
   tourDoneAt     DateTime? // finished or skipped the first-login walkthrough
@@ -967,4 +969,57 @@ model ContestVote {
 
   @@unique([contestId, anonId])
   @@index([entryId])
+}
+
+/**
+ * A notice from droplr.fm shown inside the dashboard: either to one account, or to everyone.
+ *
+ * The Terms already name "a notice in the dashboard" as how we give notice (twice — under
+ * Availability and changes, and under Changes to these terms), so this makes an existing promise
+ * real rather than inventing an obligation. Treat anything sent through it as notice actually
+ * given.
+ *
+ * `organizationId` null means everyone. There is deliberately no "all artists" or "all labels"
+ * audience: two states are easy to reason about and easy to test, three invite a mistake where a
+ * message reaches people it wasn't written for.
+ */
+model PlatformMessage {
+  id             String        @id @default(cuid())
+  title          String?
+  body           String
+  /** Optional single link. Stored apart from the body so nothing has to parse or render markup. */
+  linkUrl        String?
+  linkLabel      String?
+  tone           String        @default("info") // info | good | warn
+  /** null = every account. Otherwise only this one. */
+  organizationId String?
+  organization   Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  startsAt       DateTime      @default(now())
+  endsAt         DateTime?
+  /** Pulled early. Kept rather than deleted so "what did we tell people, and when" survives. */
+  revokedAt      DateTime?
+  createdBy      String
+  createdAt      DateTime      @default(now())
+  seen           PlatformMessageSeen[]
+
+  @@index([organizationId])
+  @@index([createdAt])
+}
+
+/**
+ * One row per login per message dismissed.
+ *
+ * A row rather than a flag on the message, because "everyone has seen it" is not a property of the
+ * message — each person dismisses their own copy. And a row rather than an array on User (which is
+ * what the guide cards use) because messages are unbounded over time while guides are six.
+ */
+model PlatformMessageSeen {
+  messageId String
+  message   PlatformMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  seenAt    DateTime        @default(now())
+
+  @@id([messageId, userId])
+  @@index([userId])
 }
