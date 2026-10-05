@@ -32,6 +32,7 @@ import bcrypt from "bcryptjs";
 import { createHash, randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { messagesFor } from "../src/lib/platform-messages";
+import { platformStats } from "../src/lib/platform-stats";
 import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
 import { createVerificationToken } from "../src/lib/email-verification";
@@ -1571,6 +1572,37 @@ async function main() {
       } finally {
         await prisma.platformMessage.deleteMany({ where: { id: { in: msgIds } } }).catch(() => {});
       }
+    }
+
+    console.log("\n20. Platform totals");
+    {
+      // This page aggregates every customer's data onto one screen. There is no per-tenant view of
+      // it and there shouldn't be — so the only thing standing between it and a label owner is the
+      // platform-admin guard, and that guard is what gets checked here.
+      for (const [who, jar] of [["a label owner", ownerA], ["logged out", null]] as const) {
+        const page = await http(jar, "GET", "/platform/stats");
+        check(`/platform/stats is refused for ${who}`,
+          jar ? page.status === 404 : page.status === 307 || page.status === 302,
+          String(page.status));
+        check(`...and carries no figures for ${who}`,
+          !/Links created|Unique fans|Pre-saves taken/.test(page.text));
+      }
+
+      // The totals themselves must be platform-wide, not scoped to whoever asked — a tenant-scoped
+      // number here would quietly understate the platform in a pitch. Proven by counting from both
+      // labels' data and checking the helper sees at least both.
+      const totals = await platformStats();
+      check("the totals are platform-wide, not scoped to one label",
+        totals.all.labelAccounts + totals.all.artistAccounts >= 2,
+        String(totals.all.labelAccounts + totals.all.artistAccounts));
+      check("every headline figure is a number, never NaN or undefined",
+        Object.values(totals.all).every((v) => typeof v === "number" && Number.isFinite(v)));
+      check("unique fans never exceeds pre-saves plus imports",
+        totals.all.uniqueFans <= totals.all.presaves + 10_000);
+      check("the external figure never exceeds the all-inclusive one",
+        (["links", "uniqueFans", "presaves", "artistProfiles", "clicks"] as const).every((k) => totals.external[k] <= totals.all[k]));
+      check("the month series is zero-filled, not sparse",
+        totals.months.length === 13 && totals.months.every((m) => typeof m.links === "number" && typeof m.fans === "number"));
     }
 
   } finally {

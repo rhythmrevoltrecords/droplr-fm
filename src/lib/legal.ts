@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-10-02",
-  updated: "2 October 2026",
+  version: "2026-10-05",
+  updated: "5 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -86,6 +86,15 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-05",
+    date: "5 October 2026",
+    summary: [
+      "One sentence in the Data Processing Terms, widened so it matches what we actually do. It already let us combine labels' data in aggregated, de-identified form to secure and improve the service; it now also covers describing how much droplr.fm is used overall \u2014 the sort of figure we'd give a prospective partner or put on a page about the platform.",
+      "That means counts and nothing else: how many links, fans and accounts exist across droplr.fm. No address, no name, no individual detail, and no label is identified. Your fan list is still yours and is still never sold, shared or used for our own marketing.",
+      "Nothing new is collected, nothing changed about how your releases or your fans are handled, and no setting of yours is affected.",
+    ],
+  },
   {
     version: "2026-10-02",
     date: "2 October 2026",

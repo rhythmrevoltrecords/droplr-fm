@@ -151,6 +151,9 @@ jobs:
       - name: Stripe API version pin
         run: npx tsx scripts/test-stripe.ts
 
+      - name: Platform totals
+        run: npx tsx scripts/test-platform-stats.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
