@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-10-01",
-  updated: "1 October 2026",
+  version: "2026-10-02",
+  updated: "2 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -86,6 +86,17 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-02",
+    date: "2 October 2026",
+    summary: [
+      "Short how-to videos now appear inside the dashboard, next to the thing they explain. They're hosted on YouTube, and a card shows only a still picture and a play button — nothing loads from Google until you press play, and you can close any card for good.",
+      "Privacy: a new section says exactly what YouTube receives when you do press play — your IP address, your browser and device, and the page you were on — and that we never send it your name, your email or anything from your account. We use Google's reduced-tracking youtube-nocookie address.",
+      "We also used this to disclose something that was already there and shouldn't have been undisclosed: on a public release page running a remix contest, an entry hosted on YouTube is embedded in the same way, and that one loads as you scroll to it rather than waiting for a click. That is the one place a fan, rather than an account holder, meets a third-party player on droplr.fm. The Cookie Policy says the same thing in its own words.",
+      "The Cookie Policy's line that no third-party content runs in the dashboard has been corrected rather than left to go stale: no pixel ever loads there, and the only third-party content is a video player, only after you press play.",
+      "Nothing new is collected by us. The videos are help content and are on every plan.",
+    ],
+  },
   {
     version: "2026-10-01",
     date: "1 October 2026",

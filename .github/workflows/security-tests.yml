@@ -142,6 +142,9 @@ jobs:
       - name: Share graphics
         run: npx tsx scripts/test-share.ts
 
+      - name: In-app guides
+        run: npx tsx scripts/test-guides.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
