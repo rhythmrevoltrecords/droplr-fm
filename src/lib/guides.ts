@@ -41,7 +41,8 @@ export const GUIDES: Guide[] = [
     key: "walkthrough",
     title: "The full droplr walkthrough",
     blurb: "Every tab, in order, from a blank account to release day.",
-    // Runtime deliberately unset: nobody has read it off the video yet.
+    // Read off the scheduled upload in YouTube Studio on 5 Oct, not estimated.
+    runtime: "3:59",
     youTubeId: "pgSIW6lZ0Lo",
     publishAt: "2026-10-06T09:00:00+10:00",
   },
@@ -57,7 +58,7 @@ export const GUIDES: Guide[] = [
     key: "superfans",
     title: "Casual Listeners to Superfans",
     blurb: "Turning a pre-save into someone who opens your emails.",
-    runtime: "2:30",
+    runtime: "2:31",
     youTubeId: "NVu8gt_8TDk",
     publishAt: "2026-10-20T09:00:00+10:00",
   },
@@ -73,7 +74,7 @@ export const GUIDES: Guide[] = [
     key: "tracking",
     title: "Which Post Actually Brought Your Fans?",
     blurb: "Reading the numbers so the next post is a decision, not a guess.",
-    runtime: "2:00",
+    runtime: "2:01",
     youTubeId: "Q_YQBMDVIgg",
     publishAt: "2026-11-03T09:00:00+10:00",
   },
