@@ -97,6 +97,23 @@ npm run dev                  # leave running
 npm run test:security        # in another shell
 ```
 
+**If a run dies partway with `ECONNRESET`, the server recycled itself — it is not the route that was
+being tested.** `next dev` compiles routes on demand and this suite walks nearly all of them, past
+2,900 modules in one pass, and Node's default heap doesn't survive it: the dev server hits its own
+watchdog ("Server is approaching the used memory threshold, restarting…") and drops the in-flight
+request. `npm run dev` now sets `--max-old-space-size=8192` for exactly this reason. Read the dev
+server's own output before suspecting the code — on 5 Oct that mistake cost three debugging cycles,
+and the route it framed answered a direct `curl` with a clean 404 the whole time.
+
+**Closer to CI: test a production build instead.** CI runs `npm run build` first, which is why it has
+never hit the memory ceiling. Locally that is slower to start and far steadier to run:
+
+```bash
+npm run build
+npm start
+npm run test:security        # in another shell
+```
+
 Every `test:*` script loads `.env` itself (`--env-file-if-exists`). It has to: Next.js and the Prisma
 CLI read `.env` automatically, but a bare `tsx script.ts` does not, and the failure looks like a
 missing database rather than a missing env file. The three pure suites — `test:metadata`,
