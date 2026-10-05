@@ -28,7 +28,8 @@
     "test:exclusivity": "tsx --env-file-if-exists=.env scripts/test-exclusivity.ts",
     "test:share": "tsx --env-file-if-exists=.env scripts/test-share.ts",
     "test:guides": "tsx --env-file-if-exists=.env scripts/test-guides.ts",
-    "test:messages": "tsx --env-file-if-exists=.env scripts/test-platform-messages.ts"
+    "test:messages": "tsx --env-file-if-exists=.env scripts/test-platform-messages.ts",
+    "test:stripe": "tsx --env-file-if-exists=.env scripts/test-stripe.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

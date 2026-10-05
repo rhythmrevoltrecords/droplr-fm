@@ -11,11 +11,36 @@ export function stripeTestMode() {
   return (process.env.STRIPE_SECRET_KEY ?? "").startsWith("sk_test_");
 }
 
+/**
+ * The Stripe API version this app is written against, pinned on purpose.
+ *
+ * Without this, `new Stripe(key)` falls back to whatever version the installed SDK pins
+ * (`stripe.core.js`: `props.apiVersion || DEFAULT_API_VERSION`) and sends it as the `Stripe-Version`
+ * header — so bumping the stripe package to a new major silently changes the API version that live
+ * checkout, the customer portal, subscription reads and the webhook handler all talk to. That is a
+ * billing change wearing a dependency bump's clothes.
+ *
+ * Pinning it here makes the two separate decisions: upgrading the SDK gets you new types and new
+ * methods, and moving the API version is its own deliberate change with its own testing.
+ *
+ * This value is the one stripe-node 22.6.2 already sent, so setting it changes nothing today.
+ *
+ * **To move it:** read Stripe's upgrade notes for every version in between, check the objects this
+ * app actually reads — `checkout.session`, `customer.subscription`, `price`, `coupon`,
+ * `promotion_code` — then change it here and exercise a real checkout in Stripe test mode on a
+ * deploy preview before it reaches main.
+ *
+ * The cast is deliberate: Stripe types `apiVersion` as the literal the *installed* SDK pins, so the
+ * moment the package is upgraded past this version the literal stops matching. That mismatch is the
+ * entire point of pinning, so it is asserted rather than chased.
+ */
+export const STRIPE_API_VERSION = "2026-08-26.dahlia";
+
 /** Lazy so a missing STRIPE_SECRET_KEY never breaks the build or unrelated pages. */
 export function getStripe(): Stripe {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
-  client ??= new Stripe(key);
+  client ??= new Stripe(key, { apiVersion: STRIPE_API_VERSION as Stripe.LatestApiVersion });
   return client;
 }
 
