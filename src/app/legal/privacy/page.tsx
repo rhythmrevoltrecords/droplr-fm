@@ -62,7 +62,7 @@ export default function PrivacyPage() {
           <li><strong>Support and feedback</strong>: what you tell us when you email us, and the messages in any feedback conversation you start in the dashboard, with your account and login attached.</li>
           <li><strong>Notifications</strong>: if you turn them on, the push subscription your browser creates for that device (an address at your device&apos;s push service, plus the keys needed to encrypt a message to it), which notification types you want, and when the device was added. We don&apos;t receive your phone number or device ID.</li>
           <li><strong>Invitations and referrals</strong>: invite links we or a label create, the email address they were sent to, when they were used, and which account signed up through a referral link.</li>
-          <li><strong>Product state</strong>: small settings such as whether you&apos;ve finished the walkthrough, so we don&apos;t show it again.</li>
+          <li><strong>Product state</strong>: small settings such as whether you&apos;ve finished the walkthrough, and which dashboard notices and help cards you&apos;ve closed, so we don&apos;t show them again.</li>
         </ul>
 
         <h3>From fans (on behalf of labels)</h3>
