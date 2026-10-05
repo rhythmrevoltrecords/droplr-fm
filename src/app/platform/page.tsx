@@ -1,5 +1,6 @@
 import { AccountKindControl, DomainAccessControl, CompPlanControl } from "@/components/admin/comp-plan-control";
 import { PlatformChrome } from "@/components/platform/platform-chrome";
+import { MessageComposer } from "@/components/platform/message-composer";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
@@ -35,6 +36,22 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
   // It fills quietly, so it's counted here rather than discovered when someone's domain won't go live.
   const aliases = await aliasUsage();
 
+  // Recent notices, with how many people have dismissed each — the only read-back there is on
+  // whether anyone saw one, and the reason the seen table is worth having.
+  const sent = (
+    await prisma.platformMessage.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: { id: true, title: true, body: true, createdAt: true, revokedAt: true, organization: { select: { name: true } }, _count: { select: { seen: true } } },
+    })
+  ).map((m) => ({
+    id: m.id, title: m.title, body: m.body,
+    orgName: m.organization?.name ?? null,
+    createdAt: m.createdAt.toISOString(),
+    revokedAt: m.revokedAt ? m.revokedAt.toISOString() : null,
+    seenCount: m._count.seen,
+  }));
+
   return (
     <PlatformChrome email={admin.email} active="accounts">
         <div className="flex flex-wrap items-end justify-between gap-3">
@@ -47,6 +64,8 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
             <button className="h-9 rounded-lg border px-3 text-sm hover:bg-accent">Search</button>
           </form>
         </div>
+        <MessageComposer orgs={orgs.map((o) => ({ id: o.id, name: o.name, kind: o.kind }))} sent={sent} />
+
         {aliases.warn && (
           <Card className="border-amber-500/40 bg-amber-500/5 p-4 text-sm">
             <strong className="text-foreground">Custom hostnames: {aliases.used} of {aliases.budget} used, {aliases.free} left.</strong>{" "}

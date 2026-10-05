@@ -145,6 +145,9 @@ jobs:
       - name: In-app guides
         run: npx tsx scripts/test-guides.ts
 
+      - name: Dashboard notices
+        run: npx tsx scripts/test-platform-messages.ts
+
       - name: Stripe API version pin
         run: npx tsx scripts/test-stripe.ts
 
