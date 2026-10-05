@@ -1507,7 +1507,7 @@ async function main() {
         check(`admin (not owner) ${m} ${p} refused`, r.status === 401 && (await orgSame()), `got ${r.status}`);
       }
     }
-    console.log("\n16. Dashboard notices");
+    console.log("\n19. Dashboard notices");
     {
       // A notice written for one account must never reach another, and the dismiss route must not
       // become a way to confirm that somebody else's notice exists. The rows are made directly
