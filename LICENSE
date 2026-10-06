@@ -1,0 +1,40 @@
+Copyright (c) 2026 Cody Morrison, trading as Rhythm Revolt Records.
+All rights reserved.
+
+This source code is published publicly so that it can be read, audited and
+security-reviewed. It is NOT open source, and no licence to use it is granted.
+
+YOU MAY:
+
+  - view and read this source code;
+  - fork this repository on GitHub only so far as is necessary to open an issue
+    or a pull request against it;
+  - quote short excerpts for commentary, review, teaching or security reporting,
+    with attribution.
+
+YOU MAY NOT, without prior written permission from the copyright holder:
+
+  - copy, reproduce, publish or redistribute this source code, or any
+    substantial part of it;
+  - modify it, or create derivative works from it;
+  - use it, in whole or in part, to build or operate any service, product,
+    or internal tool, whether or not for commercial gain;
+  - use it as training data for machine learning models.
+
+Absence of a permissive licence is deliberate. Public visibility is not
+permission. If you want to use any of this, ask — permission is sometimes
+given, and costs nothing to request.
+
+TRADEMARKS. No trademark or brand rights are granted by this file. "droplr",
+"droplr.fm" and "Rhythm Revolt Records", together with the associated logos and
+wordmarks, are not licensed here and may not be used to identify any derived or
+competing service.
+
+NO WARRANTY. This software is provided "as is", without warranty of any kind,
+express or implied, including but not limited to the warranties of
+merchantability, fitness for a particular purpose and non-infringement. In no
+event shall the copyright holder be liable for any claim, damages or other
+liability, whether in an action of contract, tort or otherwise, arising from,
+out of or in connection with this software or its use.
+
+Permission requests and licensing enquiries: https://droplr.fm
