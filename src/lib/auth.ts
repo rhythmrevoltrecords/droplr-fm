@@ -1,3 +1,4 @@
+import { cache } from "react";
 import "server-only";
 import bcrypt from "bcryptjs";
 import { cookies } from "next/headers";
@@ -71,7 +72,7 @@ export async function getSession() {
  * no organization (e.g. a hand-made test account). Database errors are NOT swallowed: those should
  * surface as a real error, not as a silent logout loop.
  */
-export async function getCurrentUser() {
+export const getCurrentUser = cache(async function getCurrentUser() {
   const s = await getSession();
   if (!s?.sub || typeof s.sub !== "string") return null;
   const [user, revoked] = await Promise.all([
@@ -83,7 +84,7 @@ export async function getCurrentUser() {
   // Revoked by a password change/reset or "sign out everywhere".
   if (user.sessionsValidFrom && (typeof s.iat !== "number" || s.iat * 1000 < user.sessionsValidFrom.getTime())) return null;
   return user as typeof user & { organization: NonNullable<typeof user.organization> };
-}
+});
 
 export const isLabelRole = (role: string) => role === "owner" || role === "admin";
 
