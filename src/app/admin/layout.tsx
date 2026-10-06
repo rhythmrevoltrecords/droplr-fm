@@ -6,6 +6,7 @@ import { DashboardNotices } from "@/components/admin/dashboard-notices";
 import { messagesFor } from "@/lib/platform-messages";
 import { LegalUpdateNotice } from "@/components/admin/legal-update-notice";
 import { requireUser } from "@/lib/auth";
+import { SwRegister } from "@/components/admin/sw-register";
 import { LEGAL, needsReaccept, updatesSince } from "@/lib/legal";
 import { compNoticeFor } from "@/lib/plan-copy";
 import { planOf } from "@/lib/plans";
@@ -81,6 +82,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           code={org.founderCode}
         />
       )}
+      <SwRegister />
       {children}
     </AppShell>
   );

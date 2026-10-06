@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { CreateLinkModal } from "@/components/admin/create-link-modal";
 import { GuideSlot } from "@/components/admin/guide-slot";
@@ -34,9 +35,11 @@ export default async function AdminHome(
   const ids = releases.map((r) => r.id);
   // Grants go in the same Promise.all rather than after it: almost every account has none, and
   // a serial round trip to find that out is a round trip every label pays for nothing.
-  const [totals, stats, dueWork, grants] = await Promise.all([
+  // Analytics is the heaviest query and nothing above it depends on the result, so it streams
+  // separately: the release table paints as soon as its own data lands instead of waiting for
+  // the heatmap, the source table and the platform breakdown to finish.
+  const [totals, dueWork, grants] = await Promise.all([
     releaseTotals(ids),
-    getStats(ids, days, user.organization.timezone),
     duePromoWork(user.organizationId),
     grantsFor(user.id),
   ]);
@@ -197,8 +200,32 @@ export default async function AdminHome(
           <h2 className="text-lg font-semibold">{org.kind === "artist" ? "Analytics" : "Label analytics"}</h2>
           <RangeTabs base="/admin" days={days} maxDays={maxDays} />
         </div>
-        <AnalyticsPanels stats={stats} showArtists={org.kind !== "artist"} />
+        <Suspense fallback={<PanelsSkeleton />}>
+          <AnalyticsSection ids={ids} days={days} timezone={org.timezone} showArtists={org.kind !== "artist"} />
+        </Suspense>
       </section>
+    </div>
+  );
+}
+
+/** Streams in after the release table. Its own await, so it never delays what sits above it. */
+async function AnalyticsSection(
+  { ids, days, timezone, showArtists }: { ids: string[]; days: Parameters<typeof getStats>[1]; timezone: string; showArtists: boolean },
+) {
+  const stats = await getStats(ids, days, timezone);
+  return <AnalyticsPanels stats={stats} showArtists={showArtists} />;
+}
+
+/** Holds the same vertical space the panels take, so nothing jumps when they arrive. */
+function PanelsSkeleton() {
+  return (
+    <div className="space-y-4" aria-hidden>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Card key={i} className="h-[88px] animate-pulse bg-muted/30" />
+        ))}
+      </div>
+      <Card className="h-[260px] animate-pulse bg-muted/30" />
     </div>
   );
 }
