@@ -1,6 +1,10 @@
 # droplr.fm
 
-Pre-saves and smart links for independent labels. Self-hostable on Netlify, and sellable as SaaS.
+Pre-saves and smart links for independent labels. Runs on Netlify and Neon, multi-tenant from the ground up, and built to be operated as a paid service.
+
+> **Licence: proprietary — all rights reserved.** This repository is public so the code can be
+> read and audited. It is not open source and no licence to use, copy or deploy it is granted.
+> See [LICENSE](LICENSE). Permission requests: https://droplr.fm
 
 - **Smart links**: paste a Spotify link and the UPC. Apple Music and Deezer are found automatically. Beatport, Traxsource, Bandcamp, Juno, Audius and custom buttons (Merch & Vinyl, Dubplate Download) get the same size button as Spotify, and any link can be hidden, renamed or given its own button text.
 - **Email pre-save + release-day email** (every plan): fans leave an email, and on release day the hourly job emails them one-tap platform links through Resend.
@@ -297,3 +301,15 @@ src/app/admin/…  src/app/dashboard        label + artist UIs
 - The iTunes Lookup and Deezer endpoints couldn't be reached from the build sandbox, so store lookups were tested against mocked responses. Test one real released UPC after deploy. iTunes `lookup?isrc=` isn't in Apple's published docs, so UPC is the reliable path.
 - No rate limiting on the email form beyond a honeypot. Add Netlify rate-limit rules before launch.
 - Stripe billing, API/webhooks and SSO aren't built.
+
+---
+
+## Licence
+
+Copyright (c) 2026 Cody Morrison, trading as Rhythm Revolt Records. All rights reserved.
+
+This code is published so it can be read, audited and security-reviewed — **not** so it can be
+reused. There is no open-source licence here, and public visibility is not permission. Full terms
+in [LICENSE](LICENSE).
+
+If you want to use part of it, ask. Permission is sometimes given and costs nothing to request.
