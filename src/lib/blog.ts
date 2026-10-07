@@ -33,11 +33,8 @@ export type Post = {
   publishAt: string;
   body: Block[];
   /**
-   * Where the facts came from. The article names each outlet inline; these are the links.
-   *
-   * EMPTY ON PURPOSE: a citation needs the actual article URL, and inventing one would be worse
-   * than having none. Paste the four links in — the SDNY release and Music Business Worldwide for
-   * the first post, the AGCM announcement and Music Week for the second — and they render.
+   * Where the facts came from. The article names each outlet inline; these are the links, and they
+   * are the whole argument: a post that says "go and check" has to be checkable.
    */
   sources: { label: string; url: string }[];
 };
@@ -80,7 +77,12 @@ export const POSTS: Post[] = [
       { p: "That's why I built droplr. It's pre-saves, smart links and download gates for independent artists and labels, and the point of all three is the same. When someone shows up, you get a real fan you can reach again, not just a number on a dashboard. It's one person running it, which is a downside, and I'd rather say that than have you find out." },
       { p: "Fake streams shrink the pot. Real fans are the only growth nobody can take off you." },
     ],
-    sources: [],
+    sources: [
+      { label: "US Department of Justice \u2014 the guilty plea (March 2026)", url: "https://www.justice.gov/usao-sdny/pr/north-carolina-man-pleads-guilty-music-streaming-fraud-aided-artificial-intelligence-0" },
+      { label: "Rolling Stone \u2014 the 18-month sentence", url: "https://www.rollingstone.com/music/music-news/mike-smith-sentence-18-months-music-streaming-fraud-1235636944/" },
+      { label: "Music Business Worldwide \u2014 the pro-rata maths and the rule change", url: "https://www.musicbusinessworldwide.com/an-8m-streaming-fraud-two-plays-a-day-heres-the-pro-rata-math-behind-the-bot-scheme-and-the-rule-change-that-would-have-killed-it/" },
+      { label: "Complete Music Update \u2014 the sentencing letters", url: "https://completemusicupdate.com/streaming-fraud-is-fuelled-by-perceived-lack-of-a-legal-risk-industry-stakeholders-tell-judge-in-michael-smith-sentencing/" },
+    ],
   },
   {
     slug: "suno-terms-of-service-investigation",
@@ -129,7 +131,10 @@ export const POSTS: Post[] = [
       { p: "Question five is the whole reason droplr exists. Pre-saves, smart links and download gates that turn listeners into fans you can actually reach, by email, whatever tools you used to make the track." },
       { p: "Make it with whatever you like. Just read what you agreed to, and own the relationship with the people who listen." },
     ],
-    sources: [],
+    sources: [
+      { label: "AGCM \u2014 the press release opening the case (Italian)", url: "https://www.agcm.it/media/comunicati-stampa/2026/10/CV278" },
+      { label: "Music Week \u2014 Italian watchdog investigates Suno over user terms", url: "https://musicweek.com/digital/read/italian-watchdog-investigates-suno-over-user-terms/095166" },
+    ],
   },
 ];
 
