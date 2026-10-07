@@ -44,7 +44,7 @@ export default function CookiePolicyPage() {
           <li><strong>TikTok Pixel</strong>. See <a href="https://www.tiktok.com/legal/privacy-policy" rel="noreferrer">TikTok&apos;s Privacy Policy</a>.</li>
           <li><strong>Google Analytics 4</strong>. See <a href="https://policies.google.com/privacy" rel="noreferrer">Google&apos;s Privacy Policy</a>.</li>
         </ul>
-        <p>When a label has added one, that company&apos;s script loads on the label&apos;s page. It may set its own cookies (such as <code>_fbp</code>, <code>_ttp</code> or <code>_ga</code>) and receive information about your visit and which button you clicked, which the label uses to measure and target its ads. The label and that company are responsible for that data, not droplr.fm. No pixel ever loads on the droplr.fm dashboard or marketing site — the only third-party content in the dashboard is an embedded video player, and only once you press play on one. See <Link href="#embeds">Embedded video</Link>.</p>
+        <p>When a label has added one, that company&apos;s script loads on the label&apos;s page. It may set its own cookies (such as <code>_fbp</code>, <code>_ttp</code> or <code>_ga</code>) and receive information about your visit and which button you clicked, which the label uses to measure and target its ads. The label and that company are responsible for that data, not droplr.fm. No pixel ever loads on the droplr.fm dashboard or marketing site. The only third-party content on either is an embedded video player — in the dashboard, and on a news post on this site — and in both the player loads only once you press play on it. See <Link href="#embeds">Embedded video</Link>.</p>
       </Section>
 
       <Section {...s("labels")}>
@@ -52,9 +52,9 @@ export default function CookiePolicyPage() {
       </Section>
 
       <Section {...s("embeds")}>
-        <p>Some pages show a video that is hosted on YouTube: the &quot;Watch the guide&quot; cards in your dashboard, and remix contest entries on a public release page where the entrant&apos;s track allows a player.</p>
+        <p>Some pages show a video that is hosted on YouTube: the &quot;Watch the guide&quot; cards in your dashboard, the news posts on this site, and remix contest entries on a public release page where the entrant&apos;s track allows a player.</p>
         <ul>
-          <li>A guide card shows a still picture and a play button. <strong>The player — and anything it stores — only loads when you press play.</strong> Until then nothing from Google runs on the page.</li>
+          <li>A guide card, and the player on a news post, show a still picture and a play button. <strong>The player — and anything it stores — only loads when you press play.</strong> Until then nothing from Google <em>runs</em> on the page, though the still picture itself is fetched from YouTube&apos;s image servers, which is a request for a picture and sets no cookies.</li>
           <li>We load those players from <code>youtube-nocookie.com</code>. Google describes this as not setting cookies used to build an advertising profile from a video you watch. It is not the same as setting nothing: Google still receives the request, and it may store something in your browser for playback itself.</li>
           <li>A contest entry&apos;s player loads as you scroll to it rather than on a click, so on those pages the connection happens without one.</li>
         </ul>
