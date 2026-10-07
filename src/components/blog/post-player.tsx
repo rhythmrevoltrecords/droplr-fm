@@ -42,7 +42,7 @@ export function PostPlayer({ post }: { post: Post }) {
         )}
       </div>
       <figcaption className="flex items-center justify-between gap-3 border-t px-4 py-2.5 text-xs text-muted-foreground">
-        <span>Watch instead — {post.runtime}</span>
+        <span>Watch instead — {post.runtime} · narrated with an AI voice</span>
         <a href={postWatchUrl(post)} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 hover:text-foreground">
           Open on YouTube <ExternalLink className="h-3 w-3" aria-hidden />
         </a>
