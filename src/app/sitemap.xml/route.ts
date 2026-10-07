@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { SITE_URL } from "@/lib/env";
+import { livePosts } from "@/lib/blog";
 import { GUIDES } from "@/lib/learn";
 import { LEGAL, LEGAL_DOCS } from "@/lib/legal";
 import { robotsAudience } from "@/lib/seo";
@@ -30,6 +31,7 @@ export async function GET() {
     { loc: url("/"), lastmod: now, changefreq: "weekly", priority: 1 },
     { loc: url("/pricing"), lastmod: now, changefreq: "weekly", priority: 0.9 },
     { loc: url("/learn"), lastmod: now, changefreq: "weekly", priority: 0.9 },
+    { loc: url("/blog"), lastmod: now, changefreq: "weekly", priority: 0.9 },
     { loc: url("/signup"), lastmod: now, changefreq: "monthly", priority: 0.7 },
     // The guides are the funnel. lastmod is the date each guide's facts were last checked
     // against the official sources, which is the honest answer and the one that matters.
@@ -38,6 +40,14 @@ export async function GET() {
       lastmod: parseOr(g.checked, now),
       changefreq: "monthly" as const,
       priority: 0.8,
+    })),
+    // News posts. lastmod is the publish date, which for a post is also the day its facts were
+    // true: these report a case or an investigation as it stood, and are not edited afterwards.
+    ...livePosts(now).map((p) => ({
+      loc: url(`/blog/${p.slug}`),
+      lastmod: parseOr(p.publishAt, now),
+      changefreq: "yearly" as const,
+      priority: 0.7,
     })),
     ...["/docs/custom-domain", "/docs/spotify-byo"].map((p) => ({
       loc: url(p),

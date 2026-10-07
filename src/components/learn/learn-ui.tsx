@@ -6,7 +6,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { GUIDES, LEGAL_NOTE, type Block, type Guide } from "@/lib/learn";
 
 /** One content block. Same renderer for the public intro and the members part. */
-function Blocks({ blocks }: { blocks: Block[] }) {
+export function Blocks({ blocks }: { blocks: Block[] }) {
   return (
     <div className="space-y-5 leading-relaxed text-muted-foreground">
       {blocks.map((b, i) => {

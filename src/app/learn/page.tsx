@@ -27,6 +27,13 @@ export default function LearnIndex() {
           <p className="mt-1 text-sm text-muted-foreground">A droplr account gets you the complete knowledge board and the printable templates, plus pre-save pages, a fan list and a promo plan for your releases.</p>
           <Link href={cta.primary.href} className="mt-4 inline-flex rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-black hover:bg-white/90">{cta.primary.label}</Link>
         </div>
+        <div className="mt-10 rounded-2xl border p-6">
+          <h2 className="text-lg font-semibold">What’s happening right now</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            The guides above are the stuff that stays true. For the news that moves — streaming fraud, AI tools,
+            what the platforms just changed — there’s <Link href="/blog" className="underline hover:text-foreground">News</Link>.
+          </p>
+        </div>
         <p className="mt-8 text-xs text-muted-foreground">{LEGAL_NOTE}</p>
       </div>
     </MarketingShell>
