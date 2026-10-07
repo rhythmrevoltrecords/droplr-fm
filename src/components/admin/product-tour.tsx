@@ -128,12 +128,12 @@ export function ProductTour({ steps }: { steps: TourStep[] }) {
           style={{ ...box, boxShadow: "0 0 0 9999px rgba(0,0,0,0.62), 0 0 40px -6px rgba(139,92,246,0.9)" }}
         />
       )}
-      <div className="absolute inset-x-3 mx-auto max-w-sm rounded-2xl border border-white/10 bg-[#15121f] p-5 shadow-[0_24px_60px_-12px_rgba(0,0,0,.85)] sm:inset-x-6" style={cardStyle}>
+      <div className="tour-card absolute inset-x-3 mx-auto max-w-sm rounded-2xl border border-white/10 bg-[#15121f] p-5 shadow-[0_24px_60px_-12px_rgba(0,0,0,.85)] sm:inset-x-6" style={cardStyle}>
         <div className="flex items-start justify-between gap-3">
           <p className="text-xs text-muted-foreground">Step {i + 1} of {steps.length}</p>
           <button onClick={() => void finish()} className="text-muted-foreground hover:text-foreground" aria-label="Skip"><X className="h-4 w-4" /></button>
         </div>
-        <h2 className="mt-2 font-semibold">{step.title}</h2>
+        <h2 className="mt-2 font-semibold text-foreground">{step.title}</h2>
         <p className="mt-1.5 text-sm leading-relaxed text-muted-foreground">{step.body}</p>
         <div className="mt-4 flex items-center gap-2">
           {i > 0 && <Button variant="ghost" size="sm" onClick={() => setI(i - 1)}>Back</Button>}
