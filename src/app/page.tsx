@@ -6,6 +6,7 @@ import { SectionScrollTarget } from "@/components/marketing/section-link";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
+import { livePosts } from "@/lib/blog";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
 import { platformMeta } from "@/lib/platforms";
@@ -235,7 +236,11 @@ function Bento() {
 
 /* ---------- Page ---------- */
 
+/** Posts appear on their publishAt, so the homepage cannot be baked once at build time. */
+export const revalidate = 300;
+
 export default function Landing() {
+  const news = livePosts(new Date()).slice(0, 2);
   const cta = ctaCopy();
   const tiers = pricingTiers();
   const faqs: { q: string; a: React.ReactNode }[] = [
@@ -366,6 +371,34 @@ export default function Landing() {
           ))}
         </div>
       </section>
+
+      {/* News. Hidden entirely until there is something to show: an empty strip is worse than none. */}
+      {news.length > 0 && (
+        <section className="container scroll-mt-16 py-24">
+          <div className="mk-reveal flex flex-wrap items-end justify-between gap-4">
+            <div className="max-w-2xl">
+              <Eyebrow>News</Eyebrow>
+              <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">What happened, and what it means for you.</h2>
+              <p className="mt-4 text-lg text-white/60">Short, sourced explainers on the music-business news that actually reaches independent artists. Watch it or read it.</p>
+            </div>
+            <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-white/60 transition-colors hover:text-white">
+              All news <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
+          <div className="mt-12 grid gap-4 md:grid-cols-2">
+            {news.map((p) => (
+              <Link key={p.slug} href={`/blog/${p.slug}`} className="mk-card mk-reveal group p-6">
+                <span className="text-xs text-white/50">{p.tag} · {p.minutes} min read · {p.runtime} to watch</span>
+                <h3 className="mt-2.5 text-balance text-lg font-semibold">{p.title}</h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-white/60">{p.summary}</p>
+                <span className="mt-4 inline-flex items-center gap-1.5 text-sm text-violet-200 transition-colors group-hover:text-white">
+                  Read it <ArrowRight className="h-4 w-4" aria-hidden />
+                </span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Pricing */}
       <section id="pricing" className="relative scroll-mt-16 overflow-hidden border-y border-white/5 bg-white/[0.015]">
