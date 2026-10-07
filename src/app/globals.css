@@ -220,6 +220,25 @@
   .theme-system .admin-surface { background-color: hsl(var(--background)); }
 }
 
+/* The walkthrough card is deliberately dark in every theme: it sits on a dimmed overlay and reads
+   as a spotlight. Without this it inherited the light theme's near-black --foreground, which put
+   black text on a dark purple card. Re-declare the dark tokens so the heading, body and the ghost
+   Back button all resolve against the card, not against the page behind it. */
+.tour-card {
+  --foreground: 0 0% 98%;
+  --muted-foreground: 240 5% 72%;
+  --accent: 240 5% 18%;
+  --accent-foreground: 0 0% 98%;
+  --secondary: 240 5% 16%;
+  --secondary-foreground: 0 0% 98%;
+  --primary: 258 90% 66%;
+  --primary-foreground: 0 0% 100%;
+  --border: 240 5% 22%;
+  --ring: 258 90% 66%;
+  color-scheme: dark;
+  color: hsl(var(--foreground));
+}
+
 /* ---------- Data viz tokens (validated: categorical slots 1–3, blue sequential ramp) ----------
    Dark is the default admin theme; light values apply under .theme-light and .theme-system (OS light). */
 :root {
