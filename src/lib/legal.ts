@@ -14,7 +14,7 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-10-05",
+  version: "2026-10-07",
   updated: "5 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
@@ -86,6 +86,16 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-07",
+    date: "7 October 2026",
+    summary: [
+      "droplr.fm now has a news section at /blog: short written explainers on music-business news, each with the video of it on the page.",
+      "Privacy and the Cookie Policy: those posts carry a YouTube player, so YouTube is now reachable from a page on the public site as well as from the dashboard and a contest release page. The player behaves like a guide card \u2014 a still picture, and nothing from the player until you press play \u2014 and the whole post is written out, so it reads the same if you never press play or if a content blocker stops the embed.",
+      "The Cookie Policy's line about the marketing site has been corrected rather than left to go stale: no pixel loads there, and the only third-party content is that player, after a click.",
+      "Nothing new is collected by us, nothing changed about your releases, your fans or your plan, and no setting of yours is affected.",
+    ],
+  },
   {
     version: "2026-10-05",
     date: "5 October 2026",
