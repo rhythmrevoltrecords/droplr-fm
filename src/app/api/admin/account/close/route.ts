@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
-import { closeAccount, closeConfirmationMatches } from "@/lib/account-close";
+import { closeConfirmationMatches } from "@/lib/account-close";
+import { closeAccount } from "@/lib/account-close-server";
 import { apiUser, clearSession } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";

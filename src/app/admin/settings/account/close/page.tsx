@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CloseAccountForm } from "@/components/admin/close-account-form";
-import { closeSummary } from "@/lib/account-close";
+import { closeSummary } from "@/lib/account-close-server";
 import { requireUser } from "@/lib/auth";
 import { CONTACT } from "@/lib/legal";
 

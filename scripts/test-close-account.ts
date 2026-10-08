@@ -8,7 +8,7 @@
  * that, nothing fails: the delete succeeds, the orphan sits there, and nobody finds out. This
  * suite is what finds out.
  */
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { closeConfirmationMatches } from "../src/lib/account-close";
 
 let passed = 0;
@@ -64,7 +64,7 @@ for (const m of orgScoped) {
     "add it to closeAccount's hand-deleted list and to MANUAL in this file, or give it onDelete: Cascade");
 }
 
-const closeSrc = readFileSync("src/lib/account-close.ts", "utf8");
+const closeSrc = readFileSync("src/lib/account-close-server.ts", "utf8");
 for (const name of MANUAL) {
   const camel = name[0].toLowerCase() + name.slice(1);
   check(`closeAccount deletes ${name}`, closeSrc.includes(`prisma.${camel}.deleteMany`),
@@ -96,6 +96,54 @@ for (const word of ["discount", "% off", "special offer", "are you sure you want
 }
 check("the close flow does say what breaks", flow.includes("stops working"));
 check("the close flow points at cancelling instead", flow.includes("/admin/settings/billing"));
+
+
+// ---- no client component may drag the database into the browser ---------
+// This build actually broke. `close-account-form.tsx` is "use client" and imported the
+// confirmation helper from a file that imported prisma, so webpack tried to bundle the Postgres
+// driver for the browser and died on fs/dns/net/tls. `tsc --noEmit` passed the whole time, because
+// it is a bundling boundary and not a type error \u2014 nothing in the toolchain says a word until
+// Netlify spends a minute building and fails. So it gets checked here instead, for every client
+// component in the codebase rather than just the one that bit.
+
+const ALIAS = /from\s+"@\/(lib\/[\w./-]+)"/g;
+const libFile = (mod: string) => {
+  for (const ext of [".ts", ".tsx"]) {
+    const f = `src/${mod}${ext}`;
+    if (existsSync(f)) return f;
+  }
+  return null;
+};
+const importsOf = (file: string) =>
+  [...readFileSync(file, "utf8").matchAll(ALIAS)].map((m) => libFile(m[1])).filter((f): f is string => !!f);
+
+/** Every file under src that declares itself a client component. */
+const clientFiles: string[] = [];
+const walk = (dir: string) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = `${dir}/${e.name}`;
+    if (e.isDirectory()) walk(full);
+    else if (/\.tsx?$/.test(e.name) && /^["']use client["']/m.test(readFileSync(full, "utf8"))) clientFiles.push(full);
+  }
+};
+walk("src");
+
+check("the scan found client components at all", clientFiles.length > 5, `found ${clientFiles.length}`);
+
+for (const entry of clientFiles) {
+  const seen = new Set<string>();
+  const queue = importsOf(entry);
+  let path: string | null = null;
+  while (queue.length) {
+    const f = queue.shift()!;
+    if (seen.has(f)) continue;
+    seen.add(f);
+    if (f === "src/lib/db.ts") { path = f; break; }
+    queue.push(...importsOf(f));
+  }
+  check(`${entry.replace("src/", "")} does not reach lib/db`, path === null,
+    "a client component importing prisma transitively breaks the webpack build; split the pure part out, as account-close.ts / account-close-server.ts does");
+}
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
