@@ -10,7 +10,7 @@ import { livePosts } from "@/lib/blog";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
 import { platformMeta } from "@/lib/platforms";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { CUSTOM_DOMAIN_GRACE_DAYS, PLAN_LIMITS } from "@/lib/plans";
 import { pricingTiers } from "@/lib/pricing-tiers";
 import { cn } from "@/lib/utils";
 
@@ -276,6 +276,34 @@ export default function Landing() {
       ),
     },
     { q: "What currency are the prices in?", a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. No per-release fees.</p> },
+    {
+      q: "Can I customise how my release page looks?",
+      a: (
+        <>
+          <p>More than people expect, and less than a page builder. You set the accent colour — taken from your artwork or picked by hand — choose light or dark and push it to your public pages, add your own logo, and run it on your own domain. Every link is yours to shape: its title, its button text (<em>Play</em>, <em>Buy</em>, <em>Tickets</em>, <em>Dubplate Download</em>, whatever you type), its icon, whether it shows at all, and the order they sit in.</p>
+          <p className="mt-3">What you don&apos;t get is custom CSS or a free-form layout, and that is a decision rather than a gap. A fan is on that page for about four seconds, on a phone, half way through scrolling, looking for the store they already use. Hand-written CSS is how link pages end up slow and broken on a three-year-old Android, and the page has one job.</p>
+          <p className="mt-3">If the shape is stopping you doing something specific — a merch row, a video, something I haven&apos;t thought of — <a href={`mailto:${CONTACT.hello}`} className="text-foreground underline underline-offset-4">tell me what you&apos;re trying to build</a>. It&apos;s one person here, which is a downside in plenty of ways, but it does mean the person you&apos;re asking is the person who can build it.</p>
+        </>
+      ),
+    },
+    {
+      q: "I have a side project, or I look after a mate. Do I need the Label plan?",
+      a: (
+        <>
+          <p>No. The artist plans cover one artist on purpose, but the step up is <strong className="text-foreground">Pro at A${PLAN_LIMITS.pro.price} a month</strong> — A${(PLAN_LIMITS.pro.price ?? 0) - (PLAN_LIMITS.artist_pro.price ?? 0)} more than Artist Pro — and it carries up to {PLAN_LIMITS.pro.artists} artists, each with their own profile, their own fan list, their own stats, and their own login if you want to hand one over.</p>
+          <p className="mt-3">One honest wrinkle: a profile set up as an artist account has to be switched to the roster type before it can take the Pro plan, and that switch isn&apos;t self-serve yet — <a href={`mailto:${CONTACT.hello}`} className="text-foreground underline underline-offset-4">email me</a> and I&apos;ll do it. If you&apos;re already paying, the current subscription has to finish first so the plan and the account type don&apos;t disagree.</p>
+        </>
+      ),
+    },
+    {
+      q: "What if I go quiet for six months?",
+      a: (
+        <>
+          <p>Two things are already on your side. The release limit runs over <strong className="text-foreground">any rolling 12 months</strong>, not a calendar year, so a hiatus doesn&apos;t burn slots — they come back on their own anniversaries. And the yearly price is two months free, which is the cheapest way to cover the months you&apos;re not releasing.</p>
+          <p className="mt-3">There&apos;s no pause button, and I&apos;d rather say that than imply one. If you cancel, nothing is deleted: your pages and links stay up, your fan list stays yours, and a custom domain keeps serving for {CUSTOM_DOMAIN_GRACE_DAYS} days before those links start redirecting to droplr.fm. The DNS record stays valid, so coming back later is re-subscribing, not setting it all up again.</p>
+        </>
+      ),
+    },
     {
       q: "I already have a fan list somewhere else. Can I bring it?",
       a: (
