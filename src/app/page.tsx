@@ -259,7 +259,7 @@ export default function Landing() {
     },
     {
       q: "What's the catch on Free?",
-      a: <p>Free covers {PLAN_LIMITS.free.releases} new releases a year and emails the first {PLAN_LIMITS.free.releaseEmails} pre-savers of each release on release day. Fans past that still pre-save and never see an error; you&apos;ll see how many missed out and can upgrade before release day. Links and pages never switch off.</p>,
+      a: <p>Free covers {PLAN_LIMITS.free.releases} new releases in any 12 months — a rolling window, not a calendar-year reset — and emails the first {PLAN_LIMITS.free.releaseEmails} pre-savers of each release on release day. Fans past that still pre-save and never see an error; you&apos;ll see how many missed out and can upgrade before release day. Links and pages never switch off.</p>,
     },
     {
       q: "Can I email my fans about other things?",
@@ -438,7 +438,7 @@ export default function Landing() {
           <div aria-hidden className="mk-aurora absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.55), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(217,70,239,.25), transparent 70%)" }} />
           <h2 className="mk-text-gradient mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Your next release deserves a proper launch.</h2>
           <p className="mx-auto mt-4 max-w-lg text-white/65">
-            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases a year, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
+            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases in any 12 months, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
           </p>
           <Actions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="mt-8 sm:justify-center" />
           <InviteHint cta={cta} className="mt-4" />

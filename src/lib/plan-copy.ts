@@ -11,9 +11,15 @@ export const priceSuffix = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "" :
 
 const compact = (n: number) => (n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : n.toLocaleString("en-AU"));
 
+/**
+ * "a year" read as "per calendar year" to an AI summarising the pricing page, which is a fair
+ * misreading of the words and wrong about the mechanism: the window is a rolling 365 days
+ * (`releaseWindowStart`), so slots come back one at a time on their anniversary rather than all at
+ * once on 1 January. Say the mechanism, since that is what someone plans their year around.
+ */
 export function releasesLine(k: PlanKey) {
   const n = PLAN_LIMITS[k].releases;
-  return n === Infinity ? "Unlimited releases" : `${n} new release${n === 1 ? "" : "s"} a year`;
+  return n === Infinity ? "Unlimited releases" : `${n} new release${n === 1 ? "" : "s"} in any 12 months`;
 }
 
 export function artistsLine(k: PlanKey) {
