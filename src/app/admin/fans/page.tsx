@@ -77,6 +77,19 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
         </div>
       </div>
 
+      {/* Said at the moment of export, not only in the file. The CSV already carries news_opt_in,
+          unsubscribed and the consent dates, so the data is correct either way — but once the file
+          is on someone's laptop droplr cannot enforce any of it, and "we told them" is the only
+          part still available to us. Hidden when the list is already filtered to news, where the
+          rows are the ones they may email. */}
+      {!imported && plan.csvExport && !filter.news && (
+        <Card className="border-amber-500/30 bg-amber-500/5">
+          <CardContent className="p-4 text-sm text-muted-foreground">
+            <strong className="text-foreground">Before you paste this into a mailer.</strong> This export is everyone, not everyone you may email. Send marketing or newsletters only to rows where <code>news_opt_in</code> is <code>true</code>, and drop every row where <code>unsubscribed</code> is <code>true</code> — in Mailchimp, in a spreadsheet, anywhere. The columns are in the file; once it leaves droplr, honouring them is on you. Want only the mailable ones? <Link href="/admin/fans?show=news" className="underline">Filter to news opt-ins</Link> first, then export.
+          </CardContent>
+        </Card>
+      )}
+
       <GuideSlot guide="superfans" />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
