@@ -11,9 +11,15 @@ export const priceSuffix = (k: PlanKey) => (PLAN_LIMITS[k].price === null ? "" :
 
 const compact = (n: number) => (n >= 1000 && n % 1000 === 0 ? `${n / 1000}k` : n.toLocaleString("en-AU"));
 
+/**
+ * "a year" read as "per calendar year" to an AI summarising the pricing page, which is a fair
+ * misreading of the words and wrong about the mechanism: the window is a rolling 365 days
+ * (`releaseWindowStart`), so slots come back one at a time on their anniversary rather than all at
+ * once on 1 January. Say the mechanism, since that is what someone plans their year around.
+ */
 export function releasesLine(k: PlanKey) {
   const n = PLAN_LIMITS[k].releases;
-  return n === Infinity ? "Unlimited releases" : `${n} new release${n === 1 ? "" : "s"} a year`;
+  return n === Infinity ? "Unlimited releases" : `${n} new release${n === 1 ? "" : "s"} in any 12 months`;
 }
 
 export function artistsLine(k: PlanKey) {
@@ -50,12 +56,12 @@ export function planFeatures(k: PlanKey): string[] {
       // is what actually resolves, and it's the one printed on every Free release page.
       return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list (view only)", "droplr.fm/yourname links", "Release clips for Reels and TikTok"];
     case "artist":
-      return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list with news opt-ins + CSV export", "Remix contests with a public vote", "Meta, TikTok and GA4 pixels", "QR codes for flyers and merch"];
+      return [releasesLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list with news opt-ins + CSV export", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Meta, TikTok and GA4 pixels", "QR codes for flyers and merch"];
     case "artist_pro":
-      return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans"];
+      return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)"];
     case "pro":
       // Artist Pro and Label inherit via "Everything in …"; Pro lists its own, so contests go here too.
-      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Custom domain, connected for you", "Remix contests with a public vote", "Pixels, CSV export, QR codes", "Remove droplr.fm branding", insightsLine(k)];
+      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Custom domain, connected for you", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Pixels, CSV export, QR codes", "Remove droplr.fm branding", insightsLine(k)];
     case "label":
       return ["Everything in Pro", clicksLine(k), artistsLine(k), "Team roles (admins)", "Analytics across the whole roster"];
     case "enterprise":

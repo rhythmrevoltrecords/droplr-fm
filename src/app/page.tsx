@@ -10,7 +10,7 @@ import { livePosts } from "@/lib/blog";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
 import { platformMeta } from "@/lib/platforms";
-import { PLAN_LIMITS } from "@/lib/plans";
+import { CUSTOM_DOMAIN_GRACE_DAYS, PLAN_LIMITS } from "@/lib/plans";
 import { pricingTiers } from "@/lib/pricing-tiers";
 import { cn } from "@/lib/utils";
 
@@ -259,13 +259,69 @@ export default function Landing() {
     },
     {
       q: "What's the catch on Free?",
-      a: <p>Free covers {PLAN_LIMITS.free.releases} new releases a year and emails the first {PLAN_LIMITS.free.releaseEmails} pre-savers of each release on release day. Fans past that still pre-save and never see an error; you&apos;ll see how many missed out and can upgrade before release day. Links and pages never switch off.</p>,
+      a: <p>Free covers {PLAN_LIMITS.free.releases} new releases in any 12 months — a rolling window, not a calendar-year reset — and emails the first {PLAN_LIMITS.free.releaseEmails} pre-savers of each release on release day. Fans past that still pre-save and never see an error; you&apos;ll see how many missed out and can upgrade before release day. Links and pages never switch off.</p>,
     },
     {
       q: "Can I email my fans about other things?",
       a: <p>Fans who tick the optional &quot;news and new music&quot; box are yours to email. Fans who only pre-saved agreed to hear about that release, and droplr sends that email for you. The fan list shows which is which and exports it as CSV.</p>,
     },
+    {
+      q: "It's one person. What happens to my stuff if you stop?",
+      a: (
+        <>
+          <p>Fair question, and the honest answer is the reason droplr exists. One person runs it, and droplr has no investors to outlast — it stays up on what subscriptions pay for.</p>
+          <p className="mt-3">So here is exactly what you walk away with, on every plan including Free. Your fan list is yours: every address is visible on Free and exports as CSV on any paid plan, with the consent each person gave and the date they gave it. Your release pages and their links are yours to point anywhere. Nothing is locked to droplr and nothing has to be asked for.</p>
+          <p className="mt-3">That matters because of what has already happened to other people. smartURL was bought and its analytics closed on migration. Songwhip shut down and the links in people&apos;s bios stopped resolving. Songlink switched off its API with about six weeks&apos; notice. Every time, the link survived and the data didn&apos;t. <strong className="text-foreground">Take your list with you now, not when you need it.</strong></p>
+        </>
+      ),
+    },
     { q: "What currency are the prices in?", a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. No per-release fees.</p> },
+    {
+      q: "Can I customise how my release page looks?",
+      a: (
+        <>
+          <p>More than people expect, and less than a page builder. You set the accent colour — taken from your artwork or picked by hand — choose light or dark and push it to your public pages, add your own logo, and run it on your own domain. Every link is yours to shape: its title, its button text (<em>Play</em>, <em>Buy</em>, <em>Tickets</em>, <em>Dubplate Download</em>, whatever you type), its icon, whether it shows at all, and the order they sit in.</p>
+          <p className="mt-3">What you don&apos;t get is custom CSS or a free-form layout, and that is a decision rather than a gap. A fan is on that page for about four seconds, on a phone, half way through scrolling, looking for the store they already use. Hand-written CSS is how link pages end up slow and broken on a three-year-old Android, and the page has one job.</p>
+          <p className="mt-3">If the shape is stopping you doing something specific — a merch row, a video, something I haven&apos;t thought of — <a href={`mailto:${CONTACT.hello}`} className="text-foreground underline underline-offset-4">tell me what you&apos;re trying to build</a>. It&apos;s one person here, which is a downside in plenty of ways, but it does mean the person you&apos;re asking is the person who can build it.</p>
+        </>
+      ),
+    },
+    {
+      q: "I have a side project, or I look after a mate. Do I need the Label plan?",
+      a: (
+        <>
+          <p>No. The artist plans cover one artist on purpose, but the step up is <strong className="text-foreground">Pro at A${PLAN_LIMITS.pro.price} a month</strong> — A${(PLAN_LIMITS.pro.price ?? 0) - (PLAN_LIMITS.artist_pro.price ?? 0)} more than Artist Pro — and it carries up to {PLAN_LIMITS.pro.artists} artists, each with their own profile, their own fan list, their own stats, and their own login if you want to hand one over.</p>
+          <p className="mt-3">One honest wrinkle: a profile set up as an artist account has to be switched to the roster type before it can take the Pro plan, and that switch isn&apos;t self-serve yet — <a href={`mailto:${CONTACT.hello}`} className="text-foreground underline underline-offset-4">email me</a> and I&apos;ll do it. If you&apos;re already paying, the current subscription has to finish first so the plan and the account type don&apos;t disagree.</p>
+        </>
+      ),
+    },
+    {
+      q: "What if I go quiet for six months?",
+      a: (
+        <>
+          <p>Two things are already on your side. The release limit runs over <strong className="text-foreground">any rolling 12 months</strong>, not a calendar year, so a hiatus doesn&apos;t burn slots — they come back on their own anniversaries. And the yearly price is two months free, which is the cheapest way to cover the months you&apos;re not releasing.</p>
+          <p className="mt-3">There&apos;s no pause button, and I&apos;d rather say that than imply one. If you cancel, nothing is deleted: your pages and links stay up, your fan list stays yours, and a custom domain keeps serving for {CUSTOM_DOMAIN_GRACE_DAYS} days before those links start redirecting to droplr.fm. The DNS record stays valid, so coming back later is re-subscribing, not setting it all up again.</p>
+        </>
+      ),
+    },
+    {
+      q: "I already have a fan list somewhere else. Can I bring it?",
+      a: (
+        <>
+          <p>Yes. Import a CSV from wherever your list lives now — a gate service, a mailing tool, a spreadsheet — and droplr records where each contact came from and what they agreed to, because the law asks who consented and when, not which tool was open at the time.</p>
+          <p className="mt-3">Imported contacts are kept separate from fans who pre-saved here, and they are <strong className="text-foreground">never</strong> included in a release-day send. They can only be reached by a news email you write yourself. The best thing to send them is your pre-save link: the ones who sign up become fans with fresh consent, collected here.</p>
+        </>
+      ),
+    },
+    {
+      q: "My store isn't on the list. Can I add it?",
+      a: (
+        <>
+          <p>Yes. droplr fills in the big stores from the UPC or ISRC as they appear, and anything it can&apos;t look up you add by hand — Beatport, Traxsource, Juno, Bandcamp, Qobuz, Boomplay, Anghami and the rest are all there, and droplr sends you straight to that store&apos;s search page to find the link.</p>
+          <p className="mt-3">Past those, there&apos;s a <strong className="text-foreground">custom link</strong>: any URL at all, with your own title and your own button text. Vinyl on a distro site, a regional store nobody has heard of, a download gate, your merch. Automatic where it can be, typed in where it can&apos;t, and the order on the page is yours.</p>
+        </>
+      ),
+    },
     {
       q: "Can I use my own domain?",
       a: <p>Yes, on Artist Pro and the label plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and we verify it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
@@ -438,7 +494,7 @@ export default function Landing() {
           <div aria-hidden className="mk-aurora absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.55), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(217,70,239,.25), transparent 70%)" }} />
           <h2 className="mk-text-gradient mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Your next release deserves a proper launch.</h2>
           <p className="mx-auto mt-4 max-w-lg text-white/65">
-            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases a year, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
+            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases in any 12 months, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
           </p>
           <Actions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="mt-8 sm:justify-center" />
           <InviteHint cta={cta} className="mt-4" />
