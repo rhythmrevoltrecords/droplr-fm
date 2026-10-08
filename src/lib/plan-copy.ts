@@ -61,7 +61,7 @@ export function planFeatures(k: PlanKey): string[] {
       return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)"];
     case "pro":
       // Artist Pro and Label inherit via "Everything in …"; Pro lists its own, so contests go here too.
-      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Custom domain, connected for you", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Pixels, CSV export, QR codes", "Remove droplr.fm branding", insightsLine(k)];
+      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Custom domain, connected for you", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Pixels, CSV export, QR codes", "Remove droplr.fm branding", insightsLine(k)];
     case "label":
       return ["Everything in Pro", clicksLine(k), artistsLine(k), "Team roles (admins)", "Analytics across the whole roster"];
     case "enterprise":

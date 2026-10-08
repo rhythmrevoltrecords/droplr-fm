@@ -294,6 +294,7 @@ export const GUIDES: Guide[] = [
         "Makes the countdown, out-now and milestone graphics from your artwork.",
         "Tracks which link variant and which source brought each click and each pre-save.",
       ] },
+      { note: "One edge case worth knowing, because nobody tells you: the timezone comes from where the fan was when they signed up. A fan who signs up on a VPN gets 9am in the VPN's country, and a fan who moves overseas between pre-saving and release day gets 9am where they were, not where they are. There is no way for any tool to know better \u2014 the browser reports one timezone and that is all there is. In practice it is a handful of people getting the email at an odd hour, not a broken send, and it is a reason to post publicly as well as email.", tone: "info" },
       { h: "Where the link goes" },
       { p: "One link per placement, not one link everywhere. droplr gives you /ig, /tiktok and QR codes for flyers, each tracked separately. After two releases you'll know whether your Instagram bio or your TikTok comments actually move people, and you can stop guessing." },
       { h: "Honest expectations" },

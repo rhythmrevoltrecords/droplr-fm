@@ -265,6 +265,16 @@ export default function Landing() {
       q: "Can I email my fans about other things?",
       a: <p>Fans who tick the optional &quot;news and new music&quot; box are yours to email. Fans who only pre-saved agreed to hear about that release, and droplr sends that email for you. The fan list shows which is which and exports it as CSV.</p>,
     },
+    {
+      q: "It's one person. What happens to my stuff if you stop?",
+      a: (
+        <>
+          <p>Fair question, and the honest answer is the reason droplr exists. One person runs it, and droplr has no investors to outlast — it stays up on what subscriptions pay for.</p>
+          <p className="mt-3">So here is exactly what you walk away with, on every plan including Free. Your fan list is yours: every address is visible on Free and exports as CSV on any paid plan, with the consent each person gave and the date they gave it. Your release pages and their links are yours to point anywhere. Nothing is locked to droplr and nothing has to be asked for.</p>
+          <p className="mt-3">That matters because of what has already happened to other people. smartURL was bought and its analytics closed on migration. Songwhip shut down and the links in people&apos;s bios stopped resolving. Songlink switched off its API with about six weeks&apos; notice. Every time, the link survived and the data didn&apos;t. <strong className="text-foreground">Take your list with you now, not when you need it.</strong></p>
+        </>
+      ),
+    },
     { q: "What currency are the prices in?", a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. No per-release fees.</p> },
     {
       q: "Can I use my own domain?",
