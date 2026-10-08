@@ -1605,6 +1605,85 @@ async function main() {
         totals.months.length === 13 && totals.months.every((m) => typeof m.links === "number" && typeof m.fans === "number"));
     }
 
+    console.log("\n21. Closing an account");
+    {
+      // Closing is the only route in droplr that deletes a whole tenant, so it is the one place a
+      // missing guard costs everything at once. Every check here is about something NOT happening.
+
+      // A throwaway org of its own, with a fan, so the delete has something real to take with it.
+      const delOrg = await prisma.organization.create({ data: { name: `Sec Test Close ${RUN}`, slug: `sectest-close-${RUN}`, plan: "free" } });
+      extraOrgs.push(delOrg.id);
+      const delOwner = await prisma.user.create({ data: { email: `owner-close-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "owner", organizationId: delOrg.id, emailVerifiedAt: new Date() } });
+      const delAdmin = await prisma.user.create({ data: { email: `admin-close-${RUN}@sectest.dev`, passwordHash: await bcrypt.hash(PW, 10), role: "admin", organizationId: delOrg.id, emailVerifiedAt: new Date() } });
+      const delRelease = await prisma.release.create({ data: { organizationId: delOrg.id, title: `Close Me ${RUN}`, slug: `close-me-${RUN}`, artistName: "X", coverUrl: "https://example.com/c.jpg", releaseDate: new Date() } });
+      await prisma.preSave.create({ data: { releaseId: delRelease.id, platform: "email", email: `fan-close-${RUN}@sectest.dev`, emailConsent: true, status: "pending" } });
+      const delJar = await login(delOwner.email);
+      const delAdminJar = await login(delAdmin.email);
+
+      const aOrgBefore = await prisma.release.count({ where: { organizationId: A.org.id } });
+
+      // Logged out: neither route says anything.
+      for (const [path, method] of [["/api/admin/account/close", "POST"], ["/api/admin/account/close/export", "GET"]] as const) {
+        const anon = await http(null, method, path, method === "POST" ? { confirm: delOrg.name } : undefined);
+        check(`logged out is refused by ${method} ${path}`, anon.status === 401 || anon.status === 307 || anon.status === 302, String(anon.status));
+      }
+      check("nothing was deleted by the logged-out attempts", !!(await prisma.organization.findUnique({ where: { id: delOrg.id } })));
+
+      // An admin is not an owner. This is the check that matters most: an admin is already inside
+      // the account, so the only thing between them and deleting it is the role test.
+      const adminClose = await http(delAdminJar, "POST", "/api/admin/account/close", { confirm: delOrg.name });
+      check("an admin (non-owner) cannot close the account", adminClose.status === 403, String(adminClose.status));
+      const adminExport = await http(delAdminJar, "GET", "/api/admin/account/close/export");
+      check("an admin (non-owner) cannot take the closing export", adminExport.status === 403, String(adminExport.status));
+      check("the account survived both admin attempts", !!(await prisma.organization.findUnique({ where: { id: delOrg.id } })));
+
+      // GET must not delete. Mail scanners and link previews follow GET links, and an owner's
+      // session cookie travels with them.
+      const viaGet = await http(delJar, "GET", "/api/admin/account/close");
+      check("GET does not close an account", viaGet.status === 404 || viaGet.status === 405, String(viaGet.status));
+      check("...and the account is still there", !!(await prisma.organization.findUnique({ where: { id: delOrg.id } })));
+
+      // A wrong confirmation must fail closed, and must not half-delete on the way out.
+      const wrong = await http(delJar, "POST", "/api/admin/account/close", { confirm: "something else" });
+      check("a wrong confirmation is refused", wrong.status === 400, String(wrong.status));
+      check("...and deleted nothing",
+        !!(await prisma.organization.findUnique({ where: { id: delOrg.id } }))
+        && (await prisma.release.count({ where: { organizationId: delOrg.id } })) === 1);
+
+      // The export is the owner's own fans and nobody else's.
+      const exp = await http(delJar, "GET", "/api/admin/account/close/export");
+      check("the owner gets the closing export on the Free plan", exp.status === 200, String(exp.status));
+      check("...containing their own fan", exp.text.includes(`fan-close-${RUN}@sectest.dev`));
+      // Not "it doesn't contain label A's address" — that passes even if the address was never
+      // created. The row count is the real assertion: a header and exactly one fan, theirs.
+      check("...and nobody else's — one header row and one fan",
+        exp.text.trim().split("\n").filter((l) => l.trim()).length === 2,
+        `${exp.text.trim().split("\n").filter((l) => l.trim()).length} lines`);
+
+      // The real thing.
+      const closed = await http(delJar, "POST", "/api/admin/account/close", { confirm: ` ${delOrg.name.toUpperCase()} ` });
+      check("the owner can close the account, case and spacing forgiven", closed.status === 200, String(closed.status));
+      check("the organisation is gone", !(await prisma.organization.findUnique({ where: { id: delOrg.id } })));
+      check("its releases went with it", (await prisma.release.count({ where: { organizationId: delOrg.id } })) === 0);
+      check("its users went with it", (await prisma.user.count({ where: { organizationId: delOrg.id } })) === 0);
+      check("its pre-saves went with it", (await prisma.preSave.count({ where: { releaseId: delRelease.id } })) === 0);
+      // The model with an organizationId and no foreign key. Nothing in the database enforces this.
+      check("no WaitlistFeature row is left pointing at the dead account",
+        (await prisma.waitlistFeature.count({ where: { organizationId: delOrg.id } })) === 0);
+
+      // And the blast radius stopped at the tenant boundary.
+      check("the other label is untouched", (await prisma.release.count({ where: { organizationId: A.org.id } })) === aOrgBefore, `${aOrgBefore}`);
+      // The jar it already has, not a fresh login: by this point in the suite A's password has been
+      // through the reset and revocation sections, so logging in again proves nothing about the
+      // close and fails for its own unrelated reason. The live session is the thing worth checking
+      // anyway — a tenant delete must not knock out a session that was open when it happened.
+      check("the other label's open session still works", (await http(ownerA, "GET", "/admin")).status === 200);
+
+      // The session cookie outlived the user row it pointed at; it must not still be a session.
+      const after = await http(delJar, "GET", "/admin");
+      check("the closed owner's cookie no longer authenticates", after.status === 307 || after.status === 302 || after.status === 401, String(after.status));
+    }
+
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

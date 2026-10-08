@@ -154,6 +154,18 @@ jobs:
       - name: Platform totals
         run: npx tsx scripts/test-platform-stats.ts
 
+      - name: News posts
+        run: npx tsx scripts/test-blog.ts
+
+      - name: Plan copy says what each plan has
+        run: npx tsx scripts/test-plan-copy.ts
+
+      # Also the guard that stops a client component importing prisma. That one is not about
+      # closing an account at all - it is about the webpack build, which broke once and which
+      # `tsc --noEmit` cannot see. It belongs in CI more than anything else here.
+      - name: Closing an account
+        run: npx tsx scripts/test-close-account.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
