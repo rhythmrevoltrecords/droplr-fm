@@ -1673,7 +1673,11 @@ async function main() {
 
       // And the blast radius stopped at the tenant boundary.
       check("the other label is untouched", (await prisma.release.count({ where: { organizationId: A.org.id } })) === aOrgBefore, `${aOrgBefore}`);
-      check("the other label can still sign in", (await http(await login(A.owner.email), "GET", "/admin")).status === 200);
+      // The jar it already has, not a fresh login: by this point in the suite A's password has been
+      // through the reset and revocation sections, so logging in again proves nothing about the
+      // close and fails for its own unrelated reason. The live session is the thing worth checking
+      // anyway — a tenant delete must not knock out a session that was open when it happened.
+      check("the other label's open session still works", (await http(ownerA, "GET", "/admin")).status === 200);
 
       // The session cookie outlived the user row it pointed at; it must not still be a session.
       const after = await http(delJar, "GET", "/admin");
