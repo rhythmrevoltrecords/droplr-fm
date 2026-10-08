@@ -277,6 +277,24 @@ export default function Landing() {
     },
     { q: "What currency are the prices in?", a: <p>Australian dollars (AUD), including any tax. Paid plans are billed monthly or yearly and you can cancel any time. No per-release fees.</p> },
     {
+      q: "I already have a fan list somewhere else. Can I bring it?",
+      a: (
+        <>
+          <p>Yes. Import a CSV from wherever your list lives now — a gate service, a mailing tool, a spreadsheet — and droplr records where each contact came from and what they agreed to, because the law asks who consented and when, not which tool was open at the time.</p>
+          <p className="mt-3">Imported contacts are kept separate from fans who pre-saved here, and they are <strong className="text-foreground">never</strong> included in a release-day send. They can only be reached by a news email you write yourself. The best thing to send them is your pre-save link: the ones who sign up become fans with fresh consent, collected here.</p>
+        </>
+      ),
+    },
+    {
+      q: "My store isn't on the list. Can I add it?",
+      a: (
+        <>
+          <p>Yes. droplr fills in the big stores from the UPC or ISRC as they appear, and anything it can&apos;t look up you add by hand — Beatport, Traxsource, Juno, Bandcamp, Qobuz, Boomplay, Anghami and the rest are all there, and droplr sends you straight to that store&apos;s search page to find the link.</p>
+          <p className="mt-3">Past those, there&apos;s a <strong className="text-foreground">custom link</strong>: any URL at all, with your own title and your own button text. Vinyl on a distro site, a regional store nobody has heard of, a download gate, your merch. Automatic where it can be, typed in where it can&apos;t, and the order on the page is yours.</p>
+        </>
+      ),
+    },
+    {
       q: "Can I use my own domain?",
       a: <p>Yes, on Artist Pro and the label plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and we verify it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
     },
