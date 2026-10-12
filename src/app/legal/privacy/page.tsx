@@ -149,6 +149,7 @@ export default function PrivacyPage() {
               <tr><td>Neon (through Netlify DB)</td><td>Database</td><td>Sydney, Australia</td></tr>
               <tr><td>Stripe, including Link</td><td>Subscription checkout, payments, tax and invoices. Link is the merchant of record for paid plans and handles the details you give it at checkout under its own privacy policy.</td><td>United States and other countries</td></tr>
               <tr><td>Resend</td><td>Sending release-day emails and account emails such as password resets</td><td>United States</td></tr>
+              <tr><td>Your email service (e.g. Mailchimp), if you connect one</td><td>The fan email addresses you&apos;ve collected, sent to your own account at your instruction so you can email them from your usual tool</td><td>Varies by provider</td></tr>
               <tr><td>Spotify, Deezer</td><td>Only when a fan chooses to connect their account</td><td>Per those providers</td></tr>
               <tr><td>Apple, Google, Microsoft, Mozilla (push services)</td><td>Only if you turn on notifications: we hand the encrypted notification to the push service your device uses so it can deliver it</td><td>Per those providers</td></tr>
               <tr><td>Meta, TikTok, Google</td><td>Only on label pages where the label has added its own pixel</td><td>Per those providers</td></tr>

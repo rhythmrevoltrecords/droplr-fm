@@ -50,6 +50,7 @@ const SAYS: { flag: keyof typeof PLAN_LIMITS.free; needle: RegExp; label: string
   { flag: "qr", needle: /qr code/, label: "QR codes" },
   { flag: "removeBranding", needle: /(remove|no) droplr\.fm branding/, label: "branding removal" },
   { flag: "byoSpotify", needle: /spotify/, label: "BYO Spotify" },
+  { flag: "espSync", needle: /mailchimp|audience sync/, label: "Mailchimp audience sync" },
 ];
 
 // ---- every plan that has it, says it --------------------------------------

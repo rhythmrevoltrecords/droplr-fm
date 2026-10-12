@@ -2,6 +2,7 @@ import Link from "next/link";
 import { CopyButton } from "@/components/admin/copy-button";
 import { SpotifyButtonToggle, SpotifyConnectForm } from "@/components/admin/org-forms";
 import { SoundCloudConnectForm } from "@/components/admin/soundcloud-form";
+import { EspSyncForm } from "@/components/admin/esp-form";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
@@ -65,6 +66,18 @@ export default async function IntegrationsPage() {
         </CardHeader>
         <CardContent>
           <SoundCloudConnectForm status={org.soundcloudAppStatus} username={org.soundcloudUsername} canEdit={user.role === "owner"} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-2"><CardTitle>Mailchimp audience sync</CardTitle>{plan.espSync ? null : <Badge variant="secondary">Paid plans</Badge>}</div>
+          <CardDescription>
+            Push the fans droplr collects &mdash; pre-savers who ticked &quot;news&quot; and imported contacts marked mailable &mdash; straight into your own Mailchimp audience, so they land in the tool you already send from. Consent travels with them; anyone who opted out stays out.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <EspSyncForm canEdit={user.role === "owner"} />
         </CardContent>
       </Card>
 
