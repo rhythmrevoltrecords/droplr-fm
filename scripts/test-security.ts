@@ -41,6 +41,8 @@ import { LEGAL } from "../src/lib/legal";
 import { linkCustomDomain, planOf } from "../src/lib/plans";
 import { oauthEmailConsent } from "../src/lib/fan-consent";
 import { FAN_EMAIL_CONSENT_VERSION } from "../src/lib/legal";
+import { espWebhookToken } from "../src/lib/esp/webhook";
+import { syncConnectionById } from "../src/lib/esp";
 
 // The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -1682,6 +1684,58 @@ async function main() {
       // The session cookie outlived the user row it pointed at; it must not still be a session.
       const after = await http(delJar, "GET", "/admin");
       check("the closed owner's cookie no longer authenticates", after.status === 307 || after.status === 302 || after.status === 401, String(after.status));
+    }
+
+
+    console.log("\n22. Mailchimp audience sync");
+    {
+      // B connects Mailchimp; A must never see it, trigger it, or push B's fans. The webhook token
+      // is per-org, and a lapsed plan stops the sync on the serving side, not just in the UI.
+      const bConnId = "espconn_" + RUN + "_b";
+      const past = new Date(Date.now() - 86_400_000);
+      await prisma.$executeRaw`INSERT INTO "EspConnection" ("id","organizationId","provider","apiKeyEncrypted","listId","listName","status","lastSyncedAt","updatedAt") VALUES (${bConnId}, ${B.org.id}, 'mailchimp', ${encrypt("fake-key-us1")}, 'listB123', 'B Secret Audience', 'active', ${past}, now())`;
+      // Same-emailed fan in both labels, so the webhook's org scoping is provable, not assumed.
+      const espFan = `espfan-${RUN}@fans.dev`;
+      await prisma.preSave.create({ data: { releaseId: B.release.id, platform: "email", email: espFan, emailConsent: true, newsConsent: true, status: "emailed" } });
+      await prisma.preSave.create({ data: { releaseId: A.release.id, platform: "email", email: espFan, emailConsent: true, newsConsent: true, status: "emailed" } });
+
+      // A's owner sees only A's (empty) connection, never B's list or secret audience name.
+      const aGet = await http(ownerA, "GET", "/api/admin/integrations/esp");
+      check("A's ESP status is its own, not B's", aGet.status === 200 && !aGet.text.includes("listB123") && !aGet.text.includes("B Secret Audience"), `status ${aGet.status}`);
+
+      // A can't trigger a sync of B's connection — A has none, and the route is org-scoped.
+      const aSync = await http(ownerA, "PATCH", "/api/admin/integrations/esp", { action: "sync" });
+      check("A can't sync (no connection of its own)", aSync.status === 400, `got ${aSync.status}`);
+      const bAfterASync = await prisma.$queryRaw<{ lastSyncedAt: Date | null }[]>`SELECT "lastSyncedAt" FROM "EspConnection" WHERE "id" = ${bConnId}`;
+      check("B's connection was not synced by A", bAfterASync[0]?.lastSyncedAt?.getTime() === past.getTime());
+
+      // Owner-only: an artist can neither connect nor change settings.
+      const artConnect = await http(artistA, "POST", "/api/admin/integrations/esp", { apiKey: "whatever-us1" });
+      check("artist can't connect an ESP", [401, 403].includes(artConnect.status), `got ${artConnect.status}`);
+      const artSettings = await http(artistA, "PATCH", "/api/admin/integrations/esp", { action: "settings", listId: "x" });
+      check("artist can't change ESP settings", [401, 403].includes(artSettings.status), `got ${artSettings.status}`);
+
+      // Webhook: wrong token (A's, aimed at B's org) is refused and changes nothing.
+      const badHook = await http(null, "POST", `/api/webhooks/esp/mailchimp?org=${B.org.id}&token=${espWebhookToken(A.org.id)}`, undefined, { type: "unsubscribe", "data[email]": espFan });
+      check("webhook rejects a token minted for another org", badHook.status === 401, `got ${badHook.status}`);
+      const stillB = await prisma.preSave.findFirst({ where: { releaseId: B.release.id, email: espFan } });
+      check("a spoofed webhook unsubscribed nobody", stillB?.status === "emailed", `status ${stillB?.status}`);
+
+      // Webhook: correct per-org token flips only B's fan, never A's same-emailed fan.
+      const goodHook = await http(null, "POST", `/api/webhooks/esp/mailchimp?org=${B.org.id}&token=${espWebhookToken(B.org.id)}`, undefined, { type: "unsubscribe", "data[email]": espFan });
+      check("a valid webhook is accepted", goodHook.status === 200, `got ${goodHook.status}`);
+      const bFan = await prisma.preSave.findFirst({ where: { releaseId: B.release.id, email: espFan } });
+      const aFan = await prisma.preSave.findFirst({ where: { releaseId: A.release.id, email: espFan } });
+      check("B's fan was unsubscribed by the webhook", bFan?.status === "unsubscribed", `status ${bFan?.status}`);
+      check("A's same-emailed fan is untouched", aFan?.status === "emailed", `status ${aFan?.status}`);
+
+      // Serving-path plan gate: on a lapsed plan the sync refuses before any push.
+      await prisma.organization.update({ where: { id: B.org.id }, data: { plan: "free" } });
+      const gated = await syncConnectionById(bConnId, Date.now() + 5_000);
+      check("sync refuses on a plan without espSync", gated.error === "plan", `error ${gated.error}`);
+      const bAfterGate = await prisma.$queryRaw<{ lastSyncedAt: Date | null }[]>`SELECT "lastSyncedAt" FROM "EspConnection" WHERE "id" = ${bConnId}`;
+      check("the gated sync pushed nothing (lastSyncedAt unchanged)", bAfterGate[0]?.lastSyncedAt?.getTime() === past.getTime());
+      await prisma.organization.update({ where: { id: B.org.id }, data: { plan: "label" } });
     }
 
   } finally {
