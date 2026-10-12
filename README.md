@@ -313,3 +313,33 @@ reused. There is no open-source licence here, and public visibility is not permi
 in [LICENSE](LICENSE).
 
 If you want to use part of it, ask. Permission is sometimes given and costs nothing to request.
+
+## Mailchimp audience sync (paid plans)
+
+Pushes the fans droplr has collected into a label's **own** Mailchimp audience, so they land in the
+tool the label already sends from. Not a competitor to the built-in news emails — it's for labels
+who run their list elsewhere.
+
+- **Who gets synced:** the same audience the news engine reaches — pre-savers who ticked the news
+  box and never unsubscribed, plus imported contacts marked `mailable`, deduped by email. Everyone
+  is marketing-consented by construction; nothing transactional leaves droplr.
+- **How:** Mailchimp Marketing API v3. Member id is `md5(lowercased email)`; the key's `-usXX`
+  suffix is the datacenter. Upsert uses `status_if_new: "subscribed"` only — a new address is added
+  subscribed, but an existing member's status is never forced, so **anyone who unsubscribed in
+  Mailchimp stays unsubscribed**. Optional tag per member.
+- **Sync triggers:** a manual "Sync now" in Settings → Integrations (bounded, ~20s), and the hourly
+  `release-check` cron, which hands due connections to `process-presaves-background` (same pipeline
+  as release emails). A connection is "due" when configured, active and not synced in 12h.
+- **Unsubscribe webhook:** an optional per-org webhook URL (token derived from `JWT_SECRET`) that
+  mirrors a Mailchimp unsubscribe/cleaned/spam event back onto droplr's PreSave + FanContact rows,
+  so an opt-out there also stops droplr emailing them.
+- **Gating:** `espSync` in `PLAN_LIMITS` (paid only). Checked in three places — the connect/settings
+  route (402), the sync serving path in `syncConnectionById` (stops on downgrade), and the UI
+  (hidden on Free). Credentials AES-256-GCM encrypted via `lib/crypto`, never returned to the client.
+- **Why raw SQL in `src/lib/esp/db.ts`:** the model was added when Prisma's engine CDN was
+  unreachable, so the client couldn't be regenerated. Raw SQL needs no regen; the next
+  `prisma generate` on a networked machine gives typed `prisma.espConnection` access if you want to
+  switch over.
+- **Deliberately left out of v1:** Klaviyo/ActiveCampaign adapters (the `EspAdapter` interface is
+  ready for them), incremental watermark sync (full idempotent upsert each run is correct for
+  indie-label list sizes), and two-way field mapping beyond FNAME.
