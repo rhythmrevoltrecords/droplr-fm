@@ -92,6 +92,7 @@ export default function DataProcessingPage() {
 
       <Section {...s("subprocessors")}>
         <p>You authorise us to use the sub-processors listed in the <Link href="/legal/privacy#share">Privacy Policy</Link> (currently Netlify, Neon, Resend, and Spotify, Deezer or SoundCloud when a fan connects). Stripe processes billing data only, not fan data. We impose data protection obligations on sub-processors at least as protective as this DPA and remain responsible for them.</p>
+        <p>If you connect your own email service (such as Mailchimp), you instruct us to send the fan email addresses you have collected to that account. In that case the provider is <strong>your</strong> processor, not ours: your own agreement with them governs it, and you are responsible for the consent and suppression state of the audience you sync to. droplr only ever sends addresses already marked mailable, and never re-subscribes anyone who has unsubscribed.</p>
         <p>We&apos;ll give account owners at least 30 days&apos; notice by email before adding or replacing a sub-processor that handles fan data. If you object on reasonable data protection grounds, we&apos;ll work with you on an alternative. If none is possible, you can cancel and we&apos;ll refund the unused part of any prepaid period.</p>
       </Section>
 

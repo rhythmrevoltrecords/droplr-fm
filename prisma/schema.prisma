@@ -109,6 +109,7 @@ model Organization {
   artists   Artist[]
   feedbackThreads  FeedbackThread[]
   platformMessages PlatformMessage[]
+  espConnections   EspConnection[]
   referralsMade    Referral[] @relation("ReferralReferrer")
   referredBy       Referral?  @relation("ReferralReferred")
   newsEmails       NewsEmail[]
@@ -1022,4 +1023,33 @@ model PlatformMessageSeen {
 
   @@id([messageId, userId])
   @@index([userId])
+}
+
+/// A label's connection to its own email service provider (Mailchimp first). droplr pushes the
+/// fans it has collected — pre-savers who ticked "news", and imported contacts marked mailable —
+/// into the label's existing audience. Credentials are AES-256-GCM encrypted (lib/crypto), never
+/// returned to the browser. One connection per provider per org.
+model EspConnection {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  provider        String // "mailchimp"
+  apiKeyEncrypted String
+  listId          String? // chosen audience / list id
+  listName        String?
+  /// Belt-and-braces: only push marketing-consent fans. droplr's audience is already marketing-only,
+  /// so this stays true; kept as a guard so a future transactional source can't leak into an ESP.
+  marketingOnly   Boolean   @default(true)
+  tagPrefix       String? // tag written on each member, e.g. "droplr"
+  status          String    @default("active") // active | error | disconnected
+  lastError       String?
+  lastSyncedAt    DateTime?
+  lastSyncedCount Int       @default(0)
+  /// Background-job claim, same mechanism as NewsEmail.processingUntil.
+  processingUntil DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([organizationId, provider])
+  @@index([organizationId])
 }
