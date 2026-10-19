@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BIO_FONT_IDS, BIO_THEME_IDS } from "./bio-themes";
 import { SITE_URL } from "./env";
 import { linkCustomDomain } from "./plans";
 
@@ -13,5 +14,7 @@ export const bioSchema = z.object({
   bio: z.string().max(280).nullable().optional(),
   imageUrl: z.string().url(),
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional().or(z.literal("")),
+  theme: z.enum(BIO_THEME_IDS as unknown as [string, ...string[]]).nullable().optional(),
+  font: z.enum(BIO_FONT_IDS as unknown as [string, ...string[]]).nullable().optional(),
   isPublic: z.boolean().optional(),
 });

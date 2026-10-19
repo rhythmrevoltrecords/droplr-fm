@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, CalendarCheck, ChevronDown, Globe, Image as ImageIcon, Mail, Users } from "lucide-react";
+import { ArrowRight, BarChart3, CalendarCheck, ChevronDown, Globe, Image as ImageIcon, Link2 as LinkIcon, Mail, Users } from "lucide-react";
 import { AudiencePricing, AudienceStory } from "@/components/marketing/audience-pricing";
 import { RevealOnScroll } from "@/components/marketing/reveal";
 import { SectionScrollTarget } from "@/components/marketing/section-link";
@@ -52,6 +52,7 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?
     { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which nobody but us can see." },
     { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
+    { title: "Bio link page", body: "One link for everything you do, with per-link tap counts. Four looks and four fonts to pick from, and the colour comes off your own artwork. On every plan, including Free." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
@@ -219,6 +220,40 @@ function Bento() {
             </li>
           ))}
         </ul>
+      </div>
+      {/* Bio link. Full width on purpose: it shipped a while ago and nothing public has ever
+          mentioned it, which is the same failure as news emails and custom store links. */}
+      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-6">
+        <div className="grid gap-8 md:grid-cols-2 md:items-center">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-violet-200"><LinkIcon className="h-4 w-4" /> Bio link</div>
+            <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-tight">Between releases, it&apos;s still your page.</h3>
+            <p className="mt-2 max-w-lg text-sm text-white/60">
+              One link for everything you do — music, shows, merch, whatever you put on it. Pick one of four looks
+              and one of four fonts, and the colour comes off your own artwork. Every tap is counted per link, so you
+              find out which one people actually press. On every plan, including Free.
+            </p>
+            <p className="mt-3 max-w-lg text-sm text-white/60">
+              A release page is right for release week. This is the rest of the year.
+            </p>
+          </div>
+          <div className="relative mx-auto w-full max-w-[280px]">
+            <div className="absolute -right-2 -top-2 z-10 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/50">Example — not real numbers</div>
+            <div className="rounded-[1.75rem] border border-white/10 bg-[#0f0f14] p-5">
+              <div className="mx-auto h-14 w-14 rounded-full" style={{ background: "linear-gradient(140deg,#8B5CF6,#22D3EE)" }} aria-hidden />
+              <div className="mt-3 text-center text-sm font-semibold">OTOTO</div>
+              <div className="mt-0.5 text-center text-[11px] text-white/45">Brisbane · UK garage</div>
+              <div className="mt-4 space-y-2">
+                {[["Latest release", "1,204"], ["Tickets \u2014 Sat 8 Nov", "318"], ["Merch", "96"]].map(([label, taps]) => (
+                  <div key={label} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
+                    <span className="text-xs text-white/85">{label}</span>
+                    <span className="text-[10px] tabular-nums text-white/40">{taps} taps</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
       {/* Fan list */}
       <div className="mk-card mk-reveal p-6 md:col-span-2">

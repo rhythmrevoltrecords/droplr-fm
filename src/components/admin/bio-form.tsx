@@ -2,13 +2,15 @@
 import { Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { bioFontClass } from "@/components/public/bio-fonts";
 import { BioView } from "@/components/public/bio-view";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
+import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -30,6 +32,8 @@ export function BioForm({
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  const accentPreview = v.accentColor || "#7c3aed";
 
   const set = (k: keyof Values, val: string | boolean) =>
     setV((x) => {
@@ -105,6 +109,61 @@ export function BioForm({
               )}
             </p>
           </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Look</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {BIO_THEMES.map((t) => {
+                const card = t.swatch.card === "accent" ? accentPreview : t.swatch.card;
+                const ink = t.swatch.card === "accent" ? readableTextOn(accentPreview) : t.swatch.text;
+                const on = v.theme === t.id;
+                return (
+                  <button
+                    key={t.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => set("theme", t.id)}
+                    className={`rounded-xl border p-2 text-left transition ${on ? "border-primary ring-2 ring-primary/40" : "border-input hover:border-primary/50"}`}
+                  >
+                    <span className="block space-y-1 rounded-lg p-2" style={{ background: t.swatch.bg }}>
+                      <span className="mx-auto block h-5 w-5 rounded-full" style={{ background: accentPreview }} />
+                      {[0, 1].map((i) => (
+                        <span key={i} className="block px-1 py-[3px] text-[7px]" style={{ background: card, color: ink, borderRadius: t.id === "mono" ? 0 : 5 }}>
+                          Listen
+                        </span>
+                      ))}
+                    </span>
+                    <span className="mt-1.5 block text-xs font-medium">{t.name}</span>
+                    <span className="block text-[11px] leading-snug text-muted-foreground">{t.blurb}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Font</Label>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {BIO_FONTS.map((f) => {
+                const on = v.font === f.id;
+                return (
+                  <button
+                    key={f.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => set("font", f.id)}
+                    className={`rounded-xl border px-3 py-2 text-left transition ${on ? "border-primary ring-2 ring-primary/40" : "border-input hover:border-primary/50"}`}
+                  >
+                    {/* Each option is set in the font it sells, so nobody has to imagine it. */}
+                    <span className={`block text-lg leading-tight ${bioFontClass(f.id)}`}>{v.title || "Your name"}</span>
+                    <span className="mt-1 block text-xs font-medium">{f.name}</span>
+                    <span className="block text-[11px] leading-snug text-muted-foreground">{f.blurb}</span>
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-muted-foreground">The preview on the right is the real page. Changes save when you hit Save.</p>
+          </div>
+
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
         </div>
         <div className="flex items-center gap-3">
@@ -118,7 +177,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
+              <BioView preview page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

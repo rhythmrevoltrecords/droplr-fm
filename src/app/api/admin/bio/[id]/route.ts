@@ -23,6 +23,9 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.title !== undefined) data.title = d.title;
   if (d.bio !== undefined) data.bio = d.bio || null;
   if (d.isPublic !== undefined) data.isPublic = d.isPublic;
+  // Empty string or null both mean "back to the default look", which is NULL in the column.
+  if (d.theme !== undefined) data.theme = d.theme || null;
+  if (d.font !== undefined) data.font = d.font || null;
   if (d.slug !== undefined) {
     const slug = slugify(d.slug);
     if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
