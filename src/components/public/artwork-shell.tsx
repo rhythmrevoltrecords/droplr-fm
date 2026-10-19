@@ -1,6 +1,7 @@
 import Image from "next/image";
 import { SITE_URL } from "@/lib/env";
 import { platformMeta } from "@/lib/platforms";
+import { posterFill, readableTextOn } from "@/lib/bio-themes";
 import { cn } from "@/lib/utils";
 import { Pixels } from "./pixels";
 import { PlatformIcon } from "./platform-icon";
@@ -31,6 +32,8 @@ export function ArtworkPageShell({
   pixels,
   preview = false,
   theme = "dark",
+  skin,
+  glow = true,
 }: {
   /** Kept for callers; the background is now painted from accentColor only (no blurred artwork copy). */
   imageUrl?: string;
@@ -42,15 +45,22 @@ export function ArtworkPageShell({
   preview?: boolean;
   /** "dark" (default) is the signature look. light/system only when the label opts in for public pages. */
   theme?: PublicTheme;
+  /** Extra classes for a per-page look (bio themes + font). Styling only: no layout changes. */
+  skin?: string;
+  /** Mono drops the accent wash. Nothing else turns the glow off, so it defaults to on. */
+  glow?: boolean;
 }) {
   const accent = accentColor || DEFAULT_ACCENT;
   const themed = theme === "light" || theme === "system";
   return (
-    <main className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`)}>
+    <main
+      className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`, skin)}
+      style={{ ["--shell-accent" as string]: accent, ["--shell-ink" as string]: readableTextOn(posterFill(accent)), ["--shell-fill" as string]: posterFill(accent) }}
+    >
       {/* Artwork-driven background: accent-colour wash (no blurred image, no filter: that full-screen blur was the main LCP cost) + dark gradient + accent glow */}
       <div aria-hidden className="absolute inset-0">
-        <div className="absolute inset-0" style={{ background: `radial-gradient(140% 90% at 50% 0%, ${accent}59 0%, ${accent}24 45%, transparent 80%), radial-gradient(90% 55% at 100% 100%, ${accent}1a 0%, transparent 70%)` }} />
-        <div className="absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` }} />
+        {glow && <div className="absolute inset-0" style={{ background: `radial-gradient(140% 90% at 50% 0%, ${accent}59 0%, ${accent}24 45%, transparent 80%), radial-gradient(90% 55% at 100% 100%, ${accent}1a 0%, transparent 70%)` }} />}
+        <div className="absolute inset-0" style={{ background: glow ? `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` : "#000" }} />
         {themed && (
           <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
         )}

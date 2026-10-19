@@ -371,3 +371,50 @@
   main { padding: 0 !important; }
   @page { size: A4; margin: 14mm; }
 }
+
+/* ---------------------------------------------------------------------------
+   Bio page themes. One class on the shell, styling only: no layout, no fonts
+   (the font arrives as its own next/font class). Midnight is the bare shell and
+   has no rules here on purpose, and Paper is the shell-theme-light treatment
+   that already shipped, so only these two add CSS.
+   Contrast for every text colour below is asserted in scripts/test-bio-theme.ts.
+   --------------------------------------------------------------------------- */
+
+.bio-skin-mono .glass {
+  background-color: rgb(255 255 255 / 0.05);
+  border-color: rgb(255 255 255 / 0.22);
+  backdrop-filter: none;
+  border-radius: 0;
+}
+.bio-skin-mono .glass:hover {
+  background-color: rgb(255 255 255 / 0.1);
+}
+.bio-skin-mono .grain {
+  display: none;
+}
+.bio-skin-mono h1 {
+  letter-spacing: -0.01em;
+  text-transform: uppercase;
+}
+
+.bio-skin-poster .glass {
+  /* --shell-fill is the accent, darkened or lightened only as far as small text needs. */
+  background-color: var(--shell-fill, #7c3aed);
+  border-color: rgb(255 255 255 / 0.18);
+  backdrop-filter: none;
+  /* --shell-ink is black or white, whichever reads on this artist's accent colour. */
+  color: var(--shell-ink, #fff);
+}
+.bio-skin-poster .glass:hover {
+  filter: brightness(1.12);
+}
+.bio-skin-poster .glass .text-white,
+.bio-skin-poster .glass [class*="text-white/"] {
+  color: var(--shell-ink, #fff);
+  opacity: 0.85;
+}
+.bio-skin-poster h1 {
+  font-size: 2.5rem;
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}

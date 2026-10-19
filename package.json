@@ -34,7 +34,8 @@
     "test:blog": "tsx --env-file-if-exists=.env scripts/test-blog.ts",
     "test:plancopy": "tsx --env-file-if-exists=.env scripts/test-plan-copy.ts",
     "test:close": "tsx --env-file-if-exists=.env scripts/test-close-account.ts",
-    "test:esp": "tsx --env-file-if-exists=.env scripts/test-esp.ts"
+    "test:esp": "tsx --env-file-if-exists=.env scripts/test-esp.ts",
+    "test:biotheme": "tsx --env-file-if-exists=.env scripts/test-bio-theme.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -144,7 +144,9 @@ async function main() {
       ["POST", `/api/admin/releases/${rid}/reresolve`],
       ["GET", `/api/admin/releases/${rid}/export?type=presaves`],
       ["GET", `/api/admin/releases/${rid}/export?type=clicks`],
-      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned" }],
+      // theme/font go through the same PATCH and the same guard; included so the payload the
+      // route actually accepts is the payload this test tries, not an older subset of it.
+      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter" }],
       ["DELETE", `/api/admin/bio/${B.bio.id}`],
       ["PUT", `/api/admin/bio/${B.bio.id}/links`, { links: [] }],
     ];
@@ -165,6 +167,7 @@ async function main() {
     check("B release untouched", !!bNow && bNow.title === "Secret b" && bNow.links.length === 1 && bNow.links[0].url.includes("open.spotify.com") && bNow.linkVariants.length === 1 && bNow.preSaves.length === 1);
     const bBio = await prisma.bioPage.findUnique({ where: { id: B.bio.id }, include: { links: true } });
     check("B bio untouched", !!bBio && bBio.title === "Bio b" && bBio.links.length === 1 && !bBio.links[0].url.includes("evil"));
+    check("B bio look untouched", !!bBio && bBio.theme === null && bBio.font === null, `theme=${bBio?.theme} font=${bBio?.font}`);
     check("B artist not removed", !!(await prisma.user.findUnique({ where: { id: B.artist.id } })));
     check("B invite not removed", !!(await prisma.invite.findUnique({ where: { id: B.invite.id } })));
 
