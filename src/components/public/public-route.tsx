@@ -6,6 +6,7 @@ import { deezerGloballyEnabled, soundcloudGateEnforcement } from "@/lib/env";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { publicTheme } from "./artwork-shell";
 import { planOf } from "@/lib/plans";
+import { NOT_FOUND_TITLE } from "@/lib/seo";
 import type { Resolution } from "@/lib/releases";
 import { isReleased, isReleasedFor, releaseInstantFor } from "@/lib/time";
 import { requestMeta, resolveSource } from "@/lib/tracking";
@@ -226,7 +227,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
 }
 
 export async function releaseMetadata(resolution: Resolution) {
-  if (!resolution || resolution.kind === "redirect") return {};
+  if (!resolution || resolution.kind === "redirect") return { title: { absolute: NOT_FOUND_TITLE }, robots: { index: false, follow: false } };
   if (resolution.kind === "org") {
     // Set images explicitly so label pages (often on the label's own domain) don't inherit droplr.fm's homepage social card.
     const images = resolution.org.logoUrl ? [resolution.org.logoUrl] : [];

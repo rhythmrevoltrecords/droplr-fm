@@ -12,6 +12,15 @@ import { isPlatformHost, platformSubdomain } from "./env";
  * Off automatically on Netlify deploy previews and branch deploys, so a preview build can never
  * compete with the real site for its own terms. SEO_NOINDEX=true pulls everything back out.
  */
+/**
+ * What a dead link calls itself.
+ *
+ * Shared so the page and its browser tab say the same thing, and set on every public route that
+ * can 404 — these pages also answer on labels' own domains, where inheriting droplr.fm's default
+ * title put droplr's marketing headline in the tab of somebody else's broken link.
+ */
+export const NOT_FOUND_TITLE = "Nobody's in this room";
+
 export function seoIndexable() {
   if (process.env.SEO_NOINDEX === "true") return false;
   const ctx = process.env.CONTEXT; // Netlify: production | deploy-preview | branch-deploy
