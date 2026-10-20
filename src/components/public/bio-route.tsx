@@ -55,10 +55,11 @@ export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadB
 
   return (
     <BioView
-      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, release, background: { url: page.backgroundUrl, color: page.backgroundColor }, links: labelDuplicateLinks(page.links.map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon })) }}
+      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, release, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, links: labelDuplicateLinks(page.links.map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) }}
       orgName={page.organization.name}
       timezone={page.organization.timezone}
       labels={labels}
+      glow={{ on: page.organization.publicGlow, color: page.organization.glowColor }}
       showBranding={!plan.removeBranding}
       theme={publicTheme(page.organization)}
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}

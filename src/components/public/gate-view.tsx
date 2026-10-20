@@ -24,7 +24,7 @@ export type GateViewData = {
   coverUrl: string;
   accentColor: string | null;
   downloadNote: string | null;
-  org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; timezone?: string | null };
+  org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; timezone?: string | null; publicGlow?: boolean; glowColor?: string | null };
 };
 
 const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
@@ -75,6 +75,8 @@ export function GateView({
 
   return (
     <ArtworkPageShell
+      glow={release.org.publicGlow !== false}
+      glowColor={release.org.glowColor}
       theme={theme}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
@@ -82,6 +84,8 @@ export function GateView({
       pixels={demo ? null : { meta: release.org.metaPixelId, tiktok: release.org.tiktokPixelId, ga4: release.org.ga4Id, contentName: `${release.artistName} - ${release.title}` }}
     >
       <ArtworkHero
+        glow={release.org.publicGlow !== false}
+        glowColor={release.org.glowColor}
         imageUrl={release.coverUrl}
         accentColor={release.accentColor}
         alt={`${release.title} artwork`}
