@@ -67,6 +67,28 @@ check("the same link twice is imported once", urls.filter((u) => u.includes("sou
 check("tracking junk does not make a link look different",
   normaliseForDedupe("https://x.com/a?utm_source=linktree") === normaliseForDedupe("https://www.x.com/a/"));
 
+// ---- entities are decoded once, never twice ------------------------------
+//
+// CodeQL caught this as a high: the first version decoded "&amp;" and then "&#39;" in separate
+// passes, so "&amp;#39;" became "&#39;" and then "'". The same shape with "&amp;lt;" puts a "<"
+// back into a string whose tags were stripped a moment earlier. One pass fixes it, because a
+// replacement's output is never re-scanned.
+{
+  const titleOf = (text: string) =>
+    extractLinks(`<a href="https://example.com/x">${text}</a>`, SRC)[0]?.title ?? "";
+
+  check("a double-escaped entity is not decoded twice", titleOf("&amp;#39;") === "&#39;",
+    titleOf("&amp;#39;"));
+  check("a double-escaped tag cannot be rebuilt", !titleOf("&amp;lt;script&amp;gt;").includes("<"),
+    titleOf("&amp;lt;script&amp;gt;"));
+  check("a real ampersand still reads properly", titleOf("Tom &amp; Jerry") === "Tom & Jerry", titleOf("Tom &amp; Jerry"));
+  check("named entities decode", titleOf("&quot;Quoted&quot;") === '"Quoted"', titleOf("&quot;Quoted&quot;"));
+  check("numeric entities decode", titleOf("&#39;Hi&#39;") === "'Hi'", titleOf("&#39;Hi&#39;"));
+  check("tags are stripped", titleOf("<b>Bold</b> text") === "Bold text", titleOf("<b>Bold</b> text"));
+  check("no angle bracket survives in a button title", !titleOf("a &lt;b&gt; c").includes("<") && !titleOf("a &lt;b&gt; c").includes(">"),
+    titleOf("a &lt;b&gt; c"));
+}
+
 // ---- what must NOT come through -----------------------------------------
 
 check("the service's own furniture is left behind", !urls.some((u) => /cookie|privacy|terms|register/i.test(u)),
