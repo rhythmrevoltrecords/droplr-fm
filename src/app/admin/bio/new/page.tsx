@@ -2,14 +2,16 @@ import { BioForm } from "@/components/admin/bio-form";
 import { requireUser } from "@/lib/auth";
 import { DEFAULT_BIO_FONT, DEFAULT_BIO_THEME } from "@/lib/bio-themes";
 import { bioReleaseFor } from "@/lib/bio-release-server";
+import { linkedLabelNames } from "@/lib/bio-roster";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 
 export default async function NewBio() {
   const user = await requireUser("label");
-  const [artists, previewReleases] = await Promise.all([
+  const [artists, previewReleases, linkedLabels] = await Promise.all([
     prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     bioReleaseFor({ organizationId: user.organizationId, artistProfileId: null, releaseBlock: "on" }, user.organization),
+    user.organization.kind === "artist" ? linkedLabelNames(user.organizationId) : Promise.resolve([]),
   ]);
   return (
     <div className="space-y-6">
@@ -20,6 +22,7 @@ export default async function NewBio() {
         glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
         artists={artists}
         previewReleases={previewReleases}
+        linkedLabels={linkedLabels}
         orgName={user.organization.name}
         showBranding={!planOf(user.organization.plan).removeBranding}
         previewLinks={[{ id: "p1", platform: "spotify", label: "Latest release" }, { id: "p2", platform: "bandcamp", label: "Merch" }]}

@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { requireUser } from "@/lib/auth";
 import { bioPublicUrl } from "@/lib/bio";
 import { bioLabelBadges } from "@/lib/bio-label-server";
+import { linkedLabelNames } from "@/lib/bio-roster";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
 import { prisma } from "@/lib/db";
@@ -27,7 +28,7 @@ export default async function EditBio(
   const url = bioPublicUrl(user.organization, page.slug);
   const clicks = page.links.reduce((n, l) => n + l.clicks, 0);
   // Same resolver the public page uses, so the preview cannot drift from what a fan gets.
-  const [artists, previewReleases, labelBadges] = await Promise.all([
+  const [artists, previewReleases, labelBadges, linkedLabels] = await Promise.all([
     prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     // Forced "on": the preview has to show what ticking the box would publish, which is the
     // only honest way to offer an opt-in. The form itself gates on the toggle.
@@ -35,6 +36,7 @@ export default async function EditBio(
     // Resolved as if the artist had turned it on, same reason: an opt-in has to show what it
     // would publish. Empty unless a label has allowed it and the roster row is still active.
     bioLabelBadges({ ...page, labelBadge: "on" }, user.organization),
+    user.organization.kind === "artist" ? linkedLabelNames(user.organizationId) : Promise.resolve([]),
   ]);
 
   return (
@@ -76,6 +78,7 @@ export default async function EditBio(
             artists={artists}
             previewReleases={previewReleases}
             labelBadges={labelBadges}
+            linkedLabels={linkedLabels}
             orgName={user.organization.name}
             showBranding={!plan.removeBranding}
           />
