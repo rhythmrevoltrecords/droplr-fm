@@ -70,7 +70,7 @@ function ipv6Bytes(ip: string): number[] | null {
 }
 
 /** Only public https hosts: cover URLs are user-supplied, so this must not reach internal services. */
-async function publicHttpsUrl(raw: string): Promise<URL | null> {
+export async function publicHttpsUrl(raw: string): Promise<URL | null> {
   let url: URL;
   try {
     url = new URL(raw);
