@@ -7,6 +7,7 @@ import { bioLabelBadges } from "@/lib/bio-label-server";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { prisma } from "@/lib/db";
 import { bioPublicUrl } from "@/lib/bio";
+import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { isBot } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
@@ -30,7 +31,11 @@ export const loadBio = cache(async function loadBio(slug: string, host?: string)
 });
 
 export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata {
-  if (!page) return {};
+  // A missing page used to carry no metadata at all, so it inherited the site's default title —
+  // a dead link on a label's own domain showed a browser tab reading "droplr.fm — Launch every
+  // release like a label would". Absolute, because the "· droplr.fm" template is droplr's
+  // branding and this page may be answering on someone else's address.
+  if (!page) return { title: { absolute: NOT_FOUND_TITLE }, robots: { index: false, follow: false } };
   const description = page.bio ?? `Links from ${page.title}`;
   return {
     title: { absolute: page.title },

@@ -60,6 +60,26 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   console.log("  \u2713 bio pages are indexable, canonical and in a host-correct sitemap");
 }
 
+// ---- a dead link says what it is -----------------------------------------
+//
+// A 404 used to carry no metadata, so it inherited the site default. On a label's own domain that
+// meant a broken link opened a tab reading "droplr.fm — Launch every release like a label would",
+// which is droplr's marketing headline on somebody else's address — and it is what made a routine
+// 404 look like a custom-domain outage for half an hour.
+{
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  const bio = readFileSync(new URL("../src/components/public/bio-route.tsx", import.meta.url), "utf8");
+  const rel = readFileSync(new URL("../src/components/public/public-route.tsx", import.meta.url), "utf8");
+  for (const [name, src] of [["bio", bio], ["release", rel]] as const) {
+    if (!src.includes("NOT_FOUND_TITLE")) fail(`a missing ${name} page must carry its own title`);
+    if (!/absolute: NOT_FOUND_TITLE/.test(src)) fail(`the ${name} 404 title must be absolute, not suffixed with droplr.fm on a label's domain`);
+    if (!/robots: \{ index: false, follow: false \}/.test(src)) fail(`a missing ${name} page must not invite indexing`);
+  }
+  const page = readFileSync(new URL("../src/app/not-found.tsx", import.meta.url), "utf8");
+  if (!page.includes("Nobody&apos;s in this room")) fail("the 404 page and its title must say the same thing");
+  console.log("  \u2713 a dead link carries its own title on every host");
+}
+
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 let pass = 0; const fails: string[] = [];
 const check = (n: string, ok: boolean, d = "") => { ok ? pass++ : fails.push(`${n}${d ? ` — ${d}` : ""}`); console.log(`${ok ? "  ✓" : "  ✗"} ${n}${!ok && d ? ` (${d})` : ""}`); };
