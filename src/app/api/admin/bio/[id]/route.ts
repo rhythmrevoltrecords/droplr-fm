@@ -27,6 +27,11 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.theme !== undefined) data.theme = d.theme || null;
   if (d.font !== undefined) data.font = d.font || null;
   if (d.releaseBlock !== undefined) data.releaseBlock = d.releaseBlock || null;
+  if (d.backgroundUrl !== undefined) data.backgroundUrl = d.backgroundUrl || null;
+  if (d.backgroundColor !== undefined) data.backgroundColor = d.backgroundColor || null;
+  // Only the artist's half. The label's half (Artist.labelBadge + an active roster row) is read
+  // at render time, so a label revoking it takes effect without touching this column.
+  if (d.labelBadge !== undefined) data.labelBadge = d.labelBadge || null;
   if (d.artistProfileId !== undefined) {
     // Tenant check, not just a type check: a cuid from another label's roster would otherwise
     // scope this page's release block to releases that are not this organisation's.

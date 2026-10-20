@@ -97,6 +97,7 @@ export type ArtistEditorValues = {
   followers: string;
   notes: string;
   signedAt: string;
+  labelBadge: boolean;
 };
 
 const SELF_FIELDS = ["bio", "genre", "location", "website", "socialLinks", "photoUrl", "accentColor", "pressPhotoUrls"] as const;
@@ -287,6 +288,16 @@ export function ArtistProfileEditor({ mode, artistId, initial, statsUpdated, own
               <CardContent className="space-y-4">
                 <textarea aria-label="Label notes" value={v.notes} maxLength={5000} rows={5} onChange={(e) => set("notes", e.target.value)} placeholder="Deal terms, next steps, who manages them…" className={textareaClass} />
                 <div className="space-y-2"><Label htmlFor="f-signed">Signed</Label><Input id="f-signed" type="date" value={v.signedAt} onChange={(e) => set("signedAt", e.target.value)} /></div>
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" checked={v.labelBadge} onChange={(e) => set("labelBadge", e.target.checked)} className="mt-0.5 h-4 w-4" />
+                  <span>
+                    Let them show your name and logo on their own bio page
+                    <span className="mt-0.5 block text-xs text-muted-foreground">
+                      Only if they have their own droplr account linked, and only while they&apos;re Active. They choose
+                      whether to display it. Moving them to Alumni or ending the link removes it from their page at once.
+                    </span>
+                  </span>
+                </label>
               </CardContent>
             </Card>}
           </div>

@@ -300,6 +300,17 @@ model Artist {
   bookingsOpen   Boolean   @default(false)
   bookingsOpenAt DateTime?
 
+  /**
+   * May this artist show our name and logo on their own bio page?
+   *
+   * Default true: signing an artist is public anyway, and attribution is normally what a label
+   * wants. It is the LABEL's half of the decision — the artist still chooses whether to display
+   * it (BioPage.labelBadge), so neither side publishes the other's name alone. The badge also
+   * disappears on its own when `status` stops being "active", because "signed to" is a claim
+   * about a relationship and this row is what says whether it is still true.
+   */
+  labelBadge     Boolean   @default(true)
+
   spotifyArtistId  String?
   monthlyListeners Int?
   followers        Int?
@@ -474,6 +485,17 @@ model BioPage {
    * New pages are created with "on" because the form shows exactly what will appear first.
    */
   releaseBlock   String?
+  /**
+   * Whole-page background. Both optional; the image wins when both are set.
+   *
+   * Never blurred. A full-screen blur was measured as the main LCP cost on these pages and was
+   * deliberately removed once already — see ArtworkPageShell. A readability scrim is painted over
+   * whatever this is, so no upload can make the links unreadable.
+   */
+  backgroundUrl   String?
+  backgroundColor String?
+  /** "on" = the artist chose to show their label's badge. NULL = not shown. Needs the label's own permission too. */
+  labelBadge     String?
   isPublic       Boolean      @default(true)
   views          Int          @default(0)
   createdAt      DateTime     @default(now())

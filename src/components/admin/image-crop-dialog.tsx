@@ -7,7 +7,12 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 export type AspectPreset = { label: string; value: number | null };
-export type ImagePurpose = "cover" | "avatar" | "logo" | "press";
+/**
+ * Deliberately a copy of IMAGE_PURPOSES in lib/images.ts rather than an import: this file is a
+ * client component, and lib/images reaches sharp and the blob store. The two lists must agree —
+ * scripts/test-bio-theme.ts fails if they drift.
+ */
+export type ImagePurpose = "cover" | "avatar" | "logo" | "press" | "background";
 export type UploadedImage = { url: string; accentColor: string | null; width?: number; height?: number };
 
 export const ASPECT_SQUARE: AspectPreset = { label: "Square", value: 1 };
