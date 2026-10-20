@@ -24,6 +24,8 @@ const schema = z.object({
   themePreference: z.enum(["dark", "light", "system"]).optional(),
   themePublic: z.boolean().optional(),
   dashboardGlow: z.boolean().optional(),
+  publicGlow: z.boolean().optional(),
+  glowColor: z.string().regex(/^$|^#[0-9a-fA-F]{6}$/, "Glow colour must be a hex like #8B5CF6").optional(),
   accentColor: z.string().regex(/^$|^#[0-9a-fA-F]{6}$/, "Accent colour must be a hex like #8B5CF6").optional(),
   logoUrl: z.string().url().or(z.literal("")).optional(),
   releaseEmailHour: z.number().int().min(0).max(23).nullable().optional(),
@@ -99,6 +101,9 @@ export async function PATCH(req: NextRequest) {
       ...(d.themePreference !== undefined && { themePreference: d.themePreference }),
       ...(d.themePublic !== undefined && { themePublic: d.themePublic }),
       ...(d.dashboardGlow !== undefined && { dashboardGlow: d.dashboardGlow }),
+      ...(d.publicGlow !== undefined && { publicGlow: d.publicGlow }),
+      // Empty string means "back to the colour from the artwork", which is NULL in the column.
+      ...(d.glowColor !== undefined && { glowColor: d.glowColor || null }),
       ...(d.accentColor !== undefined && { accentColor: d.accentColor || null }),
       ...(d.logoUrl !== undefined && { logoUrl: d.logoUrl || null }),
       ...(d.name !== undefined && { name: d.name }),

@@ -438,3 +438,32 @@
 .bio-skin-mono .bio-bg-scrim {
   background: rgb(0 0 0 / 0.72);
 }
+
+/* ---------------------------------------------------------------------------
+   Link button colour (BioPage.buttonColor → --bubble on the shell).
+   One setting, four treatments: each theme reads the same colour and applies
+   it the way that theme works.
+   Each fallback is the theme's own value, so with --bubble unset both sides
+   of the mix are identical and the result is EXACTLY what the page rendered
+   before. A fallback of `transparent` would have quietly lightened every
+   existing page by a few percent.
+   Glass themes tint at low alpha, where the page behind still decides
+   readability; Poster fills solid with --shell-fill, which is the chosen
+   colour already corrected to clear 4.5:1 for the ink on top of it.
+   --------------------------------------------------------------------------- */
+
+.glass {
+  background-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.06)) 14%, rgb(255 255 255 / 0.06));
+  border-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.1)) 32%, rgb(255 255 255 / 0.1));
+}
+.glass:hover {
+  background-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.12)) 22%, rgb(255 255 255 / 0.12));
+}
+.shell-theme-light .glass {
+  background-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.6)) 16%, rgb(255 255 255 / 0.6));
+  border-color: color-mix(in srgb, var(--bubble, rgb(0 0 0 / 0.08)) 30%, rgb(0 0 0 / 0.08));
+}
+.bio-skin-mono .glass {
+  background-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.05)) 18%, rgb(255 255 255 / 0.05));
+  border-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.22)) 40%, rgb(255 255 255 / 0.22));
+}
