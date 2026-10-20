@@ -451,6 +451,8 @@ model BioPage {
   bio            String?
   imageUrl       String
   accentColor    String?
+  theme          String?
+  font           String?
   isPublic       Boolean      @default(true)
   views          Int          @default(0)
   createdAt      DateTime     @default(now())

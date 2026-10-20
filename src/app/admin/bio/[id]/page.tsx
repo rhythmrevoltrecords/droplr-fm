@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { bioPublicUrl } from "@/lib/bio";
+import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 import { fmtNum } from "@/lib/utils";
@@ -57,7 +58,7 @@ export default async function EditBio(
           <BioForm
             mode="edit"
             id={page.id}
-            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", isPublic: page.isPublic }}
+            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), isPublic: page.isPublic }}
             previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon }))}
             orgName={user.organization.name}
             showBranding={!plan.removeBranding}

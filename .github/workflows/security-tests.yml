@@ -166,6 +166,12 @@ jobs:
       - name: Closing an account
         run: npx tsx scripts/test-close-account.ts
 
+      - name: Bio page themes
+        run: npx tsx scripts/test-bio-theme.ts
+
+      - name: ESP connections
+        run: npx tsx scripts/test-esp.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
