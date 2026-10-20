@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
-import { bioSchema } from "@/lib/bio";
+import { BIO_PAGE_LIMIT_MESSAGE, bioPageLimit, bioSchema } from "@/lib/bio";
 import { extractAccentColor } from "@/lib/color";
 import { prisma } from "@/lib/db";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
@@ -10,6 +10,13 @@ import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 export async function POST(req: NextRequest) {
   const user = await apiUser("label");
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  // One page per artist account. Checked before anything is written, and server-side rather than
+  // only in the UI: hiding a button is not a limit.
+  const limit = bioPageLimit(user.organization.kind);
+  if (Number.isFinite(limit) && (await prisma.bioPage.count({ where: { organizationId: user.organizationId } })) >= limit) {
+    return NextResponse.json({ error: BIO_PAGE_LIMIT_MESSAGE }, { status: 409 });
+  }
+
   const parsed = bioSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
   const d = parsed.data;

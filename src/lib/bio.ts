@@ -8,6 +8,19 @@ export function bioPublicUrl(org: { customDomain: string | null; plan: string | 
   return domain ? `https://${domain}/b/${slug}` : `${SITE_URL}/b/${slug}`;
 }
 
+/**
+ * How many bio pages an account may have.
+ *
+ * An artist is one person with one page: a second one splits their own audience between two links
+ * and neither ends up being the one in their bio. A label runs a roster, so it needs one per
+ * artist plus its own. Not a plan limit — this is about what the account IS, so it does not move
+ * when someone upgrades, and nobody can buy their way into a confusing page.
+ */
+export const bioPageLimit = (orgKind: string | null | undefined) => (orgKind === "artist" ? 1 : Infinity);
+
+export const BIO_PAGE_LIMIT_MESSAGE =
+  "Your account already has a bio link. Edit that one rather than making a second — two links to the same artist just splits who sees what.";
+
 export const bioSchema = z.object({
   title: z.string().min(1).max(100),
   slug: z.string().min(1).max(60),

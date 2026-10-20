@@ -169,7 +169,7 @@ export function IdentityForm({ initial, siteHost, kind = "label" }: { initial: {
           />
         </div>
         <div className="space-y-2">
-          <Label htmlFor="org-slug">Slug</Label>
+          <Label htmlFor="org-slug">Your droplr address</Label>
           <div className="flex gap-2">
             <Input id="org-slug" value={slug} onChange={(e) => { setSlugTouched(true); setSlug(e.target.value); }} className="font-mono" />
             <Button type="button" variant="outline" className="shrink-0" onClick={() => { setSlugTouched(false); setSlug(slugify(name)); }} title="Generate from name">From name</Button>
