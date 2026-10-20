@@ -139,6 +139,28 @@ check("the resolver filters out download packs in SQL", server.includes('kind: "
 check("the resolver filters out private releases in SQL", server.includes("isPublic: true"));
 check("the resolver scopes to the organisation", server.includes("organizationId: page.organizationId"));
 check("the resolver scopes to the artist when the page has one", server.includes("page.artistProfileId"));
+
+// ---- the artist's own account ---------------------------------------------
+
+// An artist signed to a label has their records in the LABEL's organisation. Scoping their own
+// bio page to their own org alone would leave it empty while their dashboard showed those same
+// releases through the roster grant — droplr knowing they are theirs on one screen and not the
+// other. The grant is reused rather than re-derived: it is already audited as read-only,
+// one-way and limited to releases that name them.
+check("granted releases are reused from lib/roster-grant, not re-derived",
+  server.includes("grantedReleaseWhere") && server.includes("grantsFor"));
+check("the grant branch applies only to an artist organisation", /orgKind !== "artist"\) return null/.test(server),
+  "a label's page must never pull in another label's catalogue");
+check("the grant is resolved from the account owner", /role: "owner"/.test(server));
+check("both branches still exclude downloads and private releases",
+  /where: \{ kind: "release", isPublic: true, \.\.\.\(granted \? \{ OR: \[own, granted\] \} : own\) \}/.test(server),
+  "a release its label held back must stay held back wherever it would appear");
+
+// A granted release lives in the label's org, so its link has to carry the LABEL's slug and
+// custom domain. Building it from the page's own org would send fans to a 404 on the artist's
+// domain, which is the quiet way this feature breaks.
+check("the link is built from the release's own organisation", server.includes("publicReleaseUrl(picked.organization"));
+check("the release query selects that organisation", /organization: \{ select: \{ slug: true, customDomain: true/.test(server));
 // Opt-in, not opt-out. A default of "show" would have published a release nobody chose the
 // moment this deployed — including, on a page with no artist set, another artist's record.
 check("the block is opt-in: anything but \"on\" shows nothing", /releaseBlock !== "on"\) return null/.test(server));
