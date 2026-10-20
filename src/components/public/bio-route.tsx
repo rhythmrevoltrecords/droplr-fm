@@ -8,6 +8,7 @@ import { bioReleaseFor } from "@/lib/bio-release-server";
 import { prisma } from "@/lib/db";
 import { bioPublicUrl } from "@/lib/bio";
 import { showSubscribe } from "@/lib/bio-subscribe";
+import { sectionOrder } from "@/lib/bio-sections";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
@@ -93,6 +94,7 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
       labels={labels}
       glow={{ on: page.organization.publicGlow, color: page.organization.glowColor }}
       subscribe={{ on: showSubscribe(page), pageId: page.id, buttonText: page.subscribeText }}
+      order={sectionOrder(page.sectionOrder)}
       done={done}
       showBranding={!plan.removeBranding}
       theme={publicTheme(page.organization)}

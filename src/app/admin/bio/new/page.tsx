@@ -18,7 +18,7 @@ export default async function NewBio() {
       <h1 className="text-2xl font-semibold">New bio link</h1>
       <BioForm
         mode="create"
-        initial={{ title: "", slug: "", bio: "", imageUrl: "", accentColor: "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", labelBadge: "", subscribe: "on", subscribeText: "", isPublic: true }}
+        initial={{ title: "", slug: "", bio: "", imageUrl: "", accentColor: "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", labelBadge: "", subscribe: "on", subscribeText: "", sectionOrder: "", isPublic: true }}
         glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
         artists={artists}
         previewReleases={previewReleases}

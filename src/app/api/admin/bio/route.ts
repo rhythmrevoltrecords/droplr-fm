@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { BIO_PAGE_LIMIT_MESSAGE, bioPageLimit, bioSchema } from "@/lib/bio";
+import { storedOrder } from "@/lib/bio-sections";
 import { extractAccentColor } from "@/lib/color";
 import { prisma } from "@/lib/db";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
@@ -33,7 +34,7 @@ export async function POST(req: NextRequest) {
   // Same system as releases: accent comes from the artwork (sharp hue histogram).
   const accentColor = d.accentColor || (await extractAccentColor(d.imageUrl));
   const page = await prisma.bioPage.create({
-    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, isPublic: d.isPublic ?? true },
+    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, sectionOrder: storedOrder(d.sectionOrder), isPublic: d.isPublic ?? true },
   });
   return NextResponse.json({ id: page.id });
 }

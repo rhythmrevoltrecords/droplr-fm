@@ -10,10 +10,11 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
 import { BIO_SUBSCRIBE_TEXT_MAX, DEFAULT_SUBSCRIBE_TEXT, subscribeButtonText, subscribeConsentLine } from "@/lib/bio-subscribe";
+import { SECTION_HINTS, SECTION_LABELS, moveSection, sectionOrder, serialiseOrder } from "@/lib/bio-sections";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -56,6 +57,11 @@ export function BioForm({
   const [slugTouched, setSlugTouched] = useState(mode === "edit");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+
+  // Reconciled, not trusted: the same function the public page uses, so the preview cannot show
+  // an order the live page would not render.
+  const order = sectionOrder(v.sectionOrder);
+  const reorder = (i: number, d: -1 | 1) => set("sectionOrder", serialiseOrder(moveSection(order, i, d)));
 
   const accentPreview = v.accentColor || "#7c3aed";
 
@@ -272,6 +278,31 @@ export function BioForm({
           )}
 
           <div className="space-y-2 sm:col-span-2">
+            <Label>Order of the page</Label>
+            <p className="text-xs text-muted-foreground">
+              Your picture and name always sit at the top. Everything else goes in the order you put it here.
+            </p>
+            <ul className="divide-y rounded-lg border border-input">
+              {order.map((sec, i) => (
+                <li key={sec} className="flex items-center gap-3 px-3 py-2">
+                  <span className="w-5 shrink-0 text-xs tabular-nums text-muted-foreground">{i + 1}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm">{SECTION_LABELS[sec]}</span>
+                    <span className="block text-xs text-muted-foreground">{SECTION_HINTS[sec]}</span>
+                  </span>
+                  {/* Two buttons rather than dragging. These pages are edited on a phone as often
+                      as not, and a drag handle on a touch screen fights the page's own scroll. */}
+                  <Button type="button" variant="ghost" size="sm" aria-label={`Move ${SECTION_LABELS[sec]} up`} disabled={i === 0} onClick={() => reorder(i, -1)}>&uarr;</Button>
+                  <Button type="button" variant="ghost" size="sm" aria-label={`Move ${SECTION_LABELS[sec]} down`} disabled={i === order.length - 1} onClick={() => reorder(i, 1)}>&darr;</Button>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              A block you have switched off keeps its place here and simply doesn&apos;t appear on the page.
+            </p>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label>Email list</Label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={v.subscribe === "on"} onChange={(e) => set("subscribe", e.target.checked ? "on" : "")} className="h-4 w-4" />
@@ -351,7 +382,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>
