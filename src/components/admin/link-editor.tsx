@@ -8,6 +8,7 @@ import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, useImageUpload } from "./image-crop-dialog";
+import type { ImportedLink } from "@/lib/link-import";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, emailAddressOf, guessPlatformFromUrl, mailtoFor, PLATFORM_GROUPS, platformMeta } from "@/lib/platforms";
 import { labelDuplicateLinks } from "@/lib/link-labels";
@@ -119,6 +120,36 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
   // Which row asked for an icon. A ref, not state: the upload dialog keeps the callback it was
   // given, and a value read from a stale closure would drop the picture onto the wrong link.
   const iconTarget = useRef<number | null>(null);
+  // Importing someone else's page. Candidates only: nothing is added until they tick and press.
+  const [importUrl, setImportUrl] = useState("");
+  const [importing, setImporting] = useState(false);
+  const [found, setFound] = useState<ImportedLink[] | null>(null);
+  const [picked, setPicked] = useState<Set<number>>(new Set());
+  const [importMsg, setImportMsg] = useState<string | null>(null);
+
+  async function runImport() {
+    setImporting(true);
+    setImportMsg(null);
+    setFound(null);
+    const res = await fetch("/api/admin/links/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url: importUrl }),
+    }).catch(() => null);
+    const data = (await res?.json().catch(() => ({}))) as { links?: ImportedLink[]; error?: string };
+    setImporting(false);
+    if (!res?.ok) return setImportMsg(data.error ?? "Couldn't read that page.");
+    setFound(data.links ?? []);
+    setPicked(new Set((data.links ?? []).map((_, i) => i)));
+  }
+
+  function addPicked() {
+    const take = (found ?? []).filter((_, i) => picked.has(i));
+    setLinks((ls) => [...ls, ...take.map((l, i) => withKey({ platform: l.platform, url: l.url, title: l.title, buttonText: null, icon: null, visible: true }, ls.length + i))]);
+    setFound(null);
+    setImportUrl("");
+    setImportMsg(`${take.length} added below. Check them over, then Save.`);
+  }
   const iconUpload = useImageUpload({
     endpoint: "/api/admin/upload-cover",
     purpose: "icon",
@@ -205,6 +236,48 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
           </div>
         </SortableContext>
       </DndContext>
+
+      <div className="space-y-3 rounded-xl border border-dashed p-3">
+        <div>
+          <p className="text-sm font-medium">Moving from another page?</p>
+          <p className="text-xs text-muted-foreground">
+            Paste your Linktree, Hypeddit, Beacons or any other link page and droplr reads the buttons off it,
+            so you can cancel that one instead of typing everything twice. Nothing is added until you pick.
+          </p>
+        </div>
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Input value={importUrl} onChange={(e) => setImportUrl(e.target.value)} placeholder="https://linktr.ee/yourname" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), importUrl && runImport())} />
+          <Button type="button" variant="secondary" className="shrink-0" disabled={!importUrl || importing} onClick={runImport}>
+            {importing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Read the page
+          </Button>
+        </div>
+        {importMsg && <p className="text-xs text-muted-foreground">{importMsg}</p>}
+        {found && found.length > 0 && (
+          <div className="space-y-2">
+            <div className="max-h-64 space-y-1 overflow-y-auto rounded-lg border p-2">
+              {found.map((l, i) => (
+                <label key={`${l.url}-${i}`} className="flex items-center gap-2 rounded px-1 py-1 text-sm hover:bg-accent">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 shrink-0"
+                    checked={picked.has(i)}
+                    onChange={(e) => setPicked((p) => { const n = new Set(p); if (e.target.checked) n.add(i); else n.delete(i); return n; })}
+                  />
+                  <PlatformIcon platform={l.platform} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate">{l.title || platformMeta(l.platform).name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">{l.url}</span>
+                  </span>
+                </label>
+              ))}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" onClick={addPicked} disabled={picked.size === 0}><Plus /> Add {picked.size} link{picked.size === 1 ? "" : "s"}</Button>
+              <Button type="button" size="sm" variant="ghost" onClick={() => setFound(null)}>Cancel</Button>
+            </div>
+          </div>
+        )}
+      </div>
 
       <div className="space-y-2 rounded-xl border border-dashed p-3">
         <div className="flex flex-col gap-2 sm:flex-row">
