@@ -13,10 +13,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  BIO_RELEASE_LIMIT,
   OUT_NOW_DAYS,
   bioReleaseAction,
   bioReleaseEyebrow,
   pickBioRelease,
+  pickBioReleases,
   type BioReleaseRow,
 } from "../src/lib/bio-release";
 
@@ -79,6 +81,41 @@ check("an upcoming download pack never wins",
 check("an upcoming private release never wins",
   pickBioRelease([row({ releaseDate: at(5), isPublic: false }), recent], NOW)?.release.title === "Recent");
 
+// ---- the whole list, and the order it comes in ---------------------------
+
+// The order IS the feature: an artist never reorders this. A pre-save has a deadline and nothing
+// else on the page does, so upcoming goes above released however old or new the released ones are.
+{
+  const list = pickBioReleases([old, recent, later, soon], NOW);
+  check("upcoming come first, soonest at the top",
+    list.slice(0, 2).map((c) => c.release.title).join(",") === "Soon,Later",
+    list.map((c) => c.release.title).join(","));
+  check("then released, newest first",
+    list.slice(2).map((c) => c.release.title).join(",") === "Recent,Old",
+    list.map((c) => c.release.title).join(","));
+  check("every row carries its own state", list.map((c) => c.state).join(",") === "upcoming,upcoming,out,latest",
+    list.map((c) => c.state).join(","));
+  check("a year-old record still appears, just last", list.some((c) => c.release.title === "Old"));
+}
+check("input order never changes the result",
+  pickBioReleases([old, soon, recent, later], NOW).map((c) => c.release.title).join(",") ===
+  pickBioReleases([later, recent, soon, old], NOW).map((c) => c.release.title).join(","));
+check("private releases and download packs stay out of the list",
+  pickBioReleases([row({ isPublic: false }), row({ kind: "download" }), recent], NOW).length === 1);
+check("nothing to show is an empty list, not a row", pickBioReleases([], NOW).length === 0);
+
+// A bio page is not a discography, and every row is another cover image on a page whose load
+// time was measured and fixed once already.
+check("the list is capped", BIO_RELEASE_LIMIT > 0 && BIO_RELEASE_LIMIT <= 20, String(BIO_RELEASE_LIMIT));
+{
+  const many = Array.from({ length: BIO_RELEASE_LIMIT + 9 }, (_, i) => row({ releaseDate: at(-i - 1) }));
+  check("more releases than the cap returns exactly the cap", pickBioReleases(many, NOW).length === BIO_RELEASE_LIMIT);
+  check("the cap keeps the newest, not whichever came back first",
+    pickBioReleases(many, NOW)[0].release.releaseDate.getTime() === at(-1).getTime());
+}
+check("the single-release helper is the top of the same list",
+  pickBioRelease([old, recent, soon], NOW)?.release.title === pickBioReleases([old, recent, soon], NOW)[0].release.title);
+
 // ---- the three states ----------------------------------------------------
 
 check("a future release is upcoming", pickBioRelease([soon], NOW)?.state === "upcoming");
@@ -136,6 +173,12 @@ check("the public page resolves through the shared resolver", route.includes("bi
 check("the admin preview resolves through the same one", edit.includes("bioReleaseFor("));
 check("the public page no longer queries releases itself", !route.includes("prisma.release.findMany"));
 check("the resolver filters out download packs in SQL", server.includes('kind: "release"'));
+check("the resolver fetches more rows than it shows, so the re-sort can't miss one",
+  /take: BIO_RELEASE_LIMIT \* \d+/.test(server),
+  "a date-ordered fetch of exactly the limit could drop an upcoming release that belongs at the top");
+check("every row's link is built from its OWN organisation",
+  /rows\.find\(\(r\) => r\.id === choice\.release\.id\)!\.organization/.test(server),
+  "a label release on an artist's page lives on the label's domain");
 check("the resolver filters out private releases in SQL", server.includes("isPublic: true"));
 check("the resolver scopes to the organisation", server.includes("organizationId: page.organizationId"));
 check("the resolver scopes to the artist when the page has one", server.includes("page.artistProfileId"));
@@ -159,11 +202,11 @@ check("both branches still exclude downloads and private releases",
 // A granted release lives in the label's org, so its link has to carry the LABEL's slug and
 // custom domain. Building it from the page's own org would send fans to a 404 on the artist's
 // domain, which is the quiet way this feature breaks.
-check("the link is built from the release's own organisation", server.includes("publicReleaseUrl(picked.organization"));
+check("the link is built from the release's own organisation", server.includes("publicReleaseUrl(owner,"));
 check("the release query selects that organisation", /organization: \{ select: \{ slug: true, customDomain: true/.test(server));
 // Opt-in, not opt-out. A default of "show" would have published a release nobody chose the
 // moment this deployed — including, on a page with no artist set, another artist's record.
-check("the block is opt-in: anything but \"on\" shows nothing", /releaseBlock !== "on"\) return null/.test(server));
+check("the block is opt-in: anything but \"on\" shows nothing", /releaseBlock !== "on"\) return \[\]/.test(server));
 check("the migration gives releaseBlock no default, so existing pages stay off", !/releaseBlock[^;]*DEFAULT/i.test(migration));
 check("a new page is created with the block on, having shown a preview first",
   code(read("src/app/admin/bio/new/page.tsx")).includes('releaseBlock: "on"'));

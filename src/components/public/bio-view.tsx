@@ -4,6 +4,15 @@ import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf }
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
 
+export type BioRelease = {
+  state: BioReleaseState;
+  title: string;
+  artistName: string;
+  coverUrl: string;
+  releaseDate: Date;
+  href: string;
+};
+
 export type BioViewData = {
   title: string;
   bio: string | null;
@@ -13,15 +22,11 @@ export type BioViewData = {
   theme?: string | null;
   /** One of BIO_FONTS; same fallback. */
   font?: string | null;
-  /** The release block, already chosen by lib/bio-release. null when there is nothing to show. */
-  release?: {
-    state: BioReleaseState;
-    title: string;
-    artistName: string;
-    coverUrl: string;
-    releaseDate: Date;
-    href: string;
-  } | null;
+  /**
+   * The releases to show, already ordered by lib/bio-release: upcoming soonest-first, then
+   * released newest-first. The first is the hero above the links; the rest go underneath.
+   */
+  releases?: BioRelease[];
   /** Whole-page background chosen by the owner. The image wins when both are set. */
   background?: { url?: string | null; color?: string | null } | null;
   /** Link button colour; what it does depends on the theme. */
@@ -31,6 +36,7 @@ export type BioViewData = {
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
 export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null } }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null } }) {
+  const [hero, ...more] = page.releases ?? [];
   const skin = bioThemeOf(page.theme);
   const font = bioFontOf(page.font);
   // Paper is the light shell treatment. The org-wide theme preference still wins
@@ -72,24 +78,24 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glow.color} alt={page.title} shape="circle" title={page.title}>
         {page.bio && <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-balance text-[15px] leading-relaxed text-white/70">{page.bio}</p>}
       </ArtworkHero>
-      {page.release && (
+      {hero && (
         /* Nobody maintains this block: it reads the release record droplr already holds. It sits
            above the links because on release week it is the reason the page was opened. */
         <a
-          href={preview ? undefined : page.release.href}
+          href={preview ? undefined : hero.href}
           className="glass mt-7 flex items-center gap-3 rounded-2xl p-3 transition hover:scale-[1.01]"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={page.release.coverUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
+          <img src={hero.coverUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
           <span className="min-w-0 flex-1">
             <span className="block text-[11px] font-medium uppercase tracking-[0.18em] text-white/60">
-              {bioReleaseEyebrow(page.release.state, page.release.releaseDate, timezone)}
+              {bioReleaseEyebrow(hero.state, hero.releaseDate, timezone)}
             </span>
-            <span className="block truncate text-[15px] font-semibold">{page.release.title}</span>
-            <span className="block truncate text-xs text-white/60">{page.release.artistName}</span>
+            <span className="block truncate text-[15px] font-semibold">{hero.title}</span>
+            <span className="block truncate text-xs text-white/60">{hero.artistName}</span>
           </span>
           <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black">
-            {bioReleaseAction(page.release.state)}
+            {bioReleaseAction(hero.state)}
           </span>
         </a>
       )}
@@ -101,6 +107,29 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
         ))}
         {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
       </ul>
+
+      {more.length > 0 && (
+        /* Everything else they have out, newest first, under the links rather than over them:
+           the links are what the page is for, and a back catalogue would bury them. */
+        <section className="mt-9">
+          <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">More releases</h2>
+          <ul className="mt-3 space-y-2">
+            {more.map((r) => (
+              <li key={r.href}>
+                <a href={preview ? undefined : r.href} className="glass flex items-center gap-3 rounded-xl p-2 transition hover:scale-[1.01]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={r.coverUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-white/10" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{r.title}</span>
+                    <span className="block truncate text-[11px] text-white/55">{bioReleaseEyebrow(r.state, r.releaseDate, timezone)}</span>
+                  </span>
+                  <span className="shrink-0 text-[11px] font-semibold text-white/70">{bioReleaseAction(r.state)}</span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
     </ArtworkPageShell>
   );
 }
