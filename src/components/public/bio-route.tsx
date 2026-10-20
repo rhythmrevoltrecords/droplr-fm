@@ -7,6 +7,7 @@ import { bioLabelBadges } from "@/lib/bio-label-server";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { prisma } from "@/lib/db";
 import { bioPublicUrl } from "@/lib/bio";
+import { showSubscribe } from "@/lib/bio-subscribe";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { isBot } from "@/lib/tracking";
@@ -51,7 +52,7 @@ export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata
   };
 }
 
-export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadBio>> }) {
+export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof loadBio>>; done?: string | null }) {
   if (!page) notFound();
   const h = await headers();
   if (!isBot(h.get("user-agent")) && h.get("purpose") !== "prefetch") {
@@ -72,6 +73,8 @@ export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadB
       timezone={page.organization.timezone}
       labels={labels}
       glow={{ on: page.organization.publicGlow, color: page.organization.glowColor }}
+      subscribe={{ on: showSubscribe(page), pageId: page.id, buttonText: page.subscribeText }}
+      done={done}
       showBranding={!plan.removeBranding}
       theme={publicTheme(page.organization)}
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}

@@ -2,6 +2,8 @@ import { labelBadgeLine, type LabelBadge } from "@/lib/bio-label";
 import { isMailto } from "@/lib/platforms";
 import { bioReleaseAction, bioReleaseEyebrow, type BioReleaseState } from "@/lib/bio-release";
 import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf } from "@/lib/bio-themes";
+import { subscribeButtonText, subscribeConsentLine, subscribeHeading } from "@/lib/bio-subscribe";
+import { SITE_URL } from "@/lib/env";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
 
@@ -36,7 +38,17 @@ export type BioViewData = {
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
-export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null } }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null } }) {
+/**
+ * Whether this page asks for email addresses, and what its button says.
+ *
+ * NOT optional, and not defaulted. An optional prop is how a value silently fails to arrive: the
+ * glow shipped three times with a default standing in for a value its caller never passed, and
+ * `tsc` had nothing to say on any of them. A page that is supposed to collect addresses and
+ * quietly doesn't is the same bug with a worse consequence, so every caller has to answer.
+ */
+export type BioSubscribe = { on: boolean; pageId: string; buttonText: string | null };
+
+export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null }, subscribe, done }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null }; subscribe: BioSubscribe; done?: string | null }) {
   const [hero, ...more] = page.releases ?? [];
   const skin = bioThemeOf(page.theme);
   const font = bioFontOf(page.font);
@@ -113,6 +125,59 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
         ))}
         {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
       </ul>
+
+      {subscribe.on && (
+        /* After the links, never before them. The links are what the page is for, and a form
+           asking for an address is the one thing on here that asks the fan for something instead
+           of giving them something. It earns its place by being below what they came for. */
+        <section className="mt-7">
+          {done === "subscribed" ? (
+            <div role="status" className="glass rounded-2xl p-4 text-center text-sm">
+              <span className="font-semibold">You&apos;re on the list.</span>
+              <span className="mt-1 block text-white/60">{orgName} will email you about new music.</span>
+            </div>
+          ) : (
+            <form
+              method="post"
+              action={preview ? undefined : "/api/bio/subscribe"}
+              className="glass space-y-3 rounded-2xl p-4"
+            >
+              <input type="hidden" name="bioPageId" value={subscribe.pageId} />
+              {/* Honeypot: off-screen rather than display:none, which some bots now skip. */}
+              <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 opacity-0" />
+              <div>
+                <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">{subscribeHeading()}</h2>
+              </div>
+              <label htmlFor="bio-email" className="sr-only">Email address</label>
+              <input
+                id="bio-email"
+                name="email"
+                type="email"
+                required
+                maxLength={254}
+                autoComplete="email"
+                inputMode="email"
+                placeholder="you@email.com"
+                className="h-12 w-full rounded-xl border border-white/15 bg-black/40 px-4 text-base placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/60"
+              />
+              <label className="flex items-start gap-2.5 text-xs leading-relaxed text-white/70">
+                <input type="checkbox" name="consent" value="yes" required className="mt-0.5 h-4 w-4 shrink-0 rounded-[3px] accent-white outline outline-1 outline-white/40" />
+                <span>
+                  {subscribeConsentLine(orgName)}{" "}
+                  <a href={`${SITE_URL}/legal/privacy`} target="_blank" rel="noreferrer" className="underline decoration-white/30 underline-offset-2 hover:text-white">Privacy</a>
+                </span>
+              </label>
+              <button
+                type="submit"
+                disabled={preview}
+                className="h-12 w-full rounded-xl bg-white font-semibold text-black transition active:scale-[0.99] disabled:opacity-70"
+              >
+                {subscribeButtonText(subscribe.buttonText)}
+              </button>
+            </form>
+          )}
+        </section>
+      )}
 
       {more.length > 0 && (
         /* Everything else they have out, newest first, under the links rather than over them:

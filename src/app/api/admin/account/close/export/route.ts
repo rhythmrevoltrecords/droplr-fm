@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { toCsv } from "@/lib/analytics";
 import { apiUser } from "@/lib/auth";
-import { listFans } from "@/lib/fans";
+import { fanExportRows } from "@/lib/fans";
 
 export const dynamic = "force-dynamic";
 
@@ -19,11 +19,9 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   if (user.role !== "owner") return NextResponse.json({ error: "Only the account owner can do this" }, { status: 403 });
 
-  const rows = await listFans(user.organizationId, {}, 50_000, 0);
-  const csv = toCsv(rows.map((f) => ({
-    email: f.email, news_opt_in: f.news, unsubscribed: f.unsubscribed, listens_on: f.listenOn ?? "", country: f.country ?? "", timezone: f.timezone ?? "",
-    releases_pre_saved: f.releases, first_pre_save: f.firstSeen, last_pre_save: f.lastSeen, clicked_release_email: f.clicked,
-  })));
+  // Unfiltered on purpose: this is the whole list, pre-save fans and contacts together.
+  const rows = await fanExportRows(user.organizationId, {});
+  const csv = toCsv(rows);
   return new NextResponse(csv, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",

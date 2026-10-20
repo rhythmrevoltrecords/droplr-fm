@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
   // Same system as releases: accent comes from the artwork (sharp hue histogram).
   const accentColor = d.accentColor || (await extractAccentColor(d.imageUrl));
   const page = await prisma.bioPage.create({
-    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, labelBadge: d.labelBadge || null, isPublic: d.isPublic ?? true },
+    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, isPublic: d.isPublic ?? true },
   });
   return NextResponse.json({ id: page.id });
 }

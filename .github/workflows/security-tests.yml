@@ -184,6 +184,9 @@ jobs:
       - name: Importing another link page
         run: npx tsx scripts/test-link-import.ts
 
+      - name: Subscribing on a bio page
+        run: npx tsx scripts/test-bio-subscribe.ts
+
       - name: Admin navigation
         run: npx tsx scripts/test-nav.ts
 
