@@ -21,14 +21,33 @@ const JUNK_TEXT = /^(cookie|privacy|terms|report|sign ?up|log ?in|create your ow
 const MAX_LINKS = 40;
 const MAX_TITLE = 60;
 
-/** Strip tags and collapse whitespace: anchor text arrives with icons and spans inside it. */
+const ENTITIES: Record<string, string> = {
+  amp: "&", lt: "<", gt: ">", quot: '"', apos: "'", nbsp: " ", "#39": "'", "#34": '"', "#38": "&",
+};
+
+/**
+ * Strip tags and collapse whitespace: anchor text arrives with icons and spans inside it.
+ *
+ * Entities are decoded in ONE pass, and that is the whole point rather than a style choice.
+ * Decoding them one `.replace()` at a time means an earlier replacement's output is read by a
+ * later one: `&amp;#39;` becomes `&#39;` and then `'`, and the same shape with `&amp;lt;` puts a
+ * `<` back into a string that had its tags stripped a moment earlier. CodeQL flagged exactly that
+ * (double unescaping, high) on the first version of this function.
+ *
+ * One pass can't do it: each match is replaced and the result is never re-scanned. Then any angle
+ * bracket that decoding produced is dropped, because this is a button's title and there is no
+ * reason for one to be in it.
+ */
 function textOf(inner: string): string {
   return inner
     .replace(/<[^>]*>/g, " ")
-    .replace(/&nbsp;/gi, " ")
-    .replace(/&amp;/gi, "&")
-    .replace(/&#39;|&apos;/gi, "'")
-    .replace(/&quot;/gi, '"')
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (match, name: string) => {
+      const key = name.toLowerCase();
+      if (key in ENTITIES) return ENTITIES[key];
+      // A numeric entity we don't have a name for: drop it rather than decode something arbitrary.
+      return key.startsWith("#") ? "" : match;
+    })
+    .replace(/[<>]/g, "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, MAX_TITLE);
