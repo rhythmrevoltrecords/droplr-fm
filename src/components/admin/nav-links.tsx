@@ -4,7 +4,17 @@ import { usePathname } from "next/navigation";
 import { useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 
-type Item = { href: string; label: string; /** data-tour hook for the first-login walkthrough. */ tour?: string; /** Kept out of the desktop bar below 2xl so it never wraps — for items with another way in (Settings, or the address bar). MobileNav ignores this and shows every item. */ wide?: boolean };
+type Item = { href: string; label: string; /** data-tour hook for the first-login walkthrough. */ tour?: string; /**
+   * Kept out of the desktop bar below 2xl so it never wraps. MobileNav ignores this and shows
+   * every item.
+   *
+   * Only for items that genuinely have another way in. "The address bar" is not one: the
+   * installed app has no address bar, which is the same reason /platform is in this nav at all.
+   * Integrations sat here for weeks reachable by nothing at all on a 1440px laptop — the
+   * settings jump list, which this comment claimed was the other way in, did not link it, so
+   * SoundCloud and the Mailchimp sync were invisible to the person who built them. Anything
+   * marked `wide` must be linked from the settings jump list; scripts/test-nav.ts enforces it.
+   */ wide?: boolean };
 
 /** The nav item for this page: the longest href the path starts with (so /admin/settings/billing is Billing, not Settings). */
 function activeHref(nav: Item[], path: string) {

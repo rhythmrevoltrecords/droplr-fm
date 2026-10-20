@@ -26,6 +26,16 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   // Empty string or null both mean "back to the default look", which is NULL in the column.
   if (d.theme !== undefined) data.theme = d.theme || null;
   if (d.font !== undefined) data.font = d.font || null;
+  if (d.releaseBlock !== undefined) data.releaseBlock = d.releaseBlock || null;
+  if (d.artistProfileId !== undefined) {
+    // Tenant check, not just a type check: a cuid from another label's roster would otherwise
+    // scope this page's release block to releases that are not this organisation's.
+    const id = d.artistProfileId || null;
+    if (id && !(await prisma.artist.findFirst({ where: { id, organizationId: g.user.organizationId }, select: { id: true } }))) {
+      return NextResponse.json({ error: "Unknown artist" }, { status: 400 });
+    }
+    data.artistProfileId = id;
+  }
   if (d.slug !== undefined) {
     const slug = slugify(d.slug);
     if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "Invalid slug" }, { status: 400 });

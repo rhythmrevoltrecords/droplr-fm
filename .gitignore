@@ -7,3 +7,4 @@ node_modules
 *.log
 devlog.txt
 testlog.txt
+.DS_Store
