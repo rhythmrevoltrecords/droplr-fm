@@ -7,7 +7,7 @@ import { Input, Select } from "@/components/ui/input";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { countryName } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
-import { fanSummary, importedSummary, listFans, listImported } from "@/lib/fans";
+import { capturedSummary, fanSummary, importedSummary, listCaptured, listFans, listImported } from "@/lib/fans";
 import { FanImportForm } from "@/components/admin/fan-import-form";
 import { isListenChoice, platformMeta } from "@/lib/platforms";
 import { planOf } from "@/lib/plans";
@@ -34,11 +34,18 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
     listenOn: isListenChoice(sp.store) ? sp.store : undefined,
   };
   const imported = sp.show === "imported";
-  const [summary, fans, impSummary, impRows] = await Promise.all([
+  // Addresses fans typed into a droplr page of this account's own. A separate view from Imported
+  // because the copy on that one — consent came from elsewhere, never in a release-day send —
+  // is true of an import and misleading about a page capture.
+  const captured = sp.show === "pages";
+  const other = imported || captured;
+  const [summary, fans, impSummary, impRows, capSummary, capRows] = await Promise.all([
     fanSummary(org.id),
-    imported ? Promise.resolve([]) : listFans(org.id, filter, PAGE + 1, (page - 1) * PAGE),
+    other ? Promise.resolve([]) : listFans(org.id, filter, PAGE + 1, (page - 1) * PAGE),
     importedSummary(org.id),
     imported ? listImported(org.id, filter.q, PAGE, (page - 1) * PAGE) : Promise.resolve([]),
+    capturedSummary(org.id),
+    captured ? listCaptured(org.id, filter.q, PAGE, (page - 1) * PAGE) : Promise.resolve([]),
   ]);
   const more = fans.length > PAGE;
   const rows = fans.slice(0, PAGE);
@@ -54,17 +61,19 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold">{imported ? "Imported contacts" : "Fans"}</h1>
+          <h1 className="text-2xl font-semibold">{imported ? "Imported contacts" : captured ? "From your pages" : "Fans"}</h1>
           <p className="mt-0.5 text-sm text-muted-foreground">
             {imported
               ? <>A list you collected before droplr — <Link href="/admin/fans" className="underline">back to fans</Link></>
+              : captured
+              ? <>Addresses fans gave you on your own pages — <Link href="/admin/fans" className="underline">back to fans</Link></>
               : "Everyone who pre-saved any of your releases, in one list."}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {/* Import sits next to Export because that is where anyone looks for it. It was only
               reachable from a stat tile at first, which is a place people read, not click. */}
-          {!imported && (
+          {!other && (
             <Button asChild variant="outline">
               <Link href="/admin/fans?show=imported">Import a list</Link>
             </Button>
@@ -82,7 +91,7 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
           is on someone's laptop droplr cannot enforce any of it, and "we told them" is the only
           part still available to us. Hidden when the list is already filtered to news, where the
           rows are the ones they may email. */}
-      {!imported && plan.csvExport && !filter.news && (
+      {!other && plan.csvExport && !filter.news && (
         <Card className="border-amber-500/30 bg-amber-500/5">
           <CardContent className="p-4 text-sm text-muted-foreground">
             <strong className="text-foreground">Before you paste this into a mailer.</strong> This export is everyone, not everyone you may email. Send marketing or newsletters only to rows where <code>news_opt_in</code> is <code>true</code>, and drop every row where <code>unsubscribed</code> is <code>true</code> — in Mailchimp, in a spreadsheet, anywhere. The columns are in the file; once it leaves droplr, honouring them is on you. Want only the mailable ones? <Link href="/admin/fans?show=news" className="underline">Filter to news opt-ins</Link> first, then export.
@@ -92,12 +101,13 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
 
       <GuideSlot guide="superfans" />
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {[
           { label: "Fans", value: summary.total, hint: "unique emails", href: "/admin/fans" },
           { label: "Opted in to news", value: summary.news, hint: "you can email about anything", href: "/admin/fans?show=news" },
           { label: "Came back", value: summary.returning, hint: "pre-saved 2+ releases", href: undefined },
           { label: "Unsubscribed", value: summary.unsubscribed, hint: "never email again", href: "/admin/fans?show=unsub" },
+          { label: "From your pages", value: capSummary.total, hint: `${fmtNum(capSummary.mailable)} can be emailed`, href: "/admin/fans?show=pages" },
           { label: "Imported", value: impSummary.total, hint: `${fmtNum(impSummary.mailable)} can be emailed`, href: "/admin/fans?show=imported" },
         ].map((t) => {
           const card = (
@@ -161,6 +171,52 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
             </CardContent>
           </Card>
         </div>
+      ) : captured ? (
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="text-base">From your pages</CardTitle>
+            <CardDescription>{fmtNum(capSummary.mailable)} can be emailed · {fmtNum(capSummary.unsubscribed)} unsubscribed</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-muted-foreground">
+              These people typed their address into one of your pages and ticked the box themselves, so droplr
+              recorded the exact wording they agreed to. They are reachable by a news email you write and send
+              yourself &mdash; never by a release-day email, which only ever goes to people who pre-saved that
+              release.
+            </p>
+            <form method="get" className="flex gap-3">
+              <input type="hidden" name="show" value="pages" />
+              <Input name="q" defaultValue={filter.q} placeholder="Search email" aria-label="Search email" />
+              <Button type="submit" variant="outline">Search</Button>
+            </form>
+            {capRows.length === 0 ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                Nobody yet. Turn on <strong className="text-foreground">Email list</strong> when you edit a bio
+                link and a box appears under your links.
+              </p>
+            ) : (
+              <Table>
+                <THead><TR><TH>Email</TH><TH>Page</TH><TH>Status</TH><TH>Subscribed</TH></TR></THead>
+                <TBody>
+                  {capRows.map((r) => (
+                    <TR key={r.id}>
+                      <TD className="font-medium">{r.email}</TD>
+                      {/* Blank when the page has since been deleted. The address stays: it is the
+                          account's, and the page was only where the fan arrived. */}
+                      <TD className="text-muted-foreground">{r.bioPage?.title ?? "\u2014"}</TD>
+                      <TD>
+                        {r.status === "mailable" ? <Badge variant="success">Can email</Badge>
+                          : r.status === "unsubscribed" ? <Badge variant="danger">Unsubscribed</Badge>
+                          : <Badge>Needs to confirm</Badge>}
+                      </TD>
+                      <TD className="text-muted-foreground">{formatInTz(r.consentAt ?? r.createdAt, org.timezone)}</TD>
+                    </TR>
+                  ))}
+                </TBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
       ) : (
       <>
       <Card className="border-amber-500/30 bg-amber-500/5">

@@ -52,6 +52,18 @@ export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optiona
 export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
 
 /**
+ * Consent shown on a bio page's subscribe box (src/lib/bio-subscribe.ts subscribeConsentLine:
+ * "{label} can email me about new music. Unsubscribe anytime.").
+ *
+ * Versioned separately for the same reason the download gate is. It was stamped with
+ * FAN_EMAIL_CONSENT_VERSION for about an hour while this was being built, which would have put
+ * the release-day wording on a record of someone who never saw it — the one thing a consent
+ * version exists to prevent. A fan asking to hear about new music agreed to different words from
+ * a fan asking to be told when one single comes out.
+ */
+export const BIO_SUBSCRIBE_CONSENT_VERSION = "2026-10-20.bio-subscribe-v1";
+
+/**
  * What a remix contest entrant ticks, and the version stored against their entry.
  *
  * Unlike the two above, this one is an INTEGER as well as a label: ContestEntry.declarationVersion is

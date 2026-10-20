@@ -41,6 +41,7 @@
     "test:biolabel": "tsx --env-file-if-exists=.env scripts/test-bio-label.ts",
     "test:links": "tsx --env-file-if-exists=.env scripts/test-links.ts",
     "test:bioroster": "tsx --env-file-if-exists=.env scripts/test-bio-roster.ts",
+    "test:biosub": "tsx --env-file-if-exists=.env scripts/test-bio-subscribe.ts",
     "test:import2": "tsx --env-file-if-exists=.env scripts/test-link-import.ts"
   },
   "prisma": {
