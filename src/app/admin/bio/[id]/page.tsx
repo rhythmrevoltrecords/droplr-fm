@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { bioPublicUrl } from "@/lib/bio";
+import { bioLabelBadges } from "@/lib/bio-label-server";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
 import { prisma } from "@/lib/db";
@@ -26,11 +27,14 @@ export default async function EditBio(
   const url = bioPublicUrl(user.organization, page.slug);
   const clicks = page.links.reduce((n, l) => n + l.clicks, 0);
   // Same resolver the public page uses, so the preview cannot drift from what a fan gets.
-  const [artists, previewRelease] = await Promise.all([
+  const [artists, previewRelease, labelBadges] = await Promise.all([
     prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     // Forced "on": the preview has to show what ticking the box would publish, which is the
     // only honest way to offer an opt-in. The form itself gates on the toggle.
     bioReleaseFor({ ...page, releaseBlock: "on" }, user.organization),
+    // Resolved as if the artist had turned it on, same reason: an opt-in has to show what it
+    // would publish. Empty unless a label has allowed it and the roster row is still active.
+    bioLabelBadges({ ...page, labelBadge: "on" }, user.organization),
   ]);
 
   return (
@@ -66,10 +70,11 @@ export default async function EditBio(
           <BioForm
             mode="edit"
             id={page.id}
-            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", isPublic: page.isPublic }}
+            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", labelBadge: page.labelBadge ?? "", isPublic: page.isPublic }}
             previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon }))}
             artists={artists}
             previewRelease={previewRelease}
+            labelBadges={labelBadges}
             orgName={user.organization.name}
             showBranding={!plan.removeBranding}
           />

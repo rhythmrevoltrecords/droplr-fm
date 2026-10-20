@@ -418,3 +418,23 @@
   line-height: 1.05;
   letter-spacing: -0.03em;
 }
+
+/* ---------------------------------------------------------------------------
+   Bio page background scrim.
+   The one guarantee a free-form background needs: whatever is behind it, the
+   text in front stays readable. Painted over the artist's image or colour and
+   under everything else, with a strength per theme. Deliberately a flat
+   gradient and not a blur — a full-screen blur was measured as the main LCP
+   cost on these pages and removed once already.
+   --------------------------------------------------------------------------- */
+
+.bio-bg-scrim {
+  background: linear-gradient(180deg, rgb(0 0 0 / 0.5) 0%, rgb(0 0 0 / 0.62) 45%, rgb(0 0 0 / 0.78) 100%);
+}
+.shell-theme-light .bio-bg-scrim {
+  background: linear-gradient(180deg, rgb(250 250 250 / 0.62) 0%, rgb(250 250 250 / 0.74) 45%, rgb(250 250 250 / 0.88) 100%);
+}
+/* Mono is the theme that claims nothing glows, so its scrim is flat and heavier. */
+.bio-skin-mono .bio-bg-scrim {
+  background: rgb(0 0 0 / 0.72);
+}

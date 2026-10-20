@@ -2,6 +2,8 @@
 import { Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import type { LabelBadge } from "@/lib/bio-label";
+import { labelBadgeLine } from "@/lib/bio-label";
 import { bioFontClass } from "@/components/public/bio-fonts";
 import { BioView, type BioViewData } from "@/components/public/bio-view";
 import { Button } from "@/components/ui/button";
@@ -10,7 +12,7 @@ import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId 
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; labelBadge: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -21,6 +23,7 @@ export function BioForm({
   showBranding,
   artists = [],
   previewRelease = null,
+  labelBadges = [],
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -32,6 +35,8 @@ export function BioForm({
   artists?: { id: string; name: string }[];
   /** What the release block would show right now, resolved on the server. */
   previewRelease?: BioViewData["release"];
+  /** Labels that have allowed this artist to show their badge. Empty for a label's own page. */
+  labelBadges?: LabelBadge[];
 }) {
   const router = useRouter();
   const [v, setV] = useState<Values>(initial);
@@ -49,6 +54,19 @@ export function BioForm({
       if (k === "imageUrl") next.accentColor = "";
       return next;
     });
+
+  const background = useImageUpload({
+    endpoint: "/api/admin/upload-cover",
+    purpose: "background",
+    // Free aspect: a background is cropped by the viewport, not by us.
+    aspects: [],
+    maxEdge: 1600,
+    title: "Crop background",
+    onUploaded: (img) => {
+      setMsg(null);
+      setV((x) => ({ ...x, backgroundUrl: img.url }));
+    },
+  });
 
   const image = useImageUpload({
     endpoint: "/api/admin/upload-cover",
@@ -171,6 +189,50 @@ export function BioForm({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
+            <Label>Page background</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={background.pick} disabled={background.busy}>
+                {background.uploading ? <Loader2 className="animate-spin" /> : <Upload />} {v.backgroundUrl ? "Replace image" : "Upload image"}
+              </Button>
+              {background.ui}
+              <label className="flex items-center gap-2 text-sm text-muted-foreground">
+                or colour
+                <input
+                  type="color"
+                  aria-label="Background colour"
+                  value={v.backgroundColor || "#0b0b10"}
+                  onChange={(e) => setV((x) => ({ ...x, backgroundColor: e.target.value, backgroundUrl: "" }))}
+                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+                />
+              </label>
+              {(v.backgroundUrl || v.backgroundColor) && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setV((x) => ({ ...x, backgroundUrl: "", backgroundColor: "" }))}>Remove</Button>
+              )}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {v.backgroundUrl
+                ? "Your image, with a shade over it so the text stays readable whatever you upload."
+                : v.backgroundColor
+                  ? "A plain colour behind the page."
+                  : "Optional. Leave it empty and the page uses the colour from your picture."}
+            </p>
+          </div>
+
+          {labelBadges.length > 0 && (
+            <div className="space-y-2 sm:col-span-2">
+              <Label>Your label</Label>
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" checked={v.labelBadge === "on"} onChange={(e) => set("labelBadge", e.target.checked ? "on" : "")} className="h-4 w-4" />
+                Show {labelBadges.map((l) => l.name).join(" and ")} at the bottom of the page
+              </label>
+              <p className="text-xs text-muted-foreground">
+                Reads &ldquo;{labelBadgeLine(labelBadges[0])}&rdquo;, with their logo. It comes from their roster, so it
+                goes away by itself if the link ends.
+              </p>
+            </div>
+          )}
+
+          <div className="space-y-2 sm:col-span-2">
             <Label>Latest release</Label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={v.releaseBlock === "on"} onChange={(e) => set("releaseBlock", e.target.checked ? "on" : "")} className="h-4 w-4" />
@@ -210,7 +272,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, release: v.releaseBlock === "on" ? previewRelease : null, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, release: v.releaseBlock === "on" ? previewRelease : null, background: { url: v.backgroundUrl, color: v.backgroundColor }, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

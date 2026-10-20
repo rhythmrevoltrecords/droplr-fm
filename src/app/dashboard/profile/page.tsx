@@ -60,6 +60,8 @@ export default async function ArtistSelfProfilePage() {
           accentColor: artist.accentColor ?? "",
           pressPhotoUrls: artist.pressPhotoUrls,
           email: "", phone: "", spotifyArtistId: "", monthlyListeners: "", followers: "", notes: "", signedAt: "",
+          // Label-only, and this editor is the artist's own: never sent, never shown.
+          labelBadge: false,
         }}
       />
     </div>

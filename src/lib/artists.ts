@@ -142,6 +142,9 @@ const labelShape = {
   ...selfShape,
   name: z.string().trim().min(1, "Name is required").max(120),
   status: z.enum(ARTIST_STATUSES).optional(),
+  // The label's half of the bio-page badge. Label-only on purpose: it is in labelShape and not
+  // selfShape, so an artist editing their own profile cannot grant themselves the label's mark.
+  labelBadge: z.boolean().optional(),
   email: z.string().trim().max(200).email("Enter a valid email").or(z.literal("")).nullable().optional().transform((v) => (v === undefined ? undefined : v ? v.toLowerCase() : null)),
   phone: text(40),
   notes: text(5000),

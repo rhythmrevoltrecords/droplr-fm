@@ -34,6 +34,7 @@ export function ArtworkPageShell({
   theme = "dark",
   skin,
   glow = true,
+  background,
 }: {
   /** Kept for callers; the background is now painted from accentColor only (no blurred artwork copy). */
   imageUrl?: string;
@@ -49,18 +50,42 @@ export function ArtworkPageShell({
   skin?: string;
   /** Mono drops the accent wash. Nothing else turns the glow off, so it defaults to on. */
   glow?: boolean;
+  /**
+   * Whole-page background chosen by the page's owner. The image wins when both are set.
+   *
+   * Painted UNDER the accent wash and always under a scrim, so there is no upload that can make
+   * the links unreadable — the one failure mode a free-form background has. Never blurred: a
+   * full-screen blur was measured as the main LCP cost on these pages and removed once already.
+   */
+  background?: { url?: string | null; color?: string | null } | null;
 }) {
   const accent = accentColor || DEFAULT_ACCENT;
   const themed = theme === "light" || theme === "system";
+  const bg = !!(background?.url || background?.color);
   return (
     <main
       className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`, skin)}
       style={{ ["--shell-accent" as string]: accent, ["--shell-ink" as string]: readableTextOn(posterFill(accent)), ["--shell-fill" as string]: posterFill(accent) }}
     >
       {/* Artwork-driven background: accent-colour wash (no blurred image, no filter: that full-screen blur was the main LCP cost) + dark gradient + accent glow */}
+      {bg && (
+        <div aria-hidden className="absolute inset-0">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={background?.url ? { backgroundImage: `url(${JSON.stringify(background.url)})` } : { backgroundColor: background?.color ?? undefined }}
+          />
+          {/* The guarantee. Strength is per theme (see .bio-bg-scrim in globals.css), and it sits
+              above the image so nothing an artist uploads can take the text with it. */}
+          <div className="bio-bg-scrim absolute inset-0" />
+        </div>
+      )}
       <div aria-hidden className="absolute inset-0">
         {glow && <div className="absolute inset-0" style={{ background: `radial-gradient(140% 90% at 50% 0%, ${accent}59 0%, ${accent}24 45%, transparent 80%), radial-gradient(90% 55% at 100% 100%, ${accent}1a 0%, transparent 70%)` }} />}
-        <div className="absolute inset-0" style={{ background: glow ? `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` : "#000" }} />
+        {/* With a background set, this layer stops being the page's colour and becomes a light
+            wash over it — otherwise the opaque black ramp would hide what the artist uploaded. */}
+        <div className="absolute inset-0" style={{ background: bg
+          ? (glow ? `radial-gradient(120% 70% at 50% 0%, ${accent}40 0%, transparent 60%)` : "transparent")
+          : glow ? `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` : "#000" }} />
         {themed && (
           <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
         )}
