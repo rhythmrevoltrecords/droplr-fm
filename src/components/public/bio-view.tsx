@@ -1,8 +1,10 @@
+import { Fragment } from "react";
 import { labelBadgeLine, type LabelBadge } from "@/lib/bio-label";
 import { isMailto } from "@/lib/platforms";
 import { bioReleaseAction, bioReleaseEyebrow, type BioReleaseState } from "@/lib/bio-release";
 import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf } from "@/lib/bio-themes";
 import { subscribeButtonText, subscribeConsentLine, subscribeHeading } from "@/lib/bio-subscribe";
+import type { BioSection } from "@/lib/bio-sections";
 import { SITE_URL } from "@/lib/env";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
@@ -48,7 +50,7 @@ export type BioViewData = {
  */
 export type BioSubscribe = { on: boolean; pageId: string; buttonText: string | null };
 
-export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null }, subscribe, done }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null }; subscribe: BioSubscribe; done?: string | null }) {
+export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null }, subscribe, done, order }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null }; subscribe: BioSubscribe; done?: string | null; order: BioSection[] }) {
   const [hero, ...more] = page.releases ?? [];
   const skin = bioThemeOf(page.theme);
   const font = bioFontOf(page.font);
@@ -91,116 +93,138 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glow.color} alt={page.title} shape="circle" title={page.title}>
         {page.bio && <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-balance text-[15px] leading-relaxed text-white/70">{page.bio}</p>}
       </ArtworkHero>
-      {hero && (
-        /* Nobody maintains this block: it reads the release record droplr already holds. It sits
-           above the links because on release week it is the reason the page was opened. */
-        <a
-          href={preview ? undefined : hero.href}
-          className="glass mt-7 flex items-center gap-3 rounded-2xl p-3 transition hover:scale-[1.01]"
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={hero.coverUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
-          <span className="min-w-0 flex-1">
-            <span className="block text-[11px] font-medium uppercase tracking-[0.18em] text-white/60">
-              {bioReleaseEyebrow(hero.state, hero.releaseDate, timezone)}
-            </span>
-            <span className="block truncate text-[15px] font-semibold">{hero.title}</span>
-            <span className="block truncate text-xs text-white/60">{hero.artistName}</span>
-          </span>
-          <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black">
-            {bioReleaseAction(hero.state)}
-          </span>
-        </a>
-      )}
-      <ul className="mt-7 space-y-2.5">
-        {page.links.map((l) => (
-          <li key={l.id}>
-            <GlassLink
-              /* An email button renders its mailto: straight out of the row. The click-counting
-                 redirect refuses anything that is not http(s) on purpose, and a 302 to mailto: is
-                 a coin flip inside the in-app browsers these pages are mostly opened from. The
-                 cost is that email taps are not counted, which the admin says plainly. */
-              href={preview ? "#" : l.url && isMailto(l.url) ? l.url : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
-          </li>
-        ))}
-        {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
-      </ul>
 
-      {subscribe.on && (
-        /* After the links, never before them. The links are what the page is for, and a form
-           asking for an address is the one thing on here that asks the fan for something instead
-           of giving them something. It earns its place by being below what they came for. */
-        <section className="mt-7">
-          {done === "subscribed" ? (
-            <div role="status" className="glass rounded-2xl p-4 text-center text-sm">
-              <span className="font-semibold">You&apos;re on the list.</span>
-              <span className="mt-1 block text-white/60">{orgName} will email you about new music.</span>
-            </div>
-          ) : (
-            <form
-              method="post"
-              action={preview ? undefined : "/api/bio/subscribe"}
-              className="glass space-y-3 rounded-2xl p-4"
-            >
-              <input type="hidden" name="bioPageId" value={subscribe.pageId} />
-              {/* Honeypot: off-screen rather than display:none, which some bots now skip. */}
-              <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 opacity-0" />
-              <div>
-                <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">{subscribeHeading()}</h2>
-              </div>
-              <label htmlFor="bio-email" className="sr-only">Email address</label>
-              <input
-                id="bio-email"
-                name="email"
-                type="email"
-                required
-                maxLength={254}
-                autoComplete="email"
-                inputMode="email"
-                placeholder="you@email.com"
-                className="h-12 w-full rounded-xl border border-white/15 bg-black/40 px-4 text-base placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/60"
-              />
-              <label className="flex items-start gap-2.5 text-xs leading-relaxed text-white/70">
-                <input type="checkbox" name="consent" value="yes" required className="mt-0.5 h-4 w-4 shrink-0 rounded-[3px] accent-white outline outline-1 outline-white/40" />
-                <span>
-                  {subscribeConsentLine(orgName)}{" "}
-                  <a href={`${SITE_URL}/legal/privacy`} target="_blank" rel="noreferrer" className="underline decoration-white/30 underline-offset-2 hover:text-white">Privacy</a>
-                </span>
-              </label>
-              <button
-                type="submit"
-                disabled={preview}
-                className="h-12 w-full rounded-xl bg-white font-semibold text-black transition active:scale-[0.99] disabled:opacity-70"
-              >
-                {subscribeButtonText(subscribe.buttonText)}
-              </button>
-            </form>
+      {/* The blocks below are rendered in the owner's order. `order` is already reconciled by
+          lib/bio-sections, so this map always covers every section this version has, once each --
+          a key that no longer exists cannot appear here, and a new one cannot be missed. */}
+      {order.map((section) => (
+        <Fragment key={section}>
+          {section === "release" && (
+            <>
+                  {hero && (
+                    /* Nobody maintains this block: it reads the release record droplr already holds. It sits
+                       above the links because on release week it is the reason the page was opened. */
+                    <a
+                      href={preview ? undefined : hero.href}
+                      className="glass mt-7 flex items-center gap-3 rounded-2xl p-3 transition hover:scale-[1.01]"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={hero.coverUrl} alt="" loading="lazy" decoding="async" className="h-14 w-14 shrink-0 rounded-lg object-cover ring-1 ring-white/10" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block text-[11px] font-medium uppercase tracking-[0.18em] text-white/60">
+                          {bioReleaseEyebrow(hero.state, hero.releaseDate, timezone)}
+                        </span>
+                        <span className="block truncate text-[15px] font-semibold">{hero.title}</span>
+                        <span className="block truncate text-xs text-white/60">{hero.artistName}</span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white px-3 py-1.5 text-xs font-semibold text-black">
+                        {bioReleaseAction(hero.state)}
+                      </span>
+                    </a>
+                  )}
+            </>
           )}
-        </section>
-      )}
-
-      {more.length > 0 && (
-        /* Everything else they have out, newest first, under the links rather than over them:
-           the links are what the page is for, and a back catalogue would bury them. */
-        <section className="mt-9">
-          <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">More releases</h2>
-          <ul className="mt-3 space-y-2">
-            {more.map((r) => (
-              <li key={r.href}>
-                <a href={preview ? undefined : r.href} className="glass flex items-center gap-3 rounded-xl p-2 transition hover:scale-[1.01]">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={r.coverUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-white/10" />
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{r.title}</span>
-                    <span className="block truncate text-[11px] text-white/55">{bioReleaseEyebrow(r.state, r.releaseDate, timezone)}</span>
-                  </span>
-                  <span className="shrink-0 text-[11px] font-semibold text-white/70">{bioReleaseAction(r.state)}</span>
-                </a>
-              </li>
-            ))}
-          </ul>
-        </section>
-      )}
+          {section === "links" && (
+            <>
+                  <ul className="mt-7 space-y-2.5">
+                    {page.links.map((l) => (
+                      <li key={l.id}>
+                        <GlassLink
+                          /* An email button renders its mailto: straight out of the row. The click-counting
+                             redirect refuses anything that is not http(s) on purpose, and a 302 to mailto: is
+                             a coin flip inside the in-app browsers these pages are mostly opened from. The
+                             cost is that email taps are not counted, which the admin says plainly. */
+                          href={preview ? "#" : l.url && isMailto(l.url) ? l.url : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
+                      </li>
+                    ))}
+                    {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
+                  </ul>
+            </>
+          )}
+          {section === "subscribe" && (
+            <>
+                  {subscribe.on && (
+                    /* After the links, never before them. The links are what the page is for, and a form
+                       asking for an address is the one thing on here that asks the fan for something instead
+                       of giving them something. It earns its place by being below what they came for. */
+                    <section className="mt-7">
+                      {done === "subscribed" ? (
+                        <div role="status" className="glass rounded-2xl p-4 text-center text-sm">
+                          <span className="font-semibold">You&apos;re on the list.</span>
+                          <span className="mt-1 block text-white/60">{orgName} will email you about new music.</span>
+                        </div>
+                      ) : (
+                        <form
+                          method="post"
+                          action={preview ? undefined : "/api/bio/subscribe"}
+                          className="glass space-y-3 rounded-2xl p-4"
+                        >
+                          <input type="hidden" name="bioPageId" value={subscribe.pageId} />
+                          {/* Honeypot: off-screen rather than display:none, which some bots now skip. */}
+                          <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 opacity-0" />
+                          <div>
+                            <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">{subscribeHeading()}</h2>
+                          </div>
+                          <label htmlFor="bio-email" className="sr-only">Email address</label>
+                          <input
+                            id="bio-email"
+                            name="email"
+                            type="email"
+                            required
+                            maxLength={254}
+                            autoComplete="email"
+                            inputMode="email"
+                            placeholder="you@email.com"
+                            className="h-12 w-full rounded-xl border border-white/15 bg-black/40 px-4 text-base placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/60"
+                          />
+                          <label className="flex items-start gap-2.5 text-xs leading-relaxed text-white/70">
+                            <input type="checkbox" name="consent" value="yes" required className="mt-0.5 h-4 w-4 shrink-0 rounded-[3px] accent-white outline outline-1 outline-white/40" />
+                            <span>
+                              {subscribeConsentLine(orgName)}{" "}
+                              <a href={`${SITE_URL}/legal/privacy`} target="_blank" rel="noreferrer" className="underline decoration-white/30 underline-offset-2 hover:text-white">Privacy</a>
+                            </span>
+                          </label>
+                          <button
+                            type="submit"
+                            disabled={preview}
+                            className="h-12 w-full rounded-xl bg-white font-semibold text-black transition active:scale-[0.99] disabled:opacity-70"
+                          >
+                            {subscribeButtonText(subscribe.buttonText)}
+                          </button>
+                        </form>
+                      )}
+                    </section>
+                  )}
+            </>
+          )}
+          {section === "catalogue" && (
+            <>
+                  {more.length > 0 && (
+                    /* Everything else they have out, newest first, under the links rather than over them:
+                       the links are what the page is for, and a back catalogue would bury them. */
+                    <section className="mt-9">
+                      <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">More releases</h2>
+                      <ul className="mt-3 space-y-2">
+                        {more.map((r) => (
+                          <li key={r.href}>
+                            <a href={preview ? undefined : r.href} className="glass flex items-center gap-3 rounded-xl p-2 transition hover:scale-[1.01]">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img src={r.coverUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-white/10" />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-sm font-medium">{r.title}</span>
+                                <span className="block truncate text-[11px] text-white/55">{bioReleaseEyebrow(r.state, r.releaseDate, timezone)}</span>
+                              </span>
+                              <span className="shrink-0 text-[11px] font-semibold text-white/70">{bioReleaseAction(r.state)}</span>
+                            </a>
+                          </li>
+                        ))}
+                      </ul>
+                    </section>
+                  )}
+            </>
+          )}
+        </Fragment>
+      ))}
     </ArtworkPageShell>
   );
 }

@@ -90,7 +90,7 @@ export default async function EditBio(
           <BioForm
             mode="edit"
             id={page.id}
-            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", isPublic: page.isPublic }}
+            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", isPublic: page.isPublic }}
             previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl }))}
             glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
             artists={artists}

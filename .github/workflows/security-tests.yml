@@ -190,6 +190,9 @@ jobs:
       - name: Bio page analytics
         run: npx tsx scripts/test-bio-stats.ts
 
+      - name: Bio page section order
+        run: npx tsx scripts/test-bio-sections.ts
+
       - name: Admin navigation
         run: npx tsx scripts/test-nav.ts
 

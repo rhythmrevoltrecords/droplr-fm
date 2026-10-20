@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { apiUser } from "@/lib/auth";
 import { bioSchema } from "@/lib/bio";
+import { storedOrder } from "@/lib/bio-sections";
 import { extractAccentColor } from "@/lib/color";
 import { prisma } from "@/lib/db";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
@@ -29,6 +30,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.releaseBlock !== undefined) data.releaseBlock = d.releaseBlock || null;
   if (d.subscribe !== undefined) data.subscribe = d.subscribe || null;
   if (d.subscribeText !== undefined) data.subscribeText = d.subscribeText || null;
+  if (d.sectionOrder !== undefined) data.sectionOrder = storedOrder(d.sectionOrder);
   if (d.backgroundUrl !== undefined) data.backgroundUrl = d.backgroundUrl || null;
   if (d.backgroundColor !== undefined) data.backgroundColor = d.backgroundColor || null;
   if (d.buttonColor !== undefined) data.buttonColor = d.buttonColor || null;
