@@ -326,6 +326,7 @@ model Artist {
   updatedAt        DateTime     @updatedAt
   releases         Release[]
   invites          Invite[]
+  bioPages         BioPage[]
 
   @@index([organizationId])
 }
@@ -453,12 +454,33 @@ model BioPage {
   accentColor    String?
   theme          String?
   font           String?
+  /**
+   * The roster artist this page is for, when it is an artist's page rather than the label's.
+   *
+   * Only use: scoping the release block to that artist. A label page leaves it null and shows
+   * whatever the label put out most recently. SetNull, because removing someone from the roster
+   * must never take their public page down with them.
+   */
+  artistProfileId String?
+  artistProfile   Artist?     @relation(fields: [artistProfileId], references: [id], onDelete: SetNull)
+  /**
+   * "on" = show the release block. NULL = don't.
+   *
+   * Opt-in, not opt-out, and that is the whole point of the column. A default of "show" would
+   * have published something the account holder never chose: every existing bio page would start
+   * broadcasting a release the moment this deployed, and on a page with no artist set that could
+   * be another artist's record entirely. Worse, `Release.isPublic` defaults true, so an upcoming
+   * track nobody has announced yet would go from "a URL nobody has" to the top of a public page.
+   * New pages are created with "on" because the form shows exactly what will appear first.
+   */
+  releaseBlock   String?
   isPublic       Boolean      @default(true)
   views          Int          @default(0)
   createdAt      DateTime     @default(now())
   links          BioLink[]
 
   @@index([organizationId])
+  @@index([artistProfileId])
 }
 
 model BioLink {
