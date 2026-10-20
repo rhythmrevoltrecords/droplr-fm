@@ -4,7 +4,13 @@ import { platformMeta } from "@/lib/platforms";
 
 const tooltipStyle = { background: "#111114", border: "1px solid #27272a", borderRadius: 10, fontSize: 12 };
 
-export function DailyChart({ data }: { data: { date: string; views: number; clicks: number; presaves: number }[] }) {
+/**
+ * `presaves` says whether this subject HAS pre-saves, not whether to bother drawing them. A bio
+ * page has none at all, and a flat line along zero labelled "presaves" is a chart making a claim
+ * about something that does not exist. Required rather than defaulted, so a new caller has to
+ * answer rather than inherit an assumption — the optional-prop mistake, three times in two days.
+ */
+export function DailyChart({ data, presaves }: { data: { date: string; views: number; clicks: number; presaves?: number }[]; presaves: boolean }) {
   return (
     <div className="h-64 w-full">
       <ResponsiveContainer>
@@ -16,7 +22,7 @@ export function DailyChart({ data }: { data: { date: string; views: number; clic
           <Legend wrapperStyle={{ fontSize: 12 }} />
           <Line type="monotone" dataKey="views" stroke="#a78bfa" strokeWidth={2} dot={false} />
           <Line type="monotone" dataKey="clicks" stroke="#22d3ee" strokeWidth={2} dot={false} />
-          <Line type="monotone" dataKey="presaves" stroke="#f472b6" strokeWidth={2} dot={false} />
+          {presaves && <Line type="monotone" dataKey="presaves" stroke="#f472b6" strokeWidth={2} dot={false} />}
         </LineChart>
       </ResponsiveContainer>
     </div>

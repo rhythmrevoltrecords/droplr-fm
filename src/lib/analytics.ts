@@ -13,6 +13,17 @@ export function statsRange(raw: string | undefined, maxDays: number): StatsRange
   return allowed;
 }
 
+/**
+ * RELEASE analytics. PageView and ClickEvent also hold bio-page rows since 20 Oct 2026, and
+ * nothing in this file should ever see one: every query here filters `releaseId: { in: ids }`,
+ * and SQL's IN never matches NULL, so a bio row is excluded by construction rather than by
+ * anyone remembering. scripts/test-bio-stats.ts proves it with rows in the table.
+ *
+ * Bio-page analytics live in lib/bio-stats.ts. They are deliberately NOT this function with a
+ * flag: six of what getStats returns -- pre-saves, conversion, chosen store, by-artist, release
+ * link labels -- are release concepts, and a bio page asking for them would get a struct that is
+ * half structurally zero. The tables are shared; the questions are not.
+ */
 export async function releaseTotals(releaseIds: string[]) {
   if (!releaseIds.length) return new Map<string, { views: number; clicks: number; presaves: number }>();
   const [views, clicks, presaves] = await Promise.all([
@@ -22,9 +33,9 @@ export async function releaseTotals(releaseIds: string[]) {
   ]);
   const map = new Map<string, { views: number; clicks: number; presaves: number }>();
   for (const id of releaseIds) map.set(id, { views: 0, clicks: 0, presaves: 0 });
-  views.forEach((v) => (map.get(v.releaseId)!.views = v._count._all));
-  clicks.forEach((v) => (map.get(v.releaseId)!.clicks = v._count._all));
-  presaves.forEach((v) => (map.get(v.releaseId)!.presaves = v._count._all));
+  views.forEach((v) => { if (v.releaseId) map.get(v.releaseId)!.views = v._count._all; });
+  clicks.forEach((v) => { if (v.releaseId) map.get(v.releaseId)!.clicks = v._count._all; });
+  presaves.forEach((v) => { if (v.releaseId) map.get(v.releaseId)!.presaves = v._count._all; });
   return map;
 }
 
@@ -78,7 +89,7 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30, time
   const artistOf = new Map(rels.map((r) => [r.id, r.artistName]));
   const artistMap = new Map<string, number>();
   artistClicks.forEach((r) => {
-    const a = artistOf.get(r.releaseId) ?? "Unknown";
+    const a = (r.releaseId && artistOf.get(r.releaseId)) || "Unknown";
     artistMap.set(a, (artistMap.get(a) ?? 0) + r._count._all);
   });
 
@@ -114,8 +125,8 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30, time
 
   // --- Insights: when fans are active (their own clock), devices, chosen stores, plain-English patterns ---
   const [heatViews, heatPresaves, deviceRows, listenRows] = await Promise.all([
-    activityGrid("PageView", releaseIds, since, tz),
-    activityGrid("PreSave", releaseIds, since, tz),
+    activityGrid("PageView", releaseSubject(releaseIds), since, tz),
+    activityGrid("PreSave", releaseSubject(releaseIds), since, tz),
     prisma.pageView.groupBy({ by: ["deviceType"], where: w, _count: { _all: true } }),
     prisma.preSave.groupBy({ by: ["listenOn"], where: { ...w, listenOn: { not: null } }, _count: { _all: true } }),
   ]);
@@ -153,32 +164,42 @@ export type Grid = number[][];
 export type Insight = { title: string; body: string };
 const emptyGrid = (): Grid => Array.from({ length: 7 }, () => Array<number>(24).fill(0));
 
-async function activityGrid(table: "PageView" | "PreSave", releaseIds: string[], since: Date, labelTz: string): Promise<Grid> {
+/**
+ * Day-of-week x hour, counted in each visitor's OWN timezone.
+ *
+ * `subject` is a SQL fragment rather than a list of ids, because a bio page asks the same
+ * question of the same tables with a different WHERE. Two copies of the timezone handling below
+ * -- including the pg_timezone_names fallback, which exists because Postgres rejects a zone name
+ * it does not know and took a while to find -- is exactly the drift this avoids.
+ */
+export async function activityGrid(table: "PageView" | "PreSave" | "ClickEvent", subject: Prisma.Sql, since: Date, labelTz: string): Promise<Grid> {
   const grid = emptyGrid();
-  const ids = Prisma.join(releaseIds);
   const t = Prisma.raw(`"${table}"`);
   // Rows without a visitor timezone (older data, no geo) use the label's timezone.
   const direct = () => prisma.$queryRaw<{ dow: number; h: number; n: bigint }[]>`
     SELECT EXTRACT(DOW FROM l)::int AS dow, EXTRACT(HOUR FROM l)::int AS h, COUNT(*)::bigint AS n
-    FROM (SELECT ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE COALESCE("timezone", ${labelTz}) AS l FROM ${t} WHERE "releaseId" IN (${ids}) AND "createdAt" >= ${since}) s
+    FROM (SELECT ("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE COALESCE("timezone", ${labelTz}) AS l FROM ${t} WHERE ${subject} AND "createdAt" >= ${since}) s
     GROUP BY 1, 2`;
   // Fallback if Postgres doesn't know a stored zone name: only use names it has.
   const safe = () => prisma.$queryRaw<{ dow: number; h: number; n: bigint }[]>`
     WITH z AS (SELECT name FROM pg_timezone_names)
     SELECT EXTRACT(DOW FROM l)::int AS dow, EXTRACT(HOUR FROM l)::int AS h, COUNT(*)::bigint AS n
-    FROM (SELECT (x."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE COALESCE(z.name, ${labelTz}) AS l FROM ${t} x LEFT JOIN z ON z.name = x."timezone" WHERE x."releaseId" IN (${ids}) AND x."createdAt" >= ${since}) s
+    FROM (SELECT (x."createdAt" AT TIME ZONE 'UTC') AT TIME ZONE COALESCE(z.name, ${labelTz}) AS l FROM ${t} x LEFT JOIN z ON z.name = x."timezone" WHERE ${subject} AND x."createdAt" >= ${since}) s
     GROUP BY 1, 2`;
   const rows = await direct().catch(() => safe());
   for (const r of rows) if (grid[r.dow] && r.h >= 0 && r.h < 24) grid[r.dow][r.h] = Number(r.n);
   return grid;
 }
 
+/** Release rows only. IN never matches NULL, so a bio page's rows cannot be caught by it. */
+export const releaseSubject = (ids: string[]) => Prisma.sql`"releaseId" IN (${Prisma.join(ids)})`;
+
 export const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /** The hour fans are most active across an account's releases (last 90 days, fan-local time), if there's enough data. */
 export async function busiestHour(releaseIds: string[], labelTz: string) {
   if (!releaseIds.length) return null;
-  const grid = await activityGrid("PageView", releaseIds, new Date(Date.now() - 90 * 86_400_000), isValidTimeZone(labelTz) ? labelTz : DEFAULT_TZ);
+  const grid = await activityGrid("PageView", releaseSubject(releaseIds), new Date(Date.now() - 90 * 86_400_000), isValidTimeZone(labelTz) ? labelTz : DEFAULT_TZ);
   const total = grid.flat().reduce((a, b) => a + b, 0);
   if (total < 50) return null;
   // Hour of day summed over the week, smoothed with its neighbours.
