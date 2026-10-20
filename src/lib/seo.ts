@@ -36,10 +36,25 @@ export const NEVER_INDEX = [
   "/forgot-password",
   "/demo",
   "/api/",
-  "/b/",
+  // Not a page: /r/{id} is a 301 to the release's real URL, and an indexed redirect competes
+  // with the page it points at.
   "/r/",
+  // Internal rewrite target for custom domains. The same page is served at the tenant's own
+  // address, which is the one that should be found.
   "/host/",
 ] as const;
+
+/**
+ * /b/ used to be on that list, and it was the only entry there that did not belong.
+ *
+ * The list is for signed-in surfaces and for URLs where the token IS the credential. A bio page
+ * is neither: it is a public page an artist publishes and then puts in their Instagram bio. Being
+ * absent from Google was not a decision anyone made about bio pages; it was a line in a list.
+ *
+ * It is allowed in now, with two things that have to stay true: a page with Public unticked still
+ * 404s, and every copy of a page declares one canonical URL (lib/bio bioPublicUrl), so a page on
+ * a custom domain and the same page on droplr.fm never compete with each other.
+ */
 
 /** Spread into a page's `metadata` to keep it out of search whatever the site-wide setting is. */
 export const NOINDEX = { robots: { index: false, follow: false } } as const;
