@@ -51,7 +51,7 @@ export const yearlyPriceUsd = (k: PlanKey) => usdFromAud(PLAN_LIMITS[k].yearly);
 export function planFeatures(k: PlanKey): string[] {
   // Bio pages are ungated, so the bullet belongs in `common` - and separately in the `pro` case,
   // which lists its own bullets instead of spreading this one.
-  const common = ["Email pre-saves in each fan's timezone", "Promo plan + share graphics", "Bio link page that shows your latest release and collects fan emails"];
+  const common = ["Email pre-saves in each fan's timezone", "Promo plan + share graphics", "Bio link page with its own visitor stats, fan email box and self-updating release"];
   switch (k) {
     case "free":
       // Not "yourname.droplr.fm": *.droplr.fm has no DNS under it, so that link 404s. The path form
@@ -63,7 +63,7 @@ export function planFeatures(k: PlanKey): string[] {
       return ["Everything in Artist", releasesLine(k), clicksLine(k), insightsLine(k), "Custom domain (music.yourname.com)", "No droplr.fm branding on pages and graphics", "Spotify library pre-save for your VIPs (your own Spotify app)"];
     case "pro":
       // Artist Pro and Label inherit via "Everything in …"; Pro lists its own, so contests go here too.
-      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Bio link page that shows your latest release and collects fan emails", "Custom domain, connected for you", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Pixels, CSV export, QR codes", "Sync fans to your Mailchimp audience", "Remove droplr.fm branding", insightsLine(k)];
+      return [releasesLine(k), clicksLine(k), artistsLine(k), emailsLine(k), "Artist logins + roster profiles", "Bio link page with its own visitor stats, fan email box and self-updating release", "Custom domain, connected for you", "Spotify library pre-save for your VIPs (your own Spotify app)", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Pixels, CSV export, QR codes", "Sync fans to your Mailchimp audience", "Remove droplr.fm branding", insightsLine(k)];
     case "label":
       return ["Everything in Pro", clicksLine(k), artistsLine(k), "Team roles (admins)", "Analytics across the whole roster"];
     case "enterprise":

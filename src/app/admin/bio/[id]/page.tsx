@@ -13,11 +13,14 @@ import { linkedLabelNames } from "@/lib/bio-roster";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
 import { prisma } from "@/lib/db";
+import { statsRange } from "@/lib/analytics";
+import { getBioStats } from "@/lib/bio-stats";
+import { BioAnalyticsPanels } from "@/components/admin/bio-stats-panels";
+import { RangeTabs } from "@/components/admin/stats-panels";
 import { planOf } from "@/lib/plans";
-import { fmtNum } from "@/lib/utils";
 
 export default async function EditBio(
-  props: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }
+  props: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string; days?: string }> }
 ) {
   const searchParams = await props.searchParams;
   const params = await props.params;
@@ -28,7 +31,12 @@ export default async function EditBio(
   const url = bioPublicUrl(user.organization, page.slug);
   const clicks = page.links.reduce((n, l) => n + l.clicks, 0);
   // Same resolver the public page uses, so the preview cannot drift from what a fan gets.
-  const [artists, previewReleases, labelBadges, linkedLabels] = await Promise.all([
+  // Same plan limit as release analytics: what is gated is how far BACK you can look, never
+  // whether the visits were recorded. Every account's rows are kept either way, so an upgrade
+  // reveals history rather than starting it.
+  const days = statsRange(searchParams.days, plan.insightsDays);
+  const [stats, artists, previewReleases, labelBadges, linkedLabels] = await Promise.all([
+    getBioStats(page.id, days, user.organization.timezone),
     prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     // Forced "on": the preview has to show what ticking the box would publish, which is the
     // only honest way to offer an opt-in. The form itself gates on the toggle.
@@ -44,7 +52,6 @@ export default async function EditBio(
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold">{page.title}</h1>
-          <p className="text-sm text-muted-foreground">{fmtNum(page.views)} views · {fmtNum(clicks)} link clicks</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="truncate rounded bg-secondary px-2 py-1 text-xs">{url}</code>
             <CopyButton value={url} />
@@ -55,6 +62,17 @@ export default async function EditBio(
       </div>
 
       {searchParams.created && <Card className="border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">Bio link created. Add your links below.</Card>}
+
+      <Card>
+        <CardHeader className="flex-row items-center justify-between gap-3 space-y-0">
+          <div>
+            <CardTitle>Who opened it</CardTitle>
+            <CardDescription>Where your visitors came from, what they are on, and what they tapped</CardDescription>
+          </div>
+          <RangeTabs base={`/admin/bio/${page.id}`} days={days} maxDays={plan.insightsDays} />
+        </CardHeader>
+        <CardContent><BioAnalyticsPanels stats={stats} days={days} /></CardContent>
+      </Card>
 
       <Card>
         <CardHeader><CardTitle>Links</CardTitle><CardDescription>Drag to reorder. Each link gets the same glass button as your release pages. Clicks are counted.</CardDescription></CardHeader>

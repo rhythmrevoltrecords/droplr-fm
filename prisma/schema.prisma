@@ -385,10 +385,22 @@ model LinkVariant {
   @@unique([releaseId, slug])
 }
 
+/**
+ * One visit to a public page. The subject is a release OR a bio page, never both and never
+ * neither -- a CHECK constraint in the database enforces that rather than trusting call sites.
+ *
+ * releaseId was NOT NULL until 20 Oct 2026, so a bio page could not write here at all and made
+ * do with BioPage.views, a single integer, while every release page got source, country, device
+ * and an anonymous visitor id. Widening this was the fix, not a second pair of tables: one
+ * definition of a view, one place the country and device resolution lives.
+ */
 model PageView {
   id           String   @id @default(cuid())
-  releaseId    String
-  release      Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  releaseId    String?
+  release      Release? @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  /** Set when this view was of a bio page. Exactly one of releaseId / bioPageId is ever set. */
+  bioPageId    String?
+  bioPage      BioPage? @relation(fields: [bioPageId], references: [id], onDelete: Cascade)
   variantId    String?
   source       String?
   utm_source   String?
@@ -403,12 +415,17 @@ model PageView {
   createdAt    DateTime @default(now())
 
   @@index([releaseId, createdAt])
+  @@index([bioPageId, createdAt])
 }
 
+/** A tap on a button. Same subject rule as PageView, enforced by the same kind of CHECK. */
 model ClickEvent {
   id                 String   @id @default(cuid())
-  releaseId          String
-  release            Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  releaseId          String?
+  release            Release? @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  /** Set when this tap was on a bio page. Exactly one of releaseId / bioPageId is ever set. */
+  bioPageId          String?
+  bioPage            BioPage? @relation(fields: [bioPageId], references: [id], onDelete: Cascade)
   variantId          String?
   platform           String
   source             String?
@@ -422,11 +439,16 @@ model ClickEvent {
   ipHash             String?
   anonId             String?
   linkId             String? // ReleaseLink.id — separates duplicate platforms (e.g. three SoundClouds)
+  /** BioLink.id, when the subject is a bio page. Kept apart from linkId so neither id is read against the wrong table. */
+  bioLinkId          String?
+  bioLink            BioLink? @relation(fields: [bioLinkId], references: [id], onDelete: SetNull)
   convertedToPreSave Boolean  @default(false)
   createdAt          DateTime @default(now())
 
   @@index([releaseId, createdAt])
+  @@index([bioPageId, createdAt])
   @@index([linkId])
+  @@index([bioLinkId])
 }
 
 model PreSave {
@@ -533,6 +555,9 @@ model BioPage {
   links          BioLink[]
   /** Fans who subscribed on this page. SetNull: deleting a page never deletes its fans. */
   subscribers    FanContact[]
+  /** Cascade, unlike subscribers: a view of a page that no longer exists is not a fact about anything. */
+  pageViews      PageView[]
+  clickEvents    ClickEvent[]
 
   @@index([organizationId])
   @@index([artistProfileId])
@@ -551,7 +576,9 @@ model BioLink {
   iconUrl    String?
   isActive   Boolean @default(true)
   order      Int     @default(0)
+  /** All-time taps, including every tap from before ClickEvent covered bio pages. See lib/bio-stats. */
   clicks     Int     @default(0)
+  clickEvents ClickEvent[]
 
   @@index([bioPageId])
 }

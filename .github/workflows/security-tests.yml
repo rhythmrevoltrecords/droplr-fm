@@ -187,6 +187,9 @@ jobs:
       - name: Subscribing on a bio page
         run: npx tsx scripts/test-bio-subscribe.ts
 
+      - name: Bio page analytics
+        run: npx tsx scripts/test-bio-stats.ts
+
       - name: Admin navigation
         run: npx tsx scripts/test-nav.ts
 
