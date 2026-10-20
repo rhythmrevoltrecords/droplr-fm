@@ -27,7 +27,7 @@ export default async function EditBio(
   const url = bioPublicUrl(user.organization, page.slug);
   const clicks = page.links.reduce((n, l) => n + l.clicks, 0);
   // Same resolver the public page uses, so the preview cannot drift from what a fan gets.
-  const [artists, previewRelease, labelBadges] = await Promise.all([
+  const [artists, previewReleases, labelBadges] = await Promise.all([
     prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     // Forced "on": the preview has to show what ticking the box would publish, which is the
     // only honest way to offer an opt-in. The form itself gates on the toggle.
@@ -72,8 +72,9 @@ export default async function EditBio(
             id={page.id}
             initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", isPublic: page.isPublic }}
             previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl }))}
+            glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
             artists={artists}
-            previewRelease={previewRelease}
+            previewReleases={previewReleases}
             labelBadges={labelBadges}
             orgName={user.organization.name}
             showBranding={!plan.removeBranding}
