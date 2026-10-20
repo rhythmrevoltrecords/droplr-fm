@@ -141,7 +141,7 @@ export function ReleaseCreateForm({ artists, defaultDate, locationLabel = "Brisb
             <CardContent className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2"><Label>Title</Label><Input value={form.title} onChange={(e) => set("title", e.target.value)} /></div>
               <div className="space-y-2"><Label>Artist name</Label><Input value={form.artistName} onChange={(e) => set("artistName", e.target.value)} /></div>
-              <div className="space-y-2"><Label>Slug</Label><Input value={form.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} /></div>
+              <div className="space-y-2"><Label>Page address</Label><Input value={form.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} /></div>
               <div className="space-y-2"><Label>Release date &amp; time ({locationLabel})</Label><Input type="datetime-local" value={form.releaseDateLocal} onChange={(e) => set("releaseDateLocal", e.target.value)} /></div>
               {!soloArtist && <div className="space-y-2">
                 <Label>Roster artist</Label>

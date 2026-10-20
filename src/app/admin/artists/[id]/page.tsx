@@ -8,6 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { ARTIST_STATUS_LABELS, readSocialLinks } from "@/lib/artist-fields";
 import { labelArtist } from "@/lib/artists";
 import { requireUser } from "@/lib/auth";
+import { CopyButton } from "@/components/admin/copy-button";
+import { rosterBioPages } from "@/lib/bio-roster";
 import { prisma } from "@/lib/db";
 import { formatInTz, isReleased } from "@/lib/time";
 import { timeAgo } from "@/lib/utils";
@@ -29,6 +31,10 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
     // thing read is the email already on this roster row's invitation. Nothing else of theirs.
     artist.linkedUserId ? prisma.user.findUnique({ where: { id: artist.linkedUserId }, select: { email: true } }) : null,
   ]);
+
+  // Their own bio pages, if they have a linked account and have published any. Public pages only,
+  // no numbers, no editing — see lib/bio-roster for the whole rule.
+  const theirPages = (await rosterBioPages(user.organizationId)).filter((p) => p.artistName === artist.name);
   const state: LoginState =
     login ? { kind: "login", email: login.email }
     : linked ? { kind: "linked", email: linked.email }
@@ -66,6 +72,24 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
             <CardContent><ArtistLoginAccess artistId={artist.id} state={state} isOwner={isOwner} defaultEmail={artist.email ?? ""} /></CardContent>
           </Card>
         )}
+        {theirPages.length > 0 && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Their bio link</CardTitle>
+              <CardDescription>Made by {artist.name} in their own account. You can open and share it; only they can edit it.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              {theirPages.map((p) => (
+                <div key={p.id} className="flex flex-wrap items-center gap-2">
+                  <a href={p.url} target="_blank" rel="noreferrer" className="font-medium hover:underline">{p.title}</a>
+                  <code className="min-w-0 max-w-full truncate rounded bg-secondary px-2 py-1 text-xs">{p.url}</code>
+                  <CopyButton value={p.url} />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        )}
+
         <Card>
           <CardHeader>
             <CardTitle>Releases</CardTitle>

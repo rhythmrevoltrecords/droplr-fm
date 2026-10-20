@@ -24,6 +24,7 @@ export function BioForm({
   artists = [],
   previewReleases = [],
   labelBadges = [],
+  linkedLabels = [],
   glow,
 }: {
   mode: "create" | "edit";
@@ -38,6 +39,11 @@ export function BioForm({
   previewReleases?: BioViewData["releases"];
   /** Labels that have allowed this artist to show their badge. Empty for a label's own page. */
   labelBadges?: LabelBadge[];
+  /**
+   * Labels whose roster this account is on. Shown to the artist, not used for anything else: a
+   * one-way rule that quietly became two-way is worse than one that never existed.
+   */
+  linkedLabels?: string[];
   /**
    * The account's public glow setting. Required, not optional: the preview silently ignoring it
    * is exactly how "turn the glow off" looked broken on three themes out of four.
@@ -116,7 +122,12 @@ export function BioForm({
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2"><Label>Name</Label><Input value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="OTOTO" /></div>
-          <div className="space-y-2"><Label>Slug</Label><Input value={v.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} placeholder="ototo" /></div>
+          <div className="space-y-2">
+            {/* "Slug" is a word from the inside of a CMS. The artist picking it has never heard it. */}
+            <Label>Page address</Label>
+            <Input value={v.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} placeholder="ototo" />
+            <p className="truncate text-xs text-muted-foreground">droplr.fm/b/<span className="text-foreground">{slugify(v.slug) || "yourname"}</span></p>
+          </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Bio</Label>
             <textarea value={v.bio} maxLength={280} rows={3} onChange={(e) => set("bio", e.target.value)} placeholder="UK garage from Brisbane." className="w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
@@ -286,7 +297,16 @@ export function BioForm({
             </p>
           </div>
 
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
+          <div className="space-y-1 sm:col-span-2">
+            <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
+            {linkedLabels.length > 0 && (
+              <p className="text-xs text-muted-foreground">
+                While it&apos;s public, {linkedLabels.join(" and ")} can see and share this page&apos;s link from their
+                roster. They can&apos;t edit it, and your views and clicks stay yours. Untick Public and it disappears
+                from their side too.
+              </p>
+            )}
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <Button onClick={save} disabled={busy || !v.title || !v.slug || !v.imageUrl}>{busy && <Loader2 className="animate-spin" />} {mode === "create" ? "Create bio link" : "Save"}</Button>

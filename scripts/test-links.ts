@@ -15,7 +15,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { linksPayloadSchema } from "../src/lib/link-input";
-import { PLATFORMS, SOCIAL_PLATFORMS, emailAddressOf, isMailto, mailtoFor, platformMeta } from "../src/lib/platforms";
+import { PLATFORMS, PLATFORM_GROUPS, PLATFORM_KEYS, SOCIAL_PLATFORMS, emailAddressOf, isMailto, mailtoFor, platformMeta } from "../src/lib/platforms";
 import { PLATFORM_LOGOS } from "../src/lib/platform-logos";
 
 let passed = 0;
@@ -39,6 +39,36 @@ check("every social has a name, an action and a monogram",
   SOCIAL_PLATFORMS.every((k) => platformMeta(k).name && platformMeta(k).action && platformMeta(k).monogram));
 check("none of them is still the generic Link button",
   SOCIAL_PLATFORMS.every((k) => platformMeta(k).name !== "Link"));
+
+// ---- how the picker is grouped -------------------------------------------
+//
+// By what a platform IS, not by how droplr finds it. The old grouping filed Spotify, Apple Music,
+// Deezer and Tidal under "Other", because "Other" quietly meant "resolved from a UPC lookup" — a
+// fact about the resolver that nobody choosing from a dropdown can see.
+{
+  const listed = PLATFORM_GROUPS.flatMap((g) => g.keys);
+  check("every platform appears in the picker", PLATFORM_KEYS.every((k) => listed.includes(k)),
+    PLATFORM_KEYS.filter((k) => !listed.includes(k)).join(", "));
+  check("none appears twice", new Set(listed).size === listed.length,
+    listed.filter((k, i, a) => a.indexOf(k) !== i).join(", "));
+  check("no group is empty", PLATFORM_GROUPS.every((g) => g.keys.length > 0));
+
+  const groupOf = (k: string) => PLATFORM_GROUPS.find((g) => g.keys.includes(k as never))?.label;
+  for (const k of ["spotify", "appleMusic", "deezer", "tidal"]) {
+    check(`${k} is under Streaming, not Other`, groupOf(k) === "Streaming", String(groupOf(k)));
+  }
+  for (const k of ["beatport", "traxsource", "bandcamp"]) {
+    check(`${k} is under Stores & DJ`, groupOf(k) === "Stores & DJ", String(groupOf(k)));
+  }
+  check("email and the socials are in their own group",
+    SOCIAL_PLATFORMS.every((k) => groupOf(k) === "Social & contact"));
+  check("the custom button is not mixed in with real platforms", groupOf("custom") === "Other");
+  check("Streaming is ordered by the platform weights",
+    PLATFORM_GROUPS[0].keys.every((k, i, a) => i === 0 || PLATFORMS[a[i - 1]].weight <= PLATFORMS[k].weight));
+}
+const editorSrc = read("src/components/admin/link-editor.tsx");
+check("the editor renders the groups rather than its own list", editorSrc.includes("PLATFORM_GROUPS.map"));
+check("Detect from URL is still offered", editorSrc.includes('value="auto"'));
 
 // ---- the marks -----------------------------------------------------------
 
@@ -94,7 +124,7 @@ check("the page renders a mailto itself instead of redirecting to it", /isMailto
 // ---- the admin says what it cannot count ---------------------------------
 
 const editor = read("src/components/admin/link-editor.tsx");
-check("the editor offers the socials", editor.includes("SOCIAL_PLATFORMS.map"));
+check("the editor offers the socials", editor.includes("PLATFORM_GROUPS.map"));
 check("the editor takes a plain address for an email button", editor.includes('mailtoFor(e.target.value)'));
 check("the editor admits email taps are not counted", /aren&apos;t counted|aren't counted/.test(editor),
   "\"I can't tell\" is a real answer and belongs in the UI");
