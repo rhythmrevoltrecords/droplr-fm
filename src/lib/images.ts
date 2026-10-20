@@ -1,6 +1,6 @@
 import { COVER_TYPE_ERROR, sniffImage } from "./blobs";
 
-export const IMAGE_PURPOSES = ["cover", "avatar", "logo", "press", "background"] as const;
+export const IMAGE_PURPOSES = ["cover", "avatar", "logo", "press", "background", "icon"] as const;
 export type ImagePurpose = (typeof IMAGE_PURPOSES)[number];
 export const IMAGE_READ_ERROR = "We couldn't read that image. Export it as JPG or PNG and try again.";
 export const IMAGE_PIXELS_ERROR = "Image is too large. Use one under 60 megapixels.";
@@ -13,7 +13,7 @@ export const IMAGE_VALIDATION_ERRORS = [IMAGE_READ_ERROR, IMAGE_PIXELS_ERROR, UP
 /** Longest edge we keep per use. Covers/avatars render at ~600px CSS on 2x-3x screens; press photos get downloaded. */
 // A bio background is full-bleed but behind a scrim and never blurred, so it buys nothing above
 // the cover size: a phone renders it ~450px wide, ~1350 on a 3x screen.
-const MAX_EDGE: Record<ImagePurpose, number> = { cover: 1600, avatar: 1600, logo: 1200, press: 2400, background: 1600 };
+const MAX_EDGE: Record<ImagePurpose, number> = { cover: 1600, avatar: 1600, logo: 1200, press: 2400, background: 1600, icon: 256 };
 
 export function isImagePurpose(v: unknown): v is ImagePurpose {
   return typeof v === "string" && (IMAGE_PURPOSES as readonly string[]).includes(v);

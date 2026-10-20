@@ -16,6 +16,7 @@ export const bioSchema = z.object({
   accentColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional().or(z.literal("")),
   backgroundUrl: z.string().url().nullable().optional().or(z.literal("")),
   backgroundColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional().or(z.literal("")),
+  buttonColor: z.string().regex(/^#[0-9a-fA-F]{6}$/).nullable().optional().or(z.literal("")),
   /** Only "on" is stored; the label's own permission is checked server-side at render. */
   labelBadge: z.enum(["on"]).nullable().optional().or(z.literal("")),
   artistProfileId: z.string().cuid().nullable().optional().or(z.literal("")),

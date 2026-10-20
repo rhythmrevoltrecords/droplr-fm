@@ -29,6 +29,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.releaseBlock !== undefined) data.releaseBlock = d.releaseBlock || null;
   if (d.backgroundUrl !== undefined) data.backgroundUrl = d.backgroundUrl || null;
   if (d.backgroundColor !== undefined) data.backgroundColor = d.backgroundColor || null;
+  if (d.buttonColor !== undefined) data.buttonColor = d.buttonColor || null;
   // Only the artist's half. The label's half (Artist.labelBadge + an active roster row) is read
   // at render time, so a label revoking it takes effect without touching this column.
   if (d.labelBadge !== undefined) data.labelBadge = d.labelBadge || null;

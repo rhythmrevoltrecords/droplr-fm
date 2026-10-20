@@ -149,7 +149,24 @@ const orphans = [...css.matchAll(/\.bio-skin-([a-z0-9-]+)/g)].map((m) => m[1]).f
 check("no bio-skin rule names a theme that no longer exists", orphans.length === 0, [...new Set(orphans)].join(", "));
 check("poster paints buttons from the adjusted fill, not the raw accent", /\.bio-skin-poster \.glass \{[^}]*var\(--shell-fill/.test(css));
 check("poster takes its text colour from the computed ink, not a hardcoded white", /\.bio-skin-poster \.glass \{[^}]*var\(--shell-ink/.test(css));
-check("the shell computes the ink from the fill, not the raw accent", /--shell-ink[^,]*readableTextOn\(posterFill\(accent\)\)/.test(shell));
+// The ink has to be computed from whatever will actually be painted. Once a page can choose its
+// own button colour, deriving the ink from the accent instead would put white text on a pale
+// button the moment the two differ.
+check("the shell computes the ink from the fill that gets painted",
+  /--shell-ink[^,]*readableTextOn\(fill \?\? posterFill\(accent\)\)/.test(shell));
+check("the fill and the ink are derived from the same value",
+  /--shell-fill[^,]*fill \?\? posterFill\(accent\)/.test(shell));
+check("a chosen button colour is corrected for contrast before it is painted",
+  /const fill = buttonColor \? posterFill\(buttonColor\) : null/.test(shell),
+  "Poster fills solid, so an uncorrected colour would be unreadable small text");
+check("the bubble variable is only set when a colour was chosen",
+  /\.\.\.\(buttonColor \? \{ \["--bubble"/.test(shell),
+  "otherwise every page gets a tint it never asked for");
+// With --bubble unset, each color-mix must fall back to the theme's own value on BOTH sides, or
+// every existing page shifts by a few percent the day this ships.
+const mixes = [...css.matchAll(/color-mix\(in srgb, var\(--bubble, ([^)]+\)?[^)]*)\) \d+%, ([^)]+\))\)/g)];
+check("every button-colour fallback is the theme's own value", mixes.length >= 6 && mixes.every((m) => m[1].trim() === m[2].trim()),
+  mixes.filter((m) => m[1].trim() !== m[2].trim()).map((m) => `${m[1]} vs ${m[2]}`).join(" | ") || `${mixes.length} mixes found`);
 check("mono squares its buttons", /\.bio-skin-mono \.glass \{[^}]*border-radius: 0/.test(css));
 
 // ---- the wiring ----------------------------------------------------------

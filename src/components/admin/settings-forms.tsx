@@ -276,13 +276,44 @@ function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel, glow
   );
 }
 
-export function AppearanceForm({ initial, orgName, locationLabel, accent }: { initial: { themePreference: string; themePublic: boolean; dashboardGlow: boolean }; orgName: string; locationLabel: string; accent: string | null }) {
+export function AppearanceForm({ initial, orgName, locationLabel, accent }: { initial: { themePreference: string; themePublic: boolean; dashboardGlow: boolean; publicGlow: boolean; glowColor: string | null }; orgName: string; locationLabel: string; accent: string | null }) {
   const [theme, setTheme] = useState<PublicTheme>((["dark", "light", "system"].includes(initial.themePreference) ? initial.themePreference : "dark") as PublicTheme);
   const [applyPublic, setApplyPublic] = useState(initial.themePublic);
   const [glow, setGlow] = useState(initial.dashboardGlow);
+  const [publicGlow, setPublicGlow] = useState(initial.publicGlow);
+  const [glowColor, setGlowColor] = useState(initial.glowColor ?? "");
   const { busy, msg, save } = useSave();
   return (
-    <form className="space-y-5" onSubmit={async (e) => { e.preventDefault(); await save({ themePreference: theme, themePublic: applyPublic, dashboardGlow: glow }); }}>
+    <form className="space-y-5" onSubmit={async (e) => { e.preventDefault(); await save({ themePreference: theme, themePublic: applyPublic, dashboardGlow: glow, publicGlow, glowColor }); }}>
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium">Glow on your public pages</legend>
+        <p className="mb-2 text-xs text-muted-foreground">
+          The halo behind your artwork and the wash behind the page. One setting for release pages,
+          download gates and bio pages, so they can never disagree.
+        </p>
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={publicGlow} onChange={(e) => setPublicGlow(e.target.checked)} className="h-4 w-4" />
+            Show the glow
+          </label>
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-muted-foreground">
+              Colour
+              <input
+                type="color"
+                aria-label="Glow colour"
+                value={glowColor || accent || "#7c3aed"}
+                disabled={!publicGlow}
+                onChange={(e) => setGlowColor(e.target.value)}
+                className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent disabled:opacity-50"
+              />
+            </label>
+            {glowColor && <Button type="button" size="sm" variant="ghost" onClick={() => setGlowColor("")}>Use the artwork&apos;s colour</Button>}
+            {!glowColor && <span className="text-xs text-muted-foreground">Taken from each release&apos;s artwork.</span>}
+          </div>
+        </div>
+      </fieldset>
+
       <fieldset>
         <legend className="mb-2 text-sm font-medium">Theme</legend>
         <div role="radiogroup" className="grid grid-cols-3 gap-2 sm:max-w-md">

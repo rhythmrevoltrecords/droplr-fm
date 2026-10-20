@@ -111,7 +111,7 @@ export default async function ReleaseDetail(
             <CardDescription>Drag to reorder, rename, change button text, or hide a link without deleting it. DJ stores sit alongside the streaming majors. {release.autoReResolve && !release.resolvedAt && (release.upc || release.isrc ? "Apple Music, Deezer, Spotify and TIDAL fill in automatically from the UPC/ISRC: checked daily in the two weeks before release, then hourly once it's out." : "Add the UPC or ISRC in Settings so store links can be found automatically.")}</CardDescription>
           </CardHeader>
           <CardContent>
-            <LinkEditor saveUrl={`/api/admin/releases/${release.id}/links`} reresolveUrl={`/api/admin/releases/${release.id}/reresolve`} initial={release.links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.title, buttonText: l.buttonText, icon: l.icon, visible: l.visible }))} />
+            <LinkEditor saveUrl={`/api/admin/releases/${release.id}/links`} reresolveUrl={`/api/admin/releases/${release.id}/reresolve`} initial={release.links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.title, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl, visible: l.visible }))} />
           </CardContent>
         </Card>
       )}

@@ -12,7 +12,7 @@ import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId 
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; labelBadge: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -189,6 +189,27 @@ export function BioForm({
           </div>
 
           <div className="space-y-2 sm:col-span-2">
+            <Label>Link buttons</Label>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <label className="flex items-center gap-2 text-muted-foreground">
+                Colour
+                <input
+                  type="color"
+                  aria-label="Link button colour"
+                  value={v.buttonColor || v.accentColor || "#7c3aed"}
+                  onChange={(e) => set("buttonColor", e.target.value)}
+                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+                />
+              </label>
+              {v.buttonColor && <Button type="button" size="sm" variant="ghost" onClick={() => set("buttonColor", "")}>Clear</Button>}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              One colour, four looks: the glassy themes tint their glass with it, Poster fills the buttons solid.
+              Poster darkens it if small text wouldn&apos;t read on it.
+            </p>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label>Page background</Label>
             <div className="flex flex-wrap items-center gap-2">
               <Button type="button" variant="outline" size="sm" onClick={background.pick} disabled={background.busy}>
@@ -272,7 +293,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, release: v.releaseBlock === "on" ? previewRelease : null, background: { url: v.backgroundUrl, color: v.backgroundColor }, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, release: v.releaseBlock === "on" ? previewRelease : null, background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

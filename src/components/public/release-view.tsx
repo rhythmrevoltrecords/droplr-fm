@@ -15,8 +15,8 @@ export type ReleaseViewData = {
   accentColor: string | null;
   releaseDate: string; // ISO: when it unlocks for this visitor (their local midnight on a local rollout)
   spotifyArtistId?: string | null;
-  links: { id: string; platform: string; label: string | null; url: string; buttonText?: string | null; icon?: string | null }[];
-  org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null; timezone?: string | null };
+  links: { id: string; platform: string; label: string | null; url: string; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
+  org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null; timezone?: string | null; publicGlow?: boolean; glowColor?: string | null };
 };
 
 export type ReleaseViewProps = {
@@ -79,12 +79,16 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
   return (
     <ArtworkPageShell
       theme={theme}
+      glow={release.org.publicGlow !== false}
+      glowColor={release.org.glowColor}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
       footer={<ShellFooter showBranding={showBranding} orgName={release.org.name} />}
       pixels={demo ? null : { meta: release.org.metaPixelId, tiktok: release.org.tiktokPixelId, ga4: release.org.ga4Id, contentName: `${release.artistName} - ${release.title}` }}
     >
         <ArtworkHero
+          glow={release.org.publicGlow !== false}
+          glowColor={release.org.glowColor}
           imageUrl={release.coverUrl}
           accentColor={release.accentColor}
           alt={`${release.title} cover art`}
@@ -103,7 +107,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           <ul className="mt-7 space-y-2.5">
             {release.links.map((l) => (
               <li key={l.id}>
-                <GlassLink href={r(l.platform, { l: l.id })} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} />
+                <GlassLink href={r(l.platform, { l: l.id })} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} />
               </li>
             ))}
             {release.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links are landing shortly. Check back in a few minutes.</li>}

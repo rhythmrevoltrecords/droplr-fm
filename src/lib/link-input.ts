@@ -9,6 +9,8 @@ export const linkInputSchema = z.object({
   title: z.string().trim().max(60).nullable().optional(),
   buttonText: z.string().trim().max(20).nullable().optional(),
   icon: z.string().trim().max(2).nullable().optional(),
+  /** Uploaded square image for a link with no mark of its own. Must be a URL droplr issued. */
+  iconUrl: z.string().url().nullable().optional().or(z.literal("")),
   visible: z.boolean(),
 });
 

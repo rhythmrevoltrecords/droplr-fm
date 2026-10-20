@@ -99,6 +99,15 @@ model Organization {
   themePreference String   @default("dark") // dark | light | system
   themePublic     Boolean  @default(false) // also apply themePreference to public smart links / bio pages
   dashboardGlow   Boolean  @default(true) // soft accent-colour gradient behind the admin / artist dashboards
+  /**
+   * The glow on PUBLIC pages: the halo behind the artwork or avatar, and the accent wash behind
+   * the page. One setting for release pages and bio pages together, because it is one look.
+   *
+   * publicGlow false removes it everywhere. glowColor null keeps today's behaviour — the colour
+   * extracted from the artwork — so nothing changes for an account that never touches this.
+   */
+  publicGlow      Boolean  @default(true)
+  glowColor       String?
   accentColor     String? // hex; admin top border + fallback when a release has no extracted colour
 
   createdAt DateTime  @default(now())
@@ -353,6 +362,8 @@ model ReleaseLink {
   title      String? // custom label e.g. "Merch & Vinyl", "Dubplate Download"
   buttonText String? // Play, Buy, Open, Tickets, Follow, Download, Locked, Watch, Listen — or anything
   icon       String? // 1–2 character monogram override, e.g. "S", "B", "↗"
+  /** Uploaded square image for a link with no platform mark of its own. Wins over the monogram. */
+  iconUrl    String?
   visible    Boolean @default(true)
   position   Int
   isCustom   Boolean @default(false)
@@ -496,6 +507,15 @@ model BioPage {
   backgroundColor String?
   /** "on" = the artist chose to show their label's badge. NULL = not shown. Needs the label's own permission too. */
   labelBadge     String?
+  /**
+   * Colour for the link buttons. NULL keeps each theme's own treatment.
+   *
+   * What it means depends on the theme, deliberately: a glass theme tints its glass with it, and
+   * Poster fills solid with it. Set once, correct in all four, rather than four settings. Poster
+   * runs it through posterFill first, so a colour small text cannot sit on is darkened rather
+   * than published.
+   */
+  buttonColor    String?
   isPublic       Boolean      @default(true)
   views          Int          @default(0)
   createdAt      DateTime     @default(now())
@@ -514,6 +534,8 @@ model BioLink {
   url        String
   buttonText String?
   icon       String?
+  /** Uploaded square image for a link with no platform mark of its own. Wins over the monogram. */
+  iconUrl    String?
   isActive   Boolean @default(true)
   order      Int     @default(0)
   clicks     Int     @default(0)
