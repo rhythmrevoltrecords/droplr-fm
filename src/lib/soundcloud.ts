@@ -125,14 +125,29 @@ export async function me(token: string): Promise<{ id: number; username: string 
 }
 
 /**
+ * Did SoundCloud carry the action out, or was it already true?
+ *
+ * Pure so it can be tested without the network, because the interesting case is not 200.
+ *
+ * 2xx is the action happening. A follow that is already in place comes back 200 or 201, so a fan
+ * who already follows passes rather than being told to unfollow and try again. The same has to
+ * hold for a like and a repost, and there the documented "already in that state" answer is a
+ * 409 Conflict — the fan's account already satisfies the step, which is the thing the step asks
+ * about. Failing them would punish exactly the fans who were there first.
+ *
+ * Nothing else passes. A 401, 403, 404 or 429 leaves the step incomplete, because the whole value
+ * of a performed step is that droplr never records it as done on optimism.
+ */
+export function isActionSuccess(status: number): boolean {
+  if (status >= 200 && status < 300) return true;
+  return status === 409;
+}
+
+/**
  * Carry out one gate action with the fan's own token.
  *
- * Returns true only on a response SoundCloud treats as success. A 4xx is a genuine failure and
- * the step stays incomplete — the whole value of a performed step is that droplr never records
- * it as done on optimism.
- *
- * Already-following returns 200 or 201 rather than an error, so a fan who already follows
- * passes the step instead of being told to unfollow and try again.
+ * Paths and methods are SoundCloud's current public API: PUT /me/followings/{id} for a follow,
+ * POST /likes/tracks/{id} and POST /reposts/tracks/{id} for the other two.
  */
 export async function performAction(
   token: string,
@@ -145,7 +160,7 @@ export async function performAction(
     : `/reposts/tracks/${targetId}`;
   const method = action === "follow" ? "PUT" : "POST";
   const res = await fetch(`${API}${path}`, { method, headers: auth(token) });
-  return res.status >= 200 && res.status < 300;
+  return isActionSuccess(res.status);
 }
 
 /**
