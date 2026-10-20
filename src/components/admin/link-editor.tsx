@@ -2,22 +2,23 @@
 import { DndContext, closestCenter, KeyboardSensor, MouseSensor, TouchSensor, useSensor, useSensors, type DragEndEvent } from "@dnd-kit/core";
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Eye, EyeOff, GripVertical, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
+import { Eye, EyeOff, GripVertical, ImagePlus, Loader2, Plus, RefreshCw, Trash2 } from "lucide-react";
 import { useRouter } from "next/navigation";
-import { useId, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
+import { ASPECT_SQUARE, useImageUpload } from "./image-crop-dialog";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, guessPlatformFromUrl, MANUAL_PLATFORMS, PLATFORM_KEYS, platformMeta } from "@/lib/platforms";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { cn } from "@/lib/utils";
 
-export type EditorLink = { id?: string | null; platform: string; url: string; title: string | null; buttonText: string | null; icon: string | null; visible: boolean };
+export type EditorLink = { id?: string | null; platform: string; url: string; title: string | null; buttonText: string | null; icon: string | null; iconUrl?: string | null; visible: boolean };
 type L = EditorLink & { key: string };
 
 const withKey = (l: EditorLink, i: number): L => ({ ...l, key: l.id ?? `${l.platform}-${i}-${Math.random().toString(36).slice(2)}` });
 
-function Row({ link, onChange, onRemove, presetsId, autoLabel }: { link: L; onChange: (l: L) => void; onRemove: () => void; presetsId: string; autoLabel?: string | null }) {
+function Row({ link, onChange, onRemove, onIconUpload, presetsId, autoLabel }: { link: L; onChange: (l: L) => void; onRemove: () => void; onIconUpload: (l: L) => void; presetsId: string; autoLabel?: string | null }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: link.key });
   const meta = platformMeta(link.platform);
   return (
@@ -32,17 +33,31 @@ function Row({ link, onChange, onRemove, presetsId, autoLabel }: { link: L; onCh
           <GripVertical className="h-4 w-4" />
         </button>
 
-        {/* Icon: monogram override, blank = platform default */}
-        <div className={cn("relative order-2 shrink-0 lg:order-none", !link.visible && "opacity-40")}>
-          <PlatformIcon platform={link.platform} icon={link.icon} />
-          <input
-            aria-label="Icon letter"
-            title="Icon (1–2 characters). Leave blank for the default."
-            value={link.icon ?? ""}
-            maxLength={2}
-            onChange={(e) => onChange({ ...link, icon: e.target.value || null })}
-            className="absolute inset-0 h-9 w-9 cursor-text rounded-lg bg-transparent text-center text-transparent caret-current focus:outline-none focus:ring-2 focus:ring-ring"
-          />
+        {/* Icon: uploaded image beats a monogram beats the platform default. Typing still works
+            on the tile; the button underneath uploads a picture for links with no mark of their own. */}
+        <div className={cn("order-2 flex shrink-0 items-center gap-1 lg:order-none", !link.visible && "opacity-40")}>
+          <div className="relative">
+            <PlatformIcon platform={link.platform} icon={link.icon} iconUrl={link.iconUrl} />
+            {!link.iconUrl && (
+              <input
+                aria-label="Icon letter"
+                title="Icon (1–2 characters). Leave blank for the default."
+                value={link.icon ?? ""}
+                maxLength={2}
+                onChange={(e) => onChange({ ...link, icon: e.target.value || null })}
+                className="absolute inset-0 h-9 w-9 cursor-text rounded-lg bg-transparent text-center text-transparent caret-current focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            )}
+          </div>
+          {link.iconUrl ? (
+            <button type="button" aria-label="Remove icon image" title="Remove icon image" onClick={() => onChange({ ...link, iconUrl: null })} className="rounded p-1 text-muted-foreground hover:text-foreground">
+              <Trash2 className="h-3.5 w-3.5" />
+            </button>
+          ) : (
+            <button type="button" aria-label="Upload an icon" title="Upload an icon" onClick={() => onIconUpload(link)} className="rounded p-1 text-muted-foreground hover:text-foreground">
+              <ImagePlus className="h-3.5 w-3.5" />
+            </button>
+          )}
         </div>
 
         <Input
@@ -99,6 +114,21 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
   const [newUrl, setNewUrl] = useState("");
   const [busy, setBusy] = useState<"save" | "resolve" | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  // Which row asked for an icon. A ref, not state: the upload dialog keeps the callback it was
+  // given, and a value read from a stale closure would drop the picture onto the wrong link.
+  const iconTarget = useRef<number | null>(null);
+  const iconUpload = useImageUpload({
+    endpoint: "/api/admin/upload-cover",
+    purpose: "icon",
+    aspects: [ASPECT_SQUARE],
+    maxEdge: 256,
+    title: "Crop icon",
+    onUploaded: (img) => {
+      const i = iconTarget.current;
+      if (i === null) return;
+      setLinks((ls) => ls.map((x, j) => (j === i ? { ...x, iconUrl: img.url } : x)));
+    },
+  });
   // Mouse + touch (short press-and-hold on the handle so page scrolling still works) + keyboard
   const sensors = useSensors(
     useSensor(MouseSensor, { activationConstraint: { distance: 4 } }),
@@ -164,7 +194,7 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
         <SortableContext items={links.map((l) => l.key)} strategy={verticalListSortingStrategy}>
           <div className="space-y-2">
             {links.map((l, i) => (
-              <Row key={l.key} link={l} presetsId={presetsId} autoLabel={autoLabels.get(l.key)} onChange={(n) => setLinks((ls) => ls.map((x, j) => (j === i ? n : x)))} onRemove={() => setLinks((ls) => ls.filter((_, j) => j !== i))} />
+              <Row key={l.key} link={l} presetsId={presetsId} autoLabel={autoLabels.get(l.key)} onChange={(n) => setLinks((ls) => ls.map((x, j) => (j === i ? n : x)))} onIconUpload={() => { iconTarget.current = i; iconUpload.pick(); }} onRemove={() => setLinks((ls) => ls.filter((_, j) => j !== i))} />
             ))}
             {!links.length && <p className="rounded-xl border border-dashed p-6 text-center text-sm text-muted-foreground">No links yet.</p>}
           </div>
@@ -205,6 +235,7 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
         )}
         {hidden > 0 && <span className="text-xs text-muted-foreground">{hidden} hidden from fans</span>}
         {msg && <span className={cn("text-sm", msg.ok ? "text-emerald-400" : "text-muted-foreground")}>{msg.text}</span>}
+        {iconUpload.ui}
       </div>
     </div>
   );

@@ -24,11 +24,13 @@ export type BioViewData = {
   } | null;
   /** Whole-page background chosen by the owner. The image wins when both are set. */
   background?: { url?: string | null; color?: string | null } | null;
-  links: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null }[];
+  /** Link button colour; what it does depends on the theme. */
+  buttonColor?: string | null;
+  links: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
-export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [] }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[] }) {
+export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null } }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null } }) {
   const skin = bioThemeOf(page.theme);
   const font = bioFontOf(page.font);
   // Paper is the light shell treatment. The org-wide theme preference still wins
@@ -39,7 +41,9 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       preview={preview}
       theme={shellTheme}
       skin={`${bioSkinClass(skin)} ${bioFontClass(font)}`}
-      glow={bioThemeHasGlow(skin)}
+      glow={glow.on && bioThemeHasGlow(skin)}
+      glowColor={glow.color}
+      buttonColor={page.buttonColor}
       imageUrl={page.imageUrl}
       accentColor={page.accentColor}
       background={page.background}
@@ -65,7 +69,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       }
       pixels={pixels}
     >
-      <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} alt={page.title} shape="circle" title={page.title}>
+      <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glow.color} alt={page.title} shape="circle" title={page.title}>
         {page.bio && <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-balance text-[15px] leading-relaxed text-white/70">{page.bio}</p>}
       </ArtworkHero>
       {page.release && (
@@ -92,7 +96,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       <ul className="mt-7 space-y-2.5">
         {page.links.map((l) => (
           <li key={l.id}>
-            <GlassLink href={preview ? "#" : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} track={!preview} />
+            <GlassLink href={preview ? "#" : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
           </li>
         ))}
         {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}

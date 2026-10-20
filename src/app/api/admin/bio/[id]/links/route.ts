@@ -18,12 +18,12 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   await prisma.$transaction([
     prisma.bioLink.deleteMany({ where: { bioPageId: page.id, id: { notIn: [...keep] } } }),
     ...parsed.data.links.map((l, order) => {
-      const data = { platform: l.platform, url: l.url, label: blankToNull(l.title), buttonText: blankToNull(l.buttonText), icon: blankToNull(l.icon), isActive: l.visible, order };
+      const data = { platform: l.platform, url: l.url, label: blankToNull(l.title), buttonText: blankToNull(l.buttonText), icon: blankToNull(l.icon), iconUrl: blankToNull(l.iconUrl), isActive: l.visible, order };
       return l.id && keep.has(l.id)
         ? prisma.bioLink.update({ where: { id: l.id }, data })
         : prisma.bioLink.create({ data: { ...data, bioPageId: page.id } });
     }),
   ]);
   const links = await prisma.bioLink.findMany({ where: { bioPageId: page.id }, orderBy: { order: "asc" } });
-  return NextResponse.json({ ok: true, links: links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, visible: l.isActive })) });
+  return NextResponse.json({ ok: true, links: links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl, visible: l.isActive })) });
 }

@@ -28,6 +28,7 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
         title: blankToNull(l.title),
         buttonText: blankToNull(l.buttonText),
         icon: blankToNull(l.icon),
+        iconUrl: blankToNull(l.iconUrl),
         visible: l.visible,
         isCustom: l.platform === "custom",
         position,

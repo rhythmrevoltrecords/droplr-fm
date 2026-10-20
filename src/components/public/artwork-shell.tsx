@@ -35,6 +35,8 @@ export function ArtworkPageShell({
   skin,
   glow = true,
   background,
+  glowColor,
+  buttonColor,
 }: {
   /** Kept for callers; the background is now painted from accentColor only (no blurred artwork copy). */
   imageUrl?: string;
@@ -58,14 +60,34 @@ export function ArtworkPageShell({
    * full-screen blur was measured as the main LCP cost on these pages and removed once already.
    */
   background?: { url?: string | null; color?: string | null } | null;
+  /** Overrides the accent used for the wash. From the account, like the halo. */
+  glowColor?: string | null;
+  /**
+   * Link button colour for this page. What it does depends on the theme — a glass theme tints
+   * its glass, Poster fills solid — so the shell only publishes the values and the skin CSS
+   * decides. Poster's fill is corrected for contrast before it gets here.
+   */
+  buttonColor?: string | null;
 }) {
   const accent = accentColor || DEFAULT_ACCENT;
   const themed = theme === "light" || theme === "system";
   const bg = !!(background?.url || background?.color);
+  const wash = glowColor || accent;
+  // Poster fills its buttons solid, so the chosen colour is darkened or lightened until small
+  // text clears 4.5:1 on it — the same correction the accent already gets. The glass themes use
+  // the raw colour at low alpha, where the page behind it dominates the contrast.
+  const fill = buttonColor ? posterFill(buttonColor) : null;
   return (
     <main
       className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`, skin)}
-      style={{ ["--shell-accent" as string]: accent, ["--shell-ink" as string]: readableTextOn(posterFill(accent)), ["--shell-fill" as string]: posterFill(accent) }}
+      style={{
+        ["--shell-accent" as string]: accent,
+        ["--shell-ink" as string]: readableTextOn(fill ?? posterFill(accent)),
+        ["--shell-fill" as string]: fill ?? posterFill(accent),
+        // Only set when the page chose a colour, so `var(--bubble, …)` falls back to each
+        // theme's own treatment rather than every page suddenly having a tint.
+        ...(buttonColor ? { ["--bubble" as string]: buttonColor } : {}),
+      }}
     >
       {/* Artwork-driven background: accent-colour wash (no blurred image, no filter: that full-screen blur was the main LCP cost) + dark gradient + accent glow */}
       {bg && (
@@ -80,14 +102,14 @@ export function ArtworkPageShell({
         </div>
       )}
       <div aria-hidden className="absolute inset-0">
-        {glow && <div className="absolute inset-0" style={{ background: `radial-gradient(140% 90% at 50% 0%, ${accent}59 0%, ${accent}24 45%, transparent 80%), radial-gradient(90% 55% at 100% 100%, ${accent}1a 0%, transparent 70%)` }} />}
+        {glow && <div className="absolute inset-0" style={{ background: `radial-gradient(140% 90% at 50% 0%, ${wash}59 0%, ${wash}24 45%, transparent 80%), radial-gradient(90% 55% at 100% 100%, ${wash}1a 0%, transparent 70%)` }} />}
         {/* With a background set, this layer stops being the page's colour and becomes a light
             wash over it — otherwise the opaque black ramp would hide what the artist uploaded. */}
         <div className="absolute inset-0" style={{ background: bg
-          ? (glow ? `radial-gradient(120% 70% at 50% 0%, ${accent}40 0%, transparent 60%)` : "transparent")
-          : glow ? `radial-gradient(120% 70% at 50% 0%, ${accent}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` : "#000" }} />
+          ? (glow ? `radial-gradient(120% 70% at 50% 0%, ${wash}40 0%, transparent 60%)` : "transparent")
+          : glow ? `radial-gradient(120% 70% at 50% 0%, ${wash}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` : "#000" }} />
         {themed && (
-          <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${accent}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
+          <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${wash}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
         )}
       </div>
       <div className="grain absolute inset-0" aria-hidden />
@@ -113,10 +135,16 @@ export function ArtworkHero({
   eyebrow,
   title,
   subtitle,
+  glowColor,
+  glow = true,
   children,
 }: {
   imageUrl: string;
   accentColor: string | null | undefined;
+  /** Overrides the colour of the halo. Null/undefined keeps the one extracted from the image. */
+  glowColor?: string | null;
+  /** False removes the halo. The account-level switch, not a theme decision. */
+  glow?: boolean;
   alt: string;
   shape?: "square" | "circle";
   /** Smaller artwork, used only by the admin mini-previews. */
@@ -129,6 +157,10 @@ export function ArtworkHero({
   children?: React.ReactNode;
 }) {
   const accent = accentColor || DEFAULT_ACCENT;
+  // The halo behind the artwork or avatar. glowColor overrides the colour pulled from the image;
+  // glow={false} removes it entirely. Both come from the account (Organization.publicGlow /
+  // glowColor), so a release page and a bio page never disagree about the look.
+  const halo = glowColor || accent;
   return (
     <>
       <div className={cn("mx-auto w-full", shape === "circle" ? (compact ? "max-w-[128px]" : "max-w-[168px]") : compact ? "max-w-[210px]" : "max-w-[320px]")}>
@@ -140,7 +172,7 @@ export function ArtworkHero({
           loading={priority ? "eager" : "lazy"}
           decoding="async"
           className={cn("aspect-square w-full object-cover shadow-2xl ring-1 ring-white/10", shape === "circle" ? "rounded-full" : "rounded-2xl")}
-          style={{ boxShadow: `0 30px 80px -20px ${accent}99` }}
+          style={glow ? { boxShadow: `0 30px 80px -20px ${halo}99` } : undefined}
         />
       </div>
       <div className="mt-6 text-center">
@@ -160,6 +192,7 @@ export function GlassLink({
   label,
   action,
   icon,
+  iconUrl,
   track = true,
   kind,
 }: {
@@ -170,6 +203,8 @@ export function GlassLink({
   action?: string | null;
   /** Monogram override for the icon tile. */
   icon?: string | null;
+  /** Uploaded square image, for a link with no platform mark of its own. */
+  iconUrl?: string | null;
   track?: boolean;
   kind?: "presave";
 }) {
@@ -181,7 +216,7 @@ export function GlassLink({
       data-kind={kind}
       className="glass group flex items-center gap-3 rounded-2xl p-2.5 pr-3 transition hover:bg-white/[0.12] active:scale-[0.99]"
     >
-      <PlatformIcon platform={platform} icon={icon} />
+      <PlatformIcon platform={platform} icon={icon} iconUrl={iconUrl} />
       <span className="flex-1 truncate font-medium">{label || m.name}</span>
       <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black transition group-hover:bg-white/90">{action || m.action}</span>
     </a>

@@ -184,7 +184,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
           coverUrl: release.coverUrl,
           accentColor: release.accentColor ?? org.accentColor,
           downloadNote: release.downloadNote,
-          org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, timezone: org.timezone },
+          org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: org.timezone },
         }}
         steps={steps}
         unlocked={remaining(usable, via).length === 0}
@@ -210,8 +210,8 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         accentColor: release.accentColor ?? org.accentColor,
         releaseDate: unlockAt.toISOString(),
         spotifyArtistId: release.spotifyArtistId,
-        links: labelDuplicateLinks(release.links).map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url, buttonText: l.buttonText, icon: l.icon })),
-        org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, timezone: release.rollout === "global" || !viewerTz ? org.timezone : viewerTz },
+        links: labelDuplicateLinks(release.links).map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })),
+        org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: release.rollout === "global" || !viewerTz ? org.timezone : viewerTz },
       }}
       live={live}
       variantId={variant?.id}
