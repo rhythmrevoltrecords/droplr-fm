@@ -1,7 +1,11 @@
 export type PlatformKey =
   | "spotify" | "appleMusic" | "itunes" | "youtubeMusic" | "youtube" | "amazonMusic" | "deezer" | "tidal"
   | "pandora" | "soundcloud" | "tiktokSound" | "beatport" | "traxsource" | "bandcamp" | "audius" | "juno"
-  | "napster" | "iheartRadio" | "audiomack" | "qobuz" | "anghami" | "boomplay" | "custom";
+  | "napster" | "iheartRadio" | "audiomack" | "qobuz" | "anghami" | "boomplay"
+  // Social and contact. A bio page is mostly these, and before they existed every one of them
+  // was a "Link" with a letter on it.
+  | "instagram" | "tiktok" | "x" | "facebook" | "threads" | "twitch" | "discord" | "website" | "email"
+  | "custom";
 
 export type PlatformMeta = {
   key: PlatformKey;
@@ -43,10 +47,52 @@ export const PLATFORMS: Record<PlatformKey, PlatformMeta> = {
   qobuz: { key: "qobuz", name: "Qobuz", action: "Play", kind: "stream", color: "#0070EF", monogram: "Q", weight: 200, hostPattern: /^(www\.|open\.|play\.)?qobuz\.com$/ },
   anghami: { key: "anghami", name: "Anghami", action: "Play", kind: "stream", color: "#FF5E00", monogram: "A", weight: 210, hostPattern: /^(www\.|play\.)?anghami\.com$/ },
   boomplay: { key: "boomplay", name: "Boomplay", action: "Play", kind: "stream", color: "#F25C05", monogram: "B", weight: 220, hostPattern: /^(www\.)?boomplay\.com$/ },
+  // Social and contact.
+  //
+  // Three of these marks are pure black in the brand books (X, TikTok, Threads), which is
+  // invisible on a dark page. White reuses the data-mono path the near-white marks already take,
+  // so light themes flip them back to near-black. TikTok keeps the cyan already used by TikTok
+  // Sound so the two read as the same platform.
+  instagram: { key: "instagram", name: "Instagram", action: "Follow", kind: "social", color: "#FF0069", monogram: "IG", weight: 200, hostPattern: /^(www\.)?instagram\.com$/ },
+  tiktok: { key: "tiktok", name: "TikTok", action: "Follow", kind: "social", color: "#25F4EE", monogram: "TT", weight: 210 },
+  x: { key: "x", name: "X", action: "Follow", kind: "social", color: "#FFFFFF", monogram: "X", weight: 220, hostPattern: /^(www\.)?(x|twitter)\.com$/ },
+  facebook: { key: "facebook", name: "Facebook", action: "Follow", kind: "social", color: "#0866FF", monogram: "FB", weight: 230, hostPattern: /^(www\.|web\.|m\.)?facebook\.com$/ },
+  threads: { key: "threads", name: "Threads", action: "Follow", kind: "social", color: "#FFFFFF", monogram: "@", weight: 240, hostPattern: /^(www\.)?threads\.(net|com)$/ },
+  twitch: { key: "twitch", name: "Twitch", action: "Watch", kind: "social", color: "#9146FF", monogram: "TW", weight: 250, hostPattern: /^(www\.)?twitch\.tv$/ },
+  discord: { key: "discord", name: "Discord", action: "Join", kind: "social", color: "#5865F2", monogram: "DC", weight: 260, hostPattern: /^(www\.)?discord\.(gg|com)$/ },
+  website: { key: "website", name: "Website", action: "Open", kind: "social", color: "#E4E4E7", monogram: "↗", weight: 270 },
+  /**
+   * An email button. The URL is a mailto:, and it is the one link type that never goes through
+   * the click-counting redirect — see GlassLink. Add it more than once for bookings, management
+   * and press: the button's own title is what tells them apart.
+   */
+  email: { key: "email", name: "Email", action: "Email", kind: "social", color: "#A78BFA", monogram: "✉", weight: 280 },
+
   custom: { key: "custom", name: "Link", action: "Open", kind: "store", color: "#E4E4E7", monogram: "↗", weight: 999 },
 };
 
 export const PLATFORM_KEYS = Object.keys(PLATFORMS) as PlatformKey[];
+
+/**
+ * An email button's address, as a mailto: URL.
+ *
+ * Stored as a full mailto: so the link table holds one kind of thing, and so the public page can
+ * render the href straight out of the row. Returns null for anything that is not a plain address:
+ * no query string, because `mailto:?bcc=` is a way to make a button do something other than what
+ * it says, and the artist typed an address, not a URL.
+ */
+export function mailtoFor(input: string): string | null {
+  const raw = input.trim().replace(/^mailto:/i, "");
+  if (!raw || /[?&\s<>,;]/.test(raw)) return null;
+  if (!/^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(raw)) return null;
+  return `mailto:${raw}`;
+}
+
+/** The address shown to a person, from the stored mailto:. */
+export const emailAddressOf = (url: string) => url.replace(/^mailto:/i, "");
+
+/** A link whose href is rendered as-is instead of going through the click-counting redirect. */
+export const isMailto = (url: string) => /^mailto:/i.test(url);
 
 /** Platforms an admin adds by hand (UPC/ISRC lookups only cover Apple Music and Deezer). */
 export const MANUAL_PLATFORMS: PlatformKey[] = [
@@ -56,6 +102,11 @@ export const MANUAL_PLATFORMS: PlatformKey[] = [
   // through Label Worx and Believe, so the link types stay.
   "traxsource", "juno", "audius",
   "custom",
+];
+
+/** Social and contact buttons. Offered on bio pages and release pages alike. */
+export const SOCIAL_PLATFORMS: PlatformKey[] = [
+  "instagram", "tiktok", "x", "facebook", "threads", "twitch", "discord", "website", "email",
 ];
 
 /**

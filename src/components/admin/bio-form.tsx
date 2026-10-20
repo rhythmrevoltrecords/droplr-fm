@@ -22,8 +22,9 @@ export function BioForm({
   orgName,
   showBranding,
   artists = [],
-  previewRelease = null,
+  previewReleases = [],
   labelBadges = [],
+  glow,
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -34,9 +35,14 @@ export function BioForm({
   /** Roster artists, for scoping the release block. Empty for an account with no roster. */
   artists?: { id: string; name: string }[];
   /** What the release block would show right now, resolved on the server. */
-  previewRelease?: BioViewData["release"];
+  previewReleases?: BioViewData["releases"];
   /** Labels that have allowed this artist to show their badge. Empty for a label's own page. */
   labelBadges?: LabelBadge[];
+  /**
+   * The account's public glow setting. Required, not optional: the preview silently ignoring it
+   * is exactly how "turn the glow off" looked broken on three themes out of four.
+   */
+  glow: { on: boolean; color: string | null };
 }) {
   const router = useRouter();
   const [v, setV] = useState<Values>(initial);
@@ -274,8 +280,8 @@ export function BioForm({
               </div>
             )}
             <p className="text-xs text-muted-foreground">
-              {previewRelease
-                ? `Right now that's "${previewRelease.title}". It changes by itself when you add a release \u2014 you never edit this page again.`
+              {previewReleases.length > 0
+                ? `Right now that's "${previewReleases[0].title}"${previewReleases.length > 1 ? ` and ${previewReleases.length - 1} more below your links` : ""}. It changes by itself when you add a release \u2014 you never edit this page again.`
                 : "Nothing to show yet. As soon as you add a release it appears here on its own, and updates itself after that."}
             </p>
           </div>
@@ -293,7 +299,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, release: v.releaseBlock === "on" ? previewRelease : null, background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} glow={glow} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

@@ -7,7 +7,7 @@ import { planOf } from "@/lib/plans";
 
 export default async function NewBio() {
   const user = await requireUser("label");
-  const [artists, previewRelease] = await Promise.all([
+  const [artists, previewReleases] = await Promise.all([
     prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     bioReleaseFor({ organizationId: user.organizationId, artistProfileId: null, releaseBlock: "on" }, user.organization),
   ]);
@@ -17,8 +17,9 @@ export default async function NewBio() {
       <BioForm
         mode="create"
         initial={{ title: "", slug: "", bio: "", imageUrl: "", accentColor: "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", labelBadge: "", isPublic: true }}
+        glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
         artists={artists}
-        previewRelease={previewRelease}
+        previewReleases={previewReleases}
         orgName={user.organization.name}
         showBranding={!planOf(user.organization.plan).removeBranding}
         previewLinks={[{ id: "p1", platform: "spotify", label: "Latest release" }, { id: "p2", platform: "bandcamp", label: "Merch" }]}

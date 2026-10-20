@@ -38,7 +38,8 @@
     "test:biotheme": "tsx --env-file-if-exists=.env scripts/test-bio-theme.ts",
     "test:biorelease": "tsx --env-file-if-exists=.env scripts/test-bio-release.ts",
     "test:nav": "tsx --env-file-if-exists=.env scripts/test-nav.ts",
-    "test:biolabel": "tsx --env-file-if-exists=.env scripts/test-bio-label.ts"
+    "test:biolabel": "tsx --env-file-if-exists=.env scripts/test-bio-label.ts",
+    "test:links": "tsx --env-file-if-exists=.env scripts/test-links.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

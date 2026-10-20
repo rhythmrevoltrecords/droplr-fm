@@ -1,4 +1,4 @@
-import { pickBioRelease } from "./bio-release";
+import { BIO_RELEASE_LIMIT, pickBioReleases } from "./bio-release";
 import { prisma } from "./db";
 import { SITE_URL } from "./env";
 import { publicReleaseUrl } from "./releases";
@@ -57,7 +57,7 @@ export async function bioReleaseFor(
   now = new Date(),
 ) {
   // Opt-in: anything other than "on" shows nothing. See the column comment in schema.prisma.
-  if (page.releaseBlock !== "on") return null;
+  if (page.releaseBlock !== "on") return [];
 
   const own = {
     organizationId: page.organizationId,
@@ -69,21 +69,25 @@ export async function bioReleaseFor(
     // kind and isPublic apply to both branches: a gated download pack is not a release, and a
     // release held back by its own label stays held back wherever it would otherwise appear.
     where: { kind: "release", isPublic: true, ...(granted ? { OR: [own, granted] } : own) },
-    // 20 is far more than the picker needs — it sorts them itself — and releaseDate is indexed.
+    // Deliberately more than the page shows: the picker re-sorts upcoming ahead of released, so
+    // a date-ordered fetch of exactly the limit could miss a record that belongs at the top.
+    // releaseDate is indexed, and the cover images are lazy below the first row.
     orderBy: { releaseDate: "desc" },
-    take: 20,
+    take: BIO_RELEASE_LIMIT * 4,
     select: RELEASE_SELECT,
   });
 
-  const choice = pickBioRelease(rows, now);
-  if (!choice) return null;
-  const picked = rows.find((r) => r.id === choice.release.id)!;
-  return {
-    state: choice.state,
-    title: choice.release.title,
-    artistName: choice.release.artistName,
-    coverUrl: choice.release.coverUrl,
-    releaseDate: choice.release.releaseDate,
-    href: publicReleaseUrl(picked.organization, choice.release.slug, SITE_URL),
-  };
+  return pickBioReleases(rows, now).map((choice) => {
+    // The link has to carry the OWNING organisation's slug and domain: a label release shown on
+    // an artist's page lives on the label's domain, not theirs.
+    const owner = rows.find((r) => r.id === choice.release.id)!.organization;
+    return {
+      state: choice.state,
+      title: choice.release.title,
+      artistName: choice.release.artistName,
+      coverUrl: choice.release.coverUrl,
+      releaseDate: choice.release.releaseDate,
+      href: publicReleaseUrl(owner, choice.release.slug, SITE_URL),
+    };
+  });
 }

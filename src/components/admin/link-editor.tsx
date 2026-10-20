@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, useImageUpload } from "./image-crop-dialog";
 import { PlatformIcon } from "@/components/public/platform-icon";
-import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, guessPlatformFromUrl, MANUAL_PLATFORMS, PLATFORM_KEYS, platformMeta } from "@/lib/platforms";
+import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, emailAddressOf, guessPlatformFromUrl, mailtoFor, MANUAL_PLATFORMS, PLATFORM_KEYS, platformMeta, SOCIAL_PLATFORMS } from "@/lib/platforms";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { cn } from "@/lib/utils";
 
@@ -68,10 +68,12 @@ function Row({ link, onChange, onRemove, onIconUpload, presetsId, autoLabel }: {
           className={cn("order-3 h-9 min-w-0 flex-1 lg:order-none lg:h-8 lg:w-48 lg:flex-none", !link.visible && "opacity-60")}
         />
         <Input
-          aria-label="URL"
-          value={link.url}
-          onChange={(e) => onChange({ ...link, url: e.target.value })}
-          placeholder="https://…"
+          aria-label={link.platform === "email" ? "Email address" : "URL"}
+          type={link.platform === "email" ? "email" : "text"}
+          inputMode={link.platform === "email" ? "email" : undefined}
+          value={link.platform === "email" ? emailAddressOf(link.url) : link.url}
+          onChange={(e) => onChange({ ...link, url: link.platform === "email" ? mailtoFor(e.target.value) ?? e.target.value : e.target.value })}
+          placeholder={link.platform === "email" ? "bookings@yourname.com" : "https://…"}
           title={link.url}
           className={cn("order-5 h-9 min-w-0 basis-full text-ellipsis lg:order-none lg:h-8 lg:flex-1 lg:basis-auto", !link.visible && "opacity-60")}
         />
@@ -171,7 +173,10 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
   const add = () => {
     if (!newUrl) return;
     const platform = newPlatform === "auto" ? guessPlatformFromUrl(newUrl) : newPlatform;
-    setLinks((ls) => [...ls, withKey({ platform, url: newUrl.trim(), title: platform === "custom" ? "Link" : null, buttonText: null, icon: null, visible: true }, ls.length)]);
+    // An email button is typed as an address and stored as a mailto:, so nobody has to know what
+    // a mailto is. A bad address is left as typed and the save says what is wrong with it.
+    const url = platform === "email" ? mailtoFor(newUrl) ?? newUrl.trim() : newUrl.trim();
+    setLinks((ls) => [...ls, withKey({ platform, url, title: platform === "custom" ? "Link" : null, buttonText: null, icon: null, visible: true }, ls.length)]);
     setNewUrl("");
   };
 
@@ -207,16 +212,23 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
             <optgroup label="Stores & DJ">
               {MANUAL_PLATFORMS.map((p) => <option key={p} value={p}>{platformMeta(p).name}{p === "custom" ? " (custom button)" : ""}</option>)}
             </optgroup>
+            <optgroup label="Social & contact">
+              {SOCIAL_PLATFORMS.map((p) => <option key={p} value={p}>{platformMeta(p).name}</option>)}
+            </optgroup>
             <optgroup label="Other">
               <option value="auto">Detect from URL</option>
-              {PLATFORM_KEYS.filter((p) => !MANUAL_PLATFORMS.includes(p)).map((p) => <option key={p} value={p}>{platformMeta(p).name}</option>)}
+              {PLATFORM_KEYS.filter((p) => !MANUAL_PLATFORMS.includes(p) && !SOCIAL_PLATFORMS.includes(p)).map((p) => <option key={p} value={p}>{platformMeta(p).name}</option>)}
             </optgroup>
           </Select>
-          <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder="https://www.beatport.com/release/…" onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())} />
+          <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder={newPlatform === "email" ? "bookings@yourname.com" : "https://www.beatport.com/release/…"} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())} />
           <Button type="button" variant="secondary" onClick={add}><Plus /> Add platform</Button>
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-          <span className="basis-full sm:basis-auto">Any platform can be added more than once (e.g. three SoundCloud links for a mashup pack).</span>
+          <span className="basis-full sm:basis-auto">
+            Any platform can be added more than once \u2014 three SoundCloud links for a mashup pack, or an
+            Email button each for bookings, management and press. Give each one a title and that is what
+            people see. Email buttons open the tapper&apos;s own mail app; those taps aren&apos;t counted.
+          </span>
           <span>Quick custom buttons:</span>
           {CUSTOM_BUTTON_PRESETS.map((p) => (
             <button key={p.title} type="button" onClick={() => addPreset(p)} className="rounded-full border px-2.5 py-1 hover:border-violet-500/40 hover:text-foreground">

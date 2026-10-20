@@ -109,7 +109,12 @@ export function ArtworkPageShell({
           ? (glow ? `radial-gradient(120% 70% at 50% 0%, ${wash}40 0%, transparent 60%)` : "transparent")
           : glow ? `radial-gradient(120% 70% at 50% 0%, ${wash}66 0%, transparent 60%), linear-gradient(180deg, rgba(0,0,0,.25) 0%, rgba(0,0,0,.85) 55%, #000 100%)` : "#000" }} />
         {themed && (
-          <div className="shell-light-layer absolute inset-0" style={{ background: `radial-gradient(120% 70% at 50% 0%, ${wash}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)` }} />
+          /* The light treatment paints its own accent radial, so it has to honour the glow
+             switch too. It did not, which is why turning the glow off cleared every dark theme
+             and left Paper glowing. */
+          <div className="shell-light-layer absolute inset-0" style={{ background: glow
+            ? `radial-gradient(120% 70% at 50% 0%, ${wash}59 0%, transparent 60%), linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)`
+            : "linear-gradient(180deg, rgba(250,250,250,.35) 0%, rgba(250,250,250,.9) 55%, #fafafa 100%)" }} />
         )}
       </div>
       <div className="grain absolute inset-0" aria-hidden />

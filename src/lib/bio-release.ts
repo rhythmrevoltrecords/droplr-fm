@@ -49,20 +49,44 @@ const eligible = (r: BioReleaseRow) => r.isPublic && r.kind === "release";
  * timing (lib/time isReleasedFor), and this block is a pointer at that page, not a substitute.
  */
 export function pickBioRelease(rows: BioReleaseRow[], now: Date): BioReleaseChoice | null {
+  return pickBioReleases(rows, now, 1)[0] ?? null;
+}
+
+/**
+ * How many releases a bio page will list. A page is not a discography.
+ *
+ * The cap is a page-weight decision as much as a taste one: every row is another cover image on
+ * a page whose load time was measured and fixed once already. An artist with forty records gets
+ * the twelve that matter and a link to the rest of their world in their own links.
+ */
+export const BIO_RELEASE_LIMIT = 12;
+
+/**
+ * Every release the page should show, in the order it should show them.
+ *
+ * Upcoming first, soonest at the top, because a pre-save has a deadline and nothing else on the
+ * page does. Then released, newest first. That ordering is the feature: an artist never reorders
+ * this, and the day a record comes out it moves itself from "Out 8 November" to "Out now" and
+ * then down the list as the next one arrives.
+ */
+export function pickBioReleases(rows: BioReleaseRow[], now: Date, limit = BIO_RELEASE_LIMIT): BioReleaseChoice[] {
   const t = now.getTime();
   const ok = rows.filter(eligible);
 
   const upcoming = ok
     .filter((r) => r.releaseDate.getTime() > t)
-    .sort((a, b) => a.releaseDate.getTime() - b.releaseDate.getTime())[0];
-  if (upcoming) return { release: upcoming, state: "upcoming" };
+    .sort((a, b) => a.releaseDate.getTime() - b.releaseDate.getTime())
+    .map((release): BioReleaseChoice => ({ release, state: "upcoming" }));
 
   const past = ok
     .filter((r) => r.releaseDate.getTime() <= t)
-    .sort((a, b) => b.releaseDate.getTime() - a.releaseDate.getTime())[0];
-  if (!past) return null;
+    .sort((a, b) => b.releaseDate.getTime() - a.releaseDate.getTime())
+    .map((release): BioReleaseChoice => ({
+      release,
+      state: t - release.releaseDate.getTime() <= OUT_NOW_DAYS * DAY ? "out" : "latest",
+    }));
 
-  return { release: past, state: t - past.releaseDate.getTime() <= OUT_NOW_DAYS * DAY ? "out" : "latest" };
+  return [...upcoming, ...past].slice(0, Math.max(0, limit));
 }
 
 /**
