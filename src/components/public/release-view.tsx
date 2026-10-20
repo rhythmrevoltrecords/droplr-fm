@@ -3,6 +3,7 @@ import { LISTEN_CHOICES, platformMeta } from "@/lib/platforms";
 import { formatInTz } from "@/lib/time";
 import { Countdown } from "./countdown";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme } from "./artwork-shell";
+import { isMailto } from "@/lib/platforms";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { PlatformIcon } from "./platform-icon";
 import { TimezoneField } from "./timezone-field";
@@ -107,7 +108,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           <ul className="mt-7 space-y-2.5">
             {release.links.map((l) => (
               <li key={l.id}>
-                <GlassLink href={r(l.platform, { l: l.id })} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} />
+                <GlassLink href={isMailto(l.url) ? l.url : r(l.platform, { l: l.id })} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} />
               </li>
             ))}
             {release.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links are landing shortly. Check back in a few minutes.</li>}
