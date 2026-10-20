@@ -169,6 +169,36 @@ check("every button-colour fallback is the theme's own value", mixes.length >= 6
   mixes.filter((m) => m[1].trim() !== m[2].trim()).map((m) => `${m[1]} vs ${m[2]}`).join(" | ") || `${mixes.length} mixes found`);
 check("mono squares its buttons", /\.bio-skin-mono \.glass \{[^}]*border-radius: 0/.test(css));
 
+// ---- the glow switch actually reaches every surface ----------------------
+//
+// "Turn the glow off" looked broken on three themes out of four, twice over, for two different
+// reasons — and neither was the switch itself:
+//
+//   1. the admin preview rendered <BioView> without the glow prop, so it defaulted to on. Mono
+//      looked fixed only because that theme never had a glow to begin with;
+//   2. the light treatment painted its own accent radial, unconditionally, so Paper kept glowing
+//      on the real page as well.
+//
+// Both were a value that simply never arrived. These check it arrives.
+{
+  const sources = ["src/components/public/bio-route.tsx", "src/components/admin/bio-form.tsx"];
+  for (const f of sources) {
+    const src = code(read(f));
+    const uses = [...src.matchAll(/<BioView[\s\S]{0,1200}?\/>/g)];
+    check(`${f} renders BioView`, uses.length > 0);
+    check(`every BioView in ${f} is given the glow setting`, uses.every((m) => /\sglow=/.test(m[0])),
+      "a preview that ignores it is how this looked broken for three themes");
+  }
+}
+check("the glow prop is required on the admin form, not optional",
+  /glow: \{ on: boolean; color: string \| null \};/.test(code(read("src/components/admin/bio-form.tsx"))),
+  "optional is how the value silently fails to arrive");
+check("the light treatment honours the glow switch",
+  /shell-light-layer[\s\S]{0,200}background: glow/.test(shell),
+  "Paper paints its own accent radial and has to be gated too");
+check("the dark wash honours it", /\{glow && <div className="absolute inset-0"/.test(shell));
+check("the artwork halo honours it", /boxShadow[\s\S]{0,40}: undefined/.test(shell));
+
 // ---- the wiring ----------------------------------------------------------
 
 check("the renderer resolves both values through the fallbacks", view.includes("bioThemeOf(page.theme)") && view.includes("bioFontOf(page.font)"));
