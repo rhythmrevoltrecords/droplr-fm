@@ -1,3 +1,4 @@
+import { labelBadgeLine, type LabelBadge } from "@/lib/bio-label";
 import { bioReleaseAction, bioReleaseEyebrow, type BioReleaseState } from "@/lib/bio-release";
 import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf } from "@/lib/bio-themes";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
@@ -21,11 +22,13 @@ export type BioViewData = {
     releaseDate: Date;
     href: string;
   } | null;
+  /** Whole-page background chosen by the owner. The image wins when both are set. */
+  background?: { url?: string | null; color?: string | null } | null;
   links: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null }[];
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
-export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null }) {
+export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [] }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[] }) {
   const skin = bioThemeOf(page.theme);
   const font = bioFontOf(page.font);
   // Paper is the light shell treatment. The org-wide theme preference still wins
@@ -39,7 +42,27 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       glow={bioThemeHasGlow(skin)}
       imageUrl={page.imageUrl}
       accentColor={page.accentColor}
-      footer={<ShellFooter showBranding={showBranding} orgName={orgName} />}
+      background={page.background}
+      footer={
+        <div className="space-y-3">
+          {labels.length > 0 && (
+            /* Every part of this is read from the label's own roster row, every render. Nothing
+               here is typed by the artist, so it cannot outlive the relationship it describes. */
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              {labels.map((l) => (
+                <a key={l.name} href={l.href ?? undefined} className="inline-flex items-center gap-2 text-xs text-white/55 hover:text-white/80">
+                  {l.logoUrl && (
+                    /* eslint-disable-next-line @next/next/no-img-element */
+                    <img src={l.logoUrl} alt="" loading="lazy" decoding="async" className="h-5 w-5 rounded object-contain" />
+                  )}
+                  {labelBadgeLine(l)}
+                </a>
+              ))}
+            </div>
+          )}
+          <ShellFooter showBranding={showBranding} orgName={orgName} />
+        </div>
+      }
       pixels={pixels}
     >
       <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} alt={page.title} shape="circle" title={page.title}>
