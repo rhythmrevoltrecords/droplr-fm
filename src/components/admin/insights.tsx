@@ -19,22 +19,23 @@ function bucketer(grid: Grid) {
 }
 const FILL = ["var(--viz-empty)", "var(--viz-seq-1)", "var(--viz-seq-2)", "var(--viz-seq-3)", "var(--viz-seq-4)", "var(--viz-seq-5)"];
 
-export function ActivityHeatmap({ views, presaves }: { views: Grid; presaves: Grid }) {
+/** `presaves` is null for a subject that has none (a bio page): the toggle disappears with it. */
+export function ActivityHeatmap({ views, presaves }: { views: Grid; presaves: Grid | null }) {
   const [metric, setMetric] = useState<"views" | "presaves">("views");
   const [hover, setHover] = useState<{ d: number; h: number } | null>(null);
-  const grid = metric === "views" ? views : presaves;
+  const grid = metric === "views" || !presaves ? views : presaves;
   const bucket = useMemo(() => bucketer(grid), [grid]);
   const total = grid.flat().reduce((a, b) => a + b, 0);
   const busiest = useMemo(
     () => grid.flatMap((row, d) => row.map((n, h) => ({ d, h, n }))).filter((c) => c.n > 0).sort((a, b) => b.n - a.n).slice(0, 8),
     [grid],
   );
-  const label = metric === "views" ? "page views" : "pre-saves";
+  const label = metric === "views" || !presaves ? "page views" : "pre-saves";
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <div role="tablist" aria-label="Metric" className="inline-flex rounded-lg border p-0.5 text-sm">
+        <div role="tablist" aria-label="Metric" className={`inline-flex rounded-lg border p-0.5 text-sm${presaves ? "" : " hidden"}`}>
           {(["views", "presaves"] as const).map((m) => (
             <button key={m} role="tab" aria-selected={metric === m} onClick={() => setMetric(m)} className={`rounded-md px-3 py-1 ${metric === m ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}>
               {m === "views" ? "Page views" : "Pre-saves"}
