@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireUser } from "@/lib/auth";
 import { SITE_URL } from "@/lib/env";
+import { soundcloudRedirectUri } from "@/lib/soundcloud";
 import { planOf } from "@/lib/plans";
 
 export default async function IntegrationsPage() {
@@ -60,12 +61,34 @@ export default async function IntegrationsPage() {
           <CardDescription>
             For download gates. When a fan connects SoundCloud, droplr performs the follow, like or repost for
             them and gets a confirmation back — the only gate step anyone can honestly call verified.
-            {" "}Get a Client ID and Secret at <a href="https://soundcloud.com/you/apps" target="_blank" rel="noreferrer" className="underline">soundcloud.com/you/apps</a>.
-            Instant keys need a SoundCloud <strong>Artist Pro</strong> subscription; without one you have to apply and wait.
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-6">
+          <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-sm text-amber-100">
+            <strong>You need a SoundCloud Artist Pro subscription.</strong> SoundCloud closed the old application
+            form and the review chatbot, so Artist Pro is now the only way to get API keys — there is no slower
+            route to wait for. Artist Pro also generates them instantly, with no approval step.
+          </div>
+
+          <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
+            <li>Go to <a className="underline" href="https://soundcloud.com/you/apps" target="_blank" rel="noreferrer">soundcloud.com/you/apps</a> and register an app. Name it whatever your fans should see when they connect — it is your app, not droplr&apos;s.</li>
+            <li>Add this Redirect URI exactly:
+              <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+                <code className="min-w-0 max-w-full break-all rounded bg-secondary px-2 py-1 text-xs text-foreground">{soundcloudRedirectUri()}</code>
+                <CopyButton value={soundcloudRedirectUri()} />
+              </div>
+              <span className="mt-1 block text-xs">Always this address, even if you use your own domain for links — a redirect URI has to match what is registered on the app.</span>
+            </li>
+            <li>Copy the Client ID and Client Secret into the form below.</li>
+            <li>Build the gate: <strong>Downloads → New</strong>, then add a SoundCloud step. For a <em>follow</em>, point it at your profile URL; for a <em>like</em> or <em>repost</em>, point it at the track.</li>
+          </ol>
+
           <SoundCloudConnectForm status={org.soundcloudAppStatus} username={org.soundcloudUsername} canEdit={user.role === "owner"} />
+
+          <p className="text-xs text-muted-foreground">
+            Credentials are encrypted with AES-256-GCM before storage. droplr deliberately has no shared app of its
+            own here: the follow runs under your keys, so nothing another account does can switch yours off.
+          </p>
         </CardContent>
       </Card>
 

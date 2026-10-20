@@ -14,10 +14,13 @@
  * Local database only. Never point it at Neon.
  */
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
 import { downloadUrlProblem, effectiveProof, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
+import { isActionSuccess } from "../src/lib/soundcloud";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name];
@@ -29,6 +32,45 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
     process.exit(1);
   }
 }
+// ---- source checks, before anything needs a database ---------------------
+//
+// The setup instructions an artist reads are part of the gate. They were wrong once: the page
+// said that without Artist Pro "you have to apply and wait", which stopped being true when
+// SoundCloud closed the application form and the review chatbot. Telling someone to wait for a
+// door that no longer exists is worse than telling them the door is shut.
+{
+  const page = readFileSync(join(import.meta.dirname, "..", "src/app/admin/settings/integrations/page.tsx"), "utf8");
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  if (/apply and wait|application form and wait/i.test(page)) fail("the SoundCloud card must not tell people to apply and wait: that route no longer exists");
+  if (!/Artist Pro/.test(page)) fail("the SoundCloud card must say Artist Pro is required");
+  // The redirect URI is the one thing that silently breaks the whole flow if it is mistyped, so
+  // the page prints the value the server actually uses rather than a copy someone edits later.
+  if (!page.includes("soundcloudRedirectUri()")) fail("the setup steps must print the redirect URI from lib/soundcloud, not a hardcoded copy");
+  if (!page.includes("Downloads \u2192 New") && !page.includes("Downloads → New")) fail("the setup steps must say where to build the gate");
+  console.log("  \u2713 the SoundCloud setup steps are present and current");
+}
+
+// A performed step says droplr did the thing. What counts as "did" is the whole claim, and the
+// interesting answers are not 200: a fan who ALREADY follows, likes or reposts must pass, and
+// anything that did not happen must not.
+{
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  for (const ok of [200, 201, 202, 204]) if (!isActionSuccess(ok)) fail(`${ok} should count as done`);
+  // Already in that state. Failing these would punish the fans who were there first.
+  if (!isActionSuccess(409)) fail("409 (already liked/reposted) must pass, not fail the fan");
+  for (const bad of [301, 400, 401, 403, 404, 422, 429, 500, 502]) {
+    if (isActionSuccess(bad)) fail(`${bad} must NOT be recorded as a completed step`);
+  }
+  // The methods and paths SoundCloud documents today. A silent drift here looks like "the gate
+  // is broken" and nothing in the app would say why.
+  const sc = readFileSync(join(import.meta.dirname, "..", "src/lib/soundcloud.ts"), "utf8");
+  if (!/\/me\/followings\/\$\{targetId\}/.test(sc)) fail("follow must use /me/followings/{id}");
+  if (!/\/likes\/tracks\/\$\{targetId\}/.test(sc)) fail("like must use /likes/tracks/{id}");
+  if (!/\/reposts\/tracks\/\$\{targetId\}/.test(sc)) fail("repost must use /reposts/tracks/{id}");
+  if (!/action === "follow" \? "PUT" : "POST"/.test(sc)) fail("follow is a PUT; like and repost are POSTs");
+  console.log("  \u2713 performed steps pass only when SoundCloud says the action holds");
+}
+
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 if (/droplr\.fm/.test(BASE)) throw new Error("Refusing to run against droplr.fm");
 
