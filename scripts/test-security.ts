@@ -37,6 +37,7 @@ import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
 import { createVerificationToken } from "../src/lib/email-verification";
 import { prisma } from "../src/lib/db";
+import { fanExportRows, listCaptured } from "../src/lib/fans";
 import { LEGAL } from "../src/lib/legal";
 import { linkCustomDomain, planOf } from "../src/lib/plans";
 import { oauthEmailConsent } from "../src/lib/fan-consent";
@@ -146,7 +147,7 @@ async function main() {
       ["GET", `/api/admin/releases/${rid}/export?type=clicks`],
       // theme/font go through the same PATCH and the same guard; included so the payload the
       // route actually accepts is the payload this test tries, not an older subset of it.
-      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter" }],
+      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned" }],
       ["DELETE", `/api/admin/bio/${B.bio.id}`],
       ["PUT", `/api/admin/bio/${B.bio.id}/links`, { links: [] }],
     ];
@@ -1739,6 +1740,73 @@ async function main() {
       const bAfterGate = await prisma.$queryRaw<{ lastSyncedAt: Date | null }[]>`SELECT "lastSyncedAt" FROM "EspConnection" WHERE "id" = ${bConnId}`;
       check("the gated sync pushed nothing (lastSyncedAt unchanged)", bAfterGate[0]?.lastSyncedAt?.getTime() === past.getTime());
       await prisma.organization.update({ where: { id: B.org.id }, data: { plan: "label" } });
+    }
+
+
+    console.log("\n98. Subscribing on a bio page");
+    {
+      // The public form carries a page id and nothing else. Everything that decides whether a row
+      // may be written, and which account owns it, is read from that page on the server.
+      const subUrl = `${BASE}/api/bio/subscribe`;
+      const post = async (body: Record<string, string>) =>
+        fetch(subUrl, { method: "POST", redirect: "manual", body: new URLSearchParams(body) });
+
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { subscribe: "on", isPublic: true } });
+      const victim = `sub-victim-${RUN}@fans.dev`;
+
+      // Collection is off by default on A's page: a form post must not create anything.
+      const offRes = await post({ bioPageId: A.bio.id, email: victim, consent: "yes" });
+      check("a page with collection switched off writes nothing",
+        (await prisma.fanContact.count({ where: { organizationId: A.org.id, email: victim } })) === 0,
+        `status ${offRes.status}`);
+
+      // An address given to B lands in B's organisation and nowhere else. The attacker here is a
+      // logged-in label A, which is exactly the shape every other section in this file tests.
+      await post({ bioPageId: B.bio.id, email: victim, consent: "yes" });
+      check("an address given to B belongs to B",
+        (await prisma.fanContact.count({ where: { organizationId: B.org.id, email: victim } })) === 1);
+      check("…and not to A",
+        (await prisma.fanContact.count({ where: { organizationId: A.org.id, email: victim } })) === 0);
+
+      // A's screens and exports must not show it. Both read through lib/fans, which scopes by org.
+      const aCaptured = await listCaptured(A.org.id, undefined, 100, 0);
+      check("label A's own page list never shows B's subscribers", !aCaptured.some((r) => r.email === victim));
+      const aExport = await fanExportRows(A.org.id, {});
+      check("label A's export never contains B's subscribers", !aExport.some((r) => r.email === victim));
+      const bExport = await fanExportRows(B.org.id, {});
+      check("label B's export does contain it", bExport.some((r) => r.email === victim));
+
+      // An unverified address must never be the key that moves somebody's row back to mailable.
+      await prisma.fanContact.update({ where: { organizationId_email: { organizationId: B.org.id, email: victim } }, data: { status: "unsubscribed" } });
+      await post({ bioPageId: B.bio.id, email: victim, consent: "yes" });
+      const after = await prisma.fanContact.findUnique({ where: { organizationId_email: { organizationId: B.org.id, email: victim } }, select: { status: true } });
+      check("an unsubscribed address is not re-subscribed by a form post", after?.status === "unsubscribed", String(after?.status));
+
+      // An opt-out made through a PRE-SAVE, leaving no FanContact row at all, must still block a
+      // later subscribe. Only the shared definition in lib/fan-consent knows that: a check that
+      // looks at this table alone cannot see it, and would quietly re-subscribe someone who had
+      // already told this label to stop.
+      const presaveGone = `sub-presave-gone-${RUN}@fans.dev`;
+      await prisma.preSave.create({
+        data: { releaseId: B.release.id, platform: "email", email: presaveGone, emailConsent: false, status: "unsubscribed" },
+      });
+      await post({ bioPageId: B.bio.id, email: presaveGone, consent: "yes" });
+      check("an address that unsubscribed through a pre-save cannot subscribe on a page",
+        (await prisma.fanContact.count({ where: { organizationId: B.org.id, email: presaveGone } })) === 0);
+
+      // Consent is not optional and cannot be implied by the request arriving.
+      const noConsent = `sub-noconsent-${RUN}@fans.dev`;
+      await post({ bioPageId: B.bio.id, email: noConsent });
+      check("no consent box means no row",
+        (await prisma.fanContact.count({ where: { organizationId: B.org.id, email: noConsent } })) === 0);
+
+      // An unpublished page is not a page anyone was meant to reach.
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { isPublic: false } });
+      const hidden = `sub-hidden-${RUN}@fans.dev`;
+      await post({ bioPageId: B.bio.id, email: hidden, consent: "yes" });
+      check("an unpublished page collects nothing",
+        (await prisma.fanContact.count({ where: { organizationId: B.org.id, email: hidden } })) === 0);
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { isPublic: true } });
     }
 
   } finally {

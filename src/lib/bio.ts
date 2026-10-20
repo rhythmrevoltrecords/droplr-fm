@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { BIO_SUBSCRIBE_TEXT_MAX } from "./bio-subscribe";
 import { BIO_FONT_IDS, BIO_THEME_IDS } from "./bio-themes";
 import { SITE_URL } from "./env";
 import { linkCustomDomain } from "./plans";
@@ -35,6 +36,9 @@ export const bioSchema = z.object({
   artistProfileId: z.string().cuid().nullable().optional().or(z.literal("")),
   /** Only "on" is stored; null means off, which is the default. */
   releaseBlock: z.enum(["on"]).nullable().optional().or(z.literal("")),
+  /** Only "on" is stored; null means the page does not ask for email addresses. */
+  subscribe: z.enum(["on"]).nullable().optional().or(z.literal("")),
+  subscribeText: z.string().max(BIO_SUBSCRIBE_TEXT_MAX).nullable().optional().or(z.literal("")),
   theme: z.enum(BIO_THEME_IDS as unknown as [string, ...string[]]).nullable().optional(),
   font: z.enum(BIO_FONT_IDS as unknown as [string, ...string[]]).nullable().optional(),
   isPublic: z.boolean().optional(),

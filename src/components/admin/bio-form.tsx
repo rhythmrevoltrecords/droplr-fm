@@ -9,10 +9,11 @@ import { BioView, type BioViewData } from "@/components/public/bio-view";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
+import { BIO_SUBSCRIBE_TEXT_MAX, DEFAULT_SUBSCRIBE_TEXT, subscribeButtonText, subscribeConsentLine } from "@/lib/bio-subscribe";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -271,6 +272,37 @@ export function BioForm({
           )}
 
           <div className="space-y-2 sm:col-span-2">
+            <Label>Email list</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={v.subscribe === "on"} onChange={(e) => set("subscribe", e.target.checked ? "on" : "")} className="h-4 w-4" />
+              Let fans give me their email address
+            </label>
+            {v.subscribe === "on" && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Button says</span>
+                <Input
+                  value={v.subscribeText}
+                  maxLength={BIO_SUBSCRIBE_TEXT_MAX}
+                  onChange={(e) => set("subscribeText", e.target.value)}
+                  placeholder={DEFAULT_SUBSCRIBE_TEXT}
+                  className="h-9 w-56"
+                />
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              A box under your links. The fan ticks &ldquo;{subscribeConsentLine(orgName)}&rdquo; before the
+              button does anything, and that wording is stored against their address so you can always show what
+              they agreed to.
+            </p>
+            <p className="text-xs text-muted-foreground">
+              These addresses land in Fans, under <strong className="text-foreground">From your pages</strong>. You
+              can see every one of them on any plan. Downloading the list as a file starts at A$12 a month, and the
+              whole list downloads on any plan if you ever close your account. They are never added to a release-day
+              email &mdash; only to a news email you write and send yourself.
+            </p>
+          </div>
+
+          <div className="space-y-2 sm:col-span-2">
             <Label>Latest release</Label>
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={v.releaseBlock === "on"} onChange={(e) => set("releaseBlock", e.target.checked ? "on" : "")} className="h-4 w-4" />
@@ -319,7 +351,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} glow={glow} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>
