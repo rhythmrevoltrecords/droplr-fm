@@ -199,6 +199,9 @@ jobs:
       - name: ESP connections
         run: npx tsx scripts/test-esp.ts
 
+      - name: Who reaches a connected Mailchimp
+        run: npx tsx scripts/test-esp-audience.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log
