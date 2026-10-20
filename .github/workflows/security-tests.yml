@@ -175,6 +175,9 @@ jobs:
       - name: Bio label badge and backgrounds
         run: npx tsx scripts/test-bio-label.ts
 
+      - name: Social and contact links
+        run: npx tsx scripts/test-links.ts
+
       - name: Admin navigation
         run: npx tsx scripts/test-nav.ts
 

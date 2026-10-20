@@ -1,4 +1,5 @@
 import { labelBadgeLine, type LabelBadge } from "@/lib/bio-label";
+import { isMailto } from "@/lib/platforms";
 import { bioReleaseAction, bioReleaseEyebrow, type BioReleaseState } from "@/lib/bio-release";
 import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf } from "@/lib/bio-themes";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
@@ -31,7 +32,7 @@ export type BioViewData = {
   background?: { url?: string | null; color?: string | null } | null;
   /** Link button colour; what it does depends on the theme. */
   buttonColor?: string | null;
-  links: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
+  links: { id: string; platform: string; url?: string | null; label: string | null; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
@@ -102,7 +103,12 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       <ul className="mt-7 space-y-2.5">
         {page.links.map((l) => (
           <li key={l.id}>
-            <GlassLink href={preview ? "#" : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
+            <GlassLink
+              /* An email button renders its mailto: straight out of the row. The click-counting
+                 redirect refuses anything that is not http(s) on purpose, and a 302 to mailto: is
+                 a coin flip inside the in-app browsers these pages are mostly opened from. The
+                 cost is that email taps are not counted, which the admin says plainly. */
+              href={preview ? "#" : l.url && isMailto(l.url) ? l.url : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
           </li>
         ))}
         {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
