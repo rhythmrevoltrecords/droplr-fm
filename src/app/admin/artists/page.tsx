@@ -31,7 +31,7 @@ export default async function RosterPage(props: { searchParams: Promise<{ status
   const now = new Date();
 
   const [artists, seats, invites, team, releases] = await Promise.all([
-    prisma.artist.findMany({ where: { organizationId: orgId }, orderBy: [{ name: "asc" }], select: { id: true, name: true, status: true, genre: true, photoUrl: true, accentColor: true, userId: true } }),
+    prisma.artist.findMany({ where: { organizationId: orgId }, orderBy: [{ name: "asc" }], select: { id: true, name: true, status: true, genre: true, photoUrl: true, accentColor: true, userId: true, linkedUserId: true } }),
     artistSeatsUsed(orgId),
     prisma.invite.findMany({ where: { organizationId: orgId, acceptedAt: null, expiresAt: { gt: now } }, orderBy: { createdAt: "desc" } }),
     plan.whiteLabel ? prisma.user.findMany({ where: { organizationId: orgId, role: { in: ["owner", "admin"] } }, orderBy: [{ role: "desc" }, { createdAt: "asc" }] }) : Promise.resolve([]),
@@ -97,7 +97,16 @@ export default async function RosterPage(props: { searchParams: Promise<{ status
                       <div className="truncate text-xs text-muted-foreground">{a.genre || "No genre yet"}</div>
                       <div className="mt-1.5 flex flex-wrap gap-1.5">
                         <Badge variant={statusVariant(a.status)}>{ARTIST_STATUS_LABELS[a.status as keyof typeof ARTIST_STATUS_LABELS] ?? a.status}</Badge>
-                        {a.userId ? <Badge variant="default">Has login</Badge> : invitedProfiles.has(a.id) ? <Badge variant="warning">Invited</Badge> : <Badge variant="secondary">No login</Badge>}
+                        {/* Two different kinds of access, and the list used to read only one of
+                            them: userId is a login inside this organisation, linkedUserId is the
+                            artist's own droplr account granted read access. A linked artist was
+                            shown as "No login" on this card while their own profile page said
+                            "Linked to their own account" — the list calling an artist cut off when
+                            they can see their releases right now. */}
+                        {a.userId ? <Badge variant="default">Has login</Badge>
+                          : a.linkedUserId ? <Badge variant="default">Linked account</Badge>
+                          : invitedProfiles.has(a.id) ? <Badge variant="warning">Invited</Badge>
+                          : <Badge variant="secondary">No login</Badge>}
                       </div>
                     </div>
                   </div>

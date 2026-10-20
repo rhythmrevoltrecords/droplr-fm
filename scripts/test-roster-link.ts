@@ -17,6 +17,8 @@
  * Local database only. Never point it at Neon.
  */
 import { randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
 import { randomToken, sha256 } from "../src/lib/crypto";
@@ -32,6 +34,25 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
     process.exit(1);
   }
 }
+// ---- source check, before anything needs a database ----------------------
+//
+// The roster list showed "No login" for an artist linked to their own account, because it
+// selected `userId` and never `linkedUserId`. The artist's own profile page said "Linked to
+// their own account" at the same time. A label reading the list would conclude the grant never
+// happened and re-invite someone who already has access.
+{
+  const page = readFileSync(join(import.meta.dirname, "..", "src/app/admin/artists/page.tsx"), "utf8");
+  if (!page.includes("linkedUserId: true")) {
+    console.error("  \u2717 the roster list must select linkedUserId, not just userId");
+    process.exit(1);
+  }
+  if (!/a\.linkedUserId \?/.test(page)) {
+    console.error("  \u2717 the roster list must show a linked account as linked, not as 'No login'");
+    process.exit(1);
+  }
+  console.log("  \u2713 the roster list reports a linked account as linked");
+}
+
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 if (/droplr\.fm/.test(BASE)) throw new Error("Refusing to run against droplr.fm");
 
