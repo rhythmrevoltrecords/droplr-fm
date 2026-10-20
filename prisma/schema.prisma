@@ -549,6 +549,14 @@ model BioPage {
   subscribe      String?
   /** Button wording. NULL uses the default from lib/bio-subscribe. */
   subscribeText  String?
+  /**
+   * Comma-separated section keys. NULL = the default order.
+   *
+   * Never read directly: lib/bio-sections reconciles it against the code's own list, so a key
+   * that no longer exists is dropped and a key added later appears on every page without anyone
+   * re-saving. A page pinned to a stale list would quietly lose a block.
+   */
+  sectionOrder   String?
   isPublic       Boolean      @default(true)
   views          Int          @default(0)
   createdAt      DateTime     @default(now())
