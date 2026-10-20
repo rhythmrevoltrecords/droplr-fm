@@ -6,6 +6,7 @@ import { cache } from "react";
 import { bioLabelBadges } from "@/lib/bio-label-server";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { prisma } from "@/lib/db";
+import { bioPublicUrl } from "@/lib/bio";
 import { planOf } from "@/lib/plans";
 import { isBot } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
@@ -34,6 +35,12 @@ export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata
   return {
     title: { absolute: page.title },
     description,
+    /**
+     * One page, one address. The same bio page answers on droplr.fm/b/slug and on the label's
+     * custom domain, and letting both into the index makes a page compete with itself for its
+     * own name. bioPublicUrl already decides which one is the real one.
+     */
+    alternates: { canonical: bioPublicUrl(page.organization, page.slug) },
     openGraph: { title: page.title, description, images: [{ url: page.imageUrl }] },
     twitter: { card: "summary", title: page.title, description, images: [page.imageUrl] },
   };
