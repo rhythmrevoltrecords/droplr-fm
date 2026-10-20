@@ -57,7 +57,7 @@ export function AnalyticsPanels({ stats, showArtists = false, perLink = false }:
       </Card>
       <Card>
         <CardHeader><CardTitle>Traffic</CardTitle></CardHeader>
-        <CardContent><DailyChart data={stats.daily} /></CardContent>
+        <CardContent><DailyChart data={stats.daily} presaves /></CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>When fans are active</CardTitle><CardDescription>Day and hour in each fan&apos;s own timezone. Post just before your busiest hours.</CardDescription></CardHeader>

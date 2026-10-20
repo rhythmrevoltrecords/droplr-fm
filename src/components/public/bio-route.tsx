@@ -1,4 +1,4 @@
-import { headers } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { after } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
@@ -10,7 +10,7 @@ import { bioPublicUrl } from "@/lib/bio";
 import { showSubscribe } from "@/lib/bio-subscribe";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
-import { isBot } from "@/lib/tracking";
+import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { publicTheme } from "./artwork-shell";
 import { BioView } from "./bio-view";
@@ -55,9 +55,28 @@ export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata
 export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof loadBio>>; done?: string | null }) {
   if (!page) notFound();
   const h = await headers();
-  if (!isBot(h.get("user-agent")) && h.get("purpose") !== "prefetch") {
-    // Counted after the response so it doesn't hold up the page.
-    after(() => prisma.bioPage.update({ where: { id: page.id }, data: { views: { increment: 1 } } }).catch(() => {}));
+  const meta = requestMeta(h);
+  if (!meta.bot && h.get("purpose") !== "prefetch") {
+    const cookieStore = await cookies();
+    // Captured now: the request may not outlive the response.
+    const logged = {
+      bioPageId: page.id,
+      source: resolveSource({ referrer: meta.referrer, selfHosts: [h.get("x-forwarded-host") ?? h.get("host") ?? ""] }),
+      referrer: meta.referrer?.slice(0, 500),
+      country: meta.country,
+      timezone: meta.timezone,
+      deviceType: meta.deviceType,
+      ipHash: meta.ipHash,
+      anonId: cookieStore.get(ANON_COOKIE)?.value ?? null,
+    };
+    // Both, after the response so neither holds up the page. The integer is all-time and predates
+    // this table knowing about bio pages; the row is what the last 30 days are built from.
+    after(async () => {
+      await prisma.$transaction([
+        prisma.pageView.create({ data: logged }),
+        prisma.bioPage.update({ where: { id: page.id }, data: { views: { increment: 1 } } }),
+      ]).catch(() => {});
+    });
   }
   const plan = planOf(page.organization.plan);
 

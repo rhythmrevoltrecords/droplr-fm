@@ -52,7 +52,7 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?
     { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which nobody but us can see." },
     { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
-    { title: "Bio link page", body: "One link for everything you do, with per-link tap counts. Your latest release sits at the top and updates itself — the page reads the release record, so you never edit it. Switch on the email box and fans can ask to hear about your next one, so it reaches them whatever an algorithm decides. On every plan, including Free." },
+    { title: "Bio link page", body: "One link for everything you do. Your latest release sits at the top and updates itself — the page reads the release record, so you never edit it. You see who opened it: where they came from, what country they are in, and which button they tapped. Switch on the email box and fans can ask to hear about your next one, so it reaches them whatever an algorithm decides. On every plan, including Free." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
