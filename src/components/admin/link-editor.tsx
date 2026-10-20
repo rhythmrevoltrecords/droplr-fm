@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, useImageUpload } from "./image-crop-dialog";
 import { PlatformIcon } from "@/components/public/platform-icon";
-import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, emailAddressOf, guessPlatformFromUrl, mailtoFor, MANUAL_PLATFORMS, PLATFORM_KEYS, platformMeta, SOCIAL_PLATFORMS } from "@/lib/platforms";
+import { BUTTON_TEXT_PRESETS, CUSTOM_BUTTON_PRESETS, emailAddressOf, guessPlatformFromUrl, mailtoFor, PLATFORM_GROUPS, platformMeta } from "@/lib/platforms";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { cn } from "@/lib/utils";
 
@@ -209,16 +209,12 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
       <div className="space-y-2 rounded-xl border border-dashed p-3">
         <div className="flex flex-col gap-2 sm:flex-row">
           <Select value={newPlatform} onChange={(e) => setNewPlatform(e.target.value)} className="sm:w-48">
-            <optgroup label="Stores & DJ">
-              {MANUAL_PLATFORMS.map((p) => <option key={p} value={p}>{platformMeta(p).name}{p === "custom" ? " (custom button)" : ""}</option>)}
-            </optgroup>
-            <optgroup label="Social & contact">
-              {SOCIAL_PLATFORMS.map((p) => <option key={p} value={p}>{platformMeta(p).name}</option>)}
-            </optgroup>
-            <optgroup label="Other">
-              <option value="auto">Detect from URL</option>
-              {PLATFORM_KEYS.filter((p) => !MANUAL_PLATFORMS.includes(p) && !SOCIAL_PLATFORMS.includes(p)).map((p) => <option key={p} value={p}>{platformMeta(p).name}</option>)}
-            </optgroup>
+            {PLATFORM_GROUPS.map((g) => (
+              <optgroup key={g.label} label={g.label}>
+                {g.label === "Other" && <option value="auto">Detect from URL</option>}
+                {g.keys.map((p) => <option key={p} value={p}>{platformMeta(p).name}{p === "custom" ? " (custom button)" : ""}</option>)}
+              </optgroup>
+            ))}
           </Select>
           <Input value={newUrl} onChange={(e) => setNewUrl(e.target.value)} placeholder={newPlatform === "email" ? "bookings@yourname.com" : "https://www.beatport.com/release/…"} onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), add())} />
           <Button type="button" variant="secondary" onClick={add}><Plus /> Add platform</Button>

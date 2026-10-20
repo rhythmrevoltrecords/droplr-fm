@@ -48,7 +48,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
       <div className="grid gap-4 sm:grid-cols-2">
         {field("title", "Title")}
         {field("artistName", "Artist name")}
-        {field("slug", "Slug")}
+        {field("slug", "Page address")}
         {field("releaseDateLocal", `Release date & time (${locationLabel})`, "datetime-local")}
         <div className="space-y-2 sm:col-span-2">
           <Label>Worldwide release</Label>

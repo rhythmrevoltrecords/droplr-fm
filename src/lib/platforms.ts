@@ -110,6 +110,39 @@ export const SOCIAL_PLATFORMS: PlatformKey[] = [
 ];
 
 /**
+ * How the "add a link" picker is grouped.
+ *
+ * By what a platform IS, not by how droplr finds it. The old grouping was "Stores & DJ" (the ones
+ * an admin types in) and "Other" (the ones a UPC lookup resolves) — which is a fact about the
+ * resolver, invisible to the person using the dropdown, and it filed Spotify and Apple Music
+ * under "Other".
+ *
+ * The last group is a catch-all on purpose: every platform must appear somewhere, so adding a key
+ * and forgetting to list it makes it unreachable rather than invisible. test-links.ts asserts
+ * every key appears exactly once.
+ */
+export const PLATFORM_GROUPS: { label: string; keys: PlatformKey[] }[] = (() => {
+  const byWeight = (a: PlatformKey, b: PlatformKey) => PLATFORMS[a].weight - PLATFORMS[b].weight;
+  const social = new Set<PlatformKey>(SOCIAL_PLATFORMS);
+  const taken = new Set<PlatformKey>([...SOCIAL_PLATFORMS, "custom"]);
+  const of = (kind: PlatformMeta["kind"]) =>
+    PLATFORM_KEYS.filter((k) => PLATFORMS[k].kind === kind && !taken.has(k)).sort(byWeight);
+
+  const streaming = of("stream");
+  const stores = of("store");
+  const rest = PLATFORM_KEYS.filter((k) => !social.has(k) && !streaming.includes(k) && !stores.includes(k)).sort(byWeight);
+  for (const k of streaming) taken.add(k);
+  for (const k of stores) taken.add(k);
+
+  return [
+    { label: "Streaming", keys: streaming },
+    { label: "Stores & DJ", keys: stores },
+    { label: "Social & contact", keys: SOCIAL_PLATFORMS },
+    { label: "Other", keys: rest },
+  ].filter((g) => g.keys.length > 0);
+})();
+
+/**
  * "Where do you listen?" on the email pre-save. Their pick leads the release-day email.
  *
  * Ordered by how many fans actually use them, and kept short on purpose: this is a question asked
