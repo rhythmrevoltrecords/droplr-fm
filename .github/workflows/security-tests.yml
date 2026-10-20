@@ -181,6 +181,9 @@ jobs:
       - name: What a label sees of an artist's own bio page
         run: npx tsx scripts/test-bio-roster.ts
 
+      - name: Importing another link page
+        run: npx tsx scripts/test-link-import.ts
+
       - name: Admin navigation
         run: npx tsx scripts/test-nav.ts
 

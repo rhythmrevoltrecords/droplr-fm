@@ -29,6 +29,37 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   }
 }
 
+// ---- bio pages are allowed to be found -----------------------------------
+//
+// /b/ sat in NEVER_INDEX next to /admin and /invite. That list is for signed-in surfaces and for
+// URLs where the token IS the credential; a bio page is a public page an artist puts in their
+// Instagram bio. Being absent from Google was never a decision about bio pages — it was a line
+// in a list, and the competitor whose FAQ answers "can people find my page on Google?" says yes.
+{
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  if ((NEVER_INDEX as readonly string[]).includes("/b/")) fail("bio pages must not be blocked from search");
+  // The three that stay, and why: two are not pages and one is an internal rewrite target.
+  for (const p of ["/admin", "/dashboard", "/platform", "/invite", "/report", "/api/", "/r/", "/host/"]) {
+    if (!(NEVER_INDEX as readonly string[]).includes(p)) fail(`${p} must stay out of the index`);
+  }
+
+  const route = readFileSync(new URL("../src/components/public/bio-route.tsx", import.meta.url), "utf8");
+  // One page, one address. The same page answers on droplr.fm and on a custom domain, and letting
+  // both in makes a page compete with itself for its own name.
+  if (!/alternates: \{ canonical: bioPublicUrl\(/.test(route)) fail("every bio page must declare one canonical URL");
+
+  const sitemap = readFileSync(new URL("../src/app/sitemap-bio.xml/route.ts", import.meta.url), "utf8");
+  if (!/isPublic: true/.test(sitemap)) fail("the bio sitemap must list public pages only");
+  if (!/audience === "blocked"/.test(sitemap)) fail("the bio sitemap must 404 on a blocked host");
+  if (!/audience === "platform" \? !!domain : domain !== host/.test(sitemap)) fail("the bio sitemap must list only what its own host serves");
+  if (!/status: 503/.test(sitemap)) fail("a database failure must 503, not claim there are no pages");
+
+  const robots = readFileSync(new URL("../src/app/robots.ts", import.meta.url), "utf8");
+  if (!robots.includes("sitemap-bio.xml")) fail("robots.txt must point at the bio sitemap");
+  if (!/\$\{self\}\/sitemap-bio\.xml/.test(robots)) fail("a tenant host must be given its OWN bio sitemap, not droplr.fm's");
+  console.log("  \u2713 bio pages are indexable, canonical and in a host-correct sitemap");
+}
+
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
 let pass = 0; const fails: string[] = [];
 const check = (n: string, ok: boolean, d = "") => { ok ? pass++ : fails.push(`${n}${d ? ` — ${d}` : ""}`); console.log(`${ok ? "  ✓" : "  ✗"} ${n}${!ok && d ? ` (${d})` : ""}`); };

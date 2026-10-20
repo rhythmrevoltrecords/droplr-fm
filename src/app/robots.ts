@@ -26,13 +26,13 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     const self = `${proto}://${(host ?? "").split(":")[0]}`;
     return {
       rules: { userAgent: "*", allow: "/", disallow: [...NEVER_INDEX] },
-      sitemap: `${self}/sitemap-releases.xml`,
+      sitemap: [`${self}/sitemap-releases.xml`, `${self}/sitemap-bio.xml`],
     };
   }
 
   return {
     rules: { userAgent: "*", allow: "/", disallow: [...NEVER_INDEX] },
-    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/sitemap-releases.xml`],
+    sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/sitemap-releases.xml`, `${SITE_URL}/sitemap-bio.xml`],
     host: SITE_URL,
   };
 }
