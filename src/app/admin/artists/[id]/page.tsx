@@ -110,6 +110,7 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
           followers: artist.followers?.toString() ?? "",
           notes: artist.notes ?? "",
           signedAt: artist.signedAt ? artist.signedAt.toISOString().slice(0, 10) : "",
+          labelBadge: artist.labelBadge,
         }}
       />
 

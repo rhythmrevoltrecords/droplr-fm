@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { cache } from "react";
+import { bioLabelBadges } from "@/lib/bio-label-server";
 import { bioReleaseFor } from "@/lib/bio-release-server";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
@@ -47,13 +48,17 @@ export async function BioRoute({ page }: { page: Awaited<ReturnType<typeof loadB
   }
   const plan = planOf(page.organization.plan);
 
-  const release = await bioReleaseFor(page, page.organization);
+  const [release, labels] = await Promise.all([
+    bioReleaseFor(page, page.organization),
+    bioLabelBadges(page, page.organization),
+  ]);
 
   return (
     <BioView
-      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, release, links: labelDuplicateLinks(page.links.map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon })) }}
+      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, release, background: { url: page.backgroundUrl, color: page.backgroundColor }, links: labelDuplicateLinks(page.links.map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon })) }}
       orgName={page.organization.name}
       timezone={page.organization.timezone}
+      labels={labels}
       showBranding={!plan.removeBranding}
       theme={publicTheme(page.organization)}
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}
