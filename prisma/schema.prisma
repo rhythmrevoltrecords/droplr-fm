@@ -516,10 +516,23 @@ model BioPage {
    * than published.
    */
   buttonColor    String?
+  /**
+   * "on" = show the subscribe form. NULL = don't.
+   *
+   * Opt-in for the same reason releaseBlock is: a default of "show" would put a box asking fans
+   * for their email address onto every page that already exists, without the account holder ever
+   * deciding to collect them. Collecting an address nobody chose to collect is the one default
+   * that cannot be undone after the fact.
+   */
+  subscribe      String?
+  /** Button wording. NULL uses the default from lib/bio-subscribe. */
+  subscribeText  String?
   isPublic       Boolean      @default(true)
   views          Int          @default(0)
   createdAt      DateTime     @default(now())
   links          BioLink[]
+  /** Fans who subscribed on this page. SetNull: deleting a page never deletes its fans. */
+  subscribers    FanContact[]
 
   @@index([organizationId])
   @@index([artistProfileId])
@@ -870,10 +883,20 @@ model GateUnlock {
  * A fan address the label already had — imported from wherever they collected it before droplr
  * (a gate service, a mailing list, their own site), rather than captured by a droplr page.
  *
- * Deliberately NOT a PreSave. PreSave rows are what release-day sending reads, and an imported
- * address has not asked for any particular release. Keeping them in their own table means an
- * import cannot put anyone into a release-day send by accident — the send path can't see this
- * table at all.
+ * Deliberately NOT a PreSave. PreSave rows are what release-day sending reads, and an address
+ * here has not asked for any particular release. Keeping them in their own table means an import
+ * cannot put anyone into a RELEASE-DAY send by accident: that path reads PreSave only and cannot
+ * see this table.
+ *
+ * It does NOT mean nothing can see this table. The news composer reads it through
+ * lib/news.ts importedAudience, gated on `status = 'mailable'` — and an import starts `pending`,
+ * so it stays out until someone confirms. An earlier version of this comment claimed the send
+ * path could not see this table at all, which was wrong and was believed for a month.
+ *
+ * Two kinds of row live here now, told apart by consentSource:
+ *   - an IMPORT: typed in from wherever the account collected it. importId set, no consentVersion.
+ *   - a PAGE CAPTURE ("bio"): the fan typed it into a droplr page themselves. bioPageId and
+ *     consentVersion set, importId NULL, and it is mailable from the moment it is created.
  *
  * consentSource / consentAt / consentNote are the provenance the law actually asks for: who
  * consented, when, and how. The importer types it in and attests to it; we store their answer
@@ -895,16 +918,30 @@ model FanContact {
   consentNote    String?
   /** marketing = ticked a box to receive music news. transactional = only ever gave it for a download. */
   consentKind    String       @default("transactional")
+  /** What wording droplr showed, when droplr showed it. NULL for an import: the wording was not ours. */
+  consentVersion String?
   /** mailable | pending | unsubscribed. transactional imports start pending and must confirm. */
   status         String       @default("pending")
-  importId       String
+  /**
+   * The import batch this row came in with. NULL for a row captured on a droplr page.
+   *
+   * It was required while every row here was an import. A sentinel would have been cheaper than
+   * making it nullable and would also have made importedSummary count a bio-page subscriber as
+   * an imported contact, which is the one thing the fans screen must not say.
+   */
+  importId       String?
   importedBy     String?
+  /** The bio page whose form captured this address, when one did. */
+  bioPageId      String?
+  bioPage        BioPage?     @relation(fields: [bioPageId], references: [id], onDelete: SetNull)
   createdAt      DateTime     @default(now())
   updatedAt      DateTime     @updatedAt
 
   @@unique([organizationId, email])
   @@index([organizationId, status])
   @@index([importId])
+  @@index([bioPageId])
+  @@index([organizationId, consentSource, status])
 }
 
 /**

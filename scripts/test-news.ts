@@ -9,7 +9,7 @@
  */
 import { randomBytes } from "node:crypto";
 import { prisma } from "../src/lib/db";
-import { canSendNews, findDueNewsEmails, localSendWindow, newsAudience, newsAudienceCount, newsAudienceCounts, processNewsEmail, renderNewsEmail, snapshotAudience } from "../src/lib/news";
+import { canSendNews, findDueNewsEmails, importedMailableCount, localSendWindow, newsAudience, newsAudienceCount, newsAudienceCounts, processNewsEmail, renderNewsEmail, snapshotAudience } from "../src/lib/news";
 import { LOCAL_SEND_SPREAD_MS, zonedDay, zonedLocalToDate } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -275,11 +275,105 @@ async function main() {
     await prisma.newsEmail.update({ where: { id: localNews.id }, data: { sendMode: "instant", localHour: null } });
     check("an instant send at the same time is not", !(await findDueNewsEmails()).some((r) => r.id === localNews.id));
 
+    // --- FanContact: imports, and addresses fans typed into a droplr page ---
+    //
+    // None of this had a single test before 20 Oct, which is why the bug below survived. The
+    // function that decides whether a FanContact row may be emailed had no coverage at all.
+    //
+    // THE RULE. An IMPORT carries consent droplr never saw, so a pre-save for the same address
+    // always wins and the import is simply not consulted. A PAGE CAPTURE is the fan's own act on
+    // wording droplr showed and stored, so it stands on its own — and must, because
+    // PreSave.newsConsent defaults false. A fan who subscribed on a bio page AND pre-saved a
+    // release without ticking the optional news box was excluded by the pre-save half for having
+    // no news consent, and by the import rule for having a pre-save: the person who asked most
+    // explicitly was in neither half.
+    //
+    // What a page capture does NOT get is immunity from an opt-out. Unsubscribing is to the
+    // account, not to a table.
+    const C = await org("c", "label");
+    const contact = (email: string, over: Record<string, unknown> = {}) => ({
+      organizationId: C.o.id, email, consentSource: "hypeddit", consentKind: "transactional",
+      status: "pending", importId: `imp-${RUN}`, ...over,
+    });
+
+    const importOnly = `imp-${RUN}@fans.dev`;
+    const importPending = `imp-pending-${RUN}@fans.dev`;
+    const importWithPresave = `imp-ps-${RUN}@fans.dev`;
+    const bioOnly = `bio-${RUN}@fans.dev`;
+    const bioAndPresave = `bio-ps-${RUN}@fans.dev`;
+    const bioThenUnsubscribed = `bio-gone-${RUN}@fans.dev`;
+    const bioThenConsentPulled = `bio-pulled-${RUN}@fans.dev`;
+
+    const captured = (email: string) => contact(email, {
+      consentSource: "bio", consentKind: "marketing", status: "mailable",
+      importId: null, bioPageId: null, consentAt: new Date(), consentVersion: "test-wording",
+    });
+
+    await prisma.fanContact.createMany({
+      data: [
+        contact(importOnly, { status: "mailable" }),
+        contact(importPending),
+        contact(importWithPresave, { status: "mailable" }),
+        captured(bioOnly),
+        captured(bioAndPresave),
+        captured(bioThenUnsubscribed),
+        captured(bioThenConsentPulled),
+      ],
+    });
+    await prisma.preSave.createMany({
+      data: [
+        // Release-day consent only. newsConsent defaults false, which is the common case.
+        fan(C.rel.id, importWithPresave, { newsConsent: false }),
+        fan(C.rel.id, bioAndPresave, { newsConsent: false }),
+        // Unsubscribed through a pre-save: the opt-out is to the account.
+        fan(C.rel.id, bioThenUnsubscribed, { newsConsent: true, newsConsentAt: new Date(), status: "unsubscribed" }),
+        // Consent withdrawn with no "unsubscribed" row behind it — the shape an unsubscribe leaves
+        // when the fan only ever pre-saved through Spotify or Deezer, since that route only writes
+        // `status: "unsubscribed"` onto `platform: "email"` rows. lib/fan-consent is the one place
+        // that knows an address with no consent can only have got that way by an opt-out, and the
+        // contact half of the audience has to defer to it rather than looking for a status.
+        fan(C.rel.id, bioThenConsentPulled, { newsConsent: false, emailConsent: false }),
+      ],
+    });
+
+    const cAud = (await newsAudience(C.o.id, {})).map((r) => r.email);
+    check("a confirmed import with no pre-save can be reached", cAud.includes(importOnly), cAud.join(","));
+    check("an import that nobody confirmed is never reached", !cAud.includes(importPending));
+    check("an import loses to a pre-save for the same address", !cAud.includes(importWithPresave),
+      "droplr knows what the fan agreed to on the pre-save and only has the importer's word for the import");
+    check("someone who subscribed on a page can be reached", cAud.includes(bioOnly));
+    check("…even when they also pre-saved without ticking news", cAud.includes(bioAndPresave),
+      "this is the bug: excluded by the pre-save half for no news consent, and by the import rule for having a pre-save");
+    check("…but not after they unsubscribe", !cAud.includes(bioThenUnsubscribed),
+      "unsubscribing is to the account, not to a table");
+    check("…and not when their consent was withdrawn without an unsubscribed row", !cAud.includes(bioThenConsentPulled),
+      "the contact half defers to lib/fan-consent rather than looking for status = 'unsubscribed'");
+    // Worth knowing, found by running this on 20 Oct and not yet changed: the PRE-SAVE half of
+    // newsAudience does NOT independently honour emailConsent. It asks only for newsConsent and
+    // for no 'unsubscribed' row, and relies on the unsubscribe route clearing both flags in the
+    // same write. That holds today — every writer of newsConsent either sets both or is behind an
+    // isOptedOut check — so `emailConsent: false, newsConsent: true` is not reachable. It is a
+    // coupling, not a bug, and if a future capture path ever writes news consent on its own it
+    // becomes one. lib/esp/audience.ts carries a third copy of the same HAVING clause.
+    check("every contact recipient carries a FanContact id for its unsubscribe link",
+      (await newsAudience(C.o.id, {})).filter((r) => !r.preSaveId).every((r) => !!r.fanContactId));
+    check("the count agrees with the audience", (await newsAudienceCount(C.o.id, {})) === cAud.length);
+
+    // A release-filtered or store-filtered send covers pre-save fans only: a contact has neither.
+    check("a release-filtered send reaches no contacts",
+      !(await newsAudience(C.o.id, { releaseId: C.rel.id })).some((r) => !!r.fanContactId));
+    check("a store-filtered send reaches no contacts",
+      !(await newsAudience(C.o.id, { listenOn: "spotify" })).some((r) => !!r.fanContactId));
+
+    // The label's own screens must not call a page capture an import.
+    check("the imported mailable count excludes page captures",
+      (await importedMailableCount(C.o.id)) === 2, String(await importedMailableCount(C.o.id)));
+
     // --- Tenant isolation at the data layer ---
     check("label B's audience never includes label A's fans", (await newsAudience(B.o.id, {})).every((r) => !r.email.includes(`-${RUN}@fans.dev`) || r.email.startsWith("b-")));
     check("a release filter from another label matches nobody", (await newsAudienceCount(B.o.id, { releaseId: A.rel.id })) === 0);
   } finally {
-    await prisma.organization.deleteMany({ where: { slug: { in: [A.o.slug, B.o.slug, F.o.slug] } } });
+    await prisma.organization.deleteMany({ where: { slug: { in: [A.o.slug, B.o.slug, F.o.slug, `news-c-${RUN}`] } } });
     globalThis.fetch = realFetch;
     await prisma.$disconnect();
   }

@@ -5,6 +5,8 @@ import { BRAND, button, esc, h1, layout, muted, p, safeHex, safeHttps } from "./
 import { sendBatch } from "./email";
 import { SITE_URL } from "./env";
 import { planOf } from "./plans";
+import { BIO_CONSENT_SOURCE } from "./bio-subscribe";
+import { optedOutAmong } from "./fan-consent";
 import { LOCAL_SEND_SPREAD_MS, localHourOn, localHourWindow, zonedDay } from "./time";
 
 /**
@@ -48,33 +50,61 @@ function audienceHaving(f: NewsFilter) {
 export type AudienceRow = { email: string; preSaveId: string | null; fanContactId: string | null; timezone: string | null };
 
 /**
- * Imported contacts this send may reach.
+ * FanContact rows this send may reach: imports the account confirmed, and addresses fans typed
+ * into a droplr page themselves.
  *
  * Only ones marked mailable — a transactional import stays pending until the person confirms.
- * Anyone who unsubscribed from this label through a pre-save is excluded here too: the opt-out
- * is to the label, and an import must never quietly undo one.
  *
- * Skipped entirely when the send is filtered by release or by listening platform, because an
- * imported address has neither. Better to reach fewer people than to pretend we know something
- * about them that we don't.
+ * THE CARVE-OUT, AND WHY IT IS NOT A LOOSENING.
+ *
+ * An IMPORT is excluded the moment the address exists as a pre-save anywhere in this org. That is
+ * deliberately blunt: droplr knows what the fan agreed to on the pre-save and only has the
+ * importer's word for the import, so the pre-save row wins and the import is not consulted.
+ *
+ * That blunt rule is wrong for a PAGE CAPTURE, and wrong in the direction that loses people. A
+ * fan who taps subscribe on a bio page has given consent droplr itself showed and recorded. If
+ * they also pre-saved a release without ticking the optional news box — and `newsConsent` defaults
+ * false, so that is the common case — then the pre-save half of newsAudience excludes them for
+ * having no news consent, and the old NOT EXISTS excluded them for having a pre-save at all. The
+ * fan who asked most explicitly was in neither half. See scripts/test-news.ts.
+ *
+ * So a page capture skips the import rule and is judged on its own. It still loses to a real
+ * opt-out: the second NOT EXISTS below drops any address that unsubscribed or had its consent
+ * withdrawn on a pre-save, and that one applies to both kinds of row. Unsubscribing is to the
+ * account, not to a table.
+ *
+ * Skipped entirely when the send is filtered by release or by listening platform, because neither
+ * kind of row has either. Better to reach fewer people than to pretend we know something about
+ * them that we don't.
  */
-async function importedAudience(orgId: string, f: NewsFilter) {
+async function contactAudience(orgId: string, f: NewsFilter) {
   if (f.releaseId || f.listenOn) return [];
-  return prisma.$queryRaw<{ email: string; fanContactId: string; timezone: string | null }[]>`
+  const rows = await prisma.$queryRaw<{ email: string; fanContactId: string; timezone: string | null }[]>`
     SELECT c.email AS email, c.id AS "fanContactId", c.timezone AS timezone
     FROM "FanContact" c
     WHERE c."organizationId" = ${orgId}
       AND c.status = 'mailable'
       ${f.country ? Prisma.sql`AND c.country = ${f.country}` : Prisma.empty}
-      AND NOT EXISTS (
-        SELECT 1 FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
-        WHERE r."organizationId" = ${orgId} AND lower(p.email) = c.email
-      )`;
+      AND (
+        c."consentSource" = ${BIO_CONSENT_SOURCE}
+        OR NOT EXISTS (
+          SELECT 1 FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
+          WHERE r."organizationId" = ${orgId} AND lower(p.email) = c.email
+        )
+      )
+      `;
+  // The opt-out check is NOT repeated in that SQL on purpose. lib/fan-consent owns the single
+  // definition of "has this address told this label to stop" — it is subtler than it looks (a
+  // row with an address and no consent can only have got that way by an opt-out), and it has
+  // been got wrong before. A second copy in SQL would be a copy that drifts. The contact set is
+  // small enough that one extra query over it costs nothing worth having.
+  const optedOut = await optedOutAmong(rows.map((r) => r.email), orgId);
+  return rows.filter((r) => !optedOut.has(r.email.toLowerCase()));
 }
 
 /** Everyone this send would reach, one row per address, with the id its unsubscribe token points at. */
 export async function newsAudience(orgId: string, f: NewsFilter): Promise<AudienceRow[]> {
-  const [fans, imported] = await Promise.all([
+  const [fans, contacts] = await Promise.all([
     prisma.$queryRaw<{ email: string; preSaveId: string; timezone: string | null }[]>`
     SELECT lower(p.email) AS email,
       (array_agg(p.id ORDER BY p."createdAt" DESC))[1] AS "preSaveId",
@@ -83,12 +113,12 @@ export async function newsAudience(orgId: string, f: NewsFilter): Promise<Audien
     WHERE ${audienceWhere(orgId, f)}
     GROUP BY lower(p.email)
     HAVING ${audienceHaving(f)}`,
-    importedAudience(orgId, f),
+    contactAudience(orgId, f),
   ]);
   const seen = new Set(fans.map((r) => r.email));
   return [
     ...fans.map((r) => ({ email: r.email, preSaveId: r.preSaveId, fanContactId: null, timezone: r.timezone })),
-    ...imported.filter((r) => !seen.has(r.email)).map((r) => ({ email: r.email, preSaveId: null, fanContactId: r.fanContactId, timezone: r.timezone })),
+    ...contacts.filter((r) => !seen.has(r.email)).map((r) => ({ email: r.email, preSaveId: null, fanContactId: r.fanContactId, timezone: r.timezone })),
   ];
 }
 
@@ -98,7 +128,7 @@ export async function newsAudience(orgId: string, f: NewsFilter): Promise<Audien
  * says so rather than letting an artist assume everyone is covered.
  */
 export async function newsAudienceCounts(orgId: string, f: NewsFilter) {
-  const [[row], imported] = await Promise.all([
+  const [[row], contacts] = await Promise.all([
     prisma.$queryRaw<{ n: bigint; nz: bigint }[]>`
     SELECT COUNT(*) AS n, COUNT(*) FILTER (WHERE x.tz IS NULL) AS nz FROM (
       SELECT lower(p.email),
@@ -108,11 +138,11 @@ export async function newsAudienceCounts(orgId: string, f: NewsFilter) {
       GROUP BY lower(p.email)
       HAVING ${audienceHaving(f)}
     ) x`,
-    importedAudience(orgId, f),
+    contactAudience(orgId, f),
   ]);
   return {
-    total: Number(row?.n ?? 0) + imported.length,
-    noTimezone: Number(row?.nz ?? 0) + imported.filter((r) => !r.timezone).length,
+    total: Number(row?.n ?? 0) + contacts.length,
+    noTimezone: Number(row?.nz ?? 0) + contacts.filter((r) => !r.timezone).length,
   };
 }
 
@@ -120,9 +150,16 @@ export async function newsAudienceCount(orgId: string, f: NewsFilter) {
   return (await newsAudienceCounts(orgId, f)).total;
 }
 
-/** How many of this org's imported contacts are mailable — shown next to the audience count. */
+/**
+ * How many of this org's IMPORTED contacts are mailable.
+ *
+ * Page captures are excluded explicitly. They share the table, and counting them here would make
+ * every number labelled "imported" overstate itself the moment a bio page collected an address.
+ */
 export async function importedMailableCount(orgId: string) {
-  return prisma.fanContact.count({ where: { organizationId: orgId, status: "mailable" } });
+  return prisma.fanContact.count({
+    where: { organizationId: orgId, status: "mailable", NOT: { consentSource: BIO_CONSENT_SOURCE } },
+  });
 }
 
 /** Plain text as typed → escaped paragraphs. Never raw HTML: the body is user input. */
