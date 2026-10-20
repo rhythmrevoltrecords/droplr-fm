@@ -172,6 +172,9 @@ jobs:
       - name: Bio release block
         run: npx tsx scripts/test-bio-release.ts
 
+      - name: Admin navigation
+        run: npx tsx scripts/test-nav.ts
+
       - name: ESP connections
         run: npx tsx scripts/test-esp.ts
 

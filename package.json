@@ -36,7 +36,8 @@
     "test:close": "tsx --env-file-if-exists=.env scripts/test-close-account.ts",
     "test:esp": "tsx --env-file-if-exists=.env scripts/test-esp.ts",
     "test:biotheme": "tsx --env-file-if-exists=.env scripts/test-bio-theme.ts",
-    "test:biorelease": "tsx --env-file-if-exists=.env scripts/test-bio-release.ts"
+    "test:biorelease": "tsx --env-file-if-exists=.env scripts/test-bio-release.ts",
+    "test:nav": "tsx --env-file-if-exists=.env scripts/test-nav.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
