@@ -52,7 +52,7 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?
     { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which nobody but us can see." },
     { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
-    { title: "Bio link page", body: "One link for everything you do, with per-link tap counts. Four looks and four fonts to pick from, and the colour comes off your own artwork. On every plan, including Free." },
+    { title: "Bio link page", body: "One link for everything you do, with per-link tap counts. Your latest release sits at the top and updates itself — the page reads the release record, so you never edit it. Four looks and four fonts, and the colour comes off your own artwork. On every plan, including Free." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
@@ -234,7 +234,8 @@ function Bento() {
               find out which one people actually press. On every plan, including Free.
             </p>
             <p className="mt-3 max-w-lg text-sm text-white/60">
-              A release page is right for release week. This is the rest of the year.
+              Your latest release sits at the top of it and changes by itself — droplr already has the record, so
+              there is nothing to update. A release page is right for release week. This is the rest of the year.
             </p>
           </div>
           <div className="relative mx-auto w-full max-w-[280px]">

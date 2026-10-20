@@ -3,14 +3,14 @@ import { Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { bioFontClass } from "@/components/public/bio-fonts";
-import { BioView } from "@/components/public/bio-view";
+import { BioView, type BioViewData } from "@/components/public/bio-view";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -19,6 +19,8 @@ export function BioForm({
   previewLinks = [],
   orgName,
   showBranding,
+  artists = [],
+  previewRelease = null,
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -26,6 +28,10 @@ export function BioForm({
   previewLinks?: { id: string; platform: string; label: string | null; buttonText?: string | null; icon?: string | null }[];
   orgName: string;
   showBranding: boolean;
+  /** Roster artists, for scoping the release block. Empty for an account with no roster. */
+  artists?: { id: string; name: string }[];
+  /** What the release block would show right now, resolved on the server. */
+  previewRelease?: BioViewData["release"];
 }) {
   const router = useRouter();
   const [v, setV] = useState<Values>(initial);
@@ -164,6 +170,33 @@ export function BioForm({
             <p className="text-xs text-muted-foreground">The preview on the right is the real page. Changes save when you hit Save.</p>
           </div>
 
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Latest release</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={v.releaseBlock === "on"} onChange={(e) => set("releaseBlock", e.target.checked ? "on" : "")} className="h-4 w-4" />
+              Show my latest release at the top of the page
+            </label>
+            {artists.length > 0 && (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Releases for</span>
+                <select
+                  value={v.artistProfileId}
+                  onChange={(e) => set("artistProfileId", e.target.value)}
+                  disabled={v.releaseBlock !== "on"}
+                  className="rounded-lg border border-input bg-background/60 px-2 py-1.5 text-sm disabled:opacity-50"
+                >
+                  <option value="">Everything {orgName} puts out</option>
+                  {artists.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+                </select>
+              </div>
+            )}
+            <p className="text-xs text-muted-foreground">
+              {previewRelease
+                ? `Right now that's "${previewRelease.title}". It changes by itself when you add a release \u2014 you never edit this page again.`
+                : "Nothing to show yet. As soon as you add a release it appears here on its own, and updates itself after that."}
+            </p>
+          </div>
+
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
         </div>
         <div className="flex items-center gap-3">
@@ -177,7 +210,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
+              <BioView preview page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, release: v.releaseBlock === "on" ? previewRelease : null, links: previewLinks }} orgName={orgName} showBranding={showBranding} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

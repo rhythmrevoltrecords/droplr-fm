@@ -169,6 +169,9 @@ jobs:
       - name: Bio page themes
         run: npx tsx scripts/test-bio-theme.ts
 
+      - name: Bio release block
+        run: npx tsx scripts/test-bio-release.ts
+
       - name: ESP connections
         run: npx tsx scripts/test-esp.ts
 
