@@ -39,6 +39,8 @@ export const bioSchema = z.object({
   /** Only "on" is stored; null means the page does not ask for email addresses. */
   subscribe: z.enum(["on"]).nullable().optional().or(z.literal("")),
   subscribeText: z.string().max(BIO_SUBSCRIBE_TEXT_MAX).nullable().optional().or(z.literal("")),
+  /** Comma-separated section keys. Reconciled on the way in, so a junk value cannot be stored. */
+  sectionOrder: z.string().max(200).nullable().optional().or(z.literal("")),
   theme: z.enum(BIO_THEME_IDS as unknown as [string, ...string[]]).nullable().optional(),
   font: z.enum(BIO_FONT_IDS as unknown as [string, ...string[]]).nullable().optional(),
   isPublic: z.boolean().optional(),

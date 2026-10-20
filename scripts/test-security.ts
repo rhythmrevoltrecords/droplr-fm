@@ -147,7 +147,7 @@ async function main() {
       ["GET", `/api/admin/releases/${rid}/export?type=clicks`],
       // theme/font go through the same PATCH and the same guard; included so the payload the
       // route actually accepts is the payload this test tries, not an older subset of it.
-      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned" }],
+      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned", sectionOrder: "subscribe,links,release,catalogue" }],
       ["DELETE", `/api/admin/bio/${B.bio.id}`],
       ["PUT", `/api/admin/bio/${B.bio.id}/links`, { links: [] }],
     ];
@@ -167,6 +167,7 @@ async function main() {
     const bNow = await prisma.release.findUnique({ where: { id: rid }, include: { links: true, linkVariants: true, preSaves: true } });
     check("B release untouched", !!bNow && bNow.title === "Secret b" && bNow.links.length === 1 && bNow.links[0].url.includes("open.spotify.com") && bNow.linkVariants.length === 1 && bNow.preSaves.length === 1);
     const bBio = await prisma.bioPage.findUnique({ where: { id: B.bio.id }, include: { links: true } });
+    check("B bio section order untouched", bBio?.sectionOrder === null, String(bBio?.sectionOrder));
     check("B bio untouched", !!bBio && bBio.title === "Bio b" && bBio.links.length === 1 && !bBio.links[0].url.includes("evil"));
     check("B bio look untouched", !!bBio && bBio.theme === null && bBio.font === null, `theme=${bBio?.theme} font=${bBio?.font}`);
     check("B artist not removed", !!(await prisma.user.findUnique({ where: { id: B.artist.id } })));
