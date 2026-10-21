@@ -22,8 +22,8 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ") }, { status: 400 });
   const d = parsed.data;
   const slug = slugify(d.slug);
-  if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "That slug is reserved" }, { status: 400 });
-  if (await prisma.bioPage.findUnique({ where: { slug } })) return NextResponse.json({ error: "Slug already taken" }, { status: 409 });
+  if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "That page address is reserved. Try another." }, { status: 400 });
+  if (await prisma.bioPage.findUnique({ where: { slug } })) return NextResponse.json({ error: "Someone already has that page address. Try another." }, { status: 409 });
 
   // Same tenant check as the PATCH route: a cuid from another label's roster would scope this
   // page's release block to releases that are not this organisation's.
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   // Same system as releases: accent comes from the artwork (sharp hue histogram).
   const accentColor = d.accentColor || (await extractAccentColor(d.imageUrl));
   const page = await prisma.bioPage.create({
-    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, sectionOrder: storedOrder(d.sectionOrder), isPublic: d.isPublic ?? true },
+    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, sectionOrder: storedOrder(d.sectionOrder), gallery: d.gallery || null, galleryAt: d.gallery ? new Date() : null, isPublic: d.isPublic ?? true },
   });
   return NextResponse.json({ id: page.id });
 }

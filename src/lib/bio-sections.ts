@@ -16,7 +16,10 @@
  */
 
 /** Every orderable block, in the order a page uses when its owner has never said otherwise. */
-export const BIO_SECTIONS = ["release", "links", "subscribe", "catalogue"] as const;
+// video and merch were added on 1 Nov 2026, between the email box and the back catalogue, so every
+// page that already existed keeps exactly the order it had: neither block shows anything until
+// its owner adds a row to it.
+export const BIO_SECTIONS = ["release", "links", "subscribe", "video", "merch", "catalogue"] as const;
 export type BioSection = (typeof BIO_SECTIONS)[number];
 
 /**
@@ -30,6 +33,8 @@ export const SECTION_LABELS: Record<BioSection, string> = {
   release: "Latest release",
   links: "Your links",
   subscribe: "Email box",
+  video: "Videos",
+  merch: "Merch",
   catalogue: "More releases",
 };
 
@@ -38,6 +43,8 @@ export const SECTION_HINTS: Record<BioSection, string> = {
   release: "The big card with your newest or next record.",
   links: "Your buttons.",
   subscribe: "Where fans leave their email address.",
+  video: "Up to four YouTube videos that play on the page.",
+  merch: "Pictures of what you sell, each one a link to your shop.",
   catalogue: "Everything else you have out, newest first.",
 };
 

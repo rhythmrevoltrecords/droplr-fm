@@ -3,6 +3,8 @@ import { ExternalLink } from "lucide-react";
 import { BioForm } from "@/components/admin/bio-form";
 import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
+import { BioItemsEditor } from "@/components/admin/bio-items-editor";
+import { itemOut, visibleItems } from "@/lib/bio-items";
 import { QrDownload } from "@/components/admin/qr-download";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -29,7 +31,11 @@ export default async function EditBio(
   if (!page) notFound();
   const plan = planOf(user.organization.plan);
   const url = bioPublicUrl(user.organization, page.slug);
-  const clicks = page.links.reduce((n, l) => n + l.clicks, 0);
+  // The link buttons only. Merch and video rows are BioLinks too (lib/bio-items) and have editors
+  // of their own; handing them to the links editor would let one Save delete the other's rows.
+  const buttons = page.links.filter((l) => l.section === null);
+  const merch = page.links.filter((l) => l.section === "merch");
+  const videos = page.links.filter((l) => l.section === "video");
   // Same resolver the public page uses, so the preview cannot drift from what a fan gets.
   // Same plan limit as release analytics: what is gated is how far BACK you can look, never
   // whether the visits were recorded. Every account's rows are kept either way, so an upgrade
@@ -79,8 +85,28 @@ export default async function EditBio(
         <CardContent>
           <LinkEditor
             saveUrl={`/api/admin/bio/${page.id}/links`}
-            initial={page.links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl, visible: l.isActive }))}
+            initial={buttons.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl, visible: l.isActive }))}
           />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Videos</CardTitle>
+          <CardDescription>Paste a YouTube link. The title and picture are filled in for you, and the video plays right on your page.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BioItemsEditor section="video" saveUrl={`/api/admin/bio/${page.id}/links?section=video`} initial={videos.map(itemOut)} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Merch</CardTitle>
+          <CardDescription>A picture and a name for each thing you sell, each one linking to wherever you sell it.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <BioItemsEditor section="merch" saveUrl={`/api/admin/bio/${page.id}/links?section=merch`} initial={merch.map(itemOut)} />
         </CardContent>
       </Card>
 
@@ -90,8 +116,8 @@ export default async function EditBio(
           <BioForm
             mode="edit"
             id={page.id}
-            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", isPublic: page.isPublic }}
-            previewLinks={page.links.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl }))}
+            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", gallery: page.gallery ?? "", isPublic: page.isPublic }}
+            previewLinks={buttons.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl }))}
             glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
             artists={artists}
             previewReleases={previewReleases}
@@ -99,6 +125,8 @@ export default async function EditBio(
             linkedLabels={linkedLabels}
             orgName={user.organization.name}
             showBranding={!plan.removeBranding}
+            previewMerch={visibleItems(merch, "merch")}
+            previewVideos={visibleItems(videos, "video")}
           />
         </CardContent>
       </Card>

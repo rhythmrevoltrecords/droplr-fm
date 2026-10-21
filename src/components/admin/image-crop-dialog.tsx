@@ -12,7 +12,7 @@ export type AspectPreset = { label: string; value: number | null };
  * client component, and lib/images reaches sharp and the blob store. The two lists must agree —
  * scripts/test-bio-theme.ts fails if they drift.
  */
-export type ImagePurpose = "cover" | "avatar" | "logo" | "press" | "background" | "icon";
+export type ImagePurpose = "cover" | "avatar" | "logo" | "press" | "background" | "icon" | "merch" | "video";
 export type UploadedImage = { url: string; accentColor: string | null; width?: number; height?: number };
 
 export const ASPECT_SQUARE: AspectPreset = { label: "Square", value: 1 };

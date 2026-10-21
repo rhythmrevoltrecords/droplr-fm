@@ -13,7 +13,7 @@ import { fmtNum } from "@/lib/utils";
 export default async function BioList() {
   const user = await requireUser("label");
   const [pages, theirs] = await Promise.all([
-    prisma.bioPage.findMany({ where: { organizationId: user.organizationId }, orderBy: { createdAt: "desc" }, include: { links: { select: { clicks: true } } } }),
+    prisma.bioPage.findMany({ where: { organizationId: user.organizationId }, orderBy: { createdAt: "desc" }, include: { links: { select: { clicks: true, section: true } } } }),
     // Read-only, public pages only, no numbers. See lib/bio-roster for why it is this narrow.
     user.organization.kind === "artist" ? Promise.resolve([]) : rosterBioPages(user.organizationId),
   ]);
@@ -47,7 +47,7 @@ export default async function BioList() {
                   {!p.isPublic && <Badge variant="secondary">Hidden</Badge>}
                   {user.organization.kind !== "artist" && <Badge variant="secondary">Made by you</Badge>}
                 </div>
-                <div className="flex gap-4 text-xs text-muted-foreground"><span>{fmtNum(p.views)} views</span><span>{fmtNum(clicks)} clicks</span><span>{p.links.length} links</span></div>
+                <div className="flex gap-4 text-xs text-muted-foreground"><span>{fmtNum(p.views)} views</span><span>{fmtNum(clicks)} clicks</span><span>{p.links.filter((l) => l.section === null).length} links</span></div>
                 <CopyButton value={url} label="Copy link" />
               </div>
             </Card>
