@@ -13,6 +13,7 @@ export type OAuthState = {
   lo?: string | null; // "where do you listen" pick
   ret: string; // absolute return URL (release page)
   ru: string; // redirect_uri used for the authorize call
+  cv?: string | null; // PKCE code_verifier (SoundCloud). Encrypted with the rest, so it works across a custom domain and droplr.fm
   exp: number;
 };
 
