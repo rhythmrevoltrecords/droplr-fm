@@ -5,7 +5,7 @@ import { bioReleaseAction, bioReleaseEyebrow, type BioReleaseState } from "@/lib
 import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf } from "@/lib/bio-themes";
 import { subscribeButtonText, subscribeConsentLine, subscribeHeading } from "@/lib/bio-subscribe";
 import type { BioSection } from "@/lib/bio-sections";
-import type { BioItem } from "@/lib/bio-items";
+import type { BioItem, MerchDisplay } from "@/lib/bio-items";
 import { SITE_URL } from "@/lib/env";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
@@ -46,7 +46,36 @@ export type BioViewData = {
    */
   merch: BioItem[];
   videos: BioItem[];
+  /** How the merch block sits: behind one button or on the page, tiles or a swipeable row. */
+  merchDisplay: MerchDisplay;
 };
+
+/** The merch items, as tiles two to a row or as one row you swipe. Server-rendered, no JS. */
+function MerchItems({ items, layout, preview }: { items: BioItem[]; layout: MerchDisplay["layout"]; preview: boolean }) {
+  const card = (m: BioItem) => (
+    <a href={preview ? undefined : `/api/b/${m.id}`} className="glass block overflow-hidden rounded-xl transition hover:scale-[1.01]">
+      {m.imageUrl && (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={m.imageUrl} alt="" loading="lazy" decoding="async" className="aspect-square w-full object-cover" />
+      )}
+      <span className="block truncate px-2.5 py-2 text-[13px] font-medium">{m.name}</span>
+    </a>
+  );
+  if (layout === "carousel") {
+    return (
+      // Scroll-snap, not a slider library: swipes natively on a phone, nothing to download.
+      // Cards are narrower than the row so the next one peeks in and says "there's more".
+      <ul className="-mx-1 mt-3 flex snap-x snap-mandatory gap-2.5 overflow-x-auto px-1 pb-2 [scrollbar-width:none]">
+        {items.map((m) => <li key={m.id} className="w-[44%] shrink-0 snap-start">{card(m)}</li>)}
+      </ul>
+    );
+  }
+  return (
+    <ul className="mt-3 grid grid-cols-2 gap-2.5">
+      {items.map((m) => <li key={m.id}>{card(m)}</li>)}
+    </ul>
+  );
+}
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
 /**
@@ -209,34 +238,67 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
           {section === "video" && page.videos.length > 0 && (
             /* Click to play, never a player on load. The still is droplr's own copy, so a fan who
                only scrolls past makes no request to Google at all; YouTube is contacted when they
-               press play, which is the moment the privacy page says it is. */
+               press play, which is the moment the privacy page says it is.
+
+               A featured video sits full size, ready to play. Every other one is a slim tile that
+               opens into the same card -- a <details>, so it works with JavaScript off and a closed
+               tile never loads its picture. */
             <section className="mt-9">
               <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Videos</h2>
-              <ul className="mt-3 space-y-3">
+              <ul className="mt-3 space-y-2.5">
                 {page.videos.map((v) => (
-                  <li key={v.id}><BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={preview} /></li>
+                  <li key={v.id}>
+                    {v.highlight ? (
+                      <BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={preview} />
+                    ) : (
+                      <details className="group">
+                        <summary className="glass flex cursor-pointer list-none items-center gap-3 rounded-2xl p-2.5 pr-3 transition hover:bg-white/[0.12] [&::-webkit-details-marker]:hidden">
+                          <span className="relative grid h-11 w-[4.75rem] shrink-0 place-items-center overflow-hidden rounded-lg bg-black/60 ring-1 ring-white/10">
+                            {v.imageUrl && (
+                              /* eslint-disable-next-line @next/next/no-img-element */
+                              <img src={v.imageUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
+                            )}
+                            <svg viewBox="0 0 24 24" aria-hidden="true" className="relative ml-0.5 h-4 w-4 fill-white drop-shadow"><path d="M8 5.5v13l11-6.5z" /></svg>
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-sm font-medium">{v.name}</span>
+                          <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black"><span className="group-open:hidden">Watch</span><span className="hidden group-open:inline">Close</span></span>
+                        </summary>
+                        <div className="mt-2.5"><BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={preview} /></div>
+                      </details>
+                    )}
+                  </li>
                 ))}
               </ul>
             </section>
           )}
           {section === "merch" && page.merch.length > 0 && (
             /* Picture and name, no price. A price typed here is wrong the day it changes in the
-               shop, and the shop is one tap away. Each card is a counted tap like any button. */
-            <section className="mt-9">
-              <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Merch</h2>
-              <ul className="mt-3 grid grid-cols-2 gap-2.5">
-                {page.merch.map((m) => (
-                  <li key={m.id}>
-                    <a href={preview ? undefined : `/api/b/${m.id}`} className="glass block overflow-hidden rounded-xl transition hover:scale-[1.01]">
-                      {m.imageUrl && (
+               shop, and the shop is one tap away. Each card is a counted tap like any button.
+
+               By default the whole block is one "Merch" button that opens it, so eight products
+               don't turn a page of links into a shop window. The owner can put it on the page
+               instead, and pick tiles or a swipeable row either way. */
+            <section className="mt-7">
+              {page.merchDisplay.show === "button" ? (
+                <details className="group">
+                  <summary className="glass flex cursor-pointer list-none items-center gap-3 rounded-2xl p-2.5 pr-3 transition hover:bg-white/[0.12] [&::-webkit-details-marker]:hidden">
+                    <span className="relative h-10 w-10 shrink-0 overflow-hidden rounded-xl bg-white/10 ring-1 ring-white/10">
+                      {page.merch[0].imageUrl && (
                         /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={m.imageUrl} alt="" loading="lazy" decoding="async" className="aspect-square w-full object-cover" />
+                        <img src={page.merch[0].imageUrl} alt="" loading="lazy" decoding="async" className="absolute inset-0 h-full w-full object-cover" />
                       )}
-                      <span className="block truncate px-2.5 py-2 text-[13px] font-medium">{m.name}</span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">Merch</span>
+                    <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black"><span className="group-open:hidden">Shop</span><span className="hidden group-open:inline">Close</span></span>
+                  </summary>
+                  <MerchItems items={page.merch} layout={page.merchDisplay.layout} preview={preview} />
+                </details>
+              ) : (
+                <>
+                  <h2 className="mt-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Merch</h2>
+                  <MerchItems items={page.merch} layout={page.merchDisplay.layout} preview={preview} />
+                </>
+              )}
             </section>
           )}
           {section === "catalogue" && (
