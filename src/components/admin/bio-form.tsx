@@ -3,6 +3,8 @@ import { Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { LabelBadge } from "@/lib/bio-label";
+import { isOwnImage, type BioItem } from "@/lib/bio-items";
+import { SITE_URL } from "@/lib/env";
 import { labelBadgeLine } from "@/lib/bio-label";
 import { bioFontClass } from "@/components/public/bio-fonts";
 import { BioView, type BioViewData } from "@/components/public/bio-view";
@@ -11,10 +13,11 @@ import { Input, Label } from "@/components/ui/input";
 import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
 import { BIO_SUBSCRIBE_TEXT_MAX, DEFAULT_SUBSCRIBE_TEXT, subscribeButtonText, subscribeConsentLine } from "@/lib/bio-subscribe";
 import { SECTION_HINTS, SECTION_LABELS, moveSection, sectionOrder, serialiseOrder } from "@/lib/bio-sections";
+import { missingFields, missingLine } from "@/lib/bio-form-check";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; gallery: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -28,6 +31,8 @@ export function BioForm({
   labelBadges = [],
   linkedLabels = [],
   glow,
+  previewMerch,
+  previewVideos,
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -51,6 +56,9 @@ export function BioForm({
    * is exactly how "turn the glow off" looked broken on three themes out of four.
    */
   glow: { on: boolean; color: string | null };
+  /** The merch and video blocks as they are saved. Required for the same reason `glow` is. */
+  previewMerch: BioItem[];
+  previewVideos: BioItem[];
 }) {
   const router = useRouter();
   const [v, setV] = useState<Values>(initial);
@@ -64,6 +72,7 @@ export function BioForm({
   const reorder = (i: number, d: -1 | 1) => set("sectionOrder", serialiseOrder(moveSection(order, i, d)));
 
   const accentPreview = v.accentColor || "#7c3aed";
+  const missing = missingFields(v);
 
   const set = (k: keyof Values, val: string | boolean) =>
     setV((x) => {
@@ -128,11 +137,11 @@ export function BioForm({
     <div className="grid gap-6 lg:grid-cols-[1fr_300px]">
       <div className="space-y-4">
         <div className="grid gap-4 sm:grid-cols-2">
-          <div className="space-y-2"><Label>Name</Label><Input value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="OTOTO" /></div>
+          <div className="space-y-2"><Label>Name</Label><Input value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Your artist name" /></div>
           <div className="space-y-2">
             {/* "Slug" is a word from the inside of a CMS. The artist picking it has never heard it. */}
             <Label>Page address</Label>
-            <Input value={v.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} placeholder="ototo" />
+            <Input value={v.slug} onChange={(e) => { setSlugTouched(true); set("slug", e.target.value); }} placeholder="yourname" />
             <p className="truncate text-xs text-muted-foreground">droplr.fm/b/<span className="text-foreground">{slugify(v.slug) || "yourname"}</span></p>
           </div>
           <div className="space-y-2 sm:col-span-2">
@@ -362,6 +371,16 @@ export function BioForm({
 
           <div className="space-y-1 sm:col-span-2">
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={v.gallery === "on"} onChange={(e) => set("gallery", e.target.checked ? "on" : "")} className="h-4 w-4" />
+              Show it in the gallery
+            </label>
+            <p className="text-xs text-muted-foreground">
+              Puts your picture, name, bio line and page address on <a href="/b" target="_blank" rel="noreferrer" className="underline">droplr.fm/b</a>,
+              a list of real pages people can open. Never your numbers. Untick it, or untick Public, and it comes off.
+              {v.gallery === "on" && (mode === "create" || previewLinks.length === 0) && " It won't show until the page has at least one link."}
+              {v.gallery === "on" && v.imageUrl && !isOwnImage(v.imageUrl, SITE_URL) && " It won't show until the picture is uploaded here rather than linked from another site."}
+            </p>
             {linkedLabels.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 While it&apos;s public, {linkedLabels.join(" and ")} can see and share this page&apos;s link from their
@@ -371,8 +390,11 @@ export function BioForm({
             )}
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Button onClick={save} disabled={busy || !v.title || !v.slug || !v.imageUrl}>{busy && <Loader2 className="animate-spin" />} {mode === "create" ? "Create bio link" : "Save"}</Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <Button onClick={save} disabled={busy || missing.length > 0}>{busy && <Loader2 className="animate-spin" />} {mode === "create" ? "Create bio link" : "Save"}</Button>
+          {/* A disabled button with no reason beside it is a button that looks broken. Say what is
+              left, in the words on the form, until there is nothing left to say. */}
+          {missing.length > 0 && !msg && <span className="text-sm text-muted-foreground">{missingLine(missing)}</span>}
           {msg && <span className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</span>}
           {mode === "edit" && <Button variant="destructive" className="ml-auto" onClick={remove}>Delete</Button>}
         </div>
@@ -382,7 +404,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks, merch: previewMerch, videos: previewVideos }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

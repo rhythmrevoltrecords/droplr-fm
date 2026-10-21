@@ -44,6 +44,7 @@ import { oauthEmailConsent } from "../src/lib/fan-consent";
 import { FAN_EMAIL_CONSENT_VERSION } from "../src/lib/legal";
 import { espWebhookToken } from "../src/lib/esp/webhook";
 import { syncConnectionById } from "../src/lib/esp";
+import { SITE_URL } from "../src/lib/env";
 
 // The cleanup below wipes every auth_throttle row: never let this touch the production (Neon) database.
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
@@ -147,9 +148,11 @@ async function main() {
       ["GET", `/api/admin/releases/${rid}/export?type=clicks`],
       // theme/font go through the same PATCH and the same guard; included so the payload the
       // route actually accepts is the payload this test tries, not an older subset of it.
-      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned", sectionOrder: "subscribe,links,release,catalogue" }],
+      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned", sectionOrder: "subscribe,links,release,catalogue", gallery: "on" }],
       ["DELETE", `/api/admin/bio/${B.bio.id}`],
       ["PUT", `/api/admin/bio/${B.bio.id}/links`, { links: [] }],
+      ["PUT", `/api/admin/bio/${B.bio.id}/links?section=merch`, { items: [] }],
+      ["PUT", `/api/admin/bio/${B.bio.id}/links?section=video`, { items: [] }],
     ];
     for (const [m, p, body] of cross) {
       const r = await http(ownerA, m, p, body);
@@ -168,6 +171,7 @@ async function main() {
     check("B release untouched", !!bNow && bNow.title === "Secret b" && bNow.links.length === 1 && bNow.links[0].url.includes("open.spotify.com") && bNow.linkVariants.length === 1 && bNow.preSaves.length === 1);
     const bBio = await prisma.bioPage.findUnique({ where: { id: B.bio.id }, include: { links: true } });
     check("B bio section order untouched", bBio?.sectionOrder === null, String(bBio?.sectionOrder));
+    check("B bio not put in the gallery by A", bBio?.gallery === null && bBio?.galleryAt === null, String(bBio?.gallery));
     check("B bio untouched", !!bBio && bBio.title === "Bio b" && bBio.links.length === 1 && !bBio.links[0].url.includes("evil"));
     check("B bio look untouched", !!bBio && bBio.theme === null && bBio.font === null, `theme=${bBio?.theme} font=${bBio?.font}`);
     check("B artist not removed", !!(await prisma.user.findUnique({ where: { id: B.artist.id } })));
@@ -1808,6 +1812,92 @@ async function main() {
       check("an unpublished page collects nothing",
         (await prisma.fanContact.count({ where: { organizationId: B.org.id, email: hidden } })) === 0);
       await prisma.bioPage.update({ where: { id: B.bio.id }, data: { isPublic: true } });
+    }
+
+    console.log("\n99. Merch and video blocks, and the gallery");
+    {
+      // Merch and video rows are BioLinks with a section. The links editor replaces the whole list
+      // it is sent, so the one guarantee that matters here is that each save stays inside its own
+      // block: before sections, "delete everything not in this list" was correct.
+      const img = `${SITE_URL}/api/cover/sectest-${RUN}.webp`;
+      const merchUrl = `/api/admin/bio/${A.bio.id}/links?section=merch`;
+      const linksUrl = `/api/admin/bio/${A.bio.id}/links`;
+      const aButtons = () => prisma.bioLink.findMany({ where: { bioPageId: A.bio.id, section: null }, orderBy: { order: "asc" } });
+      const aMerch = () => prisma.bioLink.findMany({ where: { bioPageId: A.bio.id, section: "merch" }, orderBy: { order: "asc" } });
+
+      await http(ownerA, "PUT", linksUrl, { links: [{ platform: "instagram", url: "https://instagram.com/a", visible: true }] });
+      const m1 = await http(ownerA, "PUT", merchUrl, { items: [{ name: `Tee ${RUN}`, url: "https://shop.example/tee", imageUrl: img, visible: true }, { name: "Hat", url: "https://shop.example/hat", imageUrl: img, visible: false }] });
+      check("A can save merch on its own page", m1.status === 200 && (await aMerch()).length === 2, `${m1.status} ${m1.text.slice(0, 200)}`);
+      const merchIds = (await aMerch()).map((l) => l.id);
+
+      // The bug this design invites: saving the links deletes the merch.
+      const l2 = await http(ownerA, "PUT", linksUrl, { links: [{ platform: "spotify", url: "https://open.spotify.com/artist/x", visible: true }] });
+      check("saving the links leaves the merch alone", l2.status === 200 && JSON.stringify((await aMerch()).map((l) => l.id)) === JSON.stringify(merchIds), `${l2.status}`);
+      check("…and the links save did what it said", (await aButtons()).length === 1 && (await aButtons())[0].platform === "spotify");
+      check("…and returned only links, not merch", !l2.text.includes(`Tee ${RUN}`));
+
+      // And the reverse.
+      const buttonIds = (await aButtons()).map((l) => l.id);
+      const m2 = await http(ownerA, "PUT", merchUrl, { items: [] });
+      check("emptying the merch leaves the links alone", m2.status === 200 && (await aMerch()).length === 0 && JSON.stringify((await aButtons()).map((l) => l.id)) === JSON.stringify(buttonIds));
+
+      // A link id offered to the merch editor must not be moved into the merch block (or edited).
+      const m3 = await http(ownerA, "PUT", merchUrl, { items: [{ id: buttonIds[0], name: "Hijack", url: "https://evil.example/m", imageUrl: img, visible: true }] });
+      const btnAfter = await prisma.bioLink.findUnique({ where: { id: buttonIds[0] } });
+      check("a link's id sent as merch does not turn the link into merch", m3.status === 200 && btnAfter?.section === null && btnAfter.url.startsWith("https://open.spotify.com"), `${btnAfter?.section} ${btnAfter?.url}`);
+      await http(ownerA, "PUT", merchUrl, { items: [] });
+
+      // B's ids through A's own page: refused silently, B untouched.
+      const bMerch = await prisma.bioLink.create({ data: { bioPageId: B.bio.id, section: "merch", platform: "custom", label: "B tee", url: "https://b.example/tee", iconUrl: img } });
+      await http(ownerA, "PUT", merchUrl, { items: [{ id: bMerch.id, name: "pwned", url: "https://evil.example/x", imageUrl: img, visible: true }] });
+      const bMerchAfter = await prisma.bioLink.findUnique({ where: { id: bMerch.id } });
+      check("A's merch save with B's item id leaves B's item alone", bMerchAfter?.label === "B tee" && bMerchAfter.bioPageId === B.bio.id);
+      await http(ownerA, "PUT", merchUrl, { items: [] });
+
+      // A picture droplr didn't store is refused, and refusing writes nothing.
+      const ext = await http(ownerA, "PUT", merchUrl, { items: [{ name: "X", url: "https://shop.example/x", imageUrl: "https://tracker.example/pixel.jpg", visible: true }] });
+      check("a merch picture hosted elsewhere is refused", ext.status === 400, `${ext.status}`);
+      const look = await http(ownerA, "PUT", merchUrl, { items: [{ name: "X", url: "https://shop.example/x", imageUrl: `https://droplr.fm.evil.example/api/cover/x.webp`, visible: true }] });
+      check("…including one dressed up as droplr's", look.status === 400, `${look.status}`);
+      check("…and neither wrote a row", (await aMerch()).length === 0);
+
+      const junk = await http(ownerA, "PUT", `${linksUrl}?section=gallery`, { items: [] });
+      check("an unknown section is refused", junk.status === 400);
+      const notYt = await http(ownerA, "PUT", `${linksUrl}?section=video`, { items: [{ url: "https://vimeo.com/123", visible: true }] });
+      check("a video that isn't YouTube is refused before anything is looked up", notYt.status === 400 && (await prisma.bioLink.count({ where: { bioPageId: A.bio.id, section: "video" } })) === 0, `${notYt.status}`);
+
+      // The public page: visible merch renders, hidden merch doesn't, and links stay links.
+      await http(ownerA, "PUT", merchUrl, { items: [{ name: `Shown ${RUN}`, url: "https://shop.example/a", imageUrl: img, visible: true }, { name: `Hidden ${RUN}`, url: "https://shop.example/b", imageUrl: img, visible: false }] });
+      await prisma.bioPage.update({ where: { id: A.bio.id }, data: { isPublic: true } });
+      const pub = await http(null, "GET", `/b/${A.bio.slug}`);
+      check("the public page shows visible merch", pub.status === 200 && pub.text.includes(`Shown ${RUN}`), `${pub.status}`);
+      check("…and not hidden merch", !pub.text.includes(`Hidden ${RUN}`));
+      const shown = (await aMerch()).find((l) => l.label === `Shown ${RUN}`)!;
+      const tap = await http(null, "GET", `/api/b/${shown.id}`);
+      check("a merch tap goes through the counted redirect", tap.status === 302 && tap.location === "https://shop.example/a", `${tap.status} ${tap.location}`);
+
+      // The gallery: opt-in, public only, never B's switch flipped by A (asserted in section 1).
+      const gallery = async () => (await http(null, "GET", "/b")).text;
+      check("a page nobody listed is not in the gallery", !(await gallery()).includes(A.bio.slug));
+      // Its picture is example.com's, not droplr's: ticked or not, it stays out.
+      await http(ownerA, "PATCH", `/api/admin/bio/${A.bio.id}`, { gallery: "on" });
+      check("a page whose picture is hosted elsewhere stays out even when ticked", !(await gallery()).includes(A.bio.slug));
+      await http(ownerA, "PATCH", `/api/admin/bio/${A.bio.id}`, { gallery: "" });
+      await prisma.bioPage.update({ where: { id: A.bio.id }, data: { imageUrl: img } });
+      const on = await http(ownerA, "PATCH", `/api/admin/bio/${A.bio.id}`, { gallery: "on" });
+      const stamped = await prisma.bioPage.findUnique({ where: { id: A.bio.id } });
+      check("ticking it lists the page", on.status === 200 && (await gallery()).includes(A.bio.slug) && !!stamped?.galleryAt);
+      await http(ownerA, "PATCH", `/api/admin/bio/${A.bio.id}`, { gallery: "on", title: A.bio.title });
+      const restamped = await prisma.bioPage.findUnique({ where: { id: A.bio.id } });
+      check("saving again does not move it to the top", restamped?.galleryAt?.getTime() === stamped?.galleryAt?.getTime());
+      await prisma.bioPage.update({ where: { id: A.bio.id }, data: { isPublic: false } });
+      check("making the page private takes it out", !(await gallery()).includes(A.bio.slug));
+      await prisma.bioPage.update({ where: { id: A.bio.id }, data: { isPublic: true } });
+      check("…and publishing it again restores the owner's choice", (await gallery()).includes(A.bio.slug));
+      await http(ownerA, "PATCH", `/api/admin/bio/${A.bio.id}`, { gallery: "" });
+      check("unticking it takes it out", !(await gallery()).includes(A.bio.slug));
+      const g = await gallery();
+      check("the gallery never prints a view or tap count", !/\b\d+ (views|clicks|taps)\b/i.test(g));
     }
 
   } finally {

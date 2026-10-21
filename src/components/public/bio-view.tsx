@@ -5,9 +5,11 @@ import { bioReleaseAction, bioReleaseEyebrow, type BioReleaseState } from "@/lib
 import { bioFontOf, bioSkinClass, bioThemeHasGlow, bioThemeIsLight, bioThemeOf } from "@/lib/bio-themes";
 import { subscribeButtonText, subscribeConsentLine, subscribeHeading } from "@/lib/bio-subscribe";
 import type { BioSection } from "@/lib/bio-sections";
+import type { BioItem } from "@/lib/bio-items";
 import { SITE_URL } from "@/lib/env";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
+import { BioVideo } from "./bio-video";
 
 export type BioRelease = {
   state: BioReleaseState;
@@ -37,6 +39,13 @@ export type BioViewData = {
   /** Link button colour; what it does depends on the theme. */
   buttonColor?: string | null;
   links: { id: string; platform: string; url?: string | null; label: string | null; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
+  /**
+   * The merch and video blocks, already filtered to visible rows by lib/bio-items visibleItems.
+   * Required, not optional, for the reason BioSubscribe gives below: the editor's preview leaving
+   * one out would show an empty block the live page fills, and nothing would say so.
+   */
+  merch: BioItem[];
+  videos: BioItem[];
 };
 
 /** Bio link page: same artwork shell + glass links as release pages, with a circular avatar. */
@@ -137,7 +146,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                           href={preview ? "#" : l.url && isMailto(l.url) ? l.url : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
                       </li>
                     ))}
-                    {page.links.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
+                    {page.links.length === 0 && page.merch.length === 0 && page.videos.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
                   </ul>
             </>
           )}
@@ -196,6 +205,39 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                     </section>
                   )}
             </>
+          )}
+          {section === "video" && page.videos.length > 0 && (
+            /* Click to play, never a player on load. The still is droplr's own copy, so a fan who
+               only scrolls past makes no request to Google at all; YouTube is contacted when they
+               press play, which is the moment the privacy page says it is. */
+            <section className="mt-9">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Videos</h2>
+              <ul className="mt-3 space-y-3">
+                {page.videos.map((v) => (
+                  <li key={v.id}><BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={preview} /></li>
+                ))}
+              </ul>
+            </section>
+          )}
+          {section === "merch" && page.merch.length > 0 && (
+            /* Picture and name, no price. A price typed here is wrong the day it changes in the
+               shop, and the shop is one tap away. Each card is a counted tap like any button. */
+            <section className="mt-9">
+              <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Merch</h2>
+              <ul className="mt-3 grid grid-cols-2 gap-2.5">
+                {page.merch.map((m) => (
+                  <li key={m.id}>
+                    <a href={preview ? undefined : `/api/b/${m.id}`} className="glass block overflow-hidden rounded-xl transition hover:scale-[1.01]">
+                      {m.imageUrl && (
+                        /* eslint-disable-next-line @next/next/no-img-element */
+                        <img src={m.imageUrl} alt="" loading="lazy" decoding="async" className="aspect-square w-full object-cover" />
+                      )}
+                      <span className="block truncate px-2.5 py-2 text-[13px] font-medium">{m.name}</span>
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </section>
           )}
           {section === "catalogue" && (
             <>
