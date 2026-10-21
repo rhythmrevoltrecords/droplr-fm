@@ -81,6 +81,9 @@ export async function POST(req: NextRequest) {
       releaseDate,
       status: isReleased(releaseDate) ? "live" : "upcoming",
       autoReResolve: d.autoReResolve,
+      // On for every new release: the settings tab shows which icons that means, and an existing
+      // release is never switched on behind its owner's back (the column is NULL for those).
+      socialIcons: "on",
       resolvedAt: d.links.some((l) => l.platform === "appleMusic") && d.links.some((l) => l.platform === "deezer") ? new Date() : null,
       upc: normaliseUpc(d.upc),
       isrc: normaliseIsrc(d.isrc),

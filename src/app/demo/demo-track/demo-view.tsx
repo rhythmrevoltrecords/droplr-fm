@@ -23,6 +23,8 @@ export function DemoTrackView({ presave, done }: { presave: boolean; done?: stri
         demo
         live={!presave}
         release={{
+          // No icons on the demo: an example profile would read as a real one.
+          socials: [],
           id: "demo",
           title: "Two Step Theory",
           artistName: "Demo Artist",

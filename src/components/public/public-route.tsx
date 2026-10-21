@@ -17,6 +17,8 @@ import { ContestEntry, type ContestView, type GalleryEntry } from "./contest-ent
 import { galleryVisible, PUBLIC_GALLERY_FROM_VERSION } from "@/lib/contest";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
 import { progressFor, remaining } from "@/lib/downloads";
+import { bioSocials, releaseSocialHref, showSocials } from "@/lib/bio-socials";
+import { socialSource } from "@/lib/bio-socials-server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
 
@@ -201,9 +203,14 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
   const viewerTz = meta.timezone;
   const live = isReleasedFor(release, org.timezone, viewerTz);
   const unlockAt = releaseInstantFor(release, org.timezone, viewerTz);
+  // Only looked up when the release has the box ticked: a release that never asked costs nothing.
+  const socials = showSocials(release)
+    ? bioSocials(await socialSource(release, org.kind)).map((s) => ({ key: s.key, label: s.label, href: releaseSocialHref(release.id, s.key) }))
+    : [];
   return (
     <ReleaseView
       release={{
+        socials,
         id: release.id,
         title: release.title,
         artistName: release.artistName,

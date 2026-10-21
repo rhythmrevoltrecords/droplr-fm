@@ -10,6 +10,8 @@ import { bioPublicUrl } from "@/lib/bio";
 import { showSubscribe } from "@/lib/bio-subscribe";
 import { sectionOrder } from "@/lib/bio-sections";
 import { merchDisplayOf, visibleItems } from "@/lib/bio-items";
+import { bioSocials, showSocials, socialHref } from "@/lib/bio-socials";
+import { socialSource } from "@/lib/bio-socials-server";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
@@ -82,12 +84,15 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
   }
   const plan = planOf(page.organization.plan);
 
-  const [releases, labels] = await Promise.all([
+  const [releases, labels, socialLinks] = await Promise.all([
     bioReleaseFor(page, page.organization),
     bioLabelBadges(page, page.organization),
+    // Only looked up when the row is on: a page that never asked for icons costs nothing extra.
+    showSocials(page) ? socialSource(page, page.organization.kind) : Promise.resolve(null),
   ]);
+  const socials = bioSocials(socialLinks).map((s) => ({ key: s.key, label: s.label, href: socialHref(page.id, s.key) }));
 
-  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, merch: visibleItems(page.links, "merch"), merchDisplay: merchDisplayOf(page), videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
+  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, merch: visibleItems(page.links, "merch"), merchDisplay: merchDisplayOf(page), socials, videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
 
   return (
     <BioView

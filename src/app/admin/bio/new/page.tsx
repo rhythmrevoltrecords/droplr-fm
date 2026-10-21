@@ -6,12 +6,13 @@ import { linkedLabelNames } from "@/lib/bio-roster";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
 import { DEFAULT_MERCH_DISPLAY } from "@/lib/bio-items";
+import { socialsFor } from "@/lib/bio-socials";
 import { slugify } from "@/lib/utils";
 
 export default async function NewBio() {
   const user = await requireUser("label");
   const [artists, previewReleases, linkedLabels] = await Promise.all([
-    prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true, photoUrl: true, accentColor: true } }),
+    prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true, photoUrl: true, accentColor: true, socialLinks: true } }),
     bioReleaseFor({ organizationId: user.organizationId, artistProfileId: null, releaseBlock: "on" }, user.organization),
     user.organization.kind === "artist" ? linkedLabelNames(user.organizationId) : Promise.resolve([]),
   ]);
@@ -25,7 +26,7 @@ export default async function NewBio() {
       <h1 className="text-2xl font-semibold">New bio link</h1>
       <BioForm
         mode="create"
-        initial={{ title, slug: slugify(title), bio: "", imageUrl: own?.photoUrl ?? "", accentColor: own?.photoUrl ? (own.accentColor ?? "") : "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", labelBadge: "", subscribe: "on", subscribeText: "", sectionOrder: "", gallery: "", isPublic: true }}
+        initial={{ title, slug: slugify(title), bio: "", imageUrl: own?.photoUrl ?? "", accentColor: own?.photoUrl ? (own.accentColor ?? "") : "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", labelBadge: "", subscribe: "on", subscribeText: "", sectionOrder: "", gallery: "", socialIcons: "on", isPublic: true }}
         glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
         artists={artists.map((a) => ({ id: a.id, name: a.name }))}
         previewReleases={previewReleases}
@@ -35,6 +36,7 @@ export default async function NewBio() {
         previewMerch={[]}
         previewVideos={[]}
         previewMerchDisplay={DEFAULT_MERCH_DISPLAY}
+        socialsFor={socialsFor(artists, user.organization.kind)}
         previewLinks={[{ id: "p1", platform: "spotify", label: "Latest release" }, { id: "p2", platform: "bandcamp", label: "Merch" }]}
       />
     </div>
