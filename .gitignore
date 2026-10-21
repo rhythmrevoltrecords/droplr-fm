@@ -8,3 +8,6 @@ node_modules
 devlog.txt
 testlog.txt
 .DS_Store
+# Session scratch: social graphics, captions and screenshots made while working. Removed from the
+# tree on 20 Oct (f37cc05); ignored so a future `git add` cannot bring it back into a public repo.
+Claude outputs/

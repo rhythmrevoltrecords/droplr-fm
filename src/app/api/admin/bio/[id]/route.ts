@@ -31,6 +31,13 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.subscribe !== undefined) data.subscribe = d.subscribe || null;
   if (d.subscribeText !== undefined) data.subscribeText = d.subscribeText || null;
   if (d.sectionOrder !== undefined) data.sectionOrder = storedOrder(d.sectionOrder);
+  if (d.gallery !== undefined) {
+    data.gallery = d.gallery || null;
+    // Stamped only on the switch from off to on. Saving the page again for some other reason must
+    // not move it back to the top of the gallery, or the list would reward pressing Save.
+    if (d.gallery && g.page.gallery !== "on") data.galleryAt = new Date();
+    if (!d.gallery) data.galleryAt = null;
+  }
   if (d.backgroundUrl !== undefined) data.backgroundUrl = d.backgroundUrl || null;
   if (d.backgroundColor !== undefined) data.backgroundColor = d.backgroundColor || null;
   if (d.buttonColor !== undefined) data.buttonColor = d.buttonColor || null;
@@ -48,9 +55,9 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   }
   if (d.slug !== undefined) {
     const slug = slugify(d.slug);
-    if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "Invalid slug" }, { status: 400 });
+    if (!slug || RESERVED_SLUGS.has(slug)) return NextResponse.json({ error: "That page address is reserved. Try another." }, { status: 400 });
     const clash = await prisma.bioPage.findUnique({ where: { slug } });
-    if (clash && clash.id !== g.page.id) return NextResponse.json({ error: "Slug taken" }, { status: 409 });
+    if (clash && clash.id !== g.page.id) return NextResponse.json({ error: "Someone already has that page address. Try another." }, { status: 409 });
     data.slug = slug;
   }
   if (d.imageUrl !== undefined) {

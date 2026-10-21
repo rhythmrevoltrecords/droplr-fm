@@ -558,6 +558,16 @@ model BioPage {
    */
   sectionOrder   String?
   isPublic       Boolean      @default(true)
+  /**
+   * "on" = listed in droplr's public gallery of live pages (droplr.fm/b). NULL = not listed.
+   *
+   * Opt-in, and never set by anything but the owner ticking the box: it puts their name and picture
+   * on droplr's own marketing page. Only counts while isPublic is true -- unticking Public takes the
+   * page out of the gallery too, without touching this column. See lib/bio-gallery.
+   */
+  gallery        String?
+  /** When `gallery` was last switched on. The gallery lists newest-first by this. */
+  galleryAt      DateTime?
   views          Int          @default(0)
   createdAt      DateTime     @default(now())
   links          BioLink[]
@@ -584,6 +594,12 @@ model BioLink {
   iconUrl    String?
   isActive   Boolean @default(true)
   order      Int     @default(0)
+  /**
+   * Which block of the page this row belongs to. NULL = the link buttons (every row before
+   * 1 Nov 2026). "merch" | "video" = those blocks. See lib/bio-items. Every write path scopes by
+   * this, so saving the links can never delete a merch item and the reverse.
+   */
+  section    String?
   /** All-time taps, including every tap from before ClickEvent covered bio pages. See lib/bio-stats. */
   clicks     Int     @default(0)
   clickEvents ClickEvent[]
