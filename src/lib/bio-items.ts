@@ -57,26 +57,56 @@ export const videoItemSchema = z.object({
   id: z.string().max(40).nullable().optional(),
   url: z.string().trim().refine((u) => youTubeId(u) !== null, "That isn't a YouTube video link. Copy it from Share on the video."),
   visible: z.boolean(),
+  /** Featured: full size on the page instead of a tile that opens it. */
+  highlight: z.boolean().optional(),
 });
 
-export const merchPayloadSchema = z.object({ items: z.array(merchItemSchema).max(BIO_ITEM_LIMIT.merch, `Up to ${BIO_ITEM_LIMIT.merch} items`) });
+/**
+ * How the merch block sits on the page. Two separate choices, because they answer two questions:
+ * whether the merch is on the page at all until a fan asks for it, and what it looks like once it is.
+ *
+ * The default is the tidy one -- one "Merch" button, tiles inside -- so a page with eight products
+ * is still a page of links first. NULL in both columns means that default.
+ */
+export const MERCH_SHOWS = ["button", "page"] as const;
+export const MERCH_LAYOUTS = ["tiles", "carousel"] as const;
+export type MerchDisplay = { show: (typeof MERCH_SHOWS)[number]; layout: (typeof MERCH_LAYOUTS)[number] };
+export const DEFAULT_MERCH_DISPLAY: MerchDisplay = { show: "button", layout: "tiles" };
+
+/** Stored columns -> what the page does. Anything unrecognised is the default, never nothing. */
+export function merchDisplayOf(page: { merchShow: string | null; merchLayout: string | null }): MerchDisplay {
+  return {
+    show: page.merchShow === "page" ? "page" : "button",
+    layout: page.merchLayout === "carousel" ? "carousel" : "tiles",
+  };
+}
+
+/** What goes in the columns: NULL for each default, so a page that never chose follows the default. */
+export function storedMerchDisplay(d: MerchDisplay): { merchShow: string | null; merchLayout: string | null } {
+  return { merchShow: d.show === "page" ? "page" : null, merchLayout: d.layout === "carousel" ? "carousel" : null };
+}
+
+const merchDisplaySchema = z.object({ show: z.enum(MERCH_SHOWS), layout: z.enum(MERCH_LAYOUTS) });
+
+export const merchPayloadSchema = z.object({ items: z.array(merchItemSchema).max(BIO_ITEM_LIMIT.merch, `Up to ${BIO_ITEM_LIMIT.merch} items`), display: merchDisplaySchema.optional() });
 export const videoPayloadSchema = z.object({ items: z.array(videoItemSchema).max(BIO_ITEM_LIMIT.video, `Up to ${BIO_ITEM_LIMIT.video} videos`) });
 
 /** A row as the public page gets it. */
-export type BioItem = { id: string; name: string; url: string; imageUrl: string | null };
+export type BioItem = { id: string; name: string; url: string; imageUrl: string | null; highlight: boolean };
 
 /**
  * Rows -> what a block shows. Hidden rows out, order kept. A video whose stored URL no longer
  * parses is dropped rather than rendered as a broken player.
  */
 export function visibleItems(
-  rows: { id: string; label: string | null; url: string; iconUrl: string | null; isActive: boolean; section: string | null }[],
+  rows: { id: string; label: string | null; url: string; iconUrl: string | null; isActive: boolean; section: string | null; highlight?: string | null }[],
   section: BioItemSection,
 ): BioItem[] {
   return rows
     .filter((r) => r.section === section && r.isActive)
     .filter((r) => section !== "video" || youTubeId(r.url) !== null)
-    .map((r) => ({ id: r.id, name: r.label ?? "", url: r.url, imageUrl: r.iconUrl }));
+    // Only a video can be featured. A stray value on a merch row means nothing.
+    .map((r) => ({ id: r.id, name: r.label ?? "", url: r.url, imageUrl: r.iconUrl, highlight: section === "video" && r.highlight === "on" }));
 }
 
 /**
@@ -89,5 +119,5 @@ export function isOwnImage(url: string, siteUrl: string): boolean {
 }
 
 /** A stored row as the editor gets it back. */
-export const itemOut = (l: { id: string; label: string | null; url: string; iconUrl: string | null; isActive: boolean }) =>
-  ({ id: l.id, name: l.label ?? "", url: l.url, imageUrl: l.iconUrl, visible: l.isActive });
+export const itemOut = (l: { id: string; label: string | null; url: string; iconUrl: string | null; isActive: boolean; highlight?: string | null }) =>
+  ({ id: l.id, name: l.label ?? "", url: l.url, imageUrl: l.iconUrl, visible: l.isActive, highlight: l.highlight === "on" });

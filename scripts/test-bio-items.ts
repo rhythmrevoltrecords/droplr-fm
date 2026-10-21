@@ -9,6 +9,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   BIO_ITEM_LIMIT,
+  DEFAULT_MERCH_DISPLAY,
+  merchDisplayOf,
+  storedMerchDisplay,
   isOwnImage,
   merchPayloadSchema,
   parseSection,
@@ -149,6 +152,38 @@ check("the still is copied to droplr, not linked", /i\.ytimg\.com/.test(read("sr
 check("the bio route hands merch and videos to the view", /merch: visibleItems\(page\.links, "merch"\)/.test(read("src/components/public/bio-route.tsx")) && /videos: visibleItems\(page\.links, "video"\)/.test(read("src/components/public/bio-route.tsx")));
 check("the bio route keeps merch and videos out of the link buttons", /page\.links\.filter\(\(l\) => l\.section === null\)/.test(read("src/components/public/bio-route.tsx")));
 check("the links editor is only ever handed link buttons", /initial=\{buttons\.map/.test(read("src/app/admin/bio/[id]/page.tsx")));
+
+// ---- how merch and videos sit on the page (22 Oct) -------------------------------------------
+
+check("merch defaults to one button with tiles inside", JSON.stringify(merchDisplayOf({ merchShow: null, merchLayout: null })) === JSON.stringify({ show: "button", layout: "tiles" }) && DEFAULT_MERCH_DISPLAY.show === "button");
+check("on-the-page and carousel are read back", JSON.stringify(merchDisplayOf({ merchShow: "page", merchLayout: "carousel" })) === JSON.stringify({ show: "page", layout: "carousel" }));
+check("junk falls back to the default, never to nothing", JSON.stringify(merchDisplayOf({ merchShow: "PAGE", merchLayout: "slider" })) === JSON.stringify(DEFAULT_MERCH_DISPLAY));
+check("the default is stored as NULL in both columns", JSON.stringify(storedMerchDisplay(DEFAULT_MERCH_DISPLAY)) === JSON.stringify({ merchShow: null, merchLayout: null }));
+for (const show of ["button", "page"] as const) for (const layout of ["tiles", "carousel"] as const) {
+  check(`${show}/${layout} survives a save and a read`, JSON.stringify(merchDisplayOf(storedMerchDisplay({ show, layout }))) === JSON.stringify({ show, layout }));
+}
+check("a display the editor can't send is refused", !merchPayloadSchema.safeParse({ items: [], display: { show: "popup", layout: "tiles" } }).success && merchPayloadSchema.safeParse({ items: [], display: { show: "page", layout: "carousel" } }).success);
+check("saving merch without a display is still fine", merchPayloadSchema.safeParse({ items: [] }).success);
+check("a video can be featured", videoPayloadSchema.safeParse({ items: [{ url: `https://youtu.be/${ID}`, visible: true, highlight: true }] }).success);
+const vrows = [
+  { id: "a", label: "Big", url: youTubeWatchUrl(ID), iconUrl: null, isActive: true, section: "video", highlight: "on" },
+  { id: "b", label: "Tile", url: youTubeWatchUrl(ID), iconUrl: null, isActive: true, section: "video", highlight: null },
+  { id: "c", label: "Odd", url: youTubeWatchUrl(ID), iconUrl: null, isActive: true, section: "video", highlight: "yes" },
+  { id: "d", label: "Tee", url: "https://s/1", iconUrl: own, isActive: true, section: "merch", highlight: "on" },
+];
+check("featured is read from the row", visibleItems(vrows, "video").map((v) => v.highlight).join() === "true,false,false");
+check("only a video can be featured", visibleItems(vrows, "merch").every((m) => !m.highlight));
+{
+  const v = code(read("src/components/public/bio-view.tsx"));
+  check("an ordinary video is a tile that opens (details), a featured one is the full card", /v\.highlight \? \(\s*<BioVideo/.test(v) && /<details className="group">[\s\S]*?<summary[\s\S]*?<BioVideo/.test(v));
+  check("merch behind a button is a details that holds the items", /page\.merchDisplay\.show === "button" \? \(\s*<details/.test(v));
+  check("the carousel is a scroll-snap row", /layout === "carousel"[\s\S]{0,400}snap-x snap-mandatory/.test(v));
+  check("tiles are two to a row", /grid grid-cols-2/.test(v));
+  check("merchDisplay is required on BioViewData", /\n\s*merchDisplay: MerchDisplay;/.test(read("src/components/public/bio-view.tsx")));
+  check("the bio route resolves it through merchDisplayOf", /merchDisplay: merchDisplayOf\(page\)/.test(read("src/components/public/bio-route.tsx")));
+  const r = code(read("src/app/api/admin/bio/[id]/links/route.ts"));
+  check("the merch look is written to this page only, in the same transaction", /prisma\.bioPage\.update\(\{ where: \{ id: page\.id \}, data: display \}\)/.test(r));
+}
 
 // ---- the gallery ----------------------------------------------------------------------------
 

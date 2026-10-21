@@ -568,6 +568,10 @@ model BioPage {
   gallery        String?
   /** When `gallery` was last switched on. The gallery lists newest-first by this. */
   galleryAt      DateTime?
+  /** NULL = merch sits behind one "Merch" button that opens it. "page" = on the page. lib/bio-items merchDisplayOf. */
+  merchShow      String?
+  /** NULL = tiles, two to a row. "carousel" = one row you swipe. */
+  merchLayout    String?
   views          Int          @default(0)
   createdAt      DateTime     @default(now())
   links          BioLink[]
@@ -600,6 +604,8 @@ model BioLink {
    * this, so saving the links can never delete a merch item and the reverse.
    */
   section    String?
+  /** Video rows only. "on" = featured: full size on the page, ready to play. NULL = a tile that opens it. */
+  highlight  String?
   /** All-time taps, including every tap from before ClickEvent covered bio pages. See lib/bio-stats. */
   clicks     Int     @default(0)
   clickEvents ClickEvent[]
