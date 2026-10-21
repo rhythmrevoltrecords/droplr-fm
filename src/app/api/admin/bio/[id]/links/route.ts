@@ -3,7 +3,7 @@ import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { blankToNull, linksPayloadSchema } from "@/lib/link-input";
-import { isOwnImage, itemOut, merchPayloadSchema, parseSection, sectionWhere, videoPayloadSchema, youTubeId, youTubeWatchUrl, type BioItemSection } from "@/lib/bio-items";
+import { isOwnImage, itemOut, merchPayloadSchema, storedMerchDisplay, parseSection, sectionWhere, videoPayloadSchema, youTubeId, youTubeWatchUrl, type BioItemSection } from "@/lib/bio-items";
 import { copyThumbnail, lookUpVideo } from "@/lib/bio-items-server";
 
 /**
@@ -59,10 +59,13 @@ async function saveLinks(page: Page, body: unknown) {
   return NextResponse.json({ ok: true, links: links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl, visible: l.isActive })) });
 }
 
-type Row = { id?: string | null; platform: string; url: string; label: string; iconUrl: string | null; isActive: boolean };
+type Row = { id?: string | null; platform: string; url: string; label: string; iconUrl: string | null; isActive: boolean; highlight: string | null };
 
 async function saveItems(page: Page, section: BioItemSection, body: unknown) {
   let rows: Row[];
+  // The merch block's look is saved with its items, from the same card. Only ever written to
+  // this page: `page` was found by id AND the caller's organisation.
+  let display: ReturnType<typeof storedMerchDisplay> | null = null;
   if (section === "merch") {
     const parsed = merchPayloadSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: issues(parsed.error) }, { status: 400 });
@@ -71,7 +74,8 @@ async function saveItems(page: Page, section: BioItemSection, body: unknown) {
     if (parsed.data.items.some((i) => !isOwnImage(i.imageUrl, SITE_URL))) {
       return NextResponse.json({ error: "Upload the picture here rather than linking to one." }, { status: 400 });
     }
-    rows = parsed.data.items.map((i) => ({ id: i.id, platform: "custom", url: i.url, label: i.name, iconUrl: i.imageUrl, isActive: i.visible }));
+    rows = parsed.data.items.map((i) => ({ id: i.id, platform: "custom", url: i.url, label: i.name, iconUrl: i.imageUrl, isActive: i.visible, highlight: null }));
+    if (parsed.data.display) display = storedMerchDisplay(parsed.data.display);
   } else {
     const parsed = videoPayloadSchema.safeParse(body);
     if (!parsed.success) return NextResponse.json({ error: issues(parsed.error) }, { status: 400 });
@@ -94,11 +98,11 @@ async function saveItems(page: Page, section: BioItemSection, body: unknown) {
       if (known) {
         // A still that failed to copy last time is tried again rather than left empty for good.
         const iconUrl = known.iconUrl ?? (await copyThumbnail(vid));
-        return { ok: true as const, row: { id, platform: "youtube", url, label: known.label ?? "Video", iconUrl, isActive: i.visible } };
+        return { ok: true as const, row: { id, platform: "youtube", url, label: known.label ?? "Video", iconUrl, isActive: i.visible, highlight: i.highlight ? "on" : null } };
       }
       const found = await lookUpVideo(vid);
       if (!found.ok) return { ok: false as const, error: found.error };
-      return { ok: true as const, row: { id: i.id, platform: "youtube", url, label: found.title, iconUrl: found.thumbnailUrl, isActive: i.visible } };
+      return { ok: true as const, row: { id: i.id, platform: "youtube", url, label: found.title, iconUrl: found.thumbnailUrl, isActive: i.visible, highlight: i.highlight ? "on" : null } };
     }));
     const bad = resolved.find((r) => !r.ok);
     if (bad && !bad.ok) return NextResponse.json({ error: bad.error }, { status: 400 });
@@ -109,11 +113,12 @@ async function saveItems(page: Page, section: BioItemSection, body: unknown) {
   await prisma.$transaction([
     prisma.bioLink.deleteMany({ where: { bioPageId: page.id, ...sectionWhere(section), id: { notIn: [...keep] } } }),
     ...rows.map((r, order) => {
-      const data = { platform: r.platform, url: r.url, label: r.label, iconUrl: r.iconUrl, isActive: r.isActive, order };
+      const data = { platform: r.platform, url: r.url, label: r.label, iconUrl: r.iconUrl, isActive: r.isActive, highlight: r.highlight, order };
       return r.id && keep.has(r.id)
         ? prisma.bioLink.update({ where: { id: r.id }, data })
         : prisma.bioLink.create({ data: { ...data, section, bioPageId: page.id } });
     }),
+    ...(display ? [prisma.bioPage.update({ where: { id: page.id }, data: display })] : []),
   ]);
   const saved = await prisma.bioLink.findMany({ where: { bioPageId: page.id, ...sectionWhere(section) }, orderBy: { order: "asc" } });
   return NextResponse.json({ ok: true, items: saved.map(itemOut) });
