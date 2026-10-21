@@ -90,28 +90,33 @@ export function soundcloudAuthorizeUrl(creds: SoundCloudCreds, redirectUri: stri
 type TokenResponse = { access_token: string; refresh_token?: string; expires_in?: number };
 
 /**
- * The token exchange body, without client credentials: those go in a Basic header, the same way
- * SoundCloud accepted them for client credentials (and refused them in the body, 22 Oct 2026).
- * SoundCloud's guide shows this exchange with the credentials in the body, so if Basic is refused
- * as invalid_client the exchange is retried once that way. An invalid_client refusal happens
- * before the code is looked at, so the retry still has a usable code. Both statuses are logged.
+ * The token exchange body. `client_id` must be in the body whatever else is sent: without it
+ * SoundCloud answers 400 invalid_request before looking at anything else. That is what production
+ * logged on 22 Oct 2026, and it was reproduced with a fake code: no client_id in the body gave 400,
+ * and with it the request got as far as checking the client (401 for a wrong secret). The secret is
+ * not in the body on the first try.
  */
-export function codeExchangeBody(code: string, redirectUri: string, codeVerifier: string) {
-  return new URLSearchParams({ grant_type: "authorization_code", redirect_uri: redirectUri, code_verifier: codeVerifier, code });
+export function codeExchangeBody(clientId: string, code: string, redirectUri: string, codeVerifier: string) {
+  return new URLSearchParams({ grant_type: "authorization_code", client_id: clientId, redirect_uri: redirectUri, code_verifier: codeVerifier, code });
 }
 
+/**
+ * First try: the secret in a Basic header, the way SoundCloud accepted it for client credentials.
+ * On 401 invalid_client, one retry with the secret in the body, the way SoundCloud's guide shows
+ * it. SoundCloud checks the client before the code (a fake code with a wrong secret gives 401,
+ * not invalid_grant), so a refused first try leaves the code usable. Every refusal is logged.
+ */
 export async function exchangeCode(creds: SoundCloudCreds, code: string, redirectUri: string, codeVerifier: string): Promise<TokenResponse> {
   const headers = { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json; charset=utf-8" };
   const basic = Buffer.from(`${creds.clientId}:${creds.clientSecret}`, "utf8").toString("base64");
   let res = await fetch(`${AUTH}/oauth/token`, {
     method: "POST",
     headers: { ...headers, Authorization: `Basic ${basic}` },
-    body: codeExchangeBody(code, redirectUri, codeVerifier).toString(),
+    body: codeExchangeBody(creds.clientId, code, redirectUri, codeVerifier).toString(),
   });
   if (res.status === 401) {
-    console.warn(`SoundCloud code exchange: Basic refused (401 ${(await res.text()).slice(0, 120)}), retrying with credentials in the body`);
-    const body = codeExchangeBody(code, redirectUri, codeVerifier);
-    body.set("client_id", creds.clientId);
+    console.warn(`SoundCloud code exchange: Basic refused (401 ${(await res.text()).slice(0, 120)}), retrying with the secret in the body`);
+    const body = codeExchangeBody(creds.clientId, code, redirectUri, codeVerifier);
     body.set("client_secret", creds.clientSecret);
     res = await fetch(`${AUTH}/oauth/token`, { method: "POST", headers, body: body.toString() });
   }
