@@ -18,9 +18,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
-import { downloadUrlProblem, effectiveProof, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
+import { downloadUrlProblem, duplicateStepProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
-import { clientCredentialsRequest, codeChallenge, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
+import { clientCredentialsRequest, codeChallenge, codeExchangeBody, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name];
@@ -106,7 +106,36 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (!/cv: pkce\.verifier/.test(login) || !/pkce\.challenge/.test(login)) fail("login must keep the verifier in state and send the challenge");
   const cb = read("src/app/api/gate/soundcloud/callback/route.ts");
   if (!/exchangeCode\(creds, code, soundcloudRedirectUri\(\), state\.cv\)/.test(cb)) fail("the callback must exchange with the verifier from state");
+  const ex = codeExchangeBody("c0de", "https://droplr.fm/api/gate/soundcloud/callback", a.verifier);
+  if (ex.get("grant_type") !== "authorization_code" || ex.get("code") !== "c0de" || ex.get("code_verifier") !== a.verifier) fail("the code exchange body must carry the grant, the code and the verifier");
+  if (ex.has("client_secret")) fail("the code exchange's first try sends the secret in a Basic header, not the body");
   console.log("  \u2713 SoundCloud token requests use a Basic header and PKCE");
+}
+
+// SoundCloud is one connect for up to three actions. Asked for by the first artist to build a
+// gate: the builder only let SoundCloud be added once, so a follow AND a repost was impossible.
+{
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  const sc = (action: string) => ({ platform: "soundcloud", action });
+  if (duplicateStepProblem([sc("follow"), sc("like"), sc("repost")]) !== null) fail("follow, like and repost together must be allowed");
+  if (!duplicateStepProblem([sc("follow"), sc("follow")])) fail("two SoundCloud follows must be refused");
+  if (!duplicateStepProblem([{ platform: "instagram", action: "follow" }, { platform: "instagram", action: "visit" }])) fail("other platforms stay one step each");
+  if (duplicateStepProblem([{ platform: "email", action: "email" }, sc("follow"), { platform: "instagram", action: "follow" }]) !== null) fail("an ordinary gate must say nothing");
+
+  if (soundcloudLabel(["repost", "follow", "like"], "Nathan Hill") !== "Follow Nathan Hill, like and repost the track on SoundCloud") fail(`combined label reads wrong: ${soundcloudLabel(["repost", "follow", "like"], "Nathan Hill")}`);
+  if (soundcloudLabel(["like", "repost"], "N") !== "Like and repost the track on SoundCloud") fail("track-only label reads wrong");
+  if (soundcloudLabel(["follow"], "N") !== "Follow N on SoundCloud") fail("a single action keeps its own label");
+
+  const steps = [{ id: "e", platform: "email", action: "email" }, { id: "a", ...sc("follow") }, { id: "b", ...sc("repost") }, { id: "i", platform: "instagram", action: "follow" }];
+  const rows = fanRows(steps, "enforced");
+  if (rows.length !== 3) fail(`performed SoundCloud must be one row for the fan, got ${rows.length} rows`);
+  const scRow = rows.find((r) => r.platform === "soundcloud");
+  if (!scRow || scRow.id !== "a" || scRow.actions.join() !== "follow,repost") fail("the SoundCloud row must carry every action, keyed to the first step");
+  if (fanRows(steps, "voluntary").length !== 4) fail("degraded SoundCloud steps are plain visits, so each keeps its own row and link");
+  const cbSrc = readFileSync(join(import.meta.dirname, "..", "src/app/api/gate/soundcloud/callback/route.ts"), "utf8");
+  if (!/gateStep\.findMany\(\{\s*where: \{ releaseId: step\.release\.id, platform: "soundcloud" \}/.test(cbSrc)) fail("the callback must perform every SoundCloud step on the gate, not just the one clicked");
+  if (cbSrc.indexOf("if (!anonId)") < 0 || cbSrc.indexOf("if (!anonId)") > cbSrc.indexOf("performAction(token")) fail("the callback must know it can record the result before acting on the fan's account");
+  console.log("  \u2713 SoundCloud follow, like and repost are one connect");
 }
 
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -344,6 +373,18 @@ async function main() {
       steps: [{ platform: "instagram", action: "follow", target: "https://instagram.com/a" }, { platform: "instagram", action: "visit", target: "https://instagram.com/b" }],
     });
     check("two steps on one platform are refused", dupe.status === 400, String(dupe.status));
+    const scDupe = await http(ownerA, "POST", "/api/admin/downloads", {
+      title: `SCDupe ${RUN}`, artistName: "A", coverUrl: "https://example.com/c.jpg",
+      slug: `scdupe-${RUN}`, downloadUrl: "https://drive.google.com/file/d/x",
+      steps: [{ platform: "soundcloud", action: "follow", target: "https://soundcloud.com/a" }, { platform: "soundcloud", action: "follow", target: "https://soundcloud.com/b" }],
+    });
+    check("two SoundCloud follows are refused", scDupe.status === 400 && /One of each/.test(scDupe.text), `${scDupe.status} ${scDupe.text}`);
+    const scMulti = await http(ownerA, "POST", "/api/admin/downloads", {
+      title: `SCMulti ${RUN}`, artistName: "A", coverUrl: "https://example.com/c.jpg",
+      slug: `scmulti-${RUN}`, downloadUrl: "https://drive.google.com/file/d/x",
+      steps: [{ platform: "soundcloud", action: "follow", target: "https://soundcloud.com/a" }, { platform: "soundcloud", action: "repost", target: "https://soundcloud.com/a/t" }],
+    });
+    check("a follow and a repost get past the duplicate rule (then stop at the missing key)", scMulti.status === 400 && /Connect SoundCloud/.test(scMulti.text), `${scMulti.status} ${scMulti.text}`);
     const scNoKey = await http(ownerA, "POST", "/api/admin/downloads", {
       title: `SC ${RUN}`, artistName: "A", coverUrl: "https://example.com/c.jpg",
       slug: `sc-${RUN}`, downloadUrl: "https://drive.google.com/file/d/x",
@@ -357,6 +398,27 @@ async function main() {
     });
     check("a sane gate is created", ok.status === 201, String(ok.status));
     if (ok.status === 201) made.push(JSON.parse(ok.text).id);
+
+    console.log("\n12. Deleting a gate");
+    if (ok.status === 201) {
+      const gid = JSON.parse(ok.text).id as string;
+      const ownerB2 = await login(B.owner.email);
+      const crossDel = await http(ownerB2, "DELETE", `/api/admin/downloads/${gid}`);
+      check("another account can't delete it", crossDel.status === 404, String(crossDel.status));
+      check("and it's still there", (await prisma.release.count({ where: { id: gid } })) === 1);
+
+      await prisma.contest.create({ data: { organizationId: A.org.id, releaseId: gid, headline: "t", closesAt: new Date(Date.now() + 86400000) } as never });
+      const withContest = await http(ownerA, "DELETE", `/api/admin/downloads/${gid}`);
+      check("a gate with a contest attached is refused, not cascaded", withContest.status === 409 && (await prisma.contest.count({ where: { releaseId: gid } })) === 1, String(withContest.status));
+      await prisma.contest.deleteMany({ where: { releaseId: gid } });
+
+      const del = await http(ownerA, "DELETE", `/api/admin/downloads/${gid}`);
+      check("its owner can delete it", del.status === 200, String(del.status));
+      check("the gate and its steps are gone",
+        (await prisma.release.count({ where: { id: gid } })) === 0 && (await prisma.gateStep.count({ where: { releaseId: gid } })) === 0);
+      const again = await http(ownerA, "DELETE", `/api/admin/downloads/${gid}`);
+      check("deleting it twice is a 404, not an error", again.status === 404, String(again.status));
+    }
   } finally {
     await prisma.release.deleteMany({ where: { id: { in: made } } });
     await prisma.user.deleteMany({ where: { email: { contains: RUN } } });

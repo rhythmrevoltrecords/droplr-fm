@@ -168,3 +168,63 @@ export function stepLabel(platform: string, action: string, orgName: string): st
     default: return `Open ${name}`;
   }
 }
+
+/**
+ * SoundCloud can be asked for more than once on a gate — a follow, a like and a repost — because
+ * all of them are carried out after ONE connect: the fan authorises once and droplr performs every
+ * SoundCloud action on the gate with that one token. Every other platform is one step each, since
+ * each of those is a separate outbound visit.
+ *
+ * Progress is recorded per platform (GateUnlock.via), and that still holds: the SoundCloud
+ * actions complete together or not at all.
+ */
+export const SOUNDCLOUD_ACTION_ORDER: readonly GateAction[] = ["follow", "like", "repost"];
+
+export const repeatsByAction = (platform: string) => platform === "soundcloud";
+
+/** The first reason these steps can't be saved together, or null. Pure, so the builder and the API agree. */
+export function duplicateStepProblem(steps: { platform: string; action: string }[]): string | null {
+  const seen = new Set<string>();
+  for (const s of steps) {
+    const key = repeatsByAction(s.platform) ? `${s.platform}:${s.action}` : s.platform;
+    if (seen.has(key)) {
+      const label = isGatePlatform(s.platform) ? GATE_PLATFORMS[s.platform].label : s.platform;
+      return repeatsByAction(s.platform)
+        ? `You've got two ${label} ${s.action} steps. One of each.`
+        : `You've got two ${label} steps. One each.`;
+    }
+    seen.add(key);
+  }
+  return null;
+}
+
+/** "Follow X, like and repost the track on SoundCloud" — one sentence for one connect. */
+export function soundcloudLabel(actions: string[], orgName: string): string {
+  const ordered = SOUNDCLOUD_ACTION_ORDER.filter((a) => actions.includes(a));
+  if (ordered.length <= 1) return stepLabel("soundcloud", ordered[0] ?? "follow", orgName);
+  const follow = ordered.includes("follow");
+  const track = ordered.filter((a) => a !== "follow");
+  const trackPart = track.length ? `${track.join(" and ")} the track` : "";
+  if (!follow) return `${trackPart.charAt(0).toUpperCase()}${trackPart.slice(1)} on SoundCloud`;
+  return `Follow ${orgName}${trackPart ? `, ${trackPart}` : ""} on SoundCloud`;
+}
+
+/**
+ * The rows a fan sees. While SoundCloud is performed, its steps collapse into one row with one
+ * Connect button. When it is degraded each step is a plain visit to its own link, so they stay
+ * separate — one row can only open one link.
+ */
+export function fanRows<T extends { platform: string; action: string }>(steps: T[], enforcement: Enforcement): (T & { actions: string[] })[] {
+  const out: (T & { actions: string[] })[] = [];
+  let sc: (T & { actions: string[] }) | null = null;
+  for (const s of steps) {
+    if (s.platform === "soundcloud" && isPerforming("soundcloud", enforcement)) {
+      if (sc) { sc.actions.push(s.action); continue; }
+      sc = { ...s, actions: [s.action] };
+      out.push(sc);
+      continue;
+    }
+    out.push({ ...s, actions: [s.action] });
+  }
+  return out;
+}
