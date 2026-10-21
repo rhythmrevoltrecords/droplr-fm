@@ -106,17 +106,20 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (!/cv: pkce\.verifier/.test(login) || !/pkce\.challenge/.test(login)) fail("login must keep the verifier in state and send the challenge");
   const cb = read("src/app/api/gate/soundcloud/callback/route.ts");
   if (!/exchangeCode\(creds, code, soundcloudRedirectUri\(\), state\.cv\)/.test(cb)) fail("the callback must exchange with the verifier from state");
-  const ex = codeExchangeBody("abc123", "c0de", "https://droplr.fm/api/gate/soundcloud/callback", a.verifier);
-  // Measured 22 Oct: without client_id in the body SoundCloud answers 400 invalid_request.
-  if (ex.get("client_id") !== "abc123") fail("the code exchange must carry client_id in the body: SoundCloud refuses it with 400 otherwise");
+  // Measured 22 Oct with a real key: this grant needs client_id AND client_secret in the body.
+  // Without client_id: 400 invalid_request. Secret in a Basic header: 401 invalid_client.
+  const ex = codeExchangeBody({ clientId: "abc123", clientSecret: "s3cr:et" }, "c0de", "https://droplr.fm/api/gate/soundcloud/callback", a.verifier);
   if (ex.get("grant_type") !== "authorization_code" || ex.get("code") !== "c0de" || ex.get("code_verifier") !== a.verifier) fail("the code exchange body must carry the grant, the code and the verifier");
-  if (ex.has("client_secret")) fail("the code exchange's first try sends the secret in a Basic header, not the body");
+  if (ex.get("client_id") !== "abc123") fail("the code exchange must carry client_id in the body: SoundCloud refuses it with 400 otherwise");
+  if (ex.get("client_secret") !== "s3cr:et") fail("the code exchange must carry client_secret in the body: SoundCloud refuses a Basic header for this grant");
+  const exSrc = lib.slice(lib.indexOf("export async function exchangeCode"), lib.indexOf("\n}\n", lib.indexOf("export async function exchangeCode")));
+  if (/Authorization/.test(exSrc)) fail("the code exchange must not send a Basic header: SoundCloud answers 401 invalid_client to it");
   const cbFails = read("src/app/api/gate/soundcloud/callback/route.ts").match(/return fail\(/g)?.length ?? 0;
   const cbSrc2 = read("src/app/api/gate/soundcloud/callback/route.ts");
   const cbFailsLogged = cbSrc2.match(/return fail\("[a-z-]+", (?:"[^"]{8,}"|`[^`]{8,}`|String\(e)/g)?.length ?? 0;
   if (!/const fail = \(why: string, detail: string\) => \{\s*console\.warn\(`SoundCloud gate callback: \$\{why\} \(\$\{detail\}\)`\);/.test(cbSrc2)) fail("fail() in the callback must log the reason before redirecting");
   if (cbFails === 0 || cbFails !== cbFailsLogged) fail(`every failure in the callback must say why in the log (${cbFailsLogged} of ${cbFails} do)`);
-  console.log("  \u2713 SoundCloud token requests use a Basic header and PKCE");
+  console.log("  \u2713 SoundCloud token requests: Basic for client credentials, body for the code exchange, PKCE");
 }
 
 // SoundCloud is one connect for up to three actions. Asked for by the first artist to build a
