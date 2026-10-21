@@ -164,11 +164,11 @@ const auth = (token: string) => ({ Authorization: `OAuth ${token}`, Accept: "app
  * Stored at save time so a later username change can't silently break every gate pointing at
  * that account — SoundCloud URLs are mutable, ids are not.
  */
-export async function resolveId(token: string, url: string): Promise<{ id: number; username?: string; kind?: string } | null> {
+export async function resolveId(token: string, url: string): Promise<{ id: number; username?: string; kind?: string; sharing?: string } | null> {
   const res = await fetch(`${API}/resolve?url=${encodeURIComponent(url)}`, { headers: auth(token) });
   if (!res.ok) return null;
-  const json = (await res.json()) as { id?: number; username?: string; permalink?: string; kind?: string };
-  return typeof json.id === "number" ? { id: json.id, username: json.username ?? json.permalink, kind: json.kind } : null;
+  const json = (await res.json()) as { id?: number; username?: string; permalink?: string; kind?: string; sharing?: string };
+  return typeof json.id === "number" ? { id: json.id, username: json.username ?? json.permalink, kind: json.kind, sharing: json.sharing } : null;
 }
 
 export async function me(token: string): Promise<{ id: number; username: string } | null> {
