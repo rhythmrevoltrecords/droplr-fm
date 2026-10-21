@@ -1,3 +1,4 @@
+import { createHash, randomBytes } from "node:crypto";
 import { prisma } from "./db";
 import { SITE_URL } from "./env";
 import { decrypt } from "./crypto";
@@ -23,9 +24,6 @@ import { decrypt } from "./crypto";
 
 const API = "https://api.soundcloud.com";
 const AUTH = "https://secure.soundcloud.com";
-
-/** Perform actions on the fan's behalf, and read their profile to record who unlocked. */
-export const SOUNDCLOUD_SCOPES = ["non-expiring"];
 
 export type SoundCloudCreds = { clientId: string; clientSecret: string; source: "byo" | "platform" };
 
@@ -62,19 +60,36 @@ export function parseSoundCloudUrl(input: string): { url: string; isTrack: boole
   return { url: `https://soundcloud.com/${parts.join("/")}`, isTrack: parts.length > 1 };
 }
 
-export function soundcloudAuthorizeUrl(creds: SoundCloudCreds, redirectUri: string, state: string) {
+/**
+ * PKCE, which SoundCloud requires on the authorization-code flow (OAuth 2.1). The verifier is
+ * 32 random bytes as base64url (43 characters, inside RFC 7636's 43–128), and the challenge is
+ * its SHA-256, base64url, no padding. Without these SoundCloud refuses the authorise step, so a
+ * gate looked connected in settings and failed on every fan's screen.
+ */
+export function codeChallenge(verifier: string) {
+  return createHash("sha256").update(verifier).digest("base64url");
+}
+
+export function pkcePair() {
+  const verifier = randomBytes(32).toString("base64url");
+  return { verifier, challenge: codeChallenge(verifier) };
+}
+
+/** No scope parameter: SoundCloud's guide documents none for /authorize, and an unknown one is a way to be refused. */
+export function soundcloudAuthorizeUrl(creds: SoundCloudCreds, redirectUri: string, state: string, challenge: string) {
   const u = new URL(`${AUTH}/authorize`);
   u.searchParams.set("client_id", creds.clientId);
   u.searchParams.set("redirect_uri", redirectUri);
   u.searchParams.set("response_type", "code");
-  u.searchParams.set("scope", SOUNDCLOUD_SCOPES.join(" "));
+  u.searchParams.set("code_challenge", challenge);
+  u.searchParams.set("code_challenge_method", "S256");
   u.searchParams.set("state", state);
   return u.toString();
 }
 
 type TokenResponse = { access_token: string; refresh_token?: string; expires_in?: number };
 
-export async function exchangeCode(creds: SoundCloudCreds, code: string, redirectUri: string): Promise<TokenResponse> {
+export async function exchangeCode(creds: SoundCloudCreds, code: string, redirectUri: string, codeVerifier: string): Promise<TokenResponse> {
   const res = await fetch(`${AUTH}/oauth/token`, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json; charset=utf-8" },
@@ -83,6 +98,7 @@ export async function exchangeCode(creds: SoundCloudCreds, code: string, redirec
       client_id: creds.clientId,
       client_secret: creds.clientSecret,
       redirect_uri: redirectUri,
+      code_verifier: codeVerifier,
       code,
     }),
   });
@@ -90,14 +106,38 @@ export async function exchangeCode(creds: SoundCloudCreds, code: string, redirec
   return res.json();
 }
 
+/**
+ * The client-credentials request, as SoundCloud documents it: the ID and secret in a Basic
+ * Authorization header and only the grant type in the body. Sending them in the body instead is
+ * refused with 401 invalid_client — measured with a real Artist Pro key on 22 Oct 2026: body
+ * 401, Basic 200, same key. Pure, so the shape is testable without the network.
+ */
+export function clientCredentialsRequest(creds: Pick<SoundCloudCreds, "clientId" | "clientSecret">) {
+  const basic = Buffer.from(`${creds.clientId}:${creds.clientSecret}`, "utf8").toString("base64");
+  return {
+    url: `${AUTH}/oauth/token`,
+    init: {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded",
+        Accept: "application/json; charset=utf-8",
+        Authorization: `Basic ${basic}`,
+      },
+      body: new URLSearchParams({ grant_type: "client_credentials" }).toString(),
+    } satisfies RequestInit,
+  };
+}
+
 /** Client-credentials token, used to check a key works and to resolve public URLs to ids. */
 export async function clientCredentialsToken(creds: SoundCloudCreds): Promise<string | null> {
-  const res = await fetch(`${AUTH}/oauth/token`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json; charset=utf-8" },
-    body: new URLSearchParams({ grant_type: "client_credentials", client_id: creds.clientId, client_secret: creds.clientSecret }),
-  });
-  if (!res.ok) return null;
+  const { url, init } = clientCredentialsRequest(creds);
+  const res = await fetch(url, init);
+  if (!res.ok) {
+    // Status only, never the body or the key: this is what the function log needs to tell a bad
+    // key (401) from SoundCloud being down (5xx) or rate limiting (429).
+    console.warn(`SoundCloud client_credentials refused: HTTP ${res.status} (${creds.source})`);
+    return null;
+  }
   const json = (await res.json()) as TokenResponse;
   return json.access_token ?? null;
 }

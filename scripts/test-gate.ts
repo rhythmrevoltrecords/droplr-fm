@@ -20,7 +20,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
 import { downloadUrlProblem, effectiveProof, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
-import { isActionSuccess } from "../src/lib/soundcloud";
+import { clientCredentialsRequest, codeChallenge, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name];
@@ -69,6 +69,44 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (!/\/reposts\/tracks\/\$\{targetId\}/.test(sc)) fail("repost must use /reposts/tracks/{id}");
   if (!/action === "follow" \? "PUT" : "POST"/.test(sc)) fail("follow is a PUT; like and repost are POSTs");
   console.log("  \u2713 performed steps pass only when SoundCloud says the action holds");
+}
+
+// How droplr talks to SoundCloud's token endpoint. Both of these shipped wrong and nothing caught
+// it until the first real artist connected: the key check sent the ID and secret in the body
+// (SoundCloud answers 401 invalid_client; the same key in a Basic header gets 200), and the fan
+// flow had no PKCE, which SoundCloud requires. Every gate looked fine in tests and failed live.
+{
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+
+  const { url, init } = clientCredentialsRequest({ clientId: "abc123", clientSecret: "s3cr:et" });
+  if (url !== "https://secure.soundcloud.com/oauth/token") fail(`client credentials go to secure.soundcloud.com/oauth/token, not ${url}`);
+  const authz = (init.headers as Record<string, string>).Authorization;
+  if (authz !== `Basic ${Buffer.from("abc123:s3cr:et").toString("base64")}`) fail("client credentials must be a Basic header of id:secret");
+  const body = new URLSearchParams(String(init.body));
+  if (body.get("grant_type") !== "client_credentials") fail("grant_type=client_credentials must be in the body");
+  if (body.has("client_secret") || body.has("client_id")) fail("the ID and secret must not be in the body: SoundCloud refuses that with 401");
+
+  // RFC 7636 Appendix B: the published verifier/challenge pair.
+  if (codeChallenge("dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk") !== "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM") fail("code_challenge must be base64url(SHA-256(verifier)) with no padding");
+  const a = pkcePair(), b = pkcePair();
+  if (!/^[A-Za-z0-9_-]{43,128}$/.test(a.verifier)) fail("verifier must be 43–128 unreserved characters");
+  if (a.challenge !== codeChallenge(a.verifier)) fail("the pair's challenge must come from its verifier");
+  if (a.verifier === b.verifier) fail("each authorisation needs a fresh verifier");
+
+  const au = new URL(soundcloudAuthorizeUrl({ clientId: "abc123", clientSecret: "x", source: "byo" }, "https://droplr.fm/api/gate/soundcloud/callback", "st", a.challenge));
+  if (au.searchParams.get("code_challenge") !== a.challenge) fail("authorise must carry the code_challenge");
+  if (au.searchParams.get("code_challenge_method") !== "S256") fail("authorise must say code_challenge_method=S256");
+  if (au.searchParams.has("scope")) fail("no scope on authorise: SoundCloud documents none");
+  if (au.searchParams.has("client_secret")) fail("the secret must never be in a URL a fan's browser sees");
+
+  const read = (f: string) => readFileSync(join(import.meta.dirname, "..", f), "utf8");
+  const lib = read("src/lib/soundcloud.ts");
+  if (!/code_verifier: codeVerifier/.test(lib)) fail("the code exchange must send code_verifier");
+  const login = read("src/app/api/gate/soundcloud/login/route.ts");
+  if (!/cv: pkce\.verifier/.test(login) || !/pkce\.challenge/.test(login)) fail("login must keep the verifier in state and send the challenge");
+  const cb = read("src/app/api/gate/soundcloud/callback/route.ts");
+  if (!/exchangeCode\(creds, code, soundcloudRedirectUri\(\), state\.cv\)/.test(cb)) fail("the callback must exchange with the verifier from state");
+  console.log("  \u2713 SoundCloud token requests use a Basic header and PKCE");
 }
 
 const BASE = (process.env.BASE_URL || "http://localhost:3000").replace(/\/$/, "");
