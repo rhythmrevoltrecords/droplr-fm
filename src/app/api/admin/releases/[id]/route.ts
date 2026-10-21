@@ -30,6 +30,8 @@ const schema = z.object({
   isrc: z.string().max(20).optional(),
   autoReResolve: z.boolean().optional(),
   isPublic: z.boolean().optional(),
+  /** Only "on" is stored; null means no social icons on the release page. */
+  socialIcons: z.enum(["on"]).nullable().optional().or(z.literal("")),
   rollout: z.enum(["local", "global"]).optional(),
   // Intent only: nothing is shared with anyone until the unreleased pool exists.
   poolOptIn: z.boolean().optional(),
@@ -54,6 +56,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   const d = parsed.data;
   const data: Record<string, unknown> = {};
   for (const k of ["title", "artistName", "coverUrl", "accentColor", "autoReResolve", "isPublic", "rollout"] as const) if (d[k] !== undefined) data[k] = d[k];
+  if (d.socialIcons !== undefined) data.socialIcons = d.socialIcons || null;
   // Interest flag: stamp when it was ticked so we know who asked for the pool first.
   if (d.poolOptIn !== undefined) {
     data.poolOptIn = d.poolOptIn;

@@ -5,6 +5,7 @@ import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
 import { BioItemsEditor } from "@/components/admin/bio-items-editor";
 import { itemOut, merchDisplayOf, visibleItems } from "@/lib/bio-items";
+import { socialsFor } from "@/lib/bio-socials";
 import { QrDownload } from "@/components/admin/qr-download";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -43,7 +44,7 @@ export default async function EditBio(
   const days = statsRange(searchParams.days, plan.insightsDays);
   const [stats, artists, previewReleases, labelBadges, linkedLabels] = await Promise.all([
     getBioStats(page.id, days, user.organization.timezone),
-    prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    prisma.artist.findMany({ where: { organizationId: user.organizationId, status: { not: "alumni" } }, orderBy: { name: "asc" }, select: { id: true, name: true, socialLinks: true } }),
     // Forced "on": the preview has to show what ticking the box would publish, which is the
     // only honest way to offer an opt-in. The form itself gates on the toggle.
     bioReleaseFor({ ...page, releaseBlock: "on" }, user.organization),
@@ -116,10 +117,10 @@ export default async function EditBio(
           <BioForm
             mode="edit"
             id={page.id}
-            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", gallery: page.gallery ?? "", isPublic: page.isPublic }}
+            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", gallery: page.gallery ?? "", socialIcons: page.socialIcons ?? "", isPublic: page.isPublic }}
             previewLinks={buttons.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl }))}
             glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
-            artists={artists}
+            artists={artists.map((a) => ({ id: a.id, name: a.name }))}
             previewReleases={previewReleases}
             labelBadges={labelBadges}
             linkedLabels={linkedLabels}
@@ -128,6 +129,7 @@ export default async function EditBio(
             previewMerch={visibleItems(merch, "merch")}
             previewVideos={visibleItems(videos, "video")}
             previewMerchDisplay={merchDisplayOf(page)}
+            socialsFor={socialsFor(artists, user.organization.kind)}
           />
         </CardContent>
       </Card>

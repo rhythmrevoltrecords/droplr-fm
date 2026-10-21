@@ -6,9 +6,15 @@ import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme
 import { isMailto } from "@/lib/platforms";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { PlatformIcon } from "./platform-icon";
+import { SocialIcons, type SocialIcon } from "./social-icons";
 import { TimezoneField } from "./timezone-field";
 
 export type ReleaseViewData = {
+  /**
+   * The icon row under the artist line, already resolved (lib/bio-socials). Empty when the release's
+   * box is off or the profile has none. Required, not optional, so no caller can forget it.
+   */
+  socials: SocialIcon[];
   id: string;
   title: string;
   artistName: string;
@@ -96,7 +102,11 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
           eyebrow={live ? "Out now" : `Out ${formatInTz(new Date(release.releaseDate), release.org.timezone, { dateStyle: "medium" })}`}
           title={release.title}
           subtitle={release.artistName}
-        />
+        >
+          {/* Under the artist line: where to follow the person who made this, read from their
+              profile. Every icon is a counted tap through /api/r/social. */}
+          <SocialIcons icons={release.socials} className="mt-3" />
+        </ArtworkHero>
 
         {notice && (
           <div role="status" className={`mt-5 rounded-xl px-4 py-3 text-sm ${notice.tone === "ok" ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30" : "bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/30"}`}>

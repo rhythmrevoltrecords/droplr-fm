@@ -29,6 +29,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.font !== undefined) data.font = d.font || null;
   if (d.releaseBlock !== undefined) data.releaseBlock = d.releaseBlock || null;
   if (d.subscribe !== undefined) data.subscribe = d.subscribe || null;
+  if (d.socialIcons !== undefined) data.socialIcons = d.socialIcons || null;
   if (d.subscribeText !== undefined) data.subscribeText = d.subscribeText || null;
   if (d.sectionOrder !== undefined) data.sectionOrder = storedOrder(d.sectionOrder);
   if (d.gallery !== undefined) {
