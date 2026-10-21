@@ -106,9 +106,16 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (!/cv: pkce\.verifier/.test(login) || !/pkce\.challenge/.test(login)) fail("login must keep the verifier in state and send the challenge");
   const cb = read("src/app/api/gate/soundcloud/callback/route.ts");
   if (!/exchangeCode\(creds, code, soundcloudRedirectUri\(\), state\.cv\)/.test(cb)) fail("the callback must exchange with the verifier from state");
-  const ex = codeExchangeBody("c0de", "https://droplr.fm/api/gate/soundcloud/callback", a.verifier);
+  const ex = codeExchangeBody("abc123", "c0de", "https://droplr.fm/api/gate/soundcloud/callback", a.verifier);
+  // Measured 22 Oct: without client_id in the body SoundCloud answers 400 invalid_request.
+  if (ex.get("client_id") !== "abc123") fail("the code exchange must carry client_id in the body: SoundCloud refuses it with 400 otherwise");
   if (ex.get("grant_type") !== "authorization_code" || ex.get("code") !== "c0de" || ex.get("code_verifier") !== a.verifier) fail("the code exchange body must carry the grant, the code and the verifier");
   if (ex.has("client_secret")) fail("the code exchange's first try sends the secret in a Basic header, not the body");
+  const cbFails = read("src/app/api/gate/soundcloud/callback/route.ts").match(/return fail\(/g)?.length ?? 0;
+  const cbSrc2 = read("src/app/api/gate/soundcloud/callback/route.ts");
+  const cbFailsLogged = cbSrc2.match(/return fail\("[a-z-]+", (?:"[^"]{8,}"|`[^`]{8,}`|String\(e)/g)?.length ?? 0;
+  if (!/const fail = \(why: string, detail: string\) => \{\s*console\.warn\(`SoundCloud gate callback: \$\{why\} \(\$\{detail\}\)`\);/.test(cbSrc2)) fail("fail() in the callback must log the reason before redirecting");
+  if (cbFails === 0 || cbFails !== cbFailsLogged) fail(`every failure in the callback must say why in the log (${cbFailsLogged} of ${cbFails} do)`);
   console.log("  \u2713 SoundCloud token requests use a Basic header and PKCE");
 }
 

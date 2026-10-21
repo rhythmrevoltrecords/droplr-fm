@@ -24,14 +24,19 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const state = unpackState(req.nextUrl.searchParams.get("state"));
   const back = await safeReturnUrl(state?.ret, SITE_URL);
-  const fail = (why: string) => NextResponse.redirect(withParam(back, "notice", why), 302);
+  // Every way out of this route that isn't success says why in the function log. On 22 Oct one
+  // failed callback left no trace at all, and "I can't tell" cost a round trip.
+  const fail = (why: string, detail: string) => {
+    console.warn(`SoundCloud gate callback: ${why} (${detail})`);
+    return NextResponse.redirect(withParam(back, "notice", why), 302);
+  };
 
-  if (!state?.rid || !state.vid) return fail("error");
+  if (!state?.rid || !state.vid) return fail("error", "state missing, expired or unreadable");
   const code = req.nextUrl.searchParams.get("code");
   // They pressed cancel on SoundCloud's screen. Not an error — just an unfinished step.
   if (!code) return NextResponse.redirect(withParam(back, "notice", "soundcloud-cancelled"), 302);
   // A state from before PKCE (or one without a verifier) can't be exchanged: SoundCloud would refuse it.
-  if (!state.cv) return fail("soundcloud-failed");
+  if (!state.cv) return fail("soundcloud-failed", "state has no PKCE verifier");
 
   const step = await prisma.gateStep.findUnique({
     where: { id: state.vid },
@@ -43,23 +48,22 @@ export async function GET(req: NextRequest) {
     step.release.id !== state.rid || step.release.organizationId !== state.org ||
     step.release.kind !== "download" || !step.release.isPublic
   ) {
-    return fail("error");
+    return fail("error", "step does not match the state");
   }
 
   const creds = await getSoundCloudCreds(step.release.organizationId);
-  if (!creds) return fail("soundcloud-unavailable");
+  if (!creds) return fail("soundcloud-unavailable", "no SoundCloud keys for this account");
 
   let token: string;
   try {
     token = (await exchangeCode(creds, code, soundcloudRedirectUri(), state.cv)).access_token;
   } catch (e) {
-    console.warn(String(e instanceof Error ? e.message : e));
-    return fail("soundcloud-failed");
+    return fail("soundcloud-failed", String(e instanceof Error ? e.message : e));
   }
 
   // Before acting on the fan's account: if droplr couldn't record the result, it mustn't act.
   const anonId = state.anon;
-  if (!anonId) return fail("error");
+  if (!anonId) return fail("error", "no visitor id in state");
 
   // Every SoundCloud action on this gate, performed with the one token the fan just granted.
   // Progress is per platform, so the step is only marked done if all of them succeeded; a retry
@@ -73,11 +77,10 @@ export async function GET(req: NextRequest) {
   for (const s of scSteps) {
     const targetId = Number(s.targetId);
     if (!Number.isFinite(targetId) || targetId <= 0) {
-      console.warn(`SoundCloud ${s.action} step has no resolved id; re-save the gate`);
-      return fail("soundcloud-failed");
+      return fail("soundcloud-failed", `${s.action} step has no resolved id; re-save the gate`);
     }
     const action = s.action === "like" || s.action === "repost" ? s.action : "follow";
-    if (!(await performAction(token, action, targetId))) return fail("soundcloud-failed");
+    if (!(await performAction(token, action, targetId))) return fail("soundcloud-failed", `${action} refused, see the line above`);
   }
 
   const meta = requestMeta(req.headers);
