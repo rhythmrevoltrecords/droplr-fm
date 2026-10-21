@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GATE_PLATFORMS, isGatePlatform, type GatePlatform } from "@/lib/downloads";
+import { GATE_PLATFORMS, duplicateStepProblem, isGatePlatform, type GatePlatform } from "@/lib/downloads";
 import { clientCredentialsToken, getSoundCloudCreds, parseSoundCloudUrl, resolveId } from "@/lib/soundcloud";
 import { soundcloudGateEnforcement } from "@/lib/env";
 
@@ -32,7 +32,8 @@ export async function resolveGateSteps(
   input: GateStepInput[],
 ): Promise<{ steps: { position: number; platform: string; action: string; target: string | null; targetId: string | null; required: boolean }[] } | { error: string }> {
   const out: { position: number; platform: string; action: string; target: string | null; targetId: string | null; required: boolean }[] = [];
-  const seen = new Set<string>();
+  const dup = duplicateStepProblem(input);
+  if (dup) return { error: dup };
   let scToken: string | null | undefined;
 
   for (const [i, s] of input.entries()) {
@@ -42,9 +43,6 @@ export async function resolveGateSteps(
     if (!spec.actions.includes(s.action as never)) {
       return { error: `${spec.label} can't do "${s.action}".` };
     }
-    // Progress is recorded per platform, so two steps on one platform could never both complete.
-    if (seen.has(platform)) return { error: `You've got two ${spec.label} steps. One each.` };
-    seen.add(platform);
 
     const target = s.target?.trim() || null;
     if (spec.needsTarget && !target) return { error: `The ${spec.label} step needs a link.` };
