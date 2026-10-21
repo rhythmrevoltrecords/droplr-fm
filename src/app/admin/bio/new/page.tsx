@@ -5,6 +5,7 @@ import { bioReleaseFor } from "@/lib/bio-release-server";
 import { linkedLabelNames } from "@/lib/bio-roster";
 import { prisma } from "@/lib/db";
 import { planOf } from "@/lib/plans";
+import { DEFAULT_MERCH_DISPLAY } from "@/lib/bio-items";
 import { slugify } from "@/lib/utils";
 
 export default async function NewBio() {
@@ -33,6 +34,7 @@ export default async function NewBio() {
         showBranding={!planOf(user.organization.plan).removeBranding}
         previewMerch={[]}
         previewVideos={[]}
+        previewMerchDisplay={DEFAULT_MERCH_DISPLAY}
         previewLinks={[{ id: "p1", platform: "spotify", label: "Latest release" }, { id: "p2", platform: "bandcamp", label: "Merch" }]}
       />
     </div>

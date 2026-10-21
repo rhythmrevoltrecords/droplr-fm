@@ -3,7 +3,7 @@ import { Loader2, Upload } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { LabelBadge } from "@/lib/bio-label";
-import { isOwnImage, type BioItem } from "@/lib/bio-items";
+import { isOwnImage, type BioItem, type MerchDisplay } from "@/lib/bio-items";
 import { SITE_URL } from "@/lib/env";
 import { labelBadgeLine } from "@/lib/bio-label";
 import { bioFontClass } from "@/components/public/bio-fonts";
@@ -33,6 +33,7 @@ export function BioForm({
   glow,
   previewMerch,
   previewVideos,
+  previewMerchDisplay,
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -59,6 +60,7 @@ export function BioForm({
   /** The merch and video blocks as they are saved. Required for the same reason `glow` is. */
   previewMerch: BioItem[];
   previewVideos: BioItem[];
+  previewMerchDisplay: MerchDisplay;
 }) {
   const router = useRouter();
   const [v, setV] = useState<Values>(initial);
@@ -404,7 +406,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks, merch: previewMerch, videos: previewVideos }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks, merch: previewMerch, videos: previewVideos, merchDisplay: previewMerchDisplay }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

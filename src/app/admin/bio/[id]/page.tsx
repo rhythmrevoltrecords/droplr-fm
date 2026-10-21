@@ -4,7 +4,7 @@ import { BioForm } from "@/components/admin/bio-form";
 import { CopyButton } from "@/components/admin/copy-button";
 import { LinkEditor } from "@/components/admin/link-editor";
 import { BioItemsEditor } from "@/components/admin/bio-items-editor";
-import { itemOut, visibleItems } from "@/lib/bio-items";
+import { itemOut, merchDisplayOf, visibleItems } from "@/lib/bio-items";
 import { QrDownload } from "@/components/admin/qr-download";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -93,10 +93,10 @@ export default async function EditBio(
       <Card>
         <CardHeader>
           <CardTitle>Videos</CardTitle>
-          <CardDescription>Paste a YouTube link. The title and picture are filled in for you, and the video plays right on your page.</CardDescription>
+          <CardDescription>Paste a YouTube link. The title and picture are filled in for you. Each video shows as a small tile fans tap to open, unless you feature it with the star, which keeps it full size on the page.</CardDescription>
         </CardHeader>
         <CardContent>
-          <BioItemsEditor section="video" saveUrl={`/api/admin/bio/${page.id}/links?section=video`} initial={videos.map(itemOut)} />
+          <BioItemsEditor section="video" saveUrl={`/api/admin/bio/${page.id}/links?section=video`} initial={videos.map(itemOut)} initialDisplay={null} />
         </CardContent>
       </Card>
 
@@ -106,7 +106,7 @@ export default async function EditBio(
           <CardDescription>A picture and a name for each thing you sell, each one linking to wherever you sell it.</CardDescription>
         </CardHeader>
         <CardContent>
-          <BioItemsEditor section="merch" saveUrl={`/api/admin/bio/${page.id}/links?section=merch`} initial={merch.map(itemOut)} />
+          <BioItemsEditor section="merch" saveUrl={`/api/admin/bio/${page.id}/links?section=merch`} initial={merch.map(itemOut)} initialDisplay={merchDisplayOf(page)} />
         </CardContent>
       </Card>
 
@@ -127,6 +127,7 @@ export default async function EditBio(
             showBranding={!plan.removeBranding}
             previewMerch={visibleItems(merch, "merch")}
             previewVideos={visibleItems(videos, "video")}
+            previewMerchDisplay={merchDisplayOf(page)}
           />
         </CardContent>
       </Card>

@@ -9,7 +9,7 @@ import { prisma } from "@/lib/db";
 import { bioPublicUrl } from "@/lib/bio";
 import { showSubscribe } from "@/lib/bio-subscribe";
 import { sectionOrder } from "@/lib/bio-sections";
-import { visibleItems } from "@/lib/bio-items";
+import { merchDisplayOf, visibleItems } from "@/lib/bio-items";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
@@ -87,7 +87,7 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
     bioLabelBadges(page, page.organization),
   ]);
 
-  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, merch: visibleItems(page.links, "merch"), videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
+  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, merch: visibleItems(page.links, "merch"), merchDisplay: merchDisplayOf(page), videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
 
   return (
     <BioView

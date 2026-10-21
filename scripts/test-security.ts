@@ -1876,6 +1876,21 @@ async function main() {
       const tap = await http(null, "GET", `/api/b/${shown.id}`);
       check("a merch tap goes through the counted redirect", tap.status === 302 && tap.location === "https://shop.example/a", `${tap.status} ${tap.location}`);
 
+      // How merch sits: the default is one button; the owner's choice reaches only their own page.
+      const before = await http(null, "GET", `/b/${A.bio.slug}`);
+      check("merch starts behind one button", before.text.includes("<summary") && before.text.includes(`Shown ${RUN}`));
+      const disp = await http(ownerA, "PUT", merchUrl, { items: (await aMerch()).map((l) => ({ id: l.id, name: l.label, url: l.url, imageUrl: l.iconUrl, visible: l.isActive })), display: { show: "page", layout: "carousel" } });
+      const aLook = await prisma.bioPage.findUnique({ where: { id: A.bio.id } });
+      const bLook = await prisma.bioPage.findUnique({ where: { id: B.bio.id } });
+      check("A's merch look is saved", disp.status === 200 && aLook?.merchShow === "page" && aLook?.merchLayout === "carousel", `${disp.status} ${aLook?.merchShow} ${aLook?.merchLayout}`);
+      check("…and B's is untouched", bLook?.merchShow === null && bLook?.merchLayout === null);
+      const after = await http(null, "GET", `/b/${A.bio.slug}`);
+      check("on the page as a carousel, the public page follows", after.text.includes("snap-x") && after.text.includes(`Shown ${RUN}`));
+      const bad = await http(ownerA, "PUT", merchUrl, { items: [], display: { show: "popup", layout: "tiles" } });
+      check("a look the editor can't send is refused and writes nothing", bad.status === 400 && (await aMerch()).length > 0);
+      await http(ownerA, "PUT", `/api/admin/bio/${B.bio.id}/links?section=merch`, { items: [], display: { show: "page", layout: "carousel" } });
+      check("A can't set B's merch look", (await prisma.bioPage.findUnique({ where: { id: B.bio.id } }))?.merchShow === null);
+
       // The gallery: opt-in, public only, never B's switch flipped by A (asserted in section 1).
       const gallery = async () => (await http(null, "GET", "/b")).text;
       check("a page nobody listed is not in the gallery", !(await gallery()).includes(A.bio.slug));
