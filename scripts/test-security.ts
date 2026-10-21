@@ -138,7 +138,7 @@ async function main() {
       // says so. No link here, so it has to behave exactly like every other release route.
       ["GET", `/admin/clips/${rid}`],
       ["GET", `/admin/bio/${B.bio.id}`],
-      ["PATCH", `/api/admin/releases/${rid}`, { title: "pwned" }],
+      ["PATCH", `/api/admin/releases/${rid}`, { title: "pwned", socialIcons: "on" }],
       ["DELETE", `/api/admin/releases/${rid}`],
       ["PUT", `/api/admin/releases/${rid}/links`, { links: [{ platform: "spotify", url: "https://evil.example/x", visible: true }] }],
       ["POST", `/api/admin/releases/${rid}/variants`, { slug: "pwn" }],
@@ -148,7 +148,7 @@ async function main() {
       ["GET", `/api/admin/releases/${rid}/export?type=clicks`],
       // theme/font go through the same PATCH and the same guard; included so the payload the
       // route actually accepts is the payload this test tries, not an older subset of it.
-      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned", sectionOrder: "subscribe,links,release,catalogue", gallery: "on" }],
+      ["PATCH", `/api/admin/bio/${B.bio.id}`, { title: "pwned", theme: "poster", font: "typewriter", subscribe: "on", subscribeText: "pwned", sectionOrder: "subscribe,links,release,catalogue", gallery: "on", socialIcons: "on" }],
       ["DELETE", `/api/admin/bio/${B.bio.id}`],
       ["PUT", `/api/admin/bio/${B.bio.id}/links`, { links: [] }],
       ["PUT", `/api/admin/bio/${B.bio.id}/links?section=merch`, { items: [] }],
@@ -168,10 +168,12 @@ async function main() {
     await http(ownerA, "DELETE", `/api/admin/artists?inviteId=${B.invite.id}`);
 
     const bNow = await prisma.release.findUnique({ where: { id: rid }, include: { links: true, linkVariants: true, preSaves: true } });
+    check("B release's social icons not switched on by A", bNow?.socialIcons === null, String(bNow?.socialIcons));
     check("B release untouched", !!bNow && bNow.title === "Secret b" && bNow.links.length === 1 && bNow.links[0].url.includes("open.spotify.com") && bNow.linkVariants.length === 1 && bNow.preSaves.length === 1);
     const bBio = await prisma.bioPage.findUnique({ where: { id: B.bio.id }, include: { links: true } });
     check("B bio section order untouched", bBio?.sectionOrder === null, String(bBio?.sectionOrder));
     check("B bio not put in the gallery by A", bBio?.gallery === null && bBio?.galleryAt === null, String(bBio?.gallery));
+    check("B bio's social icons not switched on by A", bBio?.socialIcons === null, String(bBio?.socialIcons));
     check("B bio untouched", !!bBio && bBio.title === "Bio b" && bBio.links.length === 1 && !bBio.links[0].url.includes("evil"));
     check("B bio look untouched", !!bBio && bBio.theme === null && bBio.font === null, `theme=${bBio?.theme} font=${bBio?.font}`);
     check("B artist not removed", !!(await prisma.user.findUnique({ where: { id: B.artist.id } })));
@@ -1913,6 +1915,79 @@ async function main() {
       check("unticking it takes it out", !(await gallery()).includes(A.bio.slug));
       const g = await gallery();
       check("the gallery never prints a view or tap count", !/\b\d+ (views|clicks|taps)\b/i.test(g));
+    }
+
+    console.log("\n100. Social icons on a bio page");
+    {
+      // The icons are read from a roster profile. B is a label, so its page names an artist.
+      const bProfile = await prisma.artist.create({ data: { organizationId: B.org.id, name: `Icons B ${RUN}`, socialLinks: { instagram: `https://instagram.com/b-${RUN}`, tiktok: "https://tiktok.com/@b", facebook: "http://insecure.example" } } });
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { artistProfileId: bProfile.id, socialIcons: "on", isPublic: true } });
+      const tapUrl = (page: string, key: string, extra = "") => `/api/b/social/${page}/${key}${extra}`;
+
+      const pub = await http(null, "GET", `/b/${B.bio.slug}`);
+      check("the public page shows the icon row", pub.status === 200 && pub.text.includes('aria-label="Socials"') && pub.text.includes(tapUrl(B.bio.id, "instagram")));
+      check("…without the profile's addresses in the links (every tap is counted)", !pub.text.includes(`href="https://instagram.com/b-${RUN}"`));
+      check("…and without an insecure address as an icon", !pub.text.includes(tapUrl(B.bio.id, "facebook")));
+
+      const before = await prisma.clickEvent.count({ where: { bioPageId: B.bio.id, platform: "icon:instagram" } });
+      const tap = await http(null, "GET", tapUrl(B.bio.id, "instagram", "?url=https://evil.example&to=https://evil.example"));
+      check("a tap goes to the profile's own address, whatever the query says", tap.status === 302 && tap.location === `https://instagram.com/b-${RUN}`, `${tap.status} ${tap.location}`);
+      await new Promise((r) => setTimeout(r, 800));
+      const row = await prisma.clickEvent.findFirst({ where: { bioPageId: B.bio.id, platform: "icon:instagram" }, orderBy: { createdAt: "desc" } });
+      check("the tap is counted, as an icon, against B's page", (await prisma.clickEvent.count({ where: { bioPageId: B.bio.id, platform: "icon:instagram" } })) === before + 1 && row?.bioLinkId === null && row?.releaseId === null);
+
+      for (const [why, page, key] of [["a key the profile has no address for", B.bio.id, "youtube"], ["an insecure address", B.bio.id, "facebook"], ["a made-up key", B.bio.id, "__proto__"], ["a page that doesn't exist", "nope", "instagram"]] as const) {
+        check(`404 for ${why}`, (await http(null, "GET", tapUrl(page, key))).status === 404);
+      }
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { socialIcons: null } });
+      check("404 once the owner switches the row off", (await http(null, "GET", tapUrl(B.bio.id, "instagram"))).status === 404);
+      check("…and the row is gone from the page", !(await http(null, "GET", `/b/${B.bio.slug}`)).text.includes('aria-label="Socials"'));
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { socialIcons: "on", isPublic: false } });
+      check("404 on a private page", (await http(null, "GET", tapUrl(B.bio.id, "instagram"))).status === 404);
+      await prisma.bioPage.update({ where: { id: B.bio.id }, data: { isPublic: true } });
+
+      // A page pointed at ANOTHER organisation's profile (a stale or hand-made id) shows nothing of it.
+      await prisma.bioPage.update({ where: { id: A.bio.id }, data: { artistProfileId: bProfile.id, socialIcons: "on", isPublic: true } });
+      const aPage = await http(null, "GET", `/b/${A.bio.slug}`);
+      check("a page can't borrow another organisation's socials", !aPage.text.includes('aria-label="Socials"') && (await http(null, "GET", tapUrl(A.bio.id, "instagram"))).status === 404);
+      await prisma.bioPage.update({ where: { id: A.bio.id }, data: { artistProfileId: null, socialIcons: null } });
+
+      // A tap on a link button that was later deleted also has no bioLinkId; it must not be credited to an icon.
+      await prisma.clickEvent.create({ data: { bioPageId: B.bio.id, platform: "instagram", source: "direct" } });
+      const { getBioStats } = await import("../src/lib/bio-stats");
+      const st = await getBioStats(B.bio.id, 30, "Australia/Brisbane");
+      const iconRow = st.byLink.find((l) => l.id === "icon:instagram");
+      check("the stats name the icon", iconRow?.label === "Instagram icon" && (iconRow?.clicks ?? 0) >= 1);
+      check("…and don't credit a deleted button's taps to it", iconRow?.clicks === before + 1, `${iconRow?.clicks} vs ${before + 1}`);
+
+      // ---- the same row on a release page (pre-save / smart link) ----
+      const rTap = (id: string, key: string, extra = "") => `/api/r/social/${id}/${key}${extra}`;
+      const bOrgSlug = B.org.slug;
+      await prisma.release.update({ where: { id: B.release.id }, data: { artistProfileId: bProfile.id, socialIcons: "on", isPublic: true } });
+      const relPage = await http(null, "GET", `/${bOrgSlug}/${B.release.slug}`);
+      check("the release page shows the icon row", relPage.status === 200 && relPage.text.includes('aria-label="Socials"') && relPage.text.includes(rTap(B.release.id, "instagram")), `status ${relPage.status}`);
+      const rBefore = await prisma.clickEvent.count({ where: { releaseId: B.release.id, platform: "icon:instagram" } });
+      const rt = await http(null, "GET", rTap(B.release.id, "instagram", "?url=https://evil.example"));
+      check("a release icon tap goes to the profile's own address", rt.status === 302 && rt.location === `https://instagram.com/b-${RUN}`, `${rt.status} ${rt.location}`);
+      await new Promise((r) => setTimeout(r, 800));
+      check("…and is counted against the release, with no link id", (await prisma.clickEvent.count({ where: { releaseId: B.release.id, platform: "icon:instagram", linkId: null } })) === rBefore + 1);
+      const { getStats } = await import("../src/lib/analytics");
+      const rs = await getStats([B.release.id], 30, "Australia/Brisbane");
+      check("release stats keep icon taps out of the store breakdown", !rs.byPlatform.some((p) => p.platform.startsWith("icon:")));
+      check("…and name them in the per-button list", rs.byLink.some((l) => l.key === "icon:instagram" && l.label === "Instagram icon"));
+      check("404 for a key the profile has no https address for", (await http(null, "GET", rTap(B.release.id, "facebook"))).status === 404);
+      await prisma.release.update({ where: { id: B.release.id }, data: { socialIcons: null } });
+      check("404 once the release's box is off", (await http(null, "GET", rTap(B.release.id, "instagram"))).status === 404);
+      check("…and the row is gone from the release page", !(await http(null, "GET", `/${bOrgSlug}/${B.release.slug}`)).text.includes('aria-label="Socials"'));
+      await prisma.release.update({ where: { id: B.release.id }, data: { socialIcons: "on", isPublic: false } });
+      check("404 on a private release", (await http(null, "GET", rTap(B.release.id, "instagram"))).status === 404);
+      await prisma.release.update({ where: { id: B.release.id }, data: { isPublic: true, socialIcons: null, artistProfileId: null } });
+      await prisma.release.update({ where: { id: A.release.id }, data: { artistProfileId: bProfile.id, socialIcons: "on" } });
+      check("a release can't borrow another organisation's socials", (await http(null, "GET", rTap(A.release.id, "instagram"))).status === 404 && !(await http(null, "GET", `/${A.org.slug}/${A.release.slug}`)).text.includes('aria-label="Socials"'));
+      await prisma.release.update({ where: { id: A.release.id }, data: { artistProfileId: null, socialIcons: null } });
+      const created = await http(ownerA, "POST", "/api/admin/releases", { title: `Icons new ${RUN}`, artistName: "A", coverUrl: "https://example.com/c.jpg", slug: `icons-new-${RUN}`, releaseDateLocal: "2027-01-01T00:00", links: [] });
+      const fresh = await prisma.release.findFirst({ where: { organizationId: A.org.id, slug: `icons-new-${RUN}` } });
+      check("a new release starts with icons on", created.status === 200 && fresh?.socialIcons === "on", `${created.status} ${created.text.slice(0, 160)}`);
     }
 
   } finally {

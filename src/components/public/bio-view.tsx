@@ -10,6 +10,7 @@ import { SITE_URL } from "@/lib/env";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
 import { BioVideo } from "./bio-video";
+import { SocialIcons, type SocialIcon } from "./social-icons";
 
 export type BioRelease = {
   state: BioReleaseState;
@@ -48,6 +49,11 @@ export type BioViewData = {
   videos: BioItem[];
   /** How the merch block sits: behind one button or on the page, tiles or a swipeable row. */
   merchDisplay: MerchDisplay;
+  /**
+   * The icon row under the name, already resolved (lib/bio-socials). Empty when the row is off or
+   * the profile has none. Required like the others: a preview that forgot it would show no row.
+   */
+  socials: SocialIcon[];
 };
 
 /** The merch items, as tiles two to a row or as one row you swipe. Server-rendered, no JS. */
@@ -130,6 +136,8 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
     >
       <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glow.color} alt={page.title} shape="circle" title={page.title}>
         {page.bio && <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-balance text-[15px] leading-relaxed text-white/70">{page.bio}</p>}
+        {/* Each is a counted tap, the same as a button. Shared with the release page. */}
+        <SocialIcons icons={page.socials} preview={preview} />
       </ArtworkHero>
 
       {/* The blocks below are rendered in the owner's order. `order` is already reconciled by

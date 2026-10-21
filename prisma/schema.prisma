@@ -186,6 +186,12 @@ model Release {
   artist         User?        @relation("ArtistReleases", fields: [artistId], references: [id], onDelete: SetNull)
   artistProfileId String?
   artistProfile  Artist?      @relation(fields: [artistProfileId], references: [id], onDelete: SetNull)
+  /**
+   * "on" = social icons under the artist name on the release page, read from artistProfile's
+   * socialLinks every render (lib/bio-socials). NULL = none. New releases start "on"; releases
+   * that existed before 3 Nov 2026 stay NULL until their owner ticks it.
+   */
+  socialIcons     String?
   slug           String       @unique
   title          String
   artistName     String
@@ -568,6 +574,12 @@ model BioPage {
   gallery        String?
   /** When `gallery` was last switched on. The gallery lists newest-first by this. */
   galleryAt      DateTime?
+  /**
+   * "on" = a row of social icons under the name, read from the artist profile's socialLinks every
+   * render (lib/bio-socials). NULL = no row. Nothing is copied onto the page, so changing a handle
+   * on the profile changes it here too.
+   */
+  socialIcons    String?
   /** NULL = merch sits behind one "Merch" button that opens it. "page" = on the page. lib/bio-items merchDisplayOf. */
   merchShow      String?
   /** NULL = tiles, two to a row. "carousel" = one row you swipe. */

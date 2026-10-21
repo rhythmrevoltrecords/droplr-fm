@@ -21,6 +21,7 @@ import { zonedDay } from "@/lib/time";
 import { MILESTONES, shareVersion } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
+import { bioSocials, socialsFor } from "@/lib/bio-socials";
 import { InterestToggle } from "@/components/admin/interest-toggle";
 import { ReportShare } from "@/components/admin/report-share";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
@@ -61,6 +62,10 @@ export default async function ReleaseDetail(
   });
   if (!release) notFound();
   const tab = TABS.some((t) => t.key === searchParams.tab) ? searchParams.tab! : "links";
+  // Only the settings tab needs the roster, and its socials are only ever this organisation's own.
+  const settingsArtists = tab === "settings"
+    ? await prisma.artist.findMany({ where: { organizationId: user.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, userId: true, status: true, socialLinks: true } })
+    : null;
   const plan = planOf(release.organization.plan);
   const days = statsRange(searchParams.days, plan.insightsDays);
   const url = publicReleaseUrl(release.organization, release.slug, SITE_URL);
@@ -332,7 +337,7 @@ export default async function ReleaseDetail(
         );
       })())}
 
-      {tab === "settings" && (await (async () => {
+      {tab === "settings" && settingsArtists && (await (async () => {
         // Siblings are needed for the checks only droplr can run: a UPC or ISRC already used on
         // another of this account's releases. Scoped to the org like everything else.
         const siblings = await prisma.release.findMany({
@@ -354,7 +359,7 @@ export default async function ReleaseDetail(
         />
       )}
 
-      {tab === "settings" && (
+      {tab === "settings" && settingsArtists && (
         <InterestToggle
           endpoint={`/api/admin/releases/${release.id}`}
           field="poolOptIn"
@@ -364,7 +369,7 @@ export default async function ReleaseDetail(
         />
       )}
 
-      {tab === "settings" && (
+      {tab === "settings" && settingsArtists && (
         <Card>
           <CardHeader><CardTitle>Release settings</CardTitle></CardHeader>
           <CardContent>
@@ -372,8 +377,14 @@ export default async function ReleaseDetail(
               releaseId={release.id}
               locationLabel={release.organization.locationLabel}
               soloArtist={release.organization.kind === "artist"}
-              artists={(await prisma.artist.findMany({ where: { organizationId: user.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, userId: true } })).map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))}
+              artists={settingsArtists.map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))}
+              socialsFor={{
+                // "" = no artist on the release: the same default lib/bio-socials-server picks.
+                ...socialsFor(settingsArtists.filter((a) => a.status !== "alumni"), release.organization.kind),
+                ...Object.fromEntries(settingsArtists.map((a) => [a.id, bioSocials(a.socialLinks)])),
+              }}
               initial={{
+                socialIcons: release.socialIcons === "on",
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
                 releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistProfileId: release.artistProfileId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
                 spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic, rollout: release.rollout === "global" ? "global" : "local",
