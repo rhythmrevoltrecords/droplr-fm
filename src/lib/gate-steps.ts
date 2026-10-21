@@ -228,3 +228,16 @@ export function fanRows<T extends { platform: string; action: string }>(steps: T
   }
   return out;
 }
+
+/**
+ * A like or repost on a private track can't be done by a fan: they have no access to it, so
+ * SoundCloud refuses, and the gate fails on their screen after they've already authorised. The
+ * resolve call at save time can see this (`sharing`), so the builder refuses it there instead.
+ * Found on the first real gate test, 22 Oct 2026, with a private secret link.
+ */
+export function soundcloudTargetProblem(action: string, sharing: string | undefined): string | null {
+  if (action !== "follow" && sharing === "private") {
+    return `That track is private, so fans can't ${action} it and the step would fail for every one of them. Make it public on SoundCloud, or link a public track.`;
+  }
+  return null;
+}
