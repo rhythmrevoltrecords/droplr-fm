@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
-import { GATE_PLATFORMS, effectiveProof, enforcementNote, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, effectiveProof, enforcementNote, repeatsByAction, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
 import { slugify } from "@/lib/utils";
 
 type Step = { platform: GatePlatform; action: GateAction; target: string; required: boolean };
@@ -69,11 +69,17 @@ export function DownloadForm({
   });
 
   const used = new Set(v.steps.map((s) => s.platform));
-  const addable = (Object.keys(GATE_PLATFORMS) as GatePlatform[]).filter((p) => !used.has(p));
+  // SoundCloud can be added once per action (follow, like, repost): the fan connects once and
+  // droplr does all of them. Every other platform is one step each.
+  const scUsed = v.steps.filter((s) => s.platform === "soundcloud").map((s) => s.action);
+  const addable = (Object.keys(GATE_PLATFORMS) as GatePlatform[]).filter((p) =>
+    repeatsByAction(p) ? GATE_PLATFORMS[p].actions.some((a) => !scUsed.includes(a)) : !used.has(p),
+  );
 
   function addStep(platform: GatePlatform) {
     const spec = GATE_PLATFORMS[platform];
-    set("steps", [...v.steps, { platform, action: spec.actions[0], target: "", required: true }]);
+    const action = repeatsByAction(platform) ? spec.actions.find((a) => !scUsed.includes(a)) ?? spec.actions[0] : spec.actions[0];
+    set("steps", [...v.steps, { platform, action, target: "", required: true }]);
   }
   function patchStep(i: number, patch: Partial<Step>) {
     set("steps", v.steps.map((s, n) => (n === i ? { ...s, ...patch } : s)));
@@ -100,6 +106,23 @@ export function DownloadForm({
     }
     const json = await res.json().catch(() => null);
     router.push(editing ? "/admin/downloads" : `/admin/downloads/${json?.id ?? ""}`);
+    router.refresh();
+  }
+
+  // Deleting cascades to the emails this gate collected, so the confirmation says that and names
+  // the way to take a gate down without losing anything.
+  async function remove() {
+    if (!v.id) return;
+    if (!confirm("Delete this gate? The email addresses it collected are deleted with it. To take it down and keep them, untick Live and save instead.")) return;
+    setBusy(true);
+    setError(null);
+    const res = await fetch(`/api/admin/downloads/${v.id}`, { method: "DELETE" }).catch(() => null);
+    setBusy(false);
+    if (!res?.ok) {
+      setError((await res?.json().catch(() => null))?.error ?? "Couldn't delete that. Try again.");
+      return;
+    }
+    router.push("/admin/downloads");
     router.refresh();
   }
 
@@ -200,7 +223,10 @@ export function DownloadForm({
 
                 {spec.actions.length > 1 && (
                   <Select className="mt-2.5" value={s.action} onChange={(e) => patchStep(i, { action: e.target.value as GateAction })}>
-                    {spec.actions.map((a) => <option key={a} value={a}>{a}</option>)}
+                    {spec.actions.map((a) => {
+                      const takenElsewhere = repeatsByAction(s.platform) && a !== s.action && scUsed.includes(a);
+                      return <option key={a} value={a} disabled={takenElsewhere}>{a}</option>;
+                    })}
                   </Select>
                 )}
                 {spec.needsTarget && (
@@ -226,6 +252,10 @@ export function DownloadForm({
           )}
         </ul>
 
+        {scUsed.length > 1 && enforcement === "enforced" && (
+          <p className="text-xs text-muted-foreground">Fans connect SoundCloud once and droplr does all {scUsed.length} SoundCloud steps together.</p>
+        )}
+
         {addable.length > 0 && v.steps.length < 6 && (
           <div className="flex flex-wrap gap-2">
             {addable.map((p) => (
@@ -248,6 +278,11 @@ export function DownloadForm({
           <input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" />
           Live
         </label>
+        {editing && (
+          <Button variant="destructive" className="ml-auto" disabled={busy} onClick={() => void remove()}>
+            Delete gate
+          </Button>
+        )}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { completeStep } from "@/lib/downloads";
 import { exchangeCode, getSoundCloudCreds, performAction, soundcloudRedirectUri } from "@/lib/soundcloud";
+import { SOUNDCLOUD_ACTION_ORDER } from "@/lib/gate-steps";
 import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
 import { SITE_URL } from "@/lib/env";
 import { requestMeta } from "@/lib/tracking";
@@ -51,19 +52,33 @@ export async function GET(req: NextRequest) {
   let token: string;
   try {
     token = (await exchangeCode(creds, code, soundcloudRedirectUri(), state.cv)).access_token;
-  } catch {
+  } catch (e) {
+    console.warn(String(e instanceof Error ? e.message : e));
     return fail("soundcloud-failed");
   }
 
-  const targetId = Number(step.targetId);
-  if (!Number.isFinite(targetId) || targetId <= 0) return fail("soundcloud-failed");
-
-  const action = step.action === "like" || step.action === "repost" ? step.action : "follow";
-  const done = await performAction(token, action, targetId);
-  if (!done) return fail("soundcloud-failed");
-
+  // Before acting on the fan's account: if droplr couldn't record the result, it mustn't act.
   const anonId = state.anon;
   if (!anonId) return fail("error");
+
+  // Every SoundCloud action on this gate, performed with the one token the fan just granted.
+  // Progress is per platform, so the step is only marked done if all of them succeeded; a retry
+  // is safe because an action already in place counts as done (isActionSuccess).
+  const scSteps = await prisma.gateStep.findMany({
+    where: { releaseId: step.release.id, platform: "soundcloud" },
+    select: { action: true, targetId: true },
+  });
+  const order = (a: string) => { const i = SOUNDCLOUD_ACTION_ORDER.indexOf(a as never); return i < 0 ? 99 : i; };
+  scSteps.sort((a, b) => order(a.action) - order(b.action));
+  for (const s of scSteps) {
+    const targetId = Number(s.targetId);
+    if (!Number.isFinite(targetId) || targetId <= 0) {
+      console.warn(`SoundCloud ${s.action} step has no resolved id; re-save the gate`);
+      return fail("soundcloud-failed");
+    }
+    const action = s.action === "like" || s.action === "repost" ? s.action : "follow";
+    if (!(await performAction(token, action, targetId))) return fail("soundcloud-failed");
+  }
 
   const meta = requestMeta(req.headers);
   await completeStep({

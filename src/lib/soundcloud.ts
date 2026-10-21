@@ -89,20 +89,34 @@ export function soundcloudAuthorizeUrl(creds: SoundCloudCreds, redirectUri: stri
 
 type TokenResponse = { access_token: string; refresh_token?: string; expires_in?: number };
 
+/**
+ * The token exchange body, without client credentials: those go in a Basic header, the same way
+ * SoundCloud accepted them for client credentials (and refused them in the body, 22 Oct 2026).
+ * SoundCloud's guide shows this exchange with the credentials in the body, so if Basic is refused
+ * as invalid_client the exchange is retried once that way. An invalid_client refusal happens
+ * before the code is looked at, so the retry still has a usable code. Both statuses are logged.
+ */
+export function codeExchangeBody(code: string, redirectUri: string, codeVerifier: string) {
+  return new URLSearchParams({ grant_type: "authorization_code", redirect_uri: redirectUri, code_verifier: codeVerifier, code });
+}
+
 export async function exchangeCode(creds: SoundCloudCreds, code: string, redirectUri: string, codeVerifier: string): Promise<TokenResponse> {
-  const res = await fetch(`${AUTH}/oauth/token`, {
+  const headers = { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json; charset=utf-8" };
+  const basic = Buffer.from(`${creds.clientId}:${creds.clientSecret}`, "utf8").toString("base64");
+  let res = await fetch(`${AUTH}/oauth/token`, {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json; charset=utf-8" },
-    body: new URLSearchParams({
-      grant_type: "authorization_code",
-      client_id: creds.clientId,
-      client_secret: creds.clientSecret,
-      redirect_uri: redirectUri,
-      code_verifier: codeVerifier,
-      code,
-    }),
+    headers: { ...headers, Authorization: `Basic ${basic}` },
+    body: codeExchangeBody(code, redirectUri, codeVerifier).toString(),
   });
-  if (!res.ok) throw new Error(`SoundCloud token exchange failed: ${res.status} ${await res.text()}`);
+  if (res.status === 401) {
+    console.warn(`SoundCloud code exchange: Basic refused (401 ${(await res.text()).slice(0, 120)}), retrying with credentials in the body`);
+    const body = codeExchangeBody(code, redirectUri, codeVerifier);
+    body.set("client_id", creds.clientId);
+    body.set("client_secret", creds.clientSecret);
+    res = await fetch(`${AUTH}/oauth/token`, { method: "POST", headers, body: body.toString() });
+  }
+  // SoundCloud's error bodies are short JSON like {"error":"invalid_grant"}; no token or secret.
+  if (!res.ok) throw new Error(`SoundCloud token exchange failed: ${res.status} ${(await res.text()).slice(0, 200)}`);
   return res.json();
 }
 
@@ -200,7 +214,11 @@ export async function performAction(
     : `/reposts/tracks/${targetId}`;
   const method = action === "follow" ? "PUT" : "POST";
   const res = await fetch(`${API}${path}`, { method, headers: auth(token) });
-  return isActionSuccess(res.status);
+  const ok = isActionSuccess(res.status);
+  // The status is what tells "private track" (404/403) from "already done" (409) from "rate
+  // limited" (429). Without it a failed gate step is a guess.
+  if (!ok) console.warn(`SoundCloud ${action} ${targetId} refused: HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`);
+  return ok;
 }
 
 /**

@@ -69,3 +69,30 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 
   return NextResponse.json({ ok: true });
 }
+
+/**
+ * Delete a gate. Everything hangs off the release row and cascades: its steps, every fan's
+ * progress, and the email addresses the gate collected (they are PreSave rows on this release).
+ * The builder's confirmation says so and offers unticking Live as the way to take a gate down
+ * without losing anything.
+ *
+ * Refused while a remix contest is attached, because the cascade would take the contest and every
+ * entry with it — that is a separate decision, not a side effect of tidying up a gate.
+ */
+export async function DELETE(_: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const user = await apiUser("label");
+  if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
+  const { id } = await props.params;
+
+  const existing = await prisma.release.findFirst({
+    where: { id, organizationId: user.organizationId, kind: "download", ...(isLabelRole(user.role) ? {} : { artistId: user.id }) },
+    select: { id: true, contest: { select: { id: true } } },
+  });
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (existing.contest) {
+    return NextResponse.json({ error: "This gate has a remix contest attached. Deleting it would delete the contest and every entry, so it can't be deleted from here." }, { status: 409 });
+  }
+
+  await prisma.release.delete({ where: { id: existing.id } });
+  return NextResponse.json({ ok: true });
+}
