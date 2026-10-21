@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { getSoundCloudCreds, soundcloudAuthorizeUrl, soundcloudRedirectUri } from "@/lib/soundcloud";
+import { getSoundCloudCreds, pkcePair, soundcloudAuthorizeUrl, soundcloudRedirectUri } from "@/lib/soundcloud";
 import { packState, releasePageUrl, requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
 import { SITE_URL, soundcloudGateEnforcement } from "@/lib/env";
 import { ANON_COOKIE } from "@/lib/tracking";
@@ -42,6 +42,7 @@ export async function GET(req: NextRequest) {
   if (!creds) return NextResponse.redirect(withParam(back, "notice", "soundcloud-unavailable"), 302);
 
   const { host } = requestOrigin(req);
+  const pkce = pkcePair();
   const state = packState({
     rid: step.release.id,
     org: step.release.organizationId,
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
     anon: req.cookies.get(ANON_COOKIE)?.value ?? undefined,
     ret: back,
     ru: host,
+    cv: pkce.verifier,
   });
-  return NextResponse.redirect(soundcloudAuthorizeUrl(creds, soundcloudRedirectUri(), state), 302);
+  return NextResponse.redirect(soundcloudAuthorizeUrl(creds, soundcloudRedirectUri(), state, pkce.challenge), 302);
 }
