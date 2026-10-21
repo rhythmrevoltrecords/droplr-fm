@@ -29,6 +29,8 @@ export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
   // They pressed cancel on SoundCloud's screen. Not an error — just an unfinished step.
   if (!code) return NextResponse.redirect(withParam(back, "notice", "soundcloud-cancelled"), 302);
+  // A state from before PKCE (or one without a verifier) can't be exchanged: SoundCloud would refuse it.
+  if (!state.cv) return fail("soundcloud-failed");
 
   const step = await prisma.gateStep.findUnique({
     where: { id: state.vid },
@@ -48,7 +50,7 @@ export async function GET(req: NextRequest) {
 
   let token: string;
   try {
-    token = (await exchangeCode(creds, code, soundcloudRedirectUri())).access_token;
+    token = (await exchangeCode(creds, code, soundcloudRedirectUri(), state.cv)).access_token;
   } catch {
     return fail("soundcloud-failed");
   }
