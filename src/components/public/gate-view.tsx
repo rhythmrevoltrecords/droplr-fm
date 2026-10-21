@@ -1,5 +1,5 @@
 import { SITE_URL } from "@/lib/env";
-import { GATE_PLATFORMS, effectiveProof, isGatePlatform, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, effectiveProof, fanRows, isGatePlatform, soundcloudLabel, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { GateRefresh } from "./gate-refresh";
@@ -70,7 +70,8 @@ export function GateView({
 }) {
   const accent = release.accentColor ?? "#8B5CF6";
   const notice = NOTICES[query.done ?? query.notice ?? ""];
-  const shown = steps.filter((s) => s.available);
+  // One row per thing the fan does: SoundCloud's follow, like and repost are one connect.
+  const shown = fanRows(steps.filter((s) => s.available), enforcement);
   const left = shown.filter((s) => s.required && !s.done).length;
 
   return (
@@ -155,10 +156,12 @@ function ProofNote({ proof }: { proof: Proof }) {
 function GateStepRow({
   step, release, accent, demo, query, enforcement,
 }: {
-  step: GateStepView; release: GateViewData; accent: string; demo?: boolean; query: Record<string, string | undefined>;
+  step: GateStepView & { actions: string[] }; release: GateViewData; accent: string; demo?: boolean; query: Record<string, string | undefined>;
   enforcement: Enforcement;
 }) {
-  const label = stepLabel(step.platform, step.action, release.artistName);
+  const label = step.platform === "soundcloud" && step.actions.length > 1
+    ? soundcloudLabel(step.actions, release.artistName)
+    : stepLabel(step.platform, step.action, release.artistName);
   // The proof this step can offer *now*, not the one its platform claims. When SoundCloud's
   // connection is paused the note under the step has to say "on trust" like any other visit,
   // because that is what it has become.
