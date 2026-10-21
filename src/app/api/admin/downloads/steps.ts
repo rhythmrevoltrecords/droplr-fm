@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GATE_PLATFORMS, duplicateStepProblem, isGatePlatform, type GatePlatform } from "@/lib/downloads";
+import { GATE_PLATFORMS, duplicateStepProblem, isGatePlatform, soundcloudTargetProblem, type GatePlatform } from "@/lib/downloads";
 import { clientCredentialsToken, getSoundCloudCreds, parseSoundCloudUrl, resolveId } from "@/lib/soundcloud";
 import { soundcloudGateEnforcement } from "@/lib/env";
 
@@ -69,6 +69,8 @@ export async function resolveGateSteps(
         }
         const resolved = await resolveId(scToken, parsed.url);
         if (!resolved) return { error: "SoundCloud didn't recognise that link. Check it opens in a browser." };
+        const privateProblem = soundcloudTargetProblem(s.action, resolved.sharing);
+        if (privateProblem) return { error: privateProblem };
         targetId = String(resolved.id);
       }
     }

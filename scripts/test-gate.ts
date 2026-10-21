@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
-import { downloadUrlProblem, duplicateStepProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
+import { downloadUrlProblem, duplicateStepProblem, soundcloudTargetProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
 import { clientCredentialsRequest, codeChallenge, codeExchangeBody, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
 
@@ -135,6 +135,11 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   const cbSrc = readFileSync(join(import.meta.dirname, "..", "src/app/api/gate/soundcloud/callback/route.ts"), "utf8");
   if (!/gateStep\.findMany\(\{\s*where: \{ releaseId: step\.release\.id, platform: "soundcloud" \}/.test(cbSrc)) fail("the callback must perform every SoundCloud step on the gate, not just the one clicked");
   if (cbSrc.indexOf("if (!anonId)") < 0 || cbSrc.indexOf("if (!anonId)") > cbSrc.indexOf("performAction(token")) fail("the callback must know it can record the result before acting on the fan's account");
+  if (!soundcloudTargetProblem("like", "private") || !soundcloudTargetProblem("repost", "private")) fail("a private track must be refused for a like or a repost");
+  if (soundcloudTargetProblem("like", "public") !== null || soundcloudTargetProblem("like", undefined) !== null) fail("a public track (or one SoundCloud doesn't label) must pass silently");
+  if (soundcloudTargetProblem("follow", "private") !== null) fail("a follow targets a profile, which has no sharing setting");
+  const stepsSrc = readFileSync(join(import.meta.dirname, "..", "src/app/api/admin/downloads/steps.ts"), "utf8");
+  if (!/const privateProblem = soundcloudTargetProblem\(s\.action, resolved\.sharing\);\s*if \(privateProblem\) return \{ error: privateProblem \};/.test(stepsSrc)) fail("saving a gate must check the resolved track's sharing");
   console.log("  \u2713 SoundCloud follow, like and repost are one connect");
 }
 
