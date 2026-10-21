@@ -1,3 +1,5 @@
+import { SOCIAL_LABELS, type SocialKey } from "./artist-fields";
+import { ICON_PLATFORM_PREFIX } from "./bio-socials";
 import { Prisma } from "@prisma/client";
 import { activityGrid, countryName, type Grid, type Insight, type StatsRange } from "./analytics";
 import { prisma } from "./db";
@@ -49,7 +51,7 @@ export async function getBioStats(bioPageId: string, days: StatsRange = 30, time
   const since = new Date(Date.now() - days * 86400_000);
   const w = { bioPageId, createdAt: { gte: since } };
 
-  const [page, links, views, clicks, srcViews, srcClicks, ctryViews, ctryClicks, deviceRows, linkRows] = await Promise.all([
+  const [page, links, views, clicks, srcViews, srcClicks, ctryViews, ctryClicks, deviceRows, linkRows, iconRows] = await Promise.all([
     prisma.bioPage.findUnique({ where: { id: bioPageId }, select: { views: true } }),
     prisma.bioLink.findMany({ where: { bioPageId }, orderBy: { order: "asc" } }),
     prisma.pageView.count({ where: w }),
@@ -60,6 +62,8 @@ export async function getBioStats(bioPageId: string, days: StatsRange = 30, time
     prisma.clickEvent.groupBy({ by: ["country"], where: w, _count: { _all: true } }),
     prisma.pageView.groupBy({ by: ["deviceType"], where: w, _count: { _all: true } }),
     prisma.clickEvent.groupBy({ by: ["bioLinkId"], where: w, _count: { _all: true } }),
+    // Social icon taps have no BioLink row (lib/bio-socials), so they are told apart by platform.
+    prisma.clickEvent.groupBy({ by: ["platform"], where: { ...w, bioLinkId: null, platform: { startsWith: ICON_PLATFORM_PREFIX } }, _count: { _all: true } }),
   ]);
 
   const sourceMap = new Map<string, { source: string; views: number; clicks: number }>();
@@ -92,6 +96,10 @@ export async function getBioStats(bioPageId: string, days: StatsRange = 30, time
       platform: platformById.get(r.bioLinkId) ?? "link",
       label: labelById.get(r.bioLinkId) ?? null,
       clicks: r._count._all,
+    }))
+    .concat(iconRows.map((r) => {
+      const key = r.platform.slice(ICON_PLATFORM_PREFIX.length);
+      return { id: r.platform, platform: key, label: `${SOCIAL_LABELS[key as SocialKey] ?? key} icon`, clicks: r._count._all };
     }))
     .sort((a, b) => b.clicks - a.clicks);
 

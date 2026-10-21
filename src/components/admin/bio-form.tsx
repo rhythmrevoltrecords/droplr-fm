@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { LabelBadge } from "@/lib/bio-label";
 import { isOwnImage, type BioItem, type MerchDisplay } from "@/lib/bio-items";
+import type { BioSocial } from "@/lib/bio-socials";
 import { SITE_URL } from "@/lib/env";
 import { labelBadgeLine } from "@/lib/bio-label";
 import { bioFontClass } from "@/components/public/bio-fonts";
@@ -17,7 +18,7 @@ import { missingFields, missingLine } from "@/lib/bio-form-check";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; gallery: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; gallery: string; socialIcons: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -34,6 +35,7 @@ export function BioForm({
   previewMerch,
   previewVideos,
   previewMerchDisplay,
+  socialsFor,
 }: {
   mode: "create" | "edit";
   id?: string;
@@ -61,6 +63,12 @@ export function BioForm({
   previewMerch: BioItem[];
   previewVideos: BioItem[];
   previewMerchDisplay: MerchDisplay;
+  /**
+   * The icons each choice of "This page is for" would show, keyed by artist id, and "" for the page's
+   * own default (an artist account's profile; nothing for a label's own page). Resolved on the
+   * server so the preview follows the dropdown without a round trip.
+   */
+  socialsFor: Record<string, BioSocial[]>;
 }) {
   const router = useRouter();
   const [v, setV] = useState<Values>(initial);
@@ -75,6 +83,7 @@ export function BioForm({
 
   const accentPreview = v.accentColor || "#7c3aed";
   const missing = missingFields(v);
+  const socials = socialsFor[v.artistProfileId] ?? socialsFor[""] ?? [];
 
   const set = (k: keyof Values, val: string | boolean) =>
     setV((x) => {
@@ -149,6 +158,19 @@ export function BioForm({
           <div className="space-y-2 sm:col-span-2">
             <Label>Bio</Label>
             <textarea value={v.bio} maxLength={280} rows={3} onChange={(e) => set("bio", e.target.value)} placeholder="UK garage from Brisbane." className="w-full rounded-lg border border-input bg-background/60 px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
+          </div>
+          <div className="space-y-2 sm:col-span-2">
+            <Label>Social icons</Label>
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={v.socialIcons === "on"} onChange={(e) => set("socialIcons", e.target.checked ? "on" : "")} className="h-4 w-4" />
+              Show my social icons under my name
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {socials.length > 0
+                ? `${socials.map((x) => x.label).join(", ")}. They come from your profile, so change a handle there and it changes here too.`
+                : "None yet. Add your Instagram, TikTok and the rest to your profile and they show up here by themselves."}{" "}
+              <a href={v.artistProfileId ? `/admin/artists/${v.artistProfileId}` : "/admin/artists"} className="underline">Edit on your profile</a>
+            </p>
           </div>
           <div className="space-y-2 sm:col-span-2">
             <Label>Avatar / cover image</Label>
@@ -352,11 +374,11 @@ export function BioForm({
             </label>
             {artists.length > 0 && (
               <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-muted-foreground">Releases for</span>
+                <span className="text-muted-foreground">This page is for</span>
                 <select
                   value={v.artistProfileId}
                   onChange={(e) => set("artistProfileId", e.target.value)}
-                  disabled={v.releaseBlock !== "on"}
+                  /* Not tied to the release box any more: the social icons read this artist's profile too. */
                   className="rounded-lg border border-input bg-background/60 px-2 py-1.5 text-sm disabled:opacity-50"
                 >
                   <option value="">Everything {orgName} puts out</option>
@@ -406,7 +428,7 @@ export function BioForm({
         <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
           {v.imageUrl ? (
             <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks, merch: previewMerch, videos: previewVideos, merchDisplay: previewMerchDisplay }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
+              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks, merch: previewMerch, videos: previewVideos, merchDisplay: previewMerchDisplay, socials: v.socialIcons === "on" ? socials.map((x) => ({ key: x.key, label: x.label, href: "#" })) : [] }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
             </div>
           ) : (
             <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>

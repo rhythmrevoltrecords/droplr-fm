@@ -1,3 +1,5 @@
+import { SOCIAL_LABELS, type SocialKey } from "./artist-fields";
+import { ICON_PLATFORM_PREFIX } from "./bio-socials";
 import { Prisma } from "@prisma/client";
 import { prisma } from "./db";
 import { labelDuplicateLinks } from "./link-labels";
@@ -95,13 +97,22 @@ export async function getStats(releaseIds: string[], days: StatsRange = 30, time
 
   // Clicks per platform (roster-level) and per individual button (so two SoundCloud links count separately)
   const platformMap = new Map<string, number>();
-  platformRows.forEach((r) => platformMap.set(r.platform, (platformMap.get(r.platform) ?? 0) + r._count._all));
+  // Social icon taps (platform "icon:<key>", lib/bio-socials) are left out of the per-store breakdown:
+  // following the artist on Instagram is not choosing where to listen. They still count as taps,
+  // and they appear by name in byLink below.
+  platformRows.forEach((r) => !r.platform.startsWith(ICON_PLATFORM_PREFIX) && platformMap.set(r.platform, (platformMap.get(r.platform) ?? 0) + r._count._all));
   const byPlatform = [...platformMap.entries()].map(([platform, clicks]) => ({ platform, clicks })).sort((a, b) => b.clicks - a.clicks);
   const linkRows = await prisma.releaseLink.findMany({ where: { releaseId: { in: releaseIds } }, orderBy: [{ releaseId: "asc" }, { position: "asc" }] });
   const labelById = new Map<string, string | null>();
   for (const rid of releaseIds) labelDuplicateLinks(linkRows.filter((l) => l.releaseId === rid)).forEach((l) => labelById.set(l.id, l.label));
   const byLink = platformRows
-    .map((r) => ({ key: r.linkId ?? `platform:${r.platform}`, platform: r.platform, label: r.linkId ? labelById.get(r.linkId) ?? null : null, clicks: r._count._all }))
+    .map((r) => {
+      if (r.platform.startsWith(ICON_PLATFORM_PREFIX)) {
+        const k = r.platform.slice(ICON_PLATFORM_PREFIX.length);
+        return { key: r.platform, platform: k, label: `${SOCIAL_LABELS[k as SocialKey] ?? k} icon`, clicks: r._count._all };
+      }
+      return { key: r.linkId ?? `platform:${r.platform}`, platform: r.platform, label: r.linkId ? labelById.get(r.linkId) ?? null : null, clicks: r._count._all };
+    })
     .sort((a, b) => b.clicks - a.clicks);
 
   const ids = Prisma.join(releaseIds);

@@ -196,6 +196,9 @@ jobs:
       - name: Bio page merch, video and gallery
         run: npx tsx scripts/test-bio-items.ts
 
+      - name: Social icons on bio and release pages
+        run: npx tsx scripts/test-bio-socials.ts
+
       - name: Admin navigation
         run: npx tsx scripts/test-nav.ts
 

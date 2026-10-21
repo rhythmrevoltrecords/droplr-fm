@@ -6,10 +6,19 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook } from "@/lib/exclusivity";
 import type { ArtistOption } from "./release-create-form";
+import type { BioSocial } from "@/lib/bio-socials";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string; socialIcons: boolean };
 
-export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel = "Brisbane", soloArtist = false }: { releaseId: string; initial: Initial; artists: ArtistOption[]; locationLabel?: string; soloArtist?: boolean }) {
+export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, locationLabel = "Brisbane", soloArtist = false }: {
+  releaseId: string;
+  initial: Initial;
+  artists: ArtistOption[];
+  /** The icons each artist choice would show, keyed by profile id; "" is the release's default. Required so the hint can't silently go blank. */
+  socialsFor: Record<string, BioSocial[]>;
+  locationLabel?: string;
+  soloArtist?: boolean;
+}) {
   const router = useRouter();
   const [f, setF] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -26,6 +35,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
       // "" is lifetime, which is a real Beatport option, so it has to travel as null rather than
       // being dropped — dropping it would silently keep whatever window was there before.
       exclusiveWeeks: f.exclusiveStore ? (f.exclusiveWeeks ? Number(f.exclusiveWeeks) : null) : null,
+      socialIcons: f.socialIcons ? "on" : null,
       ...(artistProfileId !== initial.artistProfileId ? { artistProfileId: artistProfileId || null } : {}),
     };
     const res = await fetch(`/api/admin/releases/${releaseId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -142,6 +152,17 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, locationLabel
         </div>}
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.autoReResolve} onChange={(e) => set("autoReResolve", e.target.checked)} className="h-4 w-4" /> Auto re-resolve links on release day</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
+        <div className="space-y-1">
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.socialIcons} onChange={(e) => set("socialIcons", e.target.checked)} className="h-4 w-4" /> Show social icons under the artist name</label>
+          <p className="text-xs text-muted-foreground">
+            {(() => {
+              const icons = socialsFor[f.artistProfileId] ?? socialsFor[""] ?? [];
+              return icons.length > 0
+                ? `${icons.map((x) => x.label).join(", ")}, from the artist's profile. Change a handle there and it changes on every page.`
+                : "None yet: the artist's profile has no socials. Add them there and they show up here by themselves.";
+            })()}
+          </p>
+        </div>
       </div>
       <div className="flex items-center gap-3">
         <Button onClick={save} disabled={busy}>{busy && <Loader2 className="animate-spin" />} Save</Button>

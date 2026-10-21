@@ -45,5 +45,7 @@ export const bioSchema = z.object({
   font: z.enum(BIO_FONT_IDS as unknown as [string, ...string[]]).nullable().optional(),
   /** Only "on" is stored; null means not listed in the gallery, which is the default for every page. */
   gallery: z.enum(["on"]).nullable().optional().or(z.literal("")),
+  /** Only "on" is stored; null means no icon row under the name. */
+  socialIcons: z.enum(["on"]).nullable().optional().or(z.literal("")),
   isPublic: z.boolean().optional(),
 });
