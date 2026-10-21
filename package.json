@@ -45,7 +45,8 @@
     "test:biosub": "tsx --env-file-if-exists=.env scripts/test-bio-subscribe.ts",
     "test:biostats": "tsx --env-file-if-exists=.env scripts/test-bio-stats.ts",
     "test:biosections": "tsx --env-file-if-exists=.env scripts/test-bio-sections.ts",
-    "test:import2": "tsx --env-file-if-exists=.env scripts/test-link-import.ts"
+    "test:import2": "tsx --env-file-if-exists=.env scripts/test-link-import.ts",
+    "test:bioitems": "tsx --env-file-if-exists=.env scripts/test-bio-items.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

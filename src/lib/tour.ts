@@ -74,6 +74,18 @@ export function tourSteps(kind: "artist" | "label" | "artistLogin"): TourStep[] 
           : "Photo, bio, genre, socials, contact. Your press kit is generated from this, so it's the one thing worth doing properly before anything else.",
     },
     {
+      // Second, not last: a bio page needs nothing the artist doesn't already have, so it is the
+      // one thing on droplr someone with no release ready can finish today. The tour used to skip
+      // it entirely and end on "make your first release", a dead end for exactly that person.
+      href: "/admin/bio",
+      target: "nav-bio",
+      title: "Your link in bio, live in two minutes",
+      body:
+        kind === "label"
+          ? "One page for the label or each artist: links, an email box, and your newest release at the top, which updates itself every time you add one. Free on every plan."
+          : "One page for everything you do: links, an email box, and your newest release at the top, which updates itself every time you add one. You don't need a release ready to make it. Free on every plan.",
+    },
+    {
       href: "/admin",
       target: "create-link",
       title: "Then make your first release",

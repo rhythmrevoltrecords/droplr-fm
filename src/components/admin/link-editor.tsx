@@ -294,7 +294,7 @@ export function LinkEditor({ saveUrl, reresolveUrl, initial }: { saveUrl: string
         </div>
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="basis-full sm:basis-auto">
-            Any platform can be added more than once \u2014 three SoundCloud links for a mashup pack, or an
+            Any platform can be added more than once &mdash; three SoundCloud links for a mashup pack, or an
             Email button each for bookings, management and press. Give each one a title and that is what
             people see. Email buttons open the tapper&apos;s own mail app; those taps aren&apos;t counted.
           </span>

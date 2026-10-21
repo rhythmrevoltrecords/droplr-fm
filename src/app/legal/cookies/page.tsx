@@ -52,9 +52,10 @@ export default function CookiePolicyPage() {
       </Section>
 
       <Section {...s("embeds")}>
-        <p>Some pages show a video that is hosted on YouTube: the &quot;Watch the guide&quot; cards in your dashboard, the news posts on this site, and remix contest entries on a public release page where the entrant&apos;s track allows a player.</p>
+        <p>Some pages show a video that is hosted on YouTube: the &quot;Watch the guide&quot; cards in your dashboard, the news posts on this site, videos an artist or label adds to their bio page, and remix contest entries on a public release page where the entrant&apos;s track allows a player.</p>
         <ul>
           <li>A guide card, and the player on a news post, show a still picture and a play button. <strong>The player — and anything it stores — only loads when you press play.</strong> Until then nothing from Google <em>runs</em> on the page, though the still picture itself is fetched from YouTube&apos;s image servers, which is a request for a picture and sets no cookies.</li>
+          <li>A video on a bio page works like a guide card, with one difference: its still picture is a copy stored on droplr.fm, so <strong>nothing at all is fetched from Google until you press play</strong>.</li>
           <li>We load those players from <code>youtube-nocookie.com</code>. Google describes this as not setting cookies used to build an advertising profile from a video you watch. It is not the same as setting nothing: Google still receives the request, and it may store something in your browser for playback itself.</li>
           <li>A contest entry&apos;s player loads as you scroll to it rather than on a click, so on those pages the connection happens without one.</li>
         </ul>

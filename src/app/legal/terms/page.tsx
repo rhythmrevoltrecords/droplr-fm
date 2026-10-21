@@ -76,7 +76,7 @@ export default function TermsPage() {
       </Section>
 
       <Section {...s("content")}>
-        <p>You keep ownership of your content. You give us a worldwide, non-exclusive, royalty-free licence to host, store, copy, display, resize and transmit your content only as needed to run, secure and support the service, including showing your public pages to fans and generating link previews. The licence ends when your content is deleted, apart from copies in backups that are overwritten in the normal cycle.</p>
+        <p>You keep ownership of your content. You give us a worldwide, non-exclusive, royalty-free licence to host, store, copy, display, resize and transmit your content only as needed to run, secure and support the service, including showing your public pages to fans and generating link previews. If you tick &ldquo;Show it in the gallery&rdquo; on a bio page, it also covers showing that page&apos;s picture, name, bio line and address on our list of live pages at <code>droplr.fm/b</code>, for as long as the box stays ticked and the page stays public; that is the only place we use your content to show off the service, and only because you asked. The licence ends when your content is deleted, apart from copies in backups that are overwritten in the normal cycle.</p>
         <p>You promise that:</p>
         <ul>
           <li>you own your content or have permission to use it, including artwork, photos, logos, artist names and trade marks;</li>

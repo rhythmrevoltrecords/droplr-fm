@@ -9,12 +9,13 @@ import { prisma } from "@/lib/db";
 import { bioPublicUrl } from "@/lib/bio";
 import { showSubscribe } from "@/lib/bio-subscribe";
 import { sectionOrder } from "@/lib/bio-sections";
+import { visibleItems } from "@/lib/bio-items";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { publicTheme } from "./artwork-shell";
-import { BioView } from "./bio-view";
+import { BioView, type BioViewData } from "./bio-view";
 
 /** Cached per request: generateMetadata and the page both call it. */
 export const loadBio = cache(async function loadBio(slug: string, host?: string) {
@@ -86,9 +87,11 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
     bioLabelBadges(page, page.organization),
   ]);
 
+  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, merch: visibleItems(page.links, "merch"), videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
+
   return (
     <BioView
-      page={{ title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, links: labelDuplicateLinks(page.links.map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) }}
+      page={data}
       orgName={page.organization.name}
       timezone={page.organization.timezone}
       labels={labels}
