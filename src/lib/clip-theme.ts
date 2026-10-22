@@ -36,6 +36,8 @@ export type ClipColourOverrides = {
   background?: string | null;
   spectrum?: string | null;
   text?: string | null;
+  /** The glow behind the artwork. Defaults to the colour pulled from the artwork. Ignored on Mono, which has none. */
+  glow?: string | null;
 };
 
 /** Everything the frame renderer needs to paint, already resolved. */
@@ -107,6 +109,7 @@ export function clipPalette(look: ClipLookId, accent: string, overrides: ClipCol
   const text = textOverride ?? (contrastOf(base.text, bg) >= 4.5 ? base.text : readableTextOn(bg));
 
   const spectrumPick = pick(overrides.spectrum);
+  const glowColour = pick(overrides.glow) ?? accent;
   const from = spectrumPick ?? (base.mono ? text : visibleOn(accent, bg, 2));
   const to = spectrumPick ?? (base.mono ? text : visibleOn(partnerHex(accent), bg, 2));
 
@@ -122,8 +125,8 @@ export function clipPalette(look: ClipLookId, accent: string, overrides: ClipCol
     spectrumFrom: from,
     spectrumTo: to,
     link,
-    glow: base.glow ? accent : null,
-    glow2: base.glow ? partnerHex(accent) : null,
+    glow: base.glow ? glowColour : null,
+    glow2: base.glow ? partnerHex(glowColour) : null,
     artEdge: isLightBg(bg) ? "rgba(0,0,0,.12)" : "rgba(255,255,255,.10)",
   };
 }

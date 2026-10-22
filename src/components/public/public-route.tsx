@@ -187,6 +187,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
           coverUrl: release.coverUrl,
           accentColor: release.accentColor ?? org.accentColor,
           downloadNote: release.downloadNote,
+          look: { theme: release.theme, font: release.font, backgroundUrl: release.backgroundUrl, backgroundColor: release.backgroundColor, buttonColor: release.buttonColor },
           org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: org.timezone },
         }}
         steps={steps}
@@ -218,6 +219,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         accentColor: release.accentColor ?? org.accentColor,
         releaseDate: unlockAt.toISOString(),
         spotifyArtistId: release.spotifyArtistId,
+        look: { theme: release.theme, font: release.font, backgroundUrl: release.backgroundUrl, backgroundColor: release.backgroundColor, buttonColor: release.buttonColor },
         links: labelDuplicateLinks(release.links).map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })),
         org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: release.rollout === "global" || !viewerTz ? org.timezone : viewerTz },
       }}

@@ -3,6 +3,8 @@ import { LISTEN_CHOICES, platformMeta } from "@/lib/platforms";
 import { formatInTz } from "@/lib/time";
 import { Countdown } from "./countdown";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme } from "./artwork-shell";
+import type { PageLook } from "@/lib/page-look";
+import { lookShell } from "./page-look-shell";
 import { isMailto } from "@/lib/platforms";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { PlatformIcon } from "./platform-icon";
@@ -24,6 +26,8 @@ export type ReleaseViewData = {
   spotifyArtistId?: string | null;
   links: { id: string; platform: string; label: string | null; url: string; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
   org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; logoUrl: string | null; timezone?: string | null; publicGlow?: boolean; glowColor?: string | null };
+  /** Theme, font, button colour and background from the Look tab. Absent or empty = the default look. */
+  look?: Partial<PageLook> | null;
 };
 
 export type ReleaseViewProps = {
@@ -36,6 +40,8 @@ export type ReleaseViewProps = {
   showBranding: boolean;
   demo?: boolean;
   theme?: PublicTheme;
+  /** Renders inside a fixed-size box: the Look tab's live preview. */
+  preview?: boolean;
 };
 
 const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
@@ -58,7 +64,7 @@ function buildHref(base: string, params: Record<string, string | undefined | nul
   return s ? `${base}?${s}` : base;
 }
 
-export function ReleaseView({ release, live, variantId, query, spotifyEnabled, deezerEnabled, showBranding, demo, theme = "dark", contest }: ReleaseViewProps & { contest?: ContestView | null }) {
+export function ReleaseView({ release, live, variantId, query, spotifyEnabled, deezerEnabled, showBranding, demo, theme = "dark", contest, preview = false }: ReleaseViewProps & { contest?: ContestView | null }) {
   const accent = release.accentColor ?? "#8B5CF6";
   const passthrough = {
     variant: variantId ?? undefined,
@@ -85,8 +91,8 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
 
   return (
     <ArtworkPageShell
-      theme={theme}
-      glow={release.org.publicGlow !== false}
+      {...lookShell(release.look, theme, release.org.publicGlow !== false)}
+      preview={preview}
       glowColor={release.org.glowColor}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
