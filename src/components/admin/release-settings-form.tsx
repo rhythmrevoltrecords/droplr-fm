@@ -8,7 +8,7 @@ import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook } from "@/lib/exclusivity";
 import type { ArtistOption } from "./release-create-form";
 import type { BioSocial } from "@/lib/bio-socials";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string; socialIcons: boolean };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string };
 
 export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, locationLabel = "Brisbane", soloArtist = false }: {
   releaseId: string;
@@ -35,7 +35,6 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, l
       // "" is lifetime, which is a real Beatport option, so it has to travel as null rather than
       // being dropped — dropping it would silently keep whatever window was there before.
       exclusiveWeeks: f.exclusiveStore ? (f.exclusiveWeeks ? Number(f.exclusiveWeeks) : null) : null,
-      socialIcons: f.socialIcons ? "on" : null,
       ...(artistProfileId !== initial.artistProfileId ? { artistProfileId: artistProfileId || null } : {}),
     };
     const res = await fetch(`/api/admin/releases/${releaseId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) });
@@ -153,7 +152,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, l
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.autoReResolve} onChange={(e) => set("autoReResolve", e.target.checked)} className="h-4 w-4" /> Auto re-resolve links on release day</label>
         <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" /> Public</label>
         <div className="space-y-1">
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={f.socialIcons} onChange={(e) => set("socialIcons", e.target.checked)} className="h-4 w-4" /> Show social icons under the artist name</label>
+          <p className="text-sm text-muted-foreground">Social icons under the artist name are on the Look tab.</p>
           <p className="text-xs text-muted-foreground">
             {(() => {
               const icons = socialsFor[f.artistProfileId] ?? socialsFor[""] ?? [];

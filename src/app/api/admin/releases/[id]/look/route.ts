@@ -5,6 +5,9 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { lookUpdate, pageLookSchema } from "@/lib/page-look";
 import { planOf } from "@/lib/plans";
+import { z } from "zod";
+
+const schema = pageLookSchema.extend({ socialIcons: z.enum(["on"]).nullable().optional().or(z.literal("")) }).strict();
 
 /**
  * Save a release or download page's look (the Look tab).
@@ -17,9 +20,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const got = await labelRelease((await ctx.params).id);
   if ("error" in got) return NextResponse.json({ error: got.error }, { status: got.status });
 
-  const parsed = pageLookSchema.safeParse(await req.json().catch(() => null));
+  const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "That look couldn't be saved." }, { status: 400 });
-  const data = lookUpdate(parsed.data);
+  const { socialIcons, ...lookInput } = parsed.data;
+  const data = lookUpdate(lookInput);
 
   // Only images droplr stored itself. An outside URL would put a third party's request on every
   // fan's visit to the page, which is a tracking pixel by another name.
@@ -35,10 +39,12 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
+  // The icon row's on/off switch is not part of the paid look: it was free in Settings before the
+  // Look tab existed, so it stays free, and it is deliberately outside the plan check above.
   const release = await prisma.release.update({
     where: { id: got.release.id },
-    data,
-    select: { theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true },
+    data: { ...data, ...(socialIcons !== undefined ? { socialIcons: socialIcons || null } : {}) },
+    select: { theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true, glowColor: true, textColor: true, iconStyle: true, iconColor: true, socialIcons: true },
   });
   return NextResponse.json(release);
 }

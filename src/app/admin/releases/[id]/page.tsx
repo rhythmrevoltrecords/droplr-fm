@@ -22,6 +22,7 @@ import { MILESTONES, shareVersion } from "@/lib/share-image";
 import { PresaveTable } from "@/components/admin/presave-table";
 import { ReleaseSettingsForm } from "@/components/admin/release-settings-form";
 import { bioSocials, socialsFor } from "@/lib/bio-socials";
+import { socialSource } from "@/lib/bio-socials-server";
 import { InterestToggle } from "@/components/admin/interest-toggle";
 import { ReportShare } from "@/components/admin/report-share";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
@@ -29,6 +30,7 @@ import { VariantManager } from "@/components/admin/variant-manager";
 import { ReleaseLookEditor, type LookPreview } from "@/components/admin/release-look-editor";
 import { publicTheme } from "@/components/public/artwork-shell";
 import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
+import { iconStyleOf } from "@/lib/page-look";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -273,6 +275,8 @@ export default async function ReleaseDetail(
       {tab === "look" && (await (async () => {
         const org = release.organization;
         const accent = release.accentColor ?? org.accentColor;
+        // The icon row as the public page would draw it, minus the counted redirect (a preview isn't a visit).
+        const lookSocials = bioSocials(await socialSource(release, org.kind)).map((x) => ({ key: x.key, label: x.label, href: "#" }));
         const orgView = { name: org.name, metaPixelId: null, tiktokPixelId: null, ga4Id: null, logoUrl: org.logoUrl, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: org.timezone };
         let preview: LookPreview;
         if (isDownload) {
@@ -298,7 +302,10 @@ export default async function ReleaseDetail(
         return (
           <ReleaseLookEditor
             releaseId={release.id}
-            initial={{ theme: bioThemeOf(release.theme), font: bioFontOf(release.font), buttonColor: release.buttonColor ?? "", backgroundUrl: release.backgroundUrl ?? "", backgroundColor: release.backgroundColor ?? "" }}
+            initial={{ theme: bioThemeOf(release.theme), font: bioFontOf(release.font), buttonColor: release.buttonColor ?? "", backgroundUrl: release.backgroundUrl ?? "", backgroundColor: release.backgroundColor ?? "", textColor: release.textColor ?? "", glowColor: release.glowColor ?? "", iconStyle: iconStyleOf(release.iconStyle), iconColor: release.iconColor ?? "" }}
+            glowDefault={org.glowColor ?? accent ?? "#7c3aed"}
+            socials={lookSocials}
+            initialSocialsOn={release.socialIcons === "on"}
             accentPreview={accent ?? "#7c3aed"}
             sample={release.title}
             canEdit={plan.pageLooks}
@@ -434,7 +441,6 @@ export default async function ReleaseDetail(
                 ...Object.fromEntries(settingsArtists.map((a) => [a.id, bioSocials(a.socialLinks)])),
               }}
               initial={{
-                socialIcons: release.socialIcons === "on",
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
                 releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistProfileId: release.artistProfileId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
                 spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic, rollout: release.rollout === "global" ? "global" : "local",

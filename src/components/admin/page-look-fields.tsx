@@ -4,9 +4,10 @@ import { bioFontClass } from "@/components/public/bio-fonts";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
+import { ICON_STYLES, ICON_STYLE_LABELS, lookWarnings, themeInk, type IconStyle } from "@/lib/page-look";
 import { useImageUpload } from "./image-crop-dialog";
 
-export type LookValues = { theme: BioThemeId; font: BioFontId; buttonColor: string; backgroundUrl: string; backgroundColor: string };
+export type LookValues = { theme: BioThemeId; font: BioFontId; buttonColor: string; backgroundUrl: string; backgroundColor: string; textColor: string; glowColor: string; iconStyle: IconStyle; iconColor: string };
 
 /**
  * Look, font, button colour and background: the bio page's look controls, shared with the release
@@ -16,8 +17,12 @@ export type LookValues = { theme: BioThemeId; font: BioFontId; buttonColor: stri
  * it always did.
  */
 export function PageLookFields({
-  value, onChange, accentPreview, sample, fontNote, sampleButton = "Listen",
+  value, onChange, accentPreview, sample, fontNote, sampleButton = "Listen", glowDefault, socials,
 }: {
+  /** What the glow is when nothing is picked: the account's glow colour, or the colour from the artwork. */
+  glowDefault: string;
+  /** The "show social icons" switch, on pages where it belongs with the look (release and download pages). */
+  socials?: { on: boolean; onChange: (on: boolean) => void };
   value: LookValues;
   onChange: (patch: Partial<LookValues>) => void;
   /** The page's own colour, for the theme swatches and the button colour's starting point. */
@@ -37,6 +42,8 @@ export function PageLookFields({
     title: "Crop background",
     onUploaded: (img) => onChange({ backgroundUrl: img.url, backgroundColor: "" }),
   });
+
+  const warnings = lookWarnings({ theme: value.theme, textColor: value.textColor || null, backgroundUrl: value.backgroundUrl || null, backgroundColor: value.backgroundColor || null });
 
   return (
     <>
@@ -144,6 +151,83 @@ export function PageLookFields({
               ? "A plain colour behind the page."
               : "Optional. Leave it empty and the page uses the colour from your picture."}
         </p>
+      </div>
+
+      <div className="space-y-2 sm:col-span-2">
+        <Label>Text and glow</Label>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <label className="flex items-center gap-2 text-muted-foreground">
+            Text
+            <input
+              type="color"
+              aria-label="Text colour"
+              value={value.textColor || themeInk(value.theme)}
+              onChange={(e) => onChange({ textColor: e.target.value })}
+              className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+            />
+          </label>
+          {value.textColor && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ textColor: "" })}>Clear</Button>}
+          {value.theme === "mono" ? (
+            <span className="text-xs text-muted-foreground">Mono has no glow.</span>
+          ) : (
+            <>
+              <label className="flex items-center gap-2 text-muted-foreground">
+                Glow
+                <input
+                  type="color"
+                  aria-label="Glow colour"
+                  value={value.glowColor || glowDefault}
+                  onChange={(e) => onChange({ glowColor: e.target.value })}
+                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+                />
+              </label>
+              {value.glowColor && <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ glowColor: "" })}>Clear</Button>}
+            </>
+          )}
+        </div>
+        {warnings.map((w) => <p key={w} className="text-xs text-amber-400">{w}</p>)}
+        <p className="text-xs text-muted-foreground">The glow starts as the colour from your picture. Poster keeps its button text black or white so it always reads.</p>
+      </div>
+
+      <div className="space-y-2 sm:col-span-2">
+        <Label>Social icons</Label>
+        {socials && (
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={socials.on} onChange={(e) => socials.onChange(e.target.checked)} className="h-4 w-4" /> Show social icons under the artist name
+          </label>
+        )}
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+          {ICON_STYLES.map((st) => {
+            const on = value.iconStyle === st;
+            return (
+              <button
+                key={st}
+                type="button"
+                aria-pressed={on}
+                onClick={() => onChange({ iconStyle: st })}
+                className={`rounded-xl border px-3 py-2 text-left transition ${on ? "border-primary ring-2 ring-primary/40" : "border-input hover:border-primary/50"}`}
+              >
+                <span className="block text-xs font-medium">{ICON_STYLE_LABELS[st].name}</span>
+                <span className="block text-[11px] leading-snug text-muted-foreground">{ICON_STYLE_LABELS[st].blurb}</span>
+              </button>
+            );
+          })}
+        </div>
+        {(value.iconStyle === "outline" || value.iconStyle === "solid") && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-muted-foreground">
+              Icon colour
+              <input
+                type="color"
+                aria-label="Social icon colour"
+                value={value.iconColor || value.textColor || themeInk(value.theme)}
+                onChange={(e) => onChange({ iconColor: e.target.value })}
+                className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
+              />
+            </label>
+            {value.iconColor ? <Button type="button" size="sm" variant="ghost" onClick={() => onChange({ iconColor: "" })}>Match text</Button> : <span className="text-xs text-muted-foreground">Matching your text colour.</span>}
+          </div>
+        )}
       </div>
     </>
   );
