@@ -3,12 +3,17 @@ import { labelRelease } from "@/lib/admin-guard";
 import { isOwnImage } from "@/lib/bio-items";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
-import { lookUpdate, pageLookSchema } from "@/lib/page-look";
+import { lookUpdate, PAGE_MODES, pageLookSchema } from "@/lib/page-look";
 import { planOf } from "@/lib/plans";
 import { backgroundPatch } from "@/lib/background-blur";
 import { z } from "zod";
 
-const schema = pageLookSchema.extend({ socialIcons: z.enum(["on"]).nullable().optional().or(z.literal("")) }).strict();
+const schema = pageLookSchema
+  .extend({
+    socialIcons: z.enum(["on"]).nullable().optional().or(z.literal("")),
+    pageMode: z.enum(PAGE_MODES as unknown as [string, ...string[]]).nullable().optional().or(z.literal("")),
+  })
+  .strict();
 
 /**
  * Save a release or download page's look (the Look tab).
@@ -23,7 +28,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "That look couldn't be saved." }, { status: 400 });
-  const { socialIcons, backgroundBlur, ...lookInput } = parsed.data;
+  const { socialIcons, pageMode, backgroundBlur, ...lookInput } = parsed.data;
   const data: Record<string, string | null> = lookUpdate(lookInput);
 
   // Only images droplr stored itself. An outside URL would put a third party's request on every
@@ -51,8 +56,10 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   // Look tab existed, so it stays free, and it is deliberately outside the plan check above.
   const release = await prisma.release.update({
     where: { id: got.release.id },
-    data: { ...data, ...(socialIcons !== undefined ? { socialIcons: socialIcons || null } : {}) },
-    select: { backgroundSourceUrl: true, backgroundBlur: true, theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true, glowColor: true, textColor: true, iconStyle: true, iconColor: true, socialIcons: true },
+    // pageMode, like the icon switch, is free on every plan and outside the check above. Stored as
+    // the word picked ("dark" included), so it never reads as "not set".
+    data: { ...data, ...(socialIcons !== undefined ? { socialIcons: socialIcons || null } : {}), ...(pageMode !== undefined ? { pageMode: pageMode || null } : {}) },
+    select: { pageMode: true, backgroundSourceUrl: true, backgroundBlur: true, theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true, glowColor: true, textColor: true, iconStyle: true, iconColor: true, socialIcons: true },
   });
   return NextResponse.json(release);
 }

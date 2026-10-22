@@ -4,7 +4,6 @@ import { notFound, permanentRedirect, redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { deezerGloballyEnabled, soundcloudGateEnforcement } from "@/lib/env";
 import { labelDuplicateLinks } from "@/lib/link-labels";
-import { publicTheme } from "./artwork-shell";
 import { planOf } from "@/lib/plans";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
 import type { Resolution } from "@/lib/releases";
@@ -18,7 +17,7 @@ import { galleryVisible, PUBLIC_GALLERY_FROM_VERSION } from "@/lib/contest";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
 import { progressFor, remaining } from "@/lib/downloads";
 import { bioSocials, releaseSocialHref, showSocials } from "@/lib/bio-socials";
-import { lookOf } from "@/lib/page-look";
+import { lookOf, pageModeOf } from "@/lib/page-look";
 import { socialSource } from "@/lib/bio-socials-server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -198,7 +197,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         unlocked={remaining(usable, via).length === 0}
         query={query}
         showBranding={!planOf(org.plan).removeBranding}
-        theme={publicTheme(org)}
+        theme={pageModeOf(release.pageMode)}
         contest={await contestViewOf(release.contest, org.timezone)}
       />
     );
@@ -233,7 +232,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       spotifyEnabled={spotifyEnabledFor(org, query.spotify === "1")}
       deezerEnabled={deezerGloballyEnabled() && org.deezerEnabled}
       showBranding={!planOf(org.plan).removeBranding}
-      theme={publicTheme(org)}
+      theme={pageModeOf(release.pageMode)}
       contest={await contestViewOf(release.contest, org.timezone)}
     />
   );

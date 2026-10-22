@@ -16,7 +16,6 @@ import { NOT_FOUND_TITLE } from "@/lib/seo";
 import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
-import { publicTheme } from "./artwork-shell";
 import { BioView, type BioViewData } from "./bio-view";
 
 /** Cached per request: generateMetadata and the page both call it. */
@@ -105,7 +104,9 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
       order={sectionOrder(page.sectionOrder)}
       done={done}
       showBranding={!plan.removeBranding}
-      theme={publicTheme(page.organization)}
+      // The bio page's own look decides light or dark (Paper is light). The account-wide public
+      // theme switch is gone; migration 20261107000000_page_mode moved light accounts onto Paper.
+      theme="dark"
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}
     />
   );

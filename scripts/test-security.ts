@@ -1306,9 +1306,12 @@ async function main() {
       const freeIcons = await http(ownerA, "PATCH", lookUrl, { socialIcons: "on" });
       const freeText = await http(ownerA, "PATCH", lookUrl, { textColor: "#ffd166", socialIcons: "on" });
       const afterIcons = await prisma.release.findUnique({ where: { id: A.release.id }, select: { socialIcons: true, textColor: true } });
+      const freeMode = await http(ownerA, "PATCH", lookUrl, { pageMode: "light" });
+      const afterMode = await prisma.release.findUnique({ where: { id: A.release.id }, select: { pageMode: true } });
+      check("a Free account can set its page to light, dark or system", freeMode.status === 200 && afterMode?.pageMode === "light", `${freeMode.status}/${afterMode?.pageMode}`);
       check("a Free account can switch the icon row, but a text colour riding along is still refused", freeIcons.status === 200 && freeText.status === 402 && afterIcons?.socialIcons === "on" && afterIcons?.textColor === null, `${freeIcons.status}/${freeText.status}/${afterIcons?.textColor}`);
       await prisma.organization.update({ where: { id: A.org.id }, data: { plan: planBefore } });
-      await prisma.release.update({ where: { id: A.release.id }, data: { theme: null, font: null, buttonColor: null, backgroundUrl: null, backgroundColor: null, backgroundSourceUrl: null, backgroundBlur: null, textColor: null, glowColor: null, iconStyle: null, iconColor: null } });
+      await prisma.release.update({ where: { id: A.release.id }, data: { theme: null, font: null, buttonColor: null, backgroundUrl: null, backgroundColor: null, backgroundSourceUrl: null, backgroundBlur: null, pageMode: null, textColor: null, glowColor: null, iconStyle: null, iconColor: null } });
     }
 
     console.log("\n16. Owner signup invites");
