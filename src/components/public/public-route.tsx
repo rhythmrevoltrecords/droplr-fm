@@ -18,6 +18,7 @@ import { galleryVisible, PUBLIC_GALLERY_FROM_VERSION } from "@/lib/contest";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
 import { progressFor, remaining } from "@/lib/downloads";
 import { bioSocials, releaseSocialHref, showSocials } from "@/lib/bio-socials";
+import { lookOf } from "@/lib/page-look";
 import { socialSource } from "@/lib/bio-socials-server";
 
 export type SearchParams = Record<string, string | string[] | undefined>;
@@ -187,7 +188,10 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
           coverUrl: release.coverUrl,
           accentColor: release.accentColor ?? org.accentColor,
           downloadNote: release.downloadNote,
-          look: { theme: release.theme, font: release.font, backgroundUrl: release.backgroundUrl, backgroundColor: release.backgroundColor, buttonColor: release.buttonColor },
+          look: lookOf(release),
+          socials: showSocials(release)
+            ? bioSocials(await socialSource(release, org.kind)).map((s) => ({ key: s.key, label: s.label, href: releaseSocialHref(release.id, s.key) }))
+            : [],
           org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: org.timezone },
         }}
         steps={steps}
@@ -219,7 +223,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         accentColor: release.accentColor ?? org.accentColor,
         releaseDate: unlockAt.toISOString(),
         spotifyArtistId: release.spotifyArtistId,
-        look: { theme: release.theme, font: release.font, backgroundUrl: release.backgroundUrl, backgroundColor: release.backgroundColor, buttonColor: release.buttonColor },
+        look: lookOf(release),
         links: labelDuplicateLinks(release.links).map((l) => ({ id: l.id, platform: l.platform, label: l.label, url: l.url, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })),
         org: { name: org.name, metaPixelId: planOf(org.plan).pixels ? org.metaPixelId : null, tiktokPixelId: planOf(org.plan).pixels ? org.tiktokPixelId : null, ga4Id: planOf(org.plan).pixels ? org.ga4Id : null, logoUrl: org.logoUrl, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: release.rollout === "global" || !viewerTz ? org.timezone : viewerTz },
       }}

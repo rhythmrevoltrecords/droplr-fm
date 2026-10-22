@@ -206,6 +206,12 @@ model Release {
   backgroundUrl   String?
   backgroundColor String?
   buttonColor     String?
+  /** Text colour for the page, the glow behind it, and how the social icon row is drawn. NULL = the theme's own. lib/page-look. */
+  glowColor       String?
+  textColor       String?
+  /** plain (text colour, the default), brand (each network's own colour), outline or solid. */
+  iconStyle       String?
+  iconColor       String?
   /** One line of the artist's own lyric, for the lyric share graphic. Never fetched from anywhere. */
   lyricLine      String?
   spotifyUrl     String?
@@ -553,6 +559,12 @@ model BioPage {
    * than published.
    */
   buttonColor    String?
+  /** Text colour for the page, the glow behind it, and how the social icon row is drawn. NULL = the theme's own. lib/page-look. */
+  glowColor       String?
+  textColor       String?
+  /** plain (text colour, the default), brand (each network's own colour), outline or solid. */
+  iconStyle       String?
+  iconColor       String?
   /**
    * "on" = show the subscribe form. NULL = don't.
    *

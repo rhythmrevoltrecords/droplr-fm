@@ -3,6 +3,7 @@ import { GATE_PLATFORMS, effectiveProof, fanRows, isGatePlatform, soundcloudLabe
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
 import type { PageLook } from "@/lib/page-look";
 import { lookShell } from "./page-look-shell";
+import { SocialIcons, type SocialIcon } from "./social-icons";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { GateRefresh } from "./gate-refresh";
 import { PlatformIcon } from "./platform-icon";
@@ -29,6 +30,8 @@ export type GateViewData = {
   org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; timezone?: string | null; publicGlow?: boolean; glowColor?: string | null };
   /** Theme, font, button colour and background from the Look tab. Absent or empty = the default look. */
   look?: Partial<PageLook> | null;
+  /** The icon row under the artist line, when the gate has it switched on. Same component as the release page. */
+  socials?: SocialIcon[];
 };
 
 const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
@@ -80,11 +83,11 @@ export function GateView({
   const shown = fanRows(steps.filter((s) => s.available), enforcement);
   const left = shown.filter((s) => s.required && !s.done).length;
 
+  const look = lookShell(release.look, theme, release.org.publicGlow !== false, release.org.glowColor);
   return (
     <ArtworkPageShell
-      {...lookShell(release.look, theme, release.org.publicGlow !== false)}
+      {...look.shell}
       preview={preview}
-      glowColor={release.org.glowColor}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
       footer={<ShellFooter showBranding={showBranding} orgName={release.org.name} />}
@@ -92,14 +95,16 @@ export function GateView({
     >
       <ArtworkHero
         glow={release.org.publicGlow !== false}
-        glowColor={release.org.glowColor}
+        glowColor={look.glowColor}
         imageUrl={release.coverUrl}
         accentColor={release.accentColor}
         alt={`${release.title} artwork`}
         eyebrow="Free download"
         title={release.title}
         subtitle={release.artistName}
-      />
+      >
+        <SocialIcons icons={release.socials ?? []} className="mt-3" preview={preview} {...look.icons} />
+      </ArtworkHero>
 
       {notice && (
         <div role="status" className={`mt-5 rounded-xl px-4 py-3 text-sm ${notice.tone === "ok" ? "bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-400/30" : "bg-amber-500/15 text-amber-200 ring-1 ring-amber-400/30"}`}>

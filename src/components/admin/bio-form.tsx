@@ -9,16 +9,18 @@ import { SITE_URL } from "@/lib/env";
 import { labelBadgeLine } from "@/lib/bio-label";
 import { BioView, type BioViewData } from "@/components/public/bio-view";
 import { PageLookFields } from "./page-look-fields";
+import { PhonePreview } from "./phone-preview";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import type { BioFontId, BioThemeId } from "@/lib/bio-themes";
+import type { IconStyle } from "@/lib/page-look";
 import { BIO_SUBSCRIBE_TEXT_MAX, DEFAULT_SUBSCRIBE_TEXT, subscribeButtonText, subscribeConsentLine } from "@/lib/bio-subscribe";
 import { SECTION_HINTS, SECTION_LABELS, moveSection, sectionOrder, serialiseOrder } from "@/lib/bio-sections";
 import { missingFields, missingLine } from "@/lib/bio-form-check";
 import { slugify } from "@/lib/utils";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 
-type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; gallery: string; socialIcons: string; isPublic: boolean };
+type Values = { title: string; slug: string; bio: string; imageUrl: string; accentColor: string; theme: BioThemeId; font: BioFontId; artistProfileId: string; releaseBlock: string; backgroundUrl: string; backgroundColor: string; buttonColor: string; textColor: string; glowColor: string; iconStyle: IconStyle; iconColor: string; labelBadge: string; subscribe: string; subscribeText: string; sectionOrder: string; gallery: string; socialIcons: string; isPublic: boolean };
 
 export function BioForm({
   mode,
@@ -178,7 +180,8 @@ export function BioForm({
             </p>
           </div>
           <PageLookFields
-            value={{ theme: v.theme, font: v.font, buttonColor: v.buttonColor, backgroundUrl: v.backgroundUrl, backgroundColor: v.backgroundColor }}
+            value={{ theme: v.theme, font: v.font, buttonColor: v.buttonColor, backgroundUrl: v.backgroundUrl, backgroundColor: v.backgroundColor, textColor: v.textColor, glowColor: v.glowColor, iconStyle: v.iconStyle, iconColor: v.iconColor }}
+            glowDefault={glow.color || accentPreview}
             onChange={(patch) => { setMsg(null); setV((x) => ({ ...x, ...patch })); }}
             accentPreview={accentPreview}
             sample={v.title || "Your name"}
@@ -314,15 +317,13 @@ export function BioForm({
       </div>
 
       <div className="lg:sticky lg:top-20 lg:self-start">
-        <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
-          {v.imageUrl ? (
-            <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-              <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, links: previewLinks, merch: previewMerch, videos: previewVideos, merchDisplay: previewMerchDisplay, socials: v.socialIcons === "on" ? socials.map((x) => ({ key: x.key, label: x.label, href: "#" })) : [] }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
-            </div>
-          ) : (
-            <div className="grid h-full place-items-center p-6 text-center text-sm text-muted-foreground">Add an image to preview the page</div>
-          )}
-        </div>
+        {v.imageUrl ? (
+          <PhonePreview className="shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">
+            <BioView preview labels={v.labelBadge === "on" ? labelBadges : []} page={{ title: v.title || "Name", bio: v.bio || null, imageUrl: v.imageUrl, accentColor: v.accentColor || null, theme: v.theme, font: v.font, releases: v.releaseBlock === "on" ? previewReleases : [], background: { url: v.backgroundUrl, color: v.backgroundColor }, buttonColor: v.buttonColor, textColor: v.textColor || null, glowColor: v.glowColor || null, iconStyle: v.iconStyle, iconColor: v.iconColor || null, links: previewLinks, merch: previewMerch, videos: previewVideos, merchDisplay: previewMerchDisplay, socials: v.socialIcons === "on" ? socials.map((x) => ({ key: x.key, label: x.label, href: "#" })) : [] }} orgName={orgName} showBranding={showBranding} glow={glow} subscribe={{ on: v.subscribe === "on", pageId: id ?? "preview", buttonText: v.subscribeText || null }} order={order} />
+          </PhonePreview>
+        ) : (
+          <div className="mx-auto grid h-[510px] w-[300px] place-items-center rounded-[2rem] border border-white/10 bg-black p-6 text-center text-sm text-muted-foreground shadow-[0_0_60px_-20px_rgba(124,58,237,0.5)]">Add an image to preview the page</div>
+        )}
       </div>
     </div>
   );

@@ -37,6 +37,7 @@ export function ArtworkPageShell({
   background,
   glowColor,
   buttonColor,
+  textColor,
 }: {
   /** Kept for callers; the background is now painted from accentColor only (no blurred artwork copy). */
   imageUrl?: string;
@@ -68,6 +69,11 @@ export function ArtworkPageShell({
    * decides. Poster's fill is corrected for contrast before it gets here.
    */
   buttonColor?: string | null;
+  /**
+   * The page's text colour, when the owner picked one. Published as --page-ink with a `page-ink`
+   * class; globals.css applies it to the text and leaves Poster's buttons on their own contrast ink.
+   */
+  textColor?: string | null;
 }) {
   const accent = accentColor || DEFAULT_ACCENT;
   const themed = theme === "light" || theme === "system";
@@ -79,7 +85,7 @@ export function ArtworkPageShell({
   const fill = buttonColor ? posterFill(buttonColor) : null;
   return (
     <main
-      className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`, skin)}
+      className={cn("relative overflow-hidden bg-black text-white", preview ? "h-full w-full" : "min-h-dvh", themed && `shell-theme-${theme}`, skin, textColor && "page-ink")}
       style={{
         ["--shell-accent" as string]: accent,
         ["--shell-ink" as string]: readableTextOn(fill ?? posterFill(accent)),
@@ -87,6 +93,7 @@ export function ArtworkPageShell({
         // Only set when the page chose a colour, so `var(--bubble, …)` falls back to each
         // theme's own treatment rather than every page suddenly having a tint.
         ...(buttonColor ? { ["--bubble" as string]: buttonColor } : {}),
+        ...(textColor ? { ["--page-ink" as string]: textColor } : {}),
       }}
     >
       {/* Artwork-driven background: accent-colour wash (no blurred image, no filter: that full-screen blur was the main LCP cost) + dark gradient + accent glow */}

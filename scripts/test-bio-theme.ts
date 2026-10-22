@@ -204,11 +204,15 @@ check("the artwork halo honours it", /boxShadow[\s\S]{0,40}: undefined/.test(she
 check("the renderer resolves both values through the fallbacks", view.includes("bioThemeOf(page.theme)") && view.includes("bioFontOf(page.font)"));
 check("the renderer passes the skin and the font class to the shell", view.includes("bioSkinClass(skin)") && view.includes("bioFontClass(font)"));
 check("the renderer turns the glow off for the theme that asks", view.includes("bioThemeHasGlow(skin)"));
-check("the admin form offers every theme", BIO_THEMES.every(() => form.includes("BIO_THEMES.map")));
-check("the admin form offers every font", form.includes("BIO_FONTS.map"));
-check("each font option is rendered in its own font", form.includes("bioFontClass(f.id)"));
+// The pickers live in PageLookFields, shared with the release page's Look tab, and the bio form
+// renders that component. Both halves are checked: the pickers exist, and the form uses them.
+const lookFields = code(read("src/components/admin/page-look-fields.tsx"));
+check("the bio form renders the shared look pickers", form.includes("<PageLookFields"));
+check("the admin form offers every theme", BIO_THEMES.every(() => lookFields.includes("BIO_THEMES.map")));
+check("the admin form offers every font", lookFields.includes("BIO_FONTS.map"));
+check("each font option is rendered in its own font", lookFields.includes("bioFontClass(f.id)"));
 check("the live preview is given the chosen look", /theme: v\.theme, font: v\.font/.test(form));
-check("the picker tiles report their state to a screen reader", /aria-pressed=\{on\}/.test(form));
+check("the picker tiles report their state to a screen reader", /aria-pressed=\{on\}/.test(lookFields));
 
 // ---- the column ----------------------------------------------------------
 

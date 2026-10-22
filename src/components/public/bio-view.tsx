@@ -9,6 +9,7 @@ import type { BioItem, MerchDisplay } from "@/lib/bio-items";
 import { SITE_URL } from "@/lib/env";
 import { ArtworkHero, ArtworkPageShell, GlassLink, ShellFooter, type PublicTheme, type ShellPixels } from "./artwork-shell";
 import { bioFontClass } from "./bio-fonts";
+import { iconStyleOf } from "@/lib/page-look";
 import { BioVideo } from "./bio-video";
 import { SocialIcons, type SocialIcon } from "./social-icons";
 
@@ -39,6 +40,11 @@ export type BioViewData = {
   background?: { url?: string | null; color?: string | null } | null;
   /** Link button colour; what it does depends on the theme. */
   buttonColor?: string | null;
+  /** Page text colour, glow colour and social icon style (lib/page-look). Null = the theme's own. */
+  textColor?: string | null;
+  glowColor?: string | null;
+  iconStyle?: string | null;
+  iconColor?: string | null;
   links: { id: string; platform: string; url?: string | null; label: string | null; buttonText?: string | null; icon?: string | null; iconUrl?: string | null }[];
   /**
    * The merch and video blocks, already filtered to visible rows by lib/bio-items visibleItems.
@@ -101,14 +107,17 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
   // Paper is the light shell treatment. The org-wide theme preference still wins
   // when it asks for light or system: that switch is the label's, this one is the page's.
   const shellTheme: PublicTheme = bioThemeIsLight(skin) && theme === "dark" ? "light" : theme;
+  // The page's own glow colour wins over the account's.
+  const glowColor = page.glowColor || glow.color;
   return (
     <ArtworkPageShell
       preview={preview}
       theme={shellTheme}
       skin={`${bioSkinClass(skin)} ${bioFontClass(font)}`}
       glow={glow.on && bioThemeHasGlow(skin)}
-      glowColor={glow.color}
+      glowColor={glowColor}
       buttonColor={page.buttonColor}
+      textColor={page.textColor}
       imageUrl={page.imageUrl}
       accentColor={page.accentColor}
       background={page.background}
@@ -134,10 +143,10 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       }
       pixels={pixels}
     >
-      <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glow.color} alt={page.title} shape="circle" title={page.title}>
+      <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glowColor} alt={page.title} shape="circle" title={page.title}>
         {page.bio && <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-balance text-[15px] leading-relaxed text-white/70">{page.bio}</p>}
         {/* Each is a counted tap, the same as a button. Shared with the release page. */}
-        <SocialIcons icons={page.socials} preview={preview} />
+        <SocialIcons icons={page.socials} preview={preview} iconStyle={iconStyleOf(page.iconStyle)} color={page.iconColor || page.textColor || null} light={shellTheme === "light"} />
       </ArtworkHero>
 
       {/* The blocks below are rendered in the owner's order. `order` is already reconciled by

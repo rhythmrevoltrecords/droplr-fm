@@ -89,11 +89,11 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
     </a>
   ) : null;
 
+  const look = lookShell(release.look, theme, release.org.publicGlow !== false, release.org.glowColor);
   return (
     <ArtworkPageShell
-      {...lookShell(release.look, theme, release.org.publicGlow !== false)}
+      {...look.shell}
       preview={preview}
-      glowColor={release.org.glowColor}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
       footer={<ShellFooter showBranding={showBranding} orgName={release.org.name} />}
@@ -101,7 +101,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
     >
         <ArtworkHero
           glow={release.org.publicGlow !== false}
-          glowColor={release.org.glowColor}
+          glowColor={look.glowColor}
           imageUrl={release.coverUrl}
           accentColor={release.accentColor}
           alt={`${release.title} cover art`}
@@ -111,7 +111,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
         >
           {/* Under the artist line: where to follow the person who made this, read from their
               profile. Every icon is a counted tap through /api/r/social. */}
-          <SocialIcons icons={release.socials} className="mt-3" />
+          <SocialIcons icons={release.socials} className="mt-3" preview={preview} {...look.icons} />
         </ArtworkHero>
 
         {notice && (

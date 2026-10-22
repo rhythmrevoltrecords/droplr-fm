@@ -81,7 +81,7 @@ check("an existing page keeps what it had", /socialIcons: page\.socialIcons \?\?
 check("a release icon goes through the release's own counted route", releaseSocialHref("r1", "tiktok") === "/api/r/social/r1/tiktok");
 const rroute = code(read("src/app/api/r/social/[releaseId]/[key]/route.ts"));
 check("the release redirect never reads a destination from the request", !/searchParams\.get\("(url|to|next|redirect)"\)/.test(rroute) && /NextResponse\.redirect\(target, 302\)/.test(rroute));
-check("…404s unless public, a real release (not a gate), and switched on", /!release \|\| !release\.isPublic \|\| release\.kind !== "release" \|\| !showSocials\(release\)/.test(rroute));
+check("…404s unless public, a release or download page, and switched on", /!release \|\| !release\.isPublic \|\| \(release\.kind !== "release" && release\.kind !== "download"\) \|\| !showSocials\(release\)/.test(rroute));
 check("…looks the address up on the release's own profile", /socialTarget\(await socialSource\(release, release\.organization\.kind\), key\)/.test(rroute));
 check("…and stores the prefixed platform with the release, no link id", /releaseId: release\.id/.test(rroute) && /platform: iconPlatform\(/.test(rroute) && !/linkId:/.test(rroute));
 const rview = read("src/components/public/release-view.tsx");
@@ -93,12 +93,12 @@ check("the release page only looks the profile up when the box is ticked", /show
 check("every release icon goes through the counted route", /href: releaseSocialHref\(release\.id, s\.key\)/.test(pr));
 check("the demo shows no icons, so an example can't read as a real profile", /socials: \[\]/.test(read("src/app/demo/demo-track/demo-view.tsx")));
 check("a new release starts with icons on", /socialIcons: "on"/.test(code(read("src/app/api/admin/releases/route.ts"))));
-check("an existing release keeps what it had", /socialIcons: release\.socialIcons === "on"/.test(read("src/app/admin/releases/[id]/page.tsx")));
+check("an existing release keeps what it had (the switch now lives on the Look tab)", /initialSocialsOn=\{release\.socialIcons === "on"\}/.test(read("src/app/admin/releases/[id]/page.tsx")));
 const an = code(read("src/lib/analytics.ts"));
 check("icon taps stay out of the per-store breakdown", /!r\.platform\.startsWith\(ICON_PLATFORM_PREFIX\) && platformMap\.set/.test(an));
 check("…and are named in the per-button list", /label: `\$\{SOCIAL_LABELS\[k as SocialKey\] \?\? k\} icon`/.test(an));
 const iconsSrc = read("src/components/public/social-icons.tsx");
-check("the shared row imports no server code", [...iconsSrc.matchAll(/^import .* from "([^"]+)";/gm)].every((m) => ["@/lib/artist-fields", "@/lib/platform-logos"].includes(m[1])));
+check("the shared row imports no server code", [...iconsSrc.matchAll(/^import .* from "([^"]+)";/gm)].every((m) => ["@/lib/artist-fields", "@/lib/platform-logos", "@/lib/platforms", "@/lib/bio-themes", "@/lib/page-look"].includes(m[1])));
 
 console.log(`${passed} passed, ${failed} failed`);
 if (failed) process.exit(1);

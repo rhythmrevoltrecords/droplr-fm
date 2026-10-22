@@ -467,3 +467,27 @@
   background-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.05)) 18%, rgb(255 255 255 / 0.05));
   border-color: color-mix(in srgb, var(--bubble, rgb(255 255 255 / 0.22)) 40%, rgb(255 255 255 / 0.22));
 }
+
+/* ---------------------------------------------------------------------------
+   Page text colour (BioPage/Release.textColor → --page-ink + .page-ink).
+   Last in the file on purpose, so it beats Paper's light-theme text rules when
+   the owner has picked a colour, and only then: without the class nothing here
+   applies. Poster's buttons keep --shell-ink, the black or white that reads on
+   their fill (those rules are more specific). The email box keeps its own text
+   colour, because it sits on its own background.
+   --------------------------------------------------------------------------- */
+.page-ink {
+  color: var(--page-ink);
+}
+.page-ink .text-white {
+  color: var(--page-ink);
+}
+.page-ink [class*="text-white/"] {
+  color: color-mix(in srgb, var(--page-ink) 68%, transparent);
+}
+.page-ink:not(.shell-theme-light) input[type=email] {
+  color: #fff;
+}
+.page-ink.shell-theme-light input[type=email] {
+  color: #0a0a0a;
+}

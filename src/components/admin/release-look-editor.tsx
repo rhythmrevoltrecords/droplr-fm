@@ -5,10 +5,12 @@ import { useState } from "react";
 import { GateView, type GateStepView, type GateViewData } from "@/components/public/gate-view";
 import type { PublicTheme } from "@/components/public/artwork-shell";
 import { ReleaseView, type ReleaseViewData } from "@/components/public/release-view";
+import type { SocialIcon } from "@/components/public/social-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { hasCustomLook } from "@/lib/page-look";
 import { PageLookFields, type LookValues } from "./page-look-fields";
+import { PhonePreview } from "./phone-preview";
 
 export type LookPreview =
   | { kind: "release"; data: ReleaseViewData; live: boolean }
@@ -24,8 +26,12 @@ export type LookPreview =
  * default from here — the API allows that on every plan.
  */
 export function ReleaseLookEditor({
-  releaseId, initial, accentPreview, sample, canEdit, preview, showBranding, theme, upgradeLine,
+  releaseId, initial, accentPreview, sample, canEdit, preview, showBranding, theme, upgradeLine, glowDefault, socials, initialSocialsOn,
 }: {
+  glowDefault: string;
+  /** The icon row as it would show, already resolved on the server. Shown in the preview when switched on. */
+  socials: SocialIcon[];
+  initialSocialsOn: boolean;
   releaseId: string;
   initial: LookValues;
   accentPreview: string;
@@ -38,17 +44,18 @@ export function ReleaseLookEditor({
 }) {
   const router = useRouter();
   const [v, setV] = useState<LookValues>(initial);
+  const [socialsOn, setSocialsOn] = useState(initialSocialsOn);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const saved = hasCustomLook(initial);
 
-  async function save(values: LookValues) {
+  async function save(values: Record<string, unknown>) {
     setBusy(true);
     setMsg(null);
     const res = await fetch(`/api/admin/releases/${releaseId}/look`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify(values),
+      body: JSON.stringify({ ...values, socialIcons: socialsOn ? "on" : "" }),
     });
     const j = await res.json().catch(() => ({}));
     setBusy(false);
@@ -56,7 +63,7 @@ export function ReleaseLookEditor({
     if (res.ok) router.refresh();
   }
 
-  const reset: LookValues = { theme: "midnight", font: "clean", buttonColor: "", backgroundUrl: "", backgroundColor: "" };
+  const reset: LookValues = { theme: "midnight", font: "clean", buttonColor: "", backgroundUrl: "", backgroundColor: "", textColor: "", glowColor: "", iconStyle: "plain", iconColor: "" };
   // The default look is "nothing set", not "Midnight + Clean set". Saving the defaults explicitly
   // would mark the page as customised and give it a skin class it never had.
   const payload = (x: LookValues) => ({
@@ -65,6 +72,10 @@ export function ReleaseLookEditor({
     buttonColor: x.buttonColor,
     backgroundUrl: x.backgroundUrl,
     backgroundColor: x.backgroundColor,
+    textColor: x.textColor,
+    glowColor: x.glowColor,
+    iconStyle: x.iconStyle === "plain" ? "" : x.iconStyle,
+    iconColor: x.iconColor,
   });
   const look = payload(v);
 
@@ -88,21 +99,30 @@ export function ReleaseLookEditor({
                   sample={sample}
                   sampleButton={preview.kind === "download" ? "Download" : "Listen"}
                   fontNote="The preview is the real page. Changes go live when you hit Save."
+                  glowDefault={glowDefault}
+                  socials={{ on: socialsOn, onChange: (on) => { setMsg(null); setSocialsOn(on); } }}
                 />
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                <Button onClick={() => void save(look as LookValues)} disabled={busy}>Save</Button>
-                <Button variant="ghost" disabled={busy} onClick={() => { setV(reset); void save(payload(reset) as LookValues); }}>Back to default</Button>
+                <Button onClick={() => void save(look)} disabled={busy}>Save</Button>
+                <Button variant="ghost" disabled={busy} onClick={() => { setV(reset); void save(payload(reset)); }}>Back to default</Button>
                 {msg && <span className={`text-sm ${msg.ok ? "text-emerald-400" : "text-red-400"}`}>{msg.text}</span>}
               </div>
             </>
           ) : (
             <div className="space-y-3 text-sm">
+              {/* The icon row isn't part of the paid look: it was free in Settings before the Look tab, and stays free here. */}
+              <div className="flex flex-wrap items-center gap-3">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" checked={socialsOn} onChange={(e) => { setMsg(null); setSocialsOn(e.target.checked); }} className="h-4 w-4" /> Show social icons under the artist name
+                </label>
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void save({})}>Save</Button>
+              </div>
               <p className="text-muted-foreground">{upgradeLine}</p>
               <div className="flex flex-wrap items-center gap-3">
                 <Button asChild><Link href="/admin/settings/billing">See the plans</Link></Button>
                 {saved && (
-                  <Button variant="ghost" disabled={busy} onClick={() => { setV(reset); void save(payload(reset) as LookValues); }}>
+                  <Button variant="ghost" disabled={busy} onClick={() => { setV(reset); void save(payload(reset)); }}>
                     Put this page back to the default
                   </Button>
                 )}
@@ -115,15 +135,14 @@ export function ReleaseLookEditor({
       </Card>
 
       <div className="lg:sticky lg:top-20 lg:self-start">
-        <div className="mx-auto h-[510px] w-[300px] overflow-hidden rounded-[2rem] border border-white/10 bg-black">
-          <div style={{ width: 390, height: 663, transform: "scale(0.769)", transformOrigin: "top left" }}>
-            {preview.kind === "download" ? (
-              <GateView preview demo release={{ ...preview.data, look }} steps={preview.steps} unlocked={false} query={{}} showBranding={showBranding} theme={theme} />
+        <PhonePreview>
+          {preview.kind === "download" ? (
+              <GateView preview demo release={{ ...preview.data, look, socials: socialsOn ? socials : [] }} steps={preview.steps} unlocked={false} query={{}} showBranding={showBranding} theme={theme} />
             ) : (
-              <ReleaseView preview demo release={{ ...preview.data, look }} live={preview.live} query={{}} spotifyEnabled deezerEnabled={false} showBranding={showBranding} theme={theme} />
+              <ReleaseView preview demo release={{ ...preview.data, look, socials: socialsOn ? socials : [] }} live={preview.live} query={{}} spotifyEnabled deezerEnabled={false} showBranding={showBranding} theme={theme} />
             )}
-          </div>
-        </div>
+        </PhonePreview>
+        <p className="mt-2 text-center text-xs text-muted-foreground">Scroll the preview to see the whole page.</p>
       </div>
     </div>
   );
