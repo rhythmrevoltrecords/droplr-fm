@@ -21,6 +21,13 @@ export type Post = {
   title: string;
   /** One line under the title, and the card blurb. Also the meta description. */
   summary: string;
+  /**
+   * What the post is. `/blog` is one feed with two halves: a news explainer reports something that
+   * happened and has to be checkable, so it carries `sources`; a guide teaches how to do something
+   * and has nothing external to cite, so its `sources` is `[]`. Nothing on the site may call a
+   * guide news.
+   */
+  kind: "news" | "guide";
   /** Short label on the card. */
   tag: string;
   /** Reading time for the article, not the video runtime. */
@@ -45,6 +52,7 @@ export const POSTS: Post[] = [
     title: "A Man Got 18 Months for Fake Streams. Here's What It Took From You.",
     summary:
       "The first criminal streaming-fraud sentence in the US, and the reason it comes out of the same pot that pays you.",
+    kind: "news",
     tag: "News",
     minutes: 4,
     runtime: "4:36",
@@ -89,6 +97,7 @@ export const POSTS: Post[] = [
     title: "Italy Is Investigating Suno's Terms. Here's What You Agreed To.",
     summary:
       "Not copyright, not training data — the contract you clicked through. Six things the regulator is looking at, and five questions worth asking of anything you make music with.",
+    kind: "news",
     tag: "News",
     minutes: 4,
     runtime: "4:17",
@@ -136,12 +145,281 @@ export const POSTS: Post[] = [
       { label: "Music Week \u2014 Italian watchdog investigates Suno over user terms", url: "https://musicweek.com/digital/read/italian-watchdog-investigates-suno-over-user-terms/095166" },
     ],
   },
+  // Appended in date order, which is not the order they appear anywhere: every surface goes
+  // through livePosts(), which sorts newest first. Add to the bottom.
+  {
+    slug: "launch-a-release-like-a-label",
+    title: "How to Launch a Release Like a Label (Full droplr Walkthrough)",
+    summary:
+      "The whole thing, start to finish: a pre-save that becomes a smart link on release day, download gates, the promo plan, and a fan list you keep.",
+    kind: "guide",
+    tag: "Guide",
+    minutes: 5,
+    runtime: "3:59",
+    youTubeId: "pgSIW6lZ0Lo",
+    publishAt: "2026-10-06T09:00:00+10:00",
+    body: [
+      { p: "Every day, tens of thousands of new tracks hit streaming. If you're an independent artist, or you run a small label, you're up against all of it — usually with a link in your bio and a hope." },
+      { p: "This is how you launch a release the way a label would: pre-saves, smart links, download gates, a promo plan, and a fan list you actually keep. The video is the whole walkthrough in about four minutes. This is the same thing in writing." },
+      { h: "Start with a pre-save" },
+      { p: "In the dashboard, hit new pre-save link and paste your Spotify link or URI. You'll find it in Spotify for Artists, under upcoming. If Spotify hasn't got the details yet, which is normal for unreleased music, fill them in: title, artist. Then drop in your artwork and crop it. droplr picks an accent colour out of the artwork so the page matches the release. Hit create, and the page is live." },
+      { h: "What your fans see" },
+      { p: "A countdown to release day, your artwork, and one simple ask — their email. They pick where they listen: Spotify, Apple Music, Bandcamp, Beatport, wherever. Tick the box, tap pre-save, and they're on the list." },
+      { note: "No Spotify login needed. It works for every fan, on every platform — which is the whole reason the email is the ask and the store is a checkbox.", tone: "info" },
+      { h: "Release day happens without you" },
+      { p: "At midnight in each fan's own timezone, the same link turns into a smart link with every store on it. At 9am their time, every pre-saver gets an email with the store they picked right at the top." },
+      { p: "So the link in your bio never changes. Before release it's a pre-save. After, it's a smart link. The one on the flyer, the one in a story from three months ago — same link, still right." },
+      { h: "Smart links: every store the same size" },
+      { p: "Not every fan streams on Spotify, so your smart link shouldn't pretend they do. Every store gets the same size button, and you can drag them into any order. For Bandcamp Friday, drag Bandcamp to the top and rename the button. Then add the stores your fans actually use — Beatport, Traxsource, Juno — plus buttons for merch, vinyl or tickets. Hit save, and every link you've already shared updates." },
+      { h: "Download gates" },
+      { p: "Giving something away? An edit pack, a remix, stems, a demo. Put it behind a download gate. Name it, add artwork, paste the link to where your files live — they stay in your own Drive or Dropbox. Then pick what fans do first. An email is the one that matters, because you keep it. Fans complete the steps, the download unlocks, and your list grows." },
+      { h: "The promo plan, dated back from release day" },
+      { p: "Announce it. Pitch to Spotify's editors. Post a teaser. Countdown at seven days. Out now. Then a recap. Move the release date and the whole plan moves with it." },
+      { p: "And you don't need a designer for it. The share tab makes countdown, out now and milestone graphics straight from your artwork, in story and post sizes, with your link on them." },
+      { h: "Which post actually brought the pre-saves" },
+      { p: "Give every placement its own link — Instagram, TikTok, your bio. droplr tracks the views and pre-saves from each one side by side, along with countries, devices, and when your fans are most active." },
+      { h: "One fan list" },
+      { p: "Every pre-saver lands in one list: where they are, where they listen, and who wants to hear about your next release. You can filter it, and bring your old list in too." },
+      { p: "That's it. One link, before and after release day, and a fan list that's yours. Free to start — three releases in any rolling twelve months, and no card." },
+    ],
+    sources: [],
+  },
+  {
+    slug: "release-day-checklist",
+    title: "The Release Day Checklist: 13 Steps From 4 Weeks Out to 1 Week After",
+    summary:
+      "Most releases don't fall flat on release day. They fall flat four weeks before it. Every step, and exactly when to do it.",
+    kind: "guide",
+    tag: "Guide",
+    minutes: 5,
+    runtime: "2:45",
+    youTubeId: "IQ1gVKJeS8M",
+    publishAt: "2026-10-13T09:00:00+10:00",
+    body: [
+      { p: "Most releases don't fall flat on release day. They fall flat four weeks before it, when nobody's been told yet." },
+      { p: "So here's the checklist. Every step, and exactly when to do it, from four weeks out to a week after release. Screenshot it, or let droplr build it for you, dated back from your release date." },
+      { h: "Four weeks out" },
+      { steps: [
+        { title: "Announce it", body: "Your music should already be with your distributor, and your pre-save page should be live. Post the cover with \"pre-save now\", and put the link in your bio." },
+        { title: "A separate link for every place you'll post", body: "Instagram, TikTok, your bio. Do it the next day, not later. That's how you'll know which post actually worked." },
+      ] },
+      { h: "Three weeks out" },
+      { steps: [
+        { title: "Pitch it to Spotify's editors", body: "In Spotify for Artists. Spotify needs it at least seven days before release, but earlier gives them more time to listen." },
+        { title: "Post a teaser", body: "Fifteen seconds of the hook or the drop, vertical, with a link sticker. Post it just before your fans' busiest hour." },
+      ] },
+      { h: "Two weeks out" },
+      { steps: [
+        { title: "Send it to DJs, blogs and playlist curators", body: "A short personal message, the pre-save link, and a private stream. Ten personal emails beat a hundred copy-pastes." },
+      ] },
+      { h: "The last ten days" },
+      { steps: [
+        { title: "Ten days out — tell the fans who said yes to news", body: "Only them. They're the ones who asked to hear from you." },
+        { title: "Seven days out — post your countdown", body: "And reply to every comment." },
+        { title: "Three days out — give people a reason to share it", body: "A studio clip, or the story behind the track." },
+        { title: "The day before — check every store link", body: "Beatport, Bandcamp, SoundCloud, wherever your fans actually listen." },
+      ] },
+      { h: "Release day and after" },
+      { steps: [
+        { title: "Release day — post your out now graphic", body: "At your fans' busiest hour. With droplr, every pre-saver already got an email at 9am in their own timezone, with their store right at the top." },
+        { title: "The day after — thank your fans", body: "And repost anyone who shared it." },
+        { title: "Three days after — add any store links that went live late", body: "They often do." },
+        { title: "A week after — look at what worked", body: "Which post brought the pre-saves, which country, which hour. That's your plan for next time." },
+      ] },
+      { note: "Thirteen steps, over five weeks. You can run it from a spreadsheet, or droplr builds the whole plan for you, dated back from your release day, with the graphic or link each step needs. Move the release date and every step moves with it.", tone: "info" },
+    ],
+    sources: [],
+  },
+  {
+    slug: "who-owns-your-link-in-bio",
+    title: "Who Actually Owns Your Link in Bio?",
+    summary:
+      "Three smart link services disappeared and the links survived while the data didn't. Now the link is being bundled into distribution software. Five things to check — including on mine.",
+    kind: "news",
+    tag: "Analysis",
+    minutes: 7,
+    runtime: "5:47",
+    youTubeId: "fG5Z9N3hktY",
+    publishAt: "2026-10-15T09:00:00+10:00",
+    body: [
+      { p: "On the 31st of July this year, Songlink — the service a lot of smart links were built on — switched off its API. About six weeks' notice. Before that, Songwhip shut down, and the links people had put in their bios stopped resolving. Before that, smartURL was acquired, and when it migrated the analytics were closed permanently. The redirects survived. The history didn't." },
+      { p: "Three different services. Same shape every time. The link survives, and the data doesn't." },
+      { h: "What a smart link actually is" },
+      { p: "A page that works out where someone is and sends them to the right store. That's it. It's genuinely useful, and it is also, technically, close to trivial. A redirect and a store lookup." },
+      { p: "Which is why there are about forty of them. Why most are free, or near enough. And why they keep getting bought, bundled and switched off. Nobody's business is the link. The link is the thing they hand you, so they can be the one holding something else — usually your fans' email addresses, or your attention, or your subscription." },
+      { p: "That's not a conspiracy. It's the economics. But it means the link is the part most likely to change hands, and your fan list is the part you should actually care about." },
+      { h: "What's happening right now" },
+      { p: "In June, Feature.fm — one of the bigger smart link and pre-save companies — announced a partnership with SonoSuite. SonoSuite isn't a name most artists know, and that's the point: it's the white label software a lot of independent distributors run on. If you're with a small distributor, there's a reasonable chance their dashboard is SonoSuite underneath." },
+      { p: "So now pre-saves, smart links and fan capture sit inside that distribution software. And a distributor can switch it on for everybody they serve. If yours runs on it, you might get smart links included, for free. Which sounds like good news, and in the short term it genuinely is." },
+      { p: "But notice what moved. The link layer went from being a product you chose to infrastructure you're handed. And infrastructure you're handed is infrastructure you don't control." },
+      { h: "The question worth asking first" },
+      { p: "Before you pick anything — including mine. If this disappeared tomorrow, what would I still have?" },
+      { p: "And I don't mean do my links still work. Links are cheap; you can rebuild links in an afternoon. I mean: do I still have the email addresses? Can I see all of them, right now, on the plan I'm actually on? Can I take them with me?" },
+      { p: "And here's the new one, the one that didn't exist a year ago. If my distributor is the one giving me the marketing tool, what happens to my fan list the day I change distributor? Because when the marketing lives inside the distribution, leaving one and leaving the other become the same decision. Nobody's being sneaky. That's just what bundling does." },
+      { h: "Five checks. They take about ten minutes." },
+      { ol: [
+        "Can you see every email address today, on the plan you're on? Not a count. Not the first two hundred. The actual addresses. Some tools collect them and only show you a number.",
+        "Can you get them out — and what does that cost? Some charge for export. That's a fair business decision. But find out before you've got two thousand of them in there, not after.",
+        "Who's responsible for that data — you, or the tool? It should say, in plain words, in their terms. If you can't find it in five minutes, that's your answer.",
+        "If you leave, what happens to links you've already put out? The one on a flyer. The one in your bio. The one in a DM from eight months ago.",
+        "Can it tell you which post actually brought the fan? Because if it can't, you're guessing at the only question that matters for your next release.",
+      ] },
+      { h: "The case for taking the free one" },
+      { p: "It's free. It's already there. It's one less login and one less thing to think about. And for a lot of artists, one less thing to think about is worth more than control they're never going to use. That's a real argument. If you put out two tracks a year and you're not building a list, take the free one. I mean that." },
+      { p: "It stops being the right call the moment the list starts being worth something. Because that's exactly when you'd find out you can't take it with you." },
+      { h: "What I do, and what it doesn't" },
+      { p: "I built droplr because I run a small label and I wanted the answer to those five to be yes. Every email address is visible on the free plan — not a count, the addresses." },
+      { p: "And I'll answer check two honestly, because it's mine: the CSV export is on the paid plans. Free shows you everyone and lets you work with them. Downloading the file is paid. You can decide whether that's fair. I'd rather tell you than let you find out." },
+      { p: "Because the release, the links and the fans all sit on one record, it can tell you which placement brought which pre-save, and warn you when a link you're about to publish breaks a store exclusive — which is honestly the thing I built it for." },
+      { p: "It's one person. That's a downside. It's also why a named human answers you." },
+      { p: "And if your answer is the free one inside your distributor — fine. Just make sure you know which question you answered." },
+    ],
+    sources: [
+      { label: "Feature.fm — the SonoSuite partnership announcement", url: "https://blog.feature.fm/feature-fm-and-sonosuite-partner-to-bring-marketing-automation-directly-into-white-label-music-distribution-infrastructure/" },
+    ],
+  },
+  {
+    slug: "youtube-is-labelling-music-as-ai",
+    title: "YouTube Is Now Labelling Music As AI — And You Don't Set The Flag",
+    summary:
+      "The label comes from a metadata field on the delivery, not from your account. Send nothing and YouTube reads it as unknown, then decides from its own signals.",
+    kind: "news",
+    tag: "News",
+    minutes: 5,
+    runtime: "4:55",
+    youTubeId: "GY0BqYGfS0E",
+    publishAt: "2026-10-19T09:00:00+10:00",
+    body: [
+      { p: "On Wednesday the 14th of October, YouTube Music began labelling songs made primarily with generative AI." },
+      { p: "The part worth understanding: the label is driven by a metadata field on the delivery, not by anything in your account. You almost certainly don't set it. Your distributor does — or nobody does." },
+      { h: "Three values, three ways in" },
+      { p: "The disclosure has three possible values: Fully Gen AI, Partly Gen AI, or No Gen AI. There are three ways it can reach YouTube:" },
+      { ol: [
+        "A DDEX ERN 4.3.2 or later delivery, which is how most distributors send music.",
+        "A contains_ai column in a CSV, in Content Manager.",
+        "By hand, in Studio.",
+      ] },
+      { note: "If a partner sends no value at all, YouTube reads it as \"unknown\" — and may designate the track fully or partly Gen AI from its own detection signals instead.", tone: "warn" },
+      { h: "Where the line falls" },
+      { p: "YouTube's own examples put pitch correction and automated AI mastering in No Gen AI. But an AI-generated instrumental layer under live vocals goes in Partly Gen AI." },
+      { p: "Read that second one again if you make electronic music. A generated bassline, pad or texture under your own performance is Partly Gen AI by that example. That line runs straight through normal practice." },
+      { p: "And YouTube says, in its own words, that it is up to partners to interpret the Gen AI definitions provided by DDEX. So the interpretation that lands on your release is your distributor's, not yours." },
+      { h: "What isn't stated" },
+      { p: "No penalty. No appeals process. Nothing about the effect on recommendations or payouts for music." },
+      { p: "Worth being precise here, because it gets misquoted: YouTube did say back in May that labelling doesn't change recommendations or monetisation — but that statement was about video. Not this." },
+      { h: "What to do this week" },
+      { ol: [
+        "Find out what your distributor sends. Ask them directly whether they populate the Gen AI field, what they default to, and whether you can set it per release.",
+        "Check your own releases in Studio, if you have Content Manager access. A value you didn't set is still a value on your record.",
+        "Decide your own answer before someone else does. For each release: nothing generated, something generated, or mostly generated. Write it down next to the release.",
+      ] },
+      { p: "That last one is the only part fully in your hands. If you keep one record per release with what's in it and who cleared what, you can answer the question the day it's asked instead of reconstructing it." },
+      { p: "I'm not against AI tools, and this isn't legal advice — I'm a producer who runs a small label. But a flag on your music that you didn't set and can't see is worth ten minutes." },
+    ],
+    sources: [
+      { label: "YouTube Help — Disclose Gen AI usage for music content", url: "https://support.google.com/youtube/answer/17124251" },
+      { label: "YouTube Blog — 14 October 2026", url: "https://blog.youtube/news-and-events/youtube-music-ai-labels/" },
+      { label: "Music Business Worldwide — 14 October 2026", url: "https://www.musicbusinessworldwide.com/youtube-music-starts-labeling-ai-generated-songs-using-partner-disclosures-and-its-own-detection-tools/" },
+    ],
+  },
+  {
+    slug: "casual-listeners-into-superfans",
+    title: "How Independent Artists Turn Casual Listeners Into Superfans",
+    summary:
+      "A stream is a listener you'll probably never meet. Three things turn one into someone who shows up for every release.",
+    kind: "guide",
+    tag: "Guide",
+    minutes: 4,
+    runtime: "2:31",
+    youTubeId: "NVu8gt_8TDk",
+    publishAt: "2026-10-20T09:00:00+10:00",
+    body: [
+      { p: "A stream is a listener you'll probably never meet. So how do you turn a casual listener into someone who shows up for every release?" },
+      { p: "Three things. Own a way to reach them. Give them a reason to stay. And show up when it counts." },
+      { h: "Own the contact" },
+      { p: "Followers belong to the platform. If the algorithm decides not to show your post, that's it. An email is different: it's yours, and it goes straight to them." },
+      { p: "The easiest moment to ask for one is when someone already wants something from you. A pre-save. A free download. That's the trade — they get the music, you get a way to reach them." },
+      { h: "Give them a reason" },
+      { p: "Free downloads are perfect for this. An edit pack, a remix, stems, an early demo. Put it behind a download gate and ask for the email first." },
+      { p: "Keep it to one or two steps. Every extra step loses people. And be honest about what you'll send: only email people about news if they've said yes to news." },
+      { h: "Know who they are" },
+      { p: "Where are they? Where do they listen? Who wants to hear from you again?" },
+      { p: "If most of your fans buy on Bandcamp, lead with Bandcamp. If most of them are in the UK, post when it's evening in London. Small changes, but they show fans you're paying attention." },
+      { h: "Show up when it counts" },
+      { p: "Superfans aren't made by posting more. They're made in moments. Release day, at a sensible hour in their timezone. Thanking them when you hit a milestone. Reposting the fans who shared it." },
+      { p: "And between releases, don't go quiet. One honest update a month is enough — a studio clip, a gig, a sneak peek. Send it to the fans who said yes to news, at a sensible hour in their own timezone." },
+      { h: "One thing people get wrong about consent" },
+      { p: "\"They gave me their email for a download\" and \"they want my newsletter\" are two different permissions, and treating them as one is the fastest way to get marked as spam by the people who liked you most." },
+      { p: "So keep them apart. A download gate gets you an address for that download. News is a separate yes, asked separately. The list of people who said yes to news will be smaller than your total list, and it will open at three or four times the rate. That trade is worth it every time." },
+      { p: "It also means you should know, at any moment, which of your fans said which. If the tool you use can't tell you that, you don't have a fan list — you have a pile of addresses." },
+      { note: "Own the contact. Give them a reason. Show up when it counts.", tone: "info" },
+      { p: "droplr handles the boring parts: the pre-saves, the download gates, the fan list, and the release-day email at 9am in each fan's timezone. On paid plans you can email your news fans straight from droplr too." },
+      { p: "On the free plan you can see every address on the list, and who said yes to news. Downloading the list as a file is on the paid plans, and whatever plan you're on, the whole list comes with you if you close your account." },
+    ],
+    sources: [],
+  },
+  {
+    slug: "distributor-can-pull-your-music-on-a-claim",
+    title: "Your Distributor Can Pull Your Music On A Claim. Not A Ruling.",
+    summary:
+      "DistroKid artists found songs gone from Spotify and Apple Music. The clause that allowed it is in most distribution agreements, and you agreed to it.",
+    kind: "news",
+    tag: "News",
+    minutes: 6,
+    runtime: "5:15",
+    youTubeId: "oOYPO8yz3Qg",
+    publishAt: "2026-10-21T09:00:00+10:00",
+    body: [
+      { p: "On Saturday the 10th of October, independent artists started noticing their songs had gone from Spotify and Apple Music. No email. No warning. In several cases, no reason given. They were DistroKid artists, and the takedown notices named Universal." },
+      { h: "What's confirmed" },
+      { p: "On 15 September, Universal Music Group sued DistroKid in federal court in Delaware. UMG says DistroKid is flooding streaming services with AI-generated “slop” — their word — and distributing recordings it has acknowledged it doesn't hold the rights to. The complaint asks the court to order infringing tracks removed and repeat infringers' accounts terminated." },
+      { p: "On 12 October, DistroKid confirmed the removals. Amanda Ferri, their VP of Artist Services, told The Verge: “A very small number of recordings distributed through DistroKid have been removed in response to claims made by UMG.” And: “We strongly dispute the allegations underlying UMG's lawsuit, and regret the disruption to affected artists.”" },
+      { p: "Then on Friday 16 October, Universal and Sony filed again, demanding DistroKid hand over its internal data on how many AI-generated tracks it uploads, and the details of its AI detection tools. The filing calls DistroKid a “primary conduit” for Suno-generated music." },
+      { h: "The mechanism is a clause, not a scandal" },
+      { p: "DistroKid's distribution agreement reserves the right to remove a recording from streaming services — quote — “if we receive any legal claims regarding the particular Recording”." },
+      { note: "Any legal claims. Received. Not proven. Not ruled on. A claim arrives, and the clause is live.", tone: "warn" },
+      { p: "That is not unusual, and I'm not telling you DistroKid is unusual for having it. Most distribution agreements have something that shape. The point is that you agreed to it, and you probably haven't read it." },
+      { h: "Where it lands on you" },
+      { p: "The musician McGwire says six of his songs came down, that DistroKid didn't contact him before or after, and that when he chased it he first got a bot. One removal cited an uncleared sample — and Hypebot reports the song he supposedly sampled came out two years after his track did. The rapper Insane Ian says an original song was removed with no warning and no reason given. Those are their accounts, not findings." },
+      { p: "The documented route back is a DMCA counter-notice. DistroKid's own guidance says that after a valid one, it has to wait ten business days before reinstating. And the streaming services may choose not to reinstate at all, under their own policies." },
+      { p: "Ten business days is two weeks. If that lands on your release week, your release week is gone." },
+      { h: "What this does not mean" },
+      { ul: [
+        "It does not mean DistroKid did anything wrong. They dispute UMG's allegations, they called it a very small number, and no court has decided anything yet.",
+        "It does not mean the removed tracks were AI. Some of those artists say theirs weren't. Music Business Worldwide was careful to say it had not verified the rights status of those recordings, or whether they were even tied to UMG's claims. I can't verify it either.",
+        "It does not mean switching distributor fixes this. That clause is common. Moving to a distributor whose agreement you also haven't read is not a plan.",
+      ] },
+      { p: "What nobody outside DistroKid and Universal can tell you is how many tracks came down, or how many were correctly identified. That is part of why the filing on the 16th exists." },
+      { h: "Three things. The first takes ten minutes." },
+      { steps: [
+        { title: "Open your distribution agreement and search it for the word “remove”", body: "Find the clause that says when they can take your music down, and whether they have to tell you first. Read that one paragraph. Whatever it says, you'll know — which is more than most people reading this." },
+        { title: "Build the evidence file before you need it, not after", body: "For every release: the sample clearances, the beat licence and who else it was sold to, the cover licence, the split sheet, and the date you published. If you ever file a counter-notice you'll be assembling all of that under time pressure, with a ten-business-day clock on top." },
+        { title: "Stop letting one dashboard be the only place your catalogue exists", body: "If your distributor's account is the only record of what you released and when, then when something goes wrong you find out in their order, at their speed." },
+      ] },
+      { p: "That third one is what droplr is. One record per release — the links, the splits, the rights — somewhere that isn't your distributor's dashboard." },
+      { p: "It will not stop a takedown. Nothing I build can. What it does is mean that when one happens, you already know what you published, where it went, and when. I build it on my own, one person in Brisbane." },
+    ],
+    sources: [
+      { label: "Music Business Worldwide — DistroKid confirms removals in response to UMG claims", url: "https://www.musicbusinessworldwide.com/distrokid-confirms-it-has-removed-tracks-in-response-to-umg-claims/" },
+      { label: "Hypebot — DistroKid takedown wave hits indie artists after UMG lawsuit", url: "https://www.hypebot.com/distrokid-takedown-wave-hits-indie-artists-after-umg-lawsuit/" },
+      { label: "Digital Music News — Sony and UMG demand DistroKid's AI disclosure data", url: "https://www.digitalmusicnews.com/2026/10/16/sony-music-umg-lawsuit-vs-distrokid-ai-disclosure/" },
+      { label: "Rolling Stone — DistroKid removed music in response to UMG lawsuit", url: "https://www.rollingstone.com/music/music-news/distrokid-removed-music-response-umg-lawsuit-1235641464/" },
+    ],
+  },
 ];
 
 /** Posts whose video is public. Every surface goes through this: never map POSTS directly. */
 export function livePosts(now: Date): Post[] {
   return POSTS.filter((p) => Date.parse(p.publishAt) <= now.getTime())
     .sort((a, b) => Date.parse(b.publishAt) - Date.parse(a.publishAt));
+}
+
+/**
+ * The news half only. The home page promises "news", so it shows news: a guide reaching that
+ * section would make the heading above it untrue. `/blog` carries both and uses `livePosts`.
+ */
+export function liveNews(now: Date): Post[] {
+  return livePosts(now).filter((p) => p.kind === "news");
 }
 
 export function findPost(slug: string, now: Date): Post | null {

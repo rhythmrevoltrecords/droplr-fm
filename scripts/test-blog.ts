@@ -8,7 +8,7 @@
  * The second thing it guards is quieter. The articles are the point — the embed earns nothing in
  * search — so a post that somehow ships with a thin body is the failure nobody would notice.
  */
-import { POSTS, findPost, livePosts, postDate, postEmbed, postThumb, postWatchUrl, type Post } from "../src/lib/blog";
+import { POSTS, findPost, liveNews, livePosts, postDate, postEmbed, postThumb, postWatchUrl, type Post } from "../src/lib/blog";
 
 let passed = 0;
 let failed = 0;
@@ -27,6 +27,10 @@ const words = (p: Post) =>
     if ("ul" in b) return n + b.ul.join(" ").split(/\s+/).length;
     if ("ol" in b) return n + b.ol.join(" ").split(/\s+/).length;
     if ("note" in b) return n + b.note.split(/\s+/).length;
+    // A checklist post is mostly steps. Without this the word count reads near zero and the
+    // "real article" check below passes a post it never looked at.
+    if ("steps" in b) return n + b.steps.map((x) => `${x.title} ${x.body}`).join(" ").split(/\s+/).length;
+    if ("table" in b) return n + [...b.table.head, ...b.table.rows.flat()].join(" ").split(/\s+/).length;
     return n;
   }, 0);
 
@@ -54,8 +58,12 @@ check("no two posts point at the same video", new Set(POSTS.map((p) => p.youTube
 check("every post is a real article, not a caption", POSTS.every((p) => words(p) >= 400),
   POSTS.filter((p) => words(p) < 400).map((p) => `${p.slug}: ${words(p)} words`).join(", "));
 check("every post has at least one heading", POSTS.every((p) => p.body.some((b) => "h" in b)));
-check("every post cites its sources", POSTS.every((p) => p.sources.length > 0),
-  POSTS.filter((p) => p.sources.length === 0).map((p) => p.slug).join(", "));
+// A news post reports something that happened, so it has to be checkable. A guide teaches how to
+// do something and has nothing external to cite — demanding a source would only invite a decorative
+// one. So the rule is per kind, not per post.
+check("every post declares a kind", POSTS.every((p) => p.kind === "news" || p.kind === "guide"));
+check("every news post cites its sources", POSTS.filter((p) => p.kind === "news").every((p) => p.sources.length > 0),
+  POSTS.filter((p) => p.kind === "news" && p.sources.length === 0).map((p) => p.slug).join(", "));
 check("every source is an https link", POSTS.every((p) => p.sources.every((x) => x.url.startsWith("https://") && x.label.trim())));
 
 // ---- the clock -----------------------------------------------------------
@@ -76,6 +84,24 @@ check("live posts come back newest first", (() => {
 // The homepage strip and the index both render whatever livePosts gives them, so "silent on
 // ordinary input" here means: before anything is published, they are handed nothing at all.
 check("the section is empty rather than noisy before launch", livePosts(new Date(Date.parse("2020-01-01T00:00:00+10:00"))).length === 0);
+
+// The home page's heading says "News". liveNews is what keeps that true as guides land on /blog.
+const FOREVER = new Date(Date.parse("2030-01-01T00:00:00+10:00"));
+check("liveNews returns only news", liveNews(FOREVER).every((p) => p.kind === "news"));
+check("liveNews leaves nothing out", liveNews(FOREVER).length === POSTS.filter((p) => p.kind === "news").length);
+check("liveNews is a subset of livePosts", (() => {
+  const all = new Set(livePosts(FOREVER).map((p) => p.slug));
+  return liveNews(FOREVER).every((p) => all.has(p.slug));
+})());
+check("liveNews is newest first too", (() => {
+  const n = liveNews(FOREVER);
+  return n.every((p, i) => i === 0 || at(n[i - 1]) >= at(p));
+})());
+check("liveNews respects the clock", liveNews(new Date(Date.parse("2020-01-01T00:00:00+10:00"))).length === 0);
+check("there is at least one post of each kind", (() => {
+  const kinds = new Set(POSTS.map((p) => p.kind));
+  return kinds.has("news") && kinds.has("guide");
+})());
 
 // ---- URLs ----------------------------------------------------------------
 
