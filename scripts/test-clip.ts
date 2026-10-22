@@ -20,6 +20,7 @@ import {
   audioSpecificConfig, clipAudioBuffer, fadeGain, fadeSummary, FFT_SIZE, fft, FPS, hexA, isHex, loudestWindow, mixHex, mmss, partnerHex,
 } from "../src/lib/clip";
 import { blobHasAudio, isIOS, verifyAudio } from "../src/lib/clip-encode";
+import { CLIP_LOOKS, clipColourWarnings, clipPalette, contrastOf, type ClipPalette } from "../src/lib/clip-theme";
 import { drawClipFrame, type FrameArgs, type FrameCopy, STORY_SAFE_BOTTOM, STORY_SAFE_TOP, STORY_STICKER_BAND } from "../src/lib/clip-frame";
 import { planOf } from "../src/lib/plans";
 
@@ -45,18 +46,18 @@ type Op =
   // `font` rides along on every text op so the suite can prove which family was actually used.
   // Before this, the family was a module constant naming a font that was never loaded, and no test
   // could have seen it.
-  | { kind: "text"; text: string; x: number; y: number; font: string }
+  | { kind: "text"; text: string; x: number; y: number; font: string; fill: string }
   | { kind: "rect"; y: number; h: number }
   | { kind: "image"; src: unknown; x: number; y: number; w: number; h: number };
 
 const TEST_FAMILY = "__AppFont__, sans-serif";
 
-function recordFrame(copy: Partial<FrameCopy>, guide: boolean, W = 1080, H = 1920, logo: FrameArgs["logo"] = null): Op[] {
+function recordFrame(copy: Partial<FrameCopy>, guide: boolean, W = 1080, H = 1920, logo: FrameArgs["logo"] = null, palette: ClipPalette = clipPalette("glow", "#8B5CF6")): Op[] {
   const ops: Op[] = [];
   const ctx = {
     fillStyle: "", strokeStyle: "", lineWidth: 0, textAlign: "", font: "",
     fillRect: (_x: number, y: number, _w: number, h: number) => ops.push({ kind: "rect", y, h }),
-    fillText: (text: string, x: number, y: number) => ops.push({ kind: "text", text, x, y, font: (ctx as { font: string }).font }),
+    fillText: (text: string, x: number, y: number) => ops.push({ kind: "text", text, x, y, font: (ctx as { font: string }).font, fill: (ctx as { fillStyle: string }).fillStyle }),
     measureText: (t: string) => ({ width: t.length * 14 }),
     createRadialGradient: () => ({ addColorStop: () => {} }),
     drawImage: (src: unknown, x: number, y: number, w: number, h: number) => ops.push({ kind: "image", src, x, y, w, h }),
@@ -67,7 +68,7 @@ function recordFrame(copy: Partial<FrameCopy>, guide: boolean, W = 1080, H = 192
   drawClipFrame({
     ctx, width: W, height: H, progress: 0.5, bands: null, kick: 0, art: null,
     fontFamily: TEST_FAMILY, logo,
-    accent: "#8B5CF6", accent2: "#22D3EE",
+    palette,
     copy: { headline: "OUT NOW", link: "droplr.fm/rrr/track", tagline: "Ototo — Mess It Up", mark: "droplr.fm", ...copy },
     stickerGuide: guide,
   });
@@ -396,6 +397,49 @@ async function main() {
   // Zero height would be a divide-by-zero in the ratio maths.
   const degenerate = imagesOf(recordFrame({}, false, 1080, 1920, { img: {} as CanvasImageSource, width: 100, height: 0 }));
   check("a zero-height logo doesn't produce NaN geometry", degenerate.every((o) => Number.isFinite(o.w) && Number.isFinite(o.h) && o.w > 0 && o.h > 0));
+
+  console.log("\nColours: looks and overrides");
+  {
+    // Artwork colours across the range: saturated, pale, near-black, near-white. Every look as
+    // shipped must be readable and silent with any of them, because none of those was the artist's
+    // choice.
+    const accents = ["#8B5CF6", "#F5E6A0", "#0A0A0A", "#FDFDFD", "#339999", "#E21B4D", "#22D3EE"];
+    let silent = true; let readable = true; const loud: string[] = [];
+    for (const l of CLIP_LOOKS) for (const a of accents) {
+      const p = clipPalette(l.id, a);
+      if (clipColourWarnings(p).length) { silent = false; loud.push(`${l.id}/${a}`); }
+      if (contrastOf(p.text, p.bg) < 4.5) readable = false;
+      if (contrastOf(p.link, p.bg) < 3) { readable = false; loud.push(`${l.id}/${a} link`); }
+    }
+    check("every look is silent with any artwork colour", silent, loud.join(", "));
+    check("every look keeps text and link readable with any artwork colour", readable, loud.join(", "));
+
+    // A background picked on its own drags the text with it: white text on a white background
+    // would be the artist's fault only if they had picked the text too.
+    const paleBg = clipPalette("glow", "#8B5CF6", { background: "#FAFAFA" });
+    check("picking a light background alone flips the text dark", contrastOf(paleBg.text, paleBg.bg) >= 4.5, paleBg.text);
+    check("…and stays silent", clipColourWarnings(paleBg).length === 0, clipColourWarnings(paleBg).join(" | "));
+
+    // Picking both, badly, is allowed and said out loud.
+    const bad = clipPalette("glow", "#8B5CF6", { background: "#FAFAFA", text: "#F0F0F0" });
+    check("an unreadable text/background pair is warned about", clipColourWarnings(bad).some((w) => /hard to read/.test(w)));
+    check("…but the artist's text colour is kept", bad.text === "#f0f0f0", bad.text);
+    const hidden = clipPalette("glow", "#8B5CF6", { spectrum: "#0B0A10" });
+    check("a spectrum the same as the background is warned about", clipColourWarnings(hidden).some((w) => /spectrum/.test(w)));
+    check("a spectrum override is one colour across every band", hidden.spectrumFrom === "#0b0a10" && hidden.spectrumTo === "#0b0a10");
+    check("a link in a colour that can't be read falls back to the text colour", hidden.link === hidden.text, hidden.link);
+    check("Mono has no glow", clipPalette("mono", "#8B5CF6").glow === null);
+    check("junk overrides are ignored, not drawn", clipPalette("glow", "#8B5CF6", { background: "red", text: "#12" }).bg === "#0B0A10");
+
+    // The renderer must actually use them. Recorded from the same fake canvas as the layout checks.
+    const custom = clipPalette("glow", "#8B5CF6", { background: "#101820", text: "#FFD166", spectrum: "#06D6A0" });
+    const t = texts(recordFrame({}, false, 1080, 1920, null, custom));
+    const head = t.find((o) => o.text === "OUT NOW");
+    const link = t.find((o) => o.text === "droplr.fm/rrr/track");
+    check("the headline is drawn in the text colour", head?.fill === "#ffd166", head?.fill);
+    check("the link is drawn in the spectrum colour when it reads", link?.fill === "#06d6a0", link?.fill);
+    check("the tagline is not drawn in the old fixed grey", t.find((o) => o.text.startsWith("Ototo"))?.fill !== "#A1A1AA");
+  }
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {
