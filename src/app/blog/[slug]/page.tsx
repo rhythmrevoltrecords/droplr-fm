@@ -36,11 +36,11 @@ export default async function BlogPost(props: { params: Promise<{ slug: string }
   return (
     <MarketingShell>
       <div className="container max-w-3xl py-14">
-        <p className="mb-6 text-sm text-muted-foreground"><Link href="/blog" className="hover:underline">News</Link> / {post.tag}</p>
+        <p className="mb-6 text-sm text-muted-foreground"><Link href="/blog" className="hover:underline">News and guides</Link> / {post.tag}</p>
         <PostArticle post={post} signupHref={ctaCopy().primary.href} />
         {more.length > 0 && (
           <section className="mt-12 border-t pt-8">
-            <h2 className="text-sm font-semibold">More news</h2>
+            <h2 className="text-sm font-semibold">More posts</h2>
             <ul className="mt-3 space-y-2 text-sm">
               {more.map((p) => (
                 <li key={p.slug}><Link href={`/blog/${p.slug}`} className="text-muted-foreground underline hover:text-foreground">{p.title}</Link></li>
