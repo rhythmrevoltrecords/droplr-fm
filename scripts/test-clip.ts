@@ -429,6 +429,10 @@ async function main() {
     check("a spectrum override is one colour across every band", hidden.spectrumFrom === "#0b0a10" && hidden.spectrumTo === "#0b0a10");
     check("a link in a colour that can't be read falls back to the text colour", hidden.link === hidden.text, hidden.link);
     check("Mono has no glow", clipPalette("mono", "#8B5CF6").glow === null);
+    check("the glow defaults to the artwork colour", clipPalette("glow", "#8B5CF6").glow === "#8B5CF6");
+    const glowPick = clipPalette("glow", "#8B5CF6", { glow: "#FF6B00" });
+    check("a picked glow colour replaces the artwork colour", glowPick.glow === "#ff6b00" && glowPick.glow2 !== null && glowPick.glow2 !== partnerHex("#8B5CF6"), `${glowPick.glow} / ${glowPick.glow2}`);
+    check("a picked glow colour doesn't bring a glow back on Mono", clipPalette("mono", "#8B5CF6", { glow: "#FF6B00" }).glow === null);
     check("junk overrides are ignored, not drawn", clipPalette("glow", "#8B5CF6", { background: "red", text: "#12" }).bg === "#0B0A10");
 
     // The renderer must actually use them. Recorded from the same fake canvas as the layout checks.

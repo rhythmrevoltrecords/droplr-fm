@@ -1265,6 +1265,43 @@ async function main() {
       await prisma.authThrottle.deleteMany({});
     }
 
+    console.log("\n15d. Release page looks");
+    {
+      // The Look tab writes five columns on a Release. What has to hold: only the owning org can
+      // write them, only a paid plan can SET them (and a refused request writes nothing), any plan
+      // can put a page back to the default, and the background can only be an image droplr stored.
+      const lookUrl = `/api/admin/releases/${A.release.id}/look`;
+      const reset = { theme: "", font: "", buttonColor: "", backgroundUrl: "", backgroundColor: "" };
+      const readLook = () => prisma.release.findUnique({ where: { id: A.release.id }, select: { theme: true, font: true, buttonColor: true, backgroundUrl: true, backgroundColor: true } });
+      const planBefore = (await prisma.organization.findUnique({ where: { id: A.org.id } }))!.plan;
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: "label" } });
+
+      const own = await http(ownerA, "PATCH", lookUrl, { theme: "poster", font: "serif", buttonColor: "#ff6b00" });
+      const cross = await http(ownerB, "PATCH", lookUrl, { theme: "mono" });
+      const anon = await http(null, "PATCH", lookUrl, { theme: "mono" });
+      const afterCross = await readLook();
+      check("a label can style its own release page, and nobody else can", own.status === 200 && cross.status === 404 && anon.status === 401 && afterCross?.theme === "poster" && afterCross?.font === "serif", `${own.status}/${cross.status}/${anon.status}/${afterCross?.theme}`);
+
+      const outside = await http(ownerA, "PATCH", lookUrl, { backgroundUrl: "https://tracker.example.com/pixel.png" });
+      const junk = await http(ownerA, "PATCH", lookUrl, { theme: "neon", buttonColor: "red" });
+      const extra = await http(ownerA, "PATCH", lookUrl, { title: "renamed" });
+      const afterBad = await readLook();
+      check("an outside background, a junk theme or an extra field is refused and writes nothing", outside.status === 400 && junk.status === 400 && extra.status === 400 && afterBad?.backgroundUrl === null && afterBad?.theme === "poster", `${outside.status}/${junk.status}/${extra.status}`);
+      const ownImg = await http(ownerA, "PATCH", lookUrl, { backgroundUrl: `${SITE_URL}/api/cover/looktest-${RUN}.webp`, backgroundColor: "#112233" });
+      const withImg = await readLook();
+      check("droplr's own upload is accepted as a background, and the image wins over a colour", ownImg.status === 200 && withImg?.backgroundUrl?.endsWith(`looktest-${RUN}.webp`) === true && withImg?.backgroundColor === null, `${ownImg.status}/${withImg?.backgroundColor}`);
+
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: "free", compPlan: null } });
+      const freeSet = await http(ownerA, "PATCH", lookUrl, { theme: "mono" });
+      const afterFree = await readLook();
+      check("a Free account can't change a look, is told why, and nothing is written", freeSet.status === 402 && freeSet.text.includes("paid plans") && afterFree?.theme === "poster", `${freeSet.status}/${afterFree?.theme}`);
+      const freeReset = await http(ownerA, "PATCH", lookUrl, reset);
+      const afterReset = await readLook();
+      check("a Free account can still put its page back to the default", freeReset.status === 200 && !afterReset?.theme && !afterReset?.font && !afterReset?.buttonColor && !afterReset?.backgroundUrl, `${freeReset.status}`);
+      await prisma.organization.update({ where: { id: A.org.id }, data: { plan: planBefore } });
+      await prisma.release.update({ where: { id: A.release.id }, data: { theme: null, font: null, buttonColor: null, backgroundUrl: null, backgroundColor: null } });
+    }
+
     console.log("\n16. Owner signup invites");
     await prisma.authThrottle.deleteMany({}); // sign-ups are 5 per IP per hour
     const invByOwner = await http(ownerA, "POST", "/api/platform/invites", { open: true, maxUses: 5 });

@@ -528,7 +528,7 @@ export function ClipForge(props: ClipForgeProps) {
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Colours</CardTitle>
-              <CardDescription>Start from a look, then change the background, spectrum or text if you want to match your artwork or brand.</CardDescription>
+              <CardDescription>Start from a look, then change the background, spectrum, text or glow to match your artwork or brand. The glow starts as the colour from your artwork.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <Choices
@@ -537,10 +537,15 @@ export function ClipForge(props: ClipForgeProps) {
                 onChange={(v: ClipLookId) => { setLook(v); setOverrides({}); }}
                 options={CLIP_LOOKS.map((l) => ({ value: l.id, label: l.name, hint: l.blurb }))}
               />
-              <div className="grid gap-3 sm:grid-cols-3">
+              <div className="grid gap-3 sm:grid-cols-2">
                 <ColourPick id="clip-bg" label="Background" value={palette.bg} changed={!!overrides.background} onChange={(c) => setOverrides((o) => ({ ...o, background: c }))} />
                 <ColourPick id="clip-spectrum" label="Spectrum" value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
                 <ColourPick id="clip-text" label="Text" value={palette.text} changed={!!overrides.text} onChange={(c) => setOverrides((o) => ({ ...o, text: c }))} />
+                {palette.glow ? (
+                  <ColourPick id="clip-glow" label="Glow" value={palette.glow} changed={!!overrides.glow} onChange={(c) => setOverrides((o) => ({ ...o, glow: c }))} />
+                ) : (
+                  <p className="self-end text-xs text-muted-foreground">Mono has no glow. Pick Glow or Light to colour it.</p>
+                )}
               </div>
               {colourWarnings.map((w) => <p key={w} className="text-sm text-amber-400">{w}</p>)}
               <p className="text-xs text-muted-foreground">

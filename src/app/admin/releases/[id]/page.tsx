@@ -15,7 +15,7 @@ import { checkMetadata } from "@/lib/metadata-check";
 import { exclusivityFindings, exclusivitySummary, exclusivityWindowOf } from "@/lib/exclusivity";
 import { ExclusivityFindings } from "@/components/admin/exclusivity-findings";
 import { PromoPlan } from "@/components/admin/promo-plan";
-import { AUTOMATIC, promoSteps, stepDate } from "@/lib/promo";
+import { AUTOMATIC, AUTOMATIC_DOWNLOAD, promoStepsFor, stepDate } from "@/lib/promo";
 import { busiestHour } from "@/lib/analytics";
 import { zonedDay } from "@/lib/time";
 import { MILESTONES, shareVersion } from "@/lib/share-image";
@@ -26,6 +26,9 @@ import { InterestToggle } from "@/components/admin/interest-toggle";
 import { ReportShare } from "@/components/admin/report-share";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { VariantManager } from "@/components/admin/variant-manager";
+import { ReleaseLookEditor, type LookPreview } from "@/components/admin/release-look-editor";
+import { publicTheme } from "@/components/public/artwork-shell";
+import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -48,6 +51,7 @@ const TABS = [
   { key: "share", label: "Share" },
   { key: "clip", label: "Clip" },
   { key: "contest", label: "Remix contest" },
+  { key: "look", label: "Look" },
   { key: "settings", label: "Settings" },
 ];
 
@@ -203,7 +207,7 @@ export default async function ReleaseDetail(
         const best = await busiestHour(orgReleases.map((r) => r.id), tz);
         const doneKeys = new Set(doneRows.map((d) => d.key));
         const today = zonedDay(new Date(), tz);
-        const items = promoSteps(release.organization.kind === "artist" ? "artist" : "label").map((s) => {
+        const items = promoStepsFor(release.organization.kind === "artist" ? "artist" : "label", release.kind).map((s) => {
           const d = stepDate(release.releaseDate, tz, s.day);
           const day = zonedDay(d, tz);
           return {
@@ -214,8 +218,8 @@ export default async function ReleaseDetail(
         });
         return (
           <div className="space-y-4">
-            <GuideSlot guide={live ? "after-release" : "checklist"} />
-            <PromoPlan releaseId={release.id} items={items} automatic={AUTOMATIC} bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null} />
+            {!isDownload && <GuideSlot guide={live ? "after-release" : "checklist"} />}
+            <PromoPlan releaseId={release.id} items={items} automatic={isDownload ? AUTOMATIC_DOWNLOAD : AUTOMATIC} bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null} />
           </div>
         );
       })()}
@@ -265,6 +269,46 @@ export default async function ReleaseDetail(
           removeBranding={plan.removeBranding}
         />
       )}
+
+      {tab === "look" && (await (async () => {
+        const org = release.organization;
+        const accent = release.accentColor ?? org.accentColor;
+        const orgView = { name: org.name, metaPixelId: null, tiktokPixelId: null, ga4Id: null, logoUrl: org.logoUrl, publicGlow: org.publicGlow, glowColor: org.glowColor, timezone: org.timezone };
+        let preview: LookPreview;
+        if (isDownload) {
+          const steps = await prisma.gateStep.findMany({ where: { releaseId: release.id }, orderBy: { position: "asc" } });
+          preview = {
+            kind: "download",
+            data: { id: release.id, title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: accent, downloadNote: release.downloadNote, org: orgView },
+            steps: steps.map((st) => ({ id: st.id, platform: st.platform, action: st.action, target: st.target, required: st.required, done: false, available: true })),
+          };
+        } else {
+          preview = {
+            kind: "release",
+            live,
+            data: {
+              socials: [],
+              id: release.id, title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: accent,
+              releaseDate: release.releaseDate.toISOString(), spotifyArtistId: release.spotifyArtistId,
+              links: release.links.filter((l) => l.visible).map((l) => ({ id: l.id, platform: l.platform, label: l.title, url: l.url, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })),
+              org: orgView,
+            },
+          };
+        }
+        return (
+          <ReleaseLookEditor
+            releaseId={release.id}
+            initial={{ theme: bioThemeOf(release.theme), font: bioFontOf(release.font), buttonColor: release.buttonColor ?? "", backgroundUrl: release.backgroundUrl ?? "", backgroundColor: release.backgroundColor ?? "" }}
+            accentPreview={accent ?? "#7c3aed"}
+            sample={release.title}
+            canEdit={plan.pageLooks}
+            preview={preview}
+            showBranding={!plan.removeBranding}
+            theme={publicTheme(org)}
+            upgradeLine={`Your own look — theme, font, button colour and background — is on the paid plans, from A$${planOf(org.kind === "artist" ? "artist" : "pro").price}/month. Free pages use the colour from your artwork with droplr's look.`}
+          />
+        );
+      })())}
 
       {tab === "contest" && (await (async () => {
         const contest = await prisma.contest.findUnique({

@@ -7,11 +7,11 @@ import { isOwnImage, type BioItem, type MerchDisplay } from "@/lib/bio-items";
 import type { BioSocial } from "@/lib/bio-socials";
 import { SITE_URL } from "@/lib/env";
 import { labelBadgeLine } from "@/lib/bio-label";
-import { bioFontClass } from "@/components/public/bio-fonts";
 import { BioView, type BioViewData } from "@/components/public/bio-view";
+import { PageLookFields } from "./page-look-fields";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
+import type { BioFontId, BioThemeId } from "@/lib/bio-themes";
 import { BIO_SUBSCRIBE_TEXT_MAX, DEFAULT_SUBSCRIBE_TEXT, subscribeButtonText, subscribeConsentLine } from "@/lib/bio-subscribe";
 import { SECTION_HINTS, SECTION_LABELS, moveSection, sectionOrder, serialiseOrder } from "@/lib/bio-sections";
 import { missingFields, missingLine } from "@/lib/bio-form-check";
@@ -93,19 +93,6 @@ export function BioForm({
       if (k === "imageUrl") next.accentColor = "";
       return next;
     });
-
-  const background = useImageUpload({
-    endpoint: "/api/admin/upload-cover",
-    purpose: "background",
-    // Free aspect: a background is cropped by the viewport, not by us.
-    aspects: [],
-    maxEdge: 1600,
-    title: "Crop background",
-    onUploaded: (img) => {
-      setMsg(null);
-      setV((x) => ({ ...x, backgroundUrl: img.url }));
-    },
-  });
 
   const image = useImageUpload({
     endpoint: "/api/admin/upload-cover",
@@ -190,111 +177,13 @@ export function BioForm({
               )}
             </p>
           </div>
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Look</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {BIO_THEMES.map((t) => {
-                const card = t.swatch.card === "accent" ? accentPreview : t.swatch.card;
-                const ink = t.swatch.card === "accent" ? readableTextOn(accentPreview) : t.swatch.text;
-                const on = v.theme === t.id;
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => set("theme", t.id)}
-                    className={`rounded-xl border p-2 text-left transition ${on ? "border-primary ring-2 ring-primary/40" : "border-input hover:border-primary/50"}`}
-                  >
-                    <span className="block space-y-1 rounded-lg p-2" style={{ background: t.swatch.bg }}>
-                      <span className="mx-auto block h-5 w-5 rounded-full" style={{ background: accentPreview }} />
-                      {[0, 1].map((i) => (
-                        <span key={i} className="block px-1 py-[3px] text-[7px]" style={{ background: card, color: ink, borderRadius: t.id === "mono" ? 0 : 5 }}>
-                          Listen
-                        </span>
-                      ))}
-                    </span>
-                    <span className="mt-1.5 block text-xs font-medium">{t.name}</span>
-                    <span className="block text-[11px] leading-snug text-muted-foreground">{t.blurb}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Font</Label>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-              {BIO_FONTS.map((f) => {
-                const on = v.font === f.id;
-                return (
-                  <button
-                    key={f.id}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => set("font", f.id)}
-                    className={`rounded-xl border px-3 py-2 text-left transition ${on ? "border-primary ring-2 ring-primary/40" : "border-input hover:border-primary/50"}`}
-                  >
-                    {/* Each option is set in the font it sells, so nobody has to imagine it. */}
-                    <span className={`block text-lg leading-tight ${bioFontClass(f.id)}`}>{v.title || "Your name"}</span>
-                    <span className="mt-1 block text-xs font-medium">{f.name}</span>
-                    <span className="block text-[11px] leading-snug text-muted-foreground">{f.blurb}</span>
-                  </button>
-                );
-              })}
-            </div>
-            <p className="text-xs text-muted-foreground">The preview on the right is the real page. Changes save when you hit Save.</p>
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Link buttons</Label>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <label className="flex items-center gap-2 text-muted-foreground">
-                Colour
-                <input
-                  type="color"
-                  aria-label="Link button colour"
-                  value={v.buttonColor || v.accentColor || "#7c3aed"}
-                  onChange={(e) => set("buttonColor", e.target.value)}
-                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
-                />
-              </label>
-              {v.buttonColor && <Button type="button" size="sm" variant="ghost" onClick={() => set("buttonColor", "")}>Clear</Button>}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              One colour, four looks: the glassy themes tint their glass with it, Poster fills the buttons solid.
-              Poster darkens it if small text wouldn&apos;t read on it.
-            </p>
-          </div>
-
-          <div className="space-y-2 sm:col-span-2">
-            <Label>Page background</Label>
-            <div className="flex flex-wrap items-center gap-2">
-              <Button type="button" variant="outline" size="sm" onClick={background.pick} disabled={background.busy}>
-                {background.uploading ? <Loader2 className="animate-spin" /> : <Upload />} {v.backgroundUrl ? "Replace image" : "Upload image"}
-              </Button>
-              {background.ui}
-              <label className="flex items-center gap-2 text-sm text-muted-foreground">
-                or colour
-                <input
-                  type="color"
-                  aria-label="Background colour"
-                  value={v.backgroundColor || "#0b0b10"}
-                  onChange={(e) => setV((x) => ({ ...x, backgroundColor: e.target.value, backgroundUrl: "" }))}
-                  className="h-8 w-10 cursor-pointer rounded border border-input bg-transparent"
-                />
-              </label>
-              {(v.backgroundUrl || v.backgroundColor) && (
-                <Button type="button" variant="ghost" size="sm" onClick={() => setV((x) => ({ ...x, backgroundUrl: "", backgroundColor: "" }))}>Remove</Button>
-              )}
-            </div>
-            <p className="text-xs text-muted-foreground">
-              {v.backgroundUrl
-                ? "Your image, with a shade over it so the text stays readable whatever you upload."
-                : v.backgroundColor
-                  ? "A plain colour behind the page."
-                  : "Optional. Leave it empty and the page uses the colour from your picture."}
-            </p>
-          </div>
+          <PageLookFields
+            value={{ theme: v.theme, font: v.font, buttonColor: v.buttonColor, backgroundUrl: v.backgroundUrl, backgroundColor: v.backgroundColor }}
+            onChange={(patch) => { setMsg(null); setV((x) => ({ ...x, ...patch })); }}
+            accentPreview={accentPreview}
+            sample={v.title || "Your name"}
+            fontNote="The preview on the right is the real page. Changes save when you hit Save."
+          />
 
           {labelBadges.length > 0 && (
             <div className="space-y-2 sm:col-span-2">
