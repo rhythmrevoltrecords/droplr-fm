@@ -80,7 +80,7 @@ const css = read("src/app/globals.css");
 check("the text colour rules exist and come after the light theme's", css.indexOf(".page-ink .text-white") > css.indexOf(".shell-theme-light .text-white"));
 check("Poster's button ink is more specific than the text colour", css.includes(".bio-skin-poster .glass .text-white") && !css.includes(".page-ink .glass"));
 const lookRoute = read("src/app/api/admin/releases/[id]/look/route.ts");
-check("the icon on/off switch is outside the paid check", lookRoute.includes("const { socialIcons, ...lookInput } = parsed.data;") && lookRoute.includes("const data = lookUpdate(lookInput);") && /setsSomething = Object\.values\(data\)/.test(lookRoute));
+check("the icon on/off switch is outside the paid check", /const \{ socialIcons, [^}]*\.\.\.lookInput \} = parsed\.data;/.test(lookRoute) && /const data[^=]*= lookUpdate\(lookInput\);/.test(lookRoute) && /setsSomething = Object\.values\(data\)/.test(lookRoute));
 check("bio pages store plain icons as NULL too", read("src/app/api/admin/bio/[id]/route.ts").includes('d.iconStyle !== "plain"'));
 check("bio pages render text colour, glow colour and icon style", (() => { const v = read("src/components/public/bio-view.tsx"); return v.includes("textColor={page.textColor}") && v.includes("page.glowColor || glow.color") && v.includes("iconStyleOf(page.iconStyle)"); })());
 
@@ -96,5 +96,77 @@ check("a download gets the download plan, a release the release plan", promoStep
 const reminders = read("src/lib/promo-reminders.ts");
 check("reminders and the dashboard use the per-kind plan", (reminders.match(/promoStepsFor\(/g) ?? []).length === 2 && !/promoSteps\(r\./.test(reminders));
 
-console.log(`\n${passed} passed, ${failures.length} failed`);
-if (failures.length) { console.log(failures.map((f) => ` - ${f}`).join("\n")); process.exit(1); }
+console.log("5. Background blur");
+const blurDone = (async () => {
+  // Real sharp, real storeImage. Run in a temp directory: outside Netlify, storeImage writes to
+  // <cwd>/public/uploads, and a test should never leave files in the repo.
+  const { mkdtemp, mkdir, readFile, rm } = await import("node:fs/promises");
+  const { tmpdir } = await import("node:os");
+  const path = await import("node:path");
+  const { default: sharp } = await import("sharp");
+  const { SITE_URL } = await import("../src/lib/env");
+  const { backgroundPatch } = await import("../src/lib/background-blur");
+  const home = process.cwd();
+  const dir = await mkdtemp(path.join(tmpdir(), "droplr-blur-"));
+  process.chdir(dir);
+  try {
+    await mkdir(path.join(dir, "public", "uploads"), { recursive: true });
+    // A hard-edged checkerboard: blur shows up as a big drop in contrast between neighbours.
+    // Squares big enough (80px) that the soft and strong radii still differ measurably.
+    const W = 640, raw = Buffer.alloc(W * W * 3);
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) raw.fill((Math.floor(x / 80) + Math.floor(y / 80)) % 2 ? 255 : 0, (y * W + x) * 3, (y * W + x) * 3 + 3);
+    const name = "blurtest.webp";
+    await sharp(raw, { raw: { width: W, height: W, channels: 3 } }).webp({ lossless: true }).toFile(path.join(dir, "public", "uploads", name));
+    const original = `${SITE_URL}/uploads/${name}`;
+    const edge = async (file: string) => {
+      const { data, info } = await sharp(file).raw().toBuffer({ resolveWithObject: true });
+      // The sharpest step between horizontal neighbours (within a row): 255 at a hard edge, small once blurred.
+      const c = info.channels;
+      let max = 0;
+      for (let y = 0; y < info.height; y++) for (let x = 1; x < info.width; x++) {
+        const i = (y * info.width + x) * c;
+        max = Math.max(max, Math.abs(data[i] - data[i - c]));
+      }
+      return max;
+    };
+
+    const none = await backgroundPatch({ backgroundUrl: original, backgroundBlur: "none" }, null);
+    check("no blur shows the original and keeps no copy", none.ok && none.patch.backgroundUrl === original && none.patch.backgroundSourceUrl === null && none.patch.backgroundBlur === null);
+    const soft = await backgroundPatch({ backgroundUrl: original, backgroundBlur: "soft" }, null);
+    const softFile = soft.ok && soft.patch.backgroundUrl ? path.join(dir, "public", "uploads", path.basename(soft.patch.backgroundUrl)) : "";
+    check("a blur stores a new image and keeps the original", soft.ok && soft.patch.backgroundUrl !== original && soft.patch.backgroundSourceUrl === original && soft.patch.backgroundBlur === "soft", JSON.stringify(soft));
+    const before = await edge(path.join(dir, "public", "uploads", name));
+    const after = softFile ? await edge(softFile) : before;
+    check("…and the stored image really is blurred", after < before * 0.25, `${before.toFixed(1)} → ${after.toFixed(1)}`);
+    const strong = await backgroundPatch({ backgroundUrl: original, backgroundBlur: "strong" }, null);
+    const strongEdge = strong.ok && strong.patch.backgroundUrl ? await edge(path.join(dir, "public", "uploads", path.basename(strong.patch.backgroundUrl))) : before;
+    check("strong is blurrier than soft", strongEdge < after, `${after.toFixed(1)} vs ${strongEdge.toFixed(1)}`);
+    const stored = { backgroundUrl: soft.ok ? soft.patch.backgroundUrl ?? null : null, backgroundSourceUrl: original, backgroundBlur: "soft" };
+    const again = await backgroundPatch({ backgroundUrl: original, backgroundBlur: "soft" }, stored);
+    check("saving again with nothing changed re-uses the blurred copy", again.ok && again.patch.backgroundUrl === stored.backgroundUrl);
+    const change = await backgroundPatch({ backgroundUrl: original, backgroundBlur: "strong" }, stored);
+    check("changing the amount blurs the original, not the blurred copy", change.ok && change.patch.backgroundSourceUrl === original && change.patch.backgroundUrl !== stored.backgroundUrl);
+    const off = await backgroundPatch({ backgroundUrl: original, backgroundBlur: "none" }, stored);
+    check("turning blur off goes back to the original", off.ok && off.patch.backgroundUrl === original && off.patch.backgroundSourceUrl === null);
+    const cleared = await backgroundPatch({ backgroundUrl: "", backgroundBlur: "soft" }, stored);
+    check("removing the image clears all three", cleared.ok && cleared.patch.backgroundUrl === null && cleared.patch.backgroundSourceUrl === null && cleared.patch.backgroundBlur === null);
+    const outside = await backgroundPatch({ backgroundUrl: "https://tracker.example.com/p.png", backgroundBlur: "soft" }, null);
+    check("an outside image is refused before anything is fetched", !outside.ok);
+    const untouched = await backgroundPatch({}, stored);
+    check("nothing sent, nothing touched", untouched.ok && Object.keys(untouched.patch).length === 0);
+    void readFile;
+  } finally {
+    process.chdir(home);
+    await rm(dir, { recursive: true, force: true });
+  }
+})();
+const shellSrc = read("src/components/public/artwork-shell.tsx");
+check("the live page never gets a CSS blur: only the editor preview does", /preview && background\.blur && background\.blur !== "none"/.test(shellSrc));
+check("public pages are handed the stored image, not a blur level", !/backgroundBlur/.test(read("src/components/public/public-route.tsx")) && !/backgroundBlur/.test(read("src/components/public/bio-route.tsx")));
+const lr = read("src/app/api/admin/releases/[id]/look/route.ts");
+check("the release route blurs only after the plan check", lr.indexOf("status: 402") < lr.indexOf("await backgroundPatch("));
+
+void blurDone.then(() => {
+  console.log(`\n${passed} passed, ${failures.length} failed`);
+  if (failures.length) { console.log(failures.map((f) => ` - ${f}`).join("\n")); process.exit(1); }
+}, (e) => { console.error(e); process.exit(1); });

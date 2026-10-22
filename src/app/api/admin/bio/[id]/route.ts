@@ -4,6 +4,7 @@ import { bioSchema } from "@/lib/bio";
 import { storedOrder } from "@/lib/bio-sections";
 import { extractAccentColor } from "@/lib/color";
 import { prisma } from "@/lib/db";
+import { backgroundPatch } from "@/lib/background-blur";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 async function guard(id: string) {
@@ -39,7 +40,12 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     if (d.gallery && g.page.gallery !== "on") data.galleryAt = new Date();
     if (!d.gallery) data.galleryAt = null;
   }
-  if (d.backgroundUrl !== undefined) data.backgroundUrl = d.backgroundUrl || null;
+  // The form sends the original upload and a blur level; the shown image may be a blurred copy.
+  {
+    const bg = await backgroundPatch({ backgroundUrl: d.backgroundUrl, backgroundBlur: d.backgroundBlur }, g.page);
+    if (!bg.ok) return NextResponse.json({ error: bg.error }, { status: 400 });
+    Object.assign(data, bg.patch);
+  }
   if (d.backgroundColor !== undefined) data.backgroundColor = d.backgroundColor || null;
   if (d.buttonColor !== undefined) data.buttonColor = d.buttonColor || null;
   if (d.textColor !== undefined) data.textColor = d.textColor || null;

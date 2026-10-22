@@ -24,6 +24,19 @@ export const ICON_STYLE_LABELS: Record<IconStyle, { name: string; blurb: string 
   outline: { name: "Outline", blurb: "A ring round each icon." },
   solid: { name: "Solid", blurb: "A filled circle behind each." },
 };
+/**
+ * Background blur. Baked into a stored copy of the image when the page is saved (lib/background-blur),
+ * so fans load an ordinary picture. Only the editor's preview blurs live, and only inside its frame.
+ */
+export const BLUR_LEVELS = ["none", "soft", "strong"] as const;
+export type BlurLevel = (typeof BLUR_LEVELS)[number];
+export const BLUR_LABELS: Record<BlurLevel, string> = { none: "None", soft: "Soft", strong: "Strong" };
+/** sharp blur sigma on a background stored at up to 1600px on its long edge. */
+export const BLUR_SIGMA: Record<Exclude<BlurLevel, "none">, number> = { soft: 10, strong: 24 };
+/** The same blur as a CSS radius for the editor's preview: the image is shown at about phone width. */
+export const BLUR_PREVIEW_PX: Record<Exclude<BlurLevel, "none">, number> = { soft: 6, strong: 14 };
+export const blurOf = (v: string | null | undefined): BlurLevel => (BLUR_LEVELS.includes(v as BlurLevel) ? (v as BlurLevel) : "none");
+
 export const iconStyleOf = (v: string | null | undefined): IconStyle => (ICON_STYLES.includes(v as IconStyle) ? (v as IconStyle) : "plain");
 const blank = z.literal("");
 
@@ -38,6 +51,7 @@ export const pageLookSchema = z
     textColor: hex.nullable().optional().or(blank),
     iconStyle: z.enum(ICON_STYLES as unknown as [string, ...string[]]).nullable().optional().or(blank),
     iconColor: hex.nullable().optional().or(blank),
+    backgroundBlur: z.enum(BLUR_LEVELS as unknown as [string, ...string[]]).nullable().optional().or(blank),
   })
   .strict();
 
@@ -53,6 +67,8 @@ export type PageLook = {
   textColor: string | null;
   iconStyle: string | null;
   iconColor: string | null;
+  /** Editor preview only: the public pages are given the already-blurred image and no level. */
+  backgroundBlur?: string | null;
 };
 
 export const LOOK_FIELDS = ["theme", "font", "backgroundUrl", "backgroundColor", "buttonColor", "glowColor", "textColor", "iconStyle", "iconColor"] as const;
@@ -80,7 +96,7 @@ export function resolveLook(r: Partial<PageLook>): {
   font: BioFontId;
   /** False when nothing is set: the page keeps the shell exactly as it was, with no skin class. */
   custom: boolean;
-  background: { url: string | null; color: string | null } | null;
+  background: { url: string | null; color: string | null; blur?: BlurLevel } | null;
   buttonColor: string | null;
   glowColor: string | null;
   textColor: string | null;
@@ -92,7 +108,7 @@ export function resolveLook(r: Partial<PageLook>): {
     theme: bioThemeOf(r.theme),
     font: bioFontOf(r.font),
     custom,
-    background: r.backgroundUrl || r.backgroundColor ? { url: r.backgroundUrl ?? null, color: r.backgroundColor ?? null } : null,
+    background: r.backgroundUrl || r.backgroundColor ? { url: r.backgroundUrl ?? null, color: r.backgroundColor ?? null, blur: blurOf(r.backgroundBlur) } : null,
     buttonColor: r.buttonColor ?? null,
     glowColor: r.glowColor ?? null,
     textColor: r.textColor ?? null,

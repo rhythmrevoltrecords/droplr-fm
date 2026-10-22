@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { iconStyleOf } from "@/lib/page-look";
+import { blurOf, iconStyleOf } from "@/lib/page-look";
 import { ExternalLink } from "lucide-react";
 import { BioForm } from "@/components/admin/bio-form";
 import { CopyButton } from "@/components/admin/copy-button";
@@ -118,7 +118,7 @@ export default async function EditBio(
           <BioForm
             mode="edit"
             id={page.id}
-            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundUrl ?? "", backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", textColor: page.textColor ?? "", glowColor: page.glowColor ?? "", iconStyle: iconStyleOf(page.iconStyle), iconColor: page.iconColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", gallery: page.gallery ?? "", socialIcons: page.socialIcons ?? "", isPublic: page.isPublic }}
+            initial={{ title: page.title, slug: page.slug, bio: page.bio ?? "", imageUrl: page.imageUrl, accentColor: page.accentColor ?? "", theme: bioThemeOf(page.theme), font: bioFontOf(page.font), artistProfileId: page.artistProfileId ?? "", releaseBlock: page.releaseBlock ?? "", backgroundUrl: page.backgroundSourceUrl ?? page.backgroundUrl ?? "", backgroundBlur: blurOf(page.backgroundBlur), backgroundColor: page.backgroundColor ?? "", buttonColor: page.buttonColor ?? "", textColor: page.textColor ?? "", glowColor: page.glowColor ?? "", iconStyle: iconStyleOf(page.iconStyle), iconColor: page.iconColor ?? "", labelBadge: page.labelBadge ?? "", subscribe: page.subscribe ?? "", subscribeText: page.subscribeText ?? "", sectionOrder: page.sectionOrder ?? "", gallery: page.gallery ?? "", socialIcons: page.socialIcons ?? "", isPublic: page.isPublic }}
             previewLinks={buttons.filter((l) => l.isActive).map((l) => ({ id: l.id, platform: l.platform, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl }))}
             glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
             artists={artists.map((a) => ({ id: a.id, name: a.name }))}
