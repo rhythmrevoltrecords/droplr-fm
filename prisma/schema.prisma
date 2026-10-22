@@ -212,6 +212,10 @@ model Release {
   /** plain (text colour, the default), brand (each network's own colour), outline or solid. */
   iconStyle       String?
   iconColor       String?
+  /** The background as uploaded, kept when the shown one (backgroundUrl) is a blurred copy, so the blur can change without stacking. */
+  backgroundSourceUrl String?
+  /** soft | strong, or NULL for none. Baked into the image at save time, never a live CSS blur (LCP). lib/background-blur. */
+  backgroundBlur      String?
   /** One line of the artist's own lyric, for the lyric share graphic. Never fetched from anywhere. */
   lyricLine      String?
   spotifyUrl     String?
@@ -565,6 +569,10 @@ model BioPage {
   /** plain (text colour, the default), brand (each network's own colour), outline or solid. */
   iconStyle       String?
   iconColor       String?
+  /** The background as uploaded, kept when the shown one (backgroundUrl) is a blurred copy, so the blur can change without stacking. */
+  backgroundSourceUrl String?
+  /** soft | strong, or NULL for none. Baked into the image at save time, never a live CSS blur (LCP). lib/background-blur. */
+  backgroundBlur      String?
   /**
    * "on" = show the subscribe form. NULL = don't.
    *

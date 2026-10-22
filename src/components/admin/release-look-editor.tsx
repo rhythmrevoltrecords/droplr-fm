@@ -63,7 +63,7 @@ export function ReleaseLookEditor({
     if (res.ok) router.refresh();
   }
 
-  const reset: LookValues = { theme: "midnight", font: "clean", buttonColor: "", backgroundUrl: "", backgroundColor: "", textColor: "", glowColor: "", iconStyle: "plain", iconColor: "" };
+  const reset: LookValues = { theme: "midnight", font: "clean", buttonColor: "", backgroundUrl: "", backgroundColor: "", textColor: "", glowColor: "", iconStyle: "plain", iconColor: "", backgroundBlur: "none" };
   // The default look is "nothing set", not "Midnight + Clean set". Saving the defaults explicitly
   // would mark the page as customised and give it a skin class it never had.
   const payload = (x: LookValues) => ({
@@ -76,6 +76,7 @@ export function ReleaseLookEditor({
     glowColor: x.glowColor,
     iconStyle: x.iconStyle === "plain" ? "" : x.iconStyle,
     iconColor: x.iconColor,
+    backgroundBlur: x.backgroundUrl ? x.backgroundBlur : "none",
   });
   const look = payload(v);
 

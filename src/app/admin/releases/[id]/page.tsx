@@ -30,7 +30,7 @@ import { VariantManager } from "@/components/admin/variant-manager";
 import { ReleaseLookEditor, type LookPreview } from "@/components/admin/release-look-editor";
 import { publicTheme } from "@/components/public/artwork-shell";
 import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
-import { iconStyleOf } from "@/lib/page-look";
+import { blurOf, iconStyleOf } from "@/lib/page-look";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -302,7 +302,7 @@ export default async function ReleaseDetail(
         return (
           <ReleaseLookEditor
             releaseId={release.id}
-            initial={{ theme: bioThemeOf(release.theme), font: bioFontOf(release.font), buttonColor: release.buttonColor ?? "", backgroundUrl: release.backgroundUrl ?? "", backgroundColor: release.backgroundColor ?? "", textColor: release.textColor ?? "", glowColor: release.glowColor ?? "", iconStyle: iconStyleOf(release.iconStyle), iconColor: release.iconColor ?? "" }}
+            initial={{ theme: bioThemeOf(release.theme), font: bioFontOf(release.font), buttonColor: release.buttonColor ?? "", backgroundUrl: release.backgroundSourceUrl ?? release.backgroundUrl ?? "", backgroundBlur: blurOf(release.backgroundBlur), backgroundColor: release.backgroundColor ?? "", textColor: release.textColor ?? "", glowColor: release.glowColor ?? "", iconStyle: iconStyleOf(release.iconStyle), iconColor: release.iconColor ?? "" }}
             glowDefault={org.glowColor ?? accent ?? "#7c3aed"}
             socials={lookSocials}
             initialSocialsOn={release.socialIcons === "on"}

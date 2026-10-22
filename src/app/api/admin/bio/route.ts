@@ -4,6 +4,7 @@ import { BIO_PAGE_LIMIT_MESSAGE, bioPageLimit, bioSchema } from "@/lib/bio";
 import { storedOrder } from "@/lib/bio-sections";
 import { extractAccentColor } from "@/lib/color";
 import { prisma } from "@/lib/db";
+import { backgroundPatch } from "@/lib/background-blur";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 
@@ -31,10 +32,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Unknown artist" }, { status: 400 });
   }
 
+  const bg = await backgroundPatch({ backgroundUrl: d.backgroundUrl, backgroundBlur: d.backgroundBlur }, null);
+  if (!bg.ok) return NextResponse.json({ error: bg.error }, { status: 400 });
+
   // Same system as releases: accent comes from the artwork (sharp hue histogram).
   const accentColor = d.accentColor || (await extractAccentColor(d.imageUrl));
   const page = await prisma.bioPage.create({
-    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: d.backgroundUrl || null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, textColor: d.textColor || null, glowColor: d.glowColor || null, iconStyle: d.iconStyle && d.iconStyle !== "plain" ? d.iconStyle : null, iconColor: d.iconColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, sectionOrder: storedOrder(d.sectionOrder), gallery: d.gallery || null, socialIcons: d.socialIcons || null, galleryAt: d.gallery ? new Date() : null, isPublic: d.isPublic ?? true },
+    data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: bg.patch.backgroundUrl ?? null, backgroundSourceUrl: bg.patch.backgroundSourceUrl ?? null, backgroundBlur: bg.patch.backgroundBlur ?? null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, textColor: d.textColor || null, glowColor: d.glowColor || null, iconStyle: d.iconStyle && d.iconStyle !== "plain" ? d.iconStyle : null, iconColor: d.iconColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, sectionOrder: storedOrder(d.sectionOrder), gallery: d.gallery || null, socialIcons: d.socialIcons || null, galleryAt: d.gallery ? new Date() : null, isPublic: d.isPublic ?? true },
   });
   return NextResponse.json({ id: page.id });
 }

@@ -37,7 +37,7 @@ export type BioViewData = {
    */
   releases?: BioRelease[];
   /** Whole-page background chosen by the owner. The image wins when both are set. */
-  background?: { url?: string | null; color?: string | null } | null;
+  background?: { url?: string | null; color?: string | null; blur?: "none" | "soft" | "strong" } | null;
   /** Link button colour; what it does depends on the theme. */
   buttonColor?: string | null;
   /** Page text colour, glow colour and social icon style (lib/page-look). Null = the theme's own. */

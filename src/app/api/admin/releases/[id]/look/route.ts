@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { lookUpdate, pageLookSchema } from "@/lib/page-look";
 import { planOf } from "@/lib/plans";
+import { backgroundPatch } from "@/lib/background-blur";
 import { z } from "zod";
 
 const schema = pageLookSchema.extend({ socialIcons: z.enum(["on"]).nullable().optional().or(z.literal("")) }).strict();
@@ -22,8 +23,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
   const parsed = schema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "That look couldn't be saved." }, { status: 400 });
-  const { socialIcons, ...lookInput } = parsed.data;
-  const data = lookUpdate(lookInput);
+  const { socialIcons, backgroundBlur, ...lookInput } = parsed.data;
+  const data: Record<string, string | null> = lookUpdate(lookInput);
 
   // Only images droplr stored itself. An outside URL would put a third party's request on every
   // fan's visit to the page, which is a tracking pixel by another name.
@@ -31,7 +32,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     return NextResponse.json({ error: "Upload the background here rather than linking to it." }, { status: 400 });
   }
 
-  const setsSomething = Object.values(data).some((v) => v !== null);
+  // A blur level counts as setting something: on its own it would change how the page looks.
+  const setsSomething = Object.values(data).some((v) => v !== null) || (!!backgroundBlur && backgroundBlur !== "none");
   if (setsSomething) {
     const org = await prisma.organization.findUnique({ where: { id: got.release.organizationId }, select: { plan: true } });
     if (!planOf(org?.plan).pageLooks) {
@@ -39,12 +41,18 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
   }
 
+  // The background is sent as the ORIGINAL upload plus a level; the shown image may be a blurred
+  // copy made here. Done after the plan check, so a refused request never runs sharp or stores a file.
+  const bg = await backgroundPatch({ backgroundUrl: "backgroundUrl" in data ? data.backgroundUrl : undefined, backgroundBlur }, got.release);
+  if (!bg.ok) return NextResponse.json({ error: bg.error }, { status: 400 });
+  Object.assign(data, bg.patch);
+
   // The icon row's on/off switch is not part of the paid look: it was free in Settings before the
   // Look tab existed, so it stays free, and it is deliberately outside the plan check above.
   const release = await prisma.release.update({
     where: { id: got.release.id },
     data: { ...data, ...(socialIcons !== undefined ? { socialIcons: socialIcons || null } : {}) },
-    select: { theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true, glowColor: true, textColor: true, iconStyle: true, iconColor: true, socialIcons: true },
+    select: { backgroundSourceUrl: true, backgroundBlur: true, theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true, glowColor: true, textColor: true, iconStyle: true, iconColor: true, socialIcons: true },
   });
   return NextResponse.json(release);
 }
