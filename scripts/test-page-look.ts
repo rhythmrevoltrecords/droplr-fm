@@ -84,7 +84,18 @@ check("the icon on/off switch is outside the paid check", /const \{ socialIcons,
 check("bio pages store plain icons as NULL too", read("src/app/api/admin/bio/[id]/route.ts").includes('d.iconStyle !== "plain"'));
 check("bio pages render text colour, glow colour and icon style", (() => { const v = read("src/components/public/bio-view.tsx"); return v.includes("textColor={page.textColor}") && v.includes("page.glowColor || glow.color") && v.includes("iconStyleOf(page.iconStyle)"); })());
 
-console.log("4. Download promo plan");
+console.log("3b. Download analytics");
+const panels = read("src/components/admin/stats-panels.tsx");
+const detailNow = read("src/app/admin/releases/[id]/page.tsx");
+check("the analytics tab passes gate numbers for a download, and none for a release", detailNow.includes("gate={isDownload ? await gateStatsFor(release.id, days) : null}"));
+check("a gate's cards are views, started, got the file and rates, not pre-saves", /gate\s*\?\s*\[[\s\S]*?"Got the file"[\s\S]*?\]\s*:\s*\[[\s\S]*?"Pre-saves"/.test(panels));
+check("the pre-save column and the store-choice card are hidden on a gate", panels.includes('{!gate && <TH className="text-right">Pre-saves</TH>}') && /\{!gate && \(\s*<Card>\s*<CardHeader><CardTitle>Where pre-savers listen/.test(panels));
+check("the chart and heatmap drop their pre-save series on a gate", panels.includes("presaves={!gate}") && panels.includes("presaves={gate ? null : stats.heat.presaves}"));
+check("the pre-save report link isn't offered on a gate", detailNow.includes("{!isDownload && <ReportShare"));
+// Silent on ordinary input: a release's panel is exactly what it was.
+check("a release still gets its pre-save cards", /"Conv\. rate"/.test(panels) && panels.includes("gate = null"));
+
+
 const dl = downloadPromoSteps("label");
 const words = dl.map((s) => `${s.title} ${s.body}`).join(" ");
 check("shorter than the release plan", dl.length > 0 && dl.length <= 8 && dl.length < promoSteps("label").length, dl.length);

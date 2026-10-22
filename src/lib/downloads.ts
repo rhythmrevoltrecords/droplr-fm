@@ -2,6 +2,7 @@ import { signToken, verifyToken } from "./crypto";
 // Re-exported so server code has one import for the whole feature; the client imports
 // lib/gate-steps directly, which is free of anything that can't run in a browser.
 export * from "./gate-steps";
+import { GATE_PLATFORMS, isGatePlatform } from "./gate-steps";
 import { PLAN_LIMITS, planOf, releaseWindowStart, type PlanKey } from "./plans";
 import { prisma } from "./db";
 
@@ -140,4 +141,25 @@ export function remaining(steps: GateStepRow[] | { platform: string; required: b
 export async function progressFor(releaseId: string, anonId: string | null) {
   if (!anonId) return null;
   return prisma.gateUnlock.findUnique({ where: { releaseId_anonId: { releaseId, anonId } } });
+}
+
+/**
+ * A gate's numbers for the analytics tab, over the same range as the rest of it: how many people
+ * started, how many got the file, and how many did each step. Mirrors the "How it's going" card on
+ * the download editor, which shows all time.
+ */
+export async function gateStatsFor(releaseId: string, days: number) {
+  const since = new Date(Date.now() - days * 86_400_000);
+  const [unlocks, steps] = await Promise.all([
+    prisma.gateUnlock.findMany({ where: { releaseId, createdAt: { gte: since } }, select: { via: true, completedAt: true } }),
+    prisma.gateStep.findMany({ where: { releaseId }, orderBy: { position: "asc" }, select: { platform: true } }),
+  ]);
+  return {
+    started: unlocks.length,
+    gotFile: unlocks.filter((u) => u.completedAt).length,
+    steps: steps.map((st) => ({
+      label: isGatePlatform(st.platform) ? GATE_PLATFORMS[st.platform].label : st.platform,
+      done: unlocks.filter((u) => u.via.includes(st.platform)).length,
+    })),
+  };
 }

@@ -41,6 +41,7 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { DOWNLOAD_HIDDEN_TABS } from "@/lib/gate-steps";
+import { gateStatsFor } from "@/lib/downloads";
 import { publicReleaseUrl } from "@/lib/releases";
 import { dateToZonedLocal, formatInTz, isReleased } from "@/lib/time";
 
@@ -163,8 +164,9 @@ export default async function ReleaseDetail(
               </div>
             )}
           </div>
-          <AnalyticsPanels perLink stats={await getStats([release.id], days, release.organization.timezone)} />
-          <ReportShare releaseId={release.id} url={release.reportToken ? `${SITE_URL}/report/${release.reportToken}` : null} />
+          <AnalyticsPanels perLink stats={await getStats([release.id], days, release.organization.timezone)} gate={isDownload ? await gateStatsFor(release.id, days) : null} />
+          {/* The shareable report is built around pre-saves and store choice, none of which a gate has. */}
+          {!isDownload && <ReportShare releaseId={release.id} url={release.reportToken ? `${SITE_URL}/report/${release.reportToken}` : null} />}
         </div>
       )}
 
