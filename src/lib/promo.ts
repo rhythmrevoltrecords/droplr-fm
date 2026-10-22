@@ -38,12 +38,42 @@ export function promoSteps(kind: "artist" | "label"): PromoStep[] {
 }
 
 /** What droplr does on its own, shown so nobody spends time on it. */
+/**
+ * The plan for a download gate. Shorter on purpose: a free file has no release day, no stores, no
+ * pre-saves and no editorial pitch, so most of the release plan is noise on it. Day 0 is the day the
+ * gate was made (a download's releaseDate is its creation time). Every step points at something the
+ * gate actually has.
+ */
+export function downloadPromoSteps(kind: "artist" | "label"): PromoStep[] {
+  const your = kind === "artist" ? "your" : "the artist's";
+  return [
+    { key: "dl-post", day: 0, title: "Post it", body: `Put the link in ${your} bio and post the artwork with "free download". Say what's in it in a few words.`, tab: "share" },
+    { key: "dl-placements", day: 0, title: "Make a link for each placement", body: "Create /ig, /tiktok and /bio variants so you can see which post actually brings downloads.", tab: "variants" },
+    { key: "dl-clip", day: 1, title: "Post a clip", body: `Pick a few seconds and droplr renders the video here, with ${your} link on it.`, tab: "clip" },
+    { key: "dl-djs", day: 3, title: "Send it to DJs who'd play it", body: "A short personal message and the link. A free edit or VIP is the easiest thing a DJ can say yes to." },
+    { key: "dl-dropoff", day: 7, title: "Check where people drop off", body: "The download page shows how many people got as far as each step. If one step loses most of them, take it out." },
+    { key: "dl-again", day: 14, title: "Post it again", body: "Most of your followers missed the first post. Same link, a different clip or a fan's repost." },
+  ];
+}
+
+/** The plan for this record: the release plan, or the short download plan for a gate. */
+export function promoStepsFor(kind: "artist" | "label", releaseKind: string | null | undefined): PromoStep[] {
+  return releaseKind === "download" ? downloadPromoSteps(kind) : promoSteps(kind);
+}
+
 export const AUTOMATIC = [
   "Finds Apple Music, Deezer, Spotify and TIDAL links from the UPC/ISRC, daily before release and hourly after",
   "Switches the page from pre-save to smart link at midnight in each fan's timezone",
   "Emails every pre-saver at 9am their time on release day, leading with the store they picked",
   "Saves to Spotify libraries for your allowlisted VIPs when it unlocks for them",
   "Counts views, clicks and pre-saves by source, country, device and hour",
+];
+
+/** What droplr does by itself on a download gate. Only things the gate code actually does. */
+export const AUTOMATIC_DOWNLOAD = [
+  "Keeps the file link out of the page until every required step is done",
+  "Checks the steps it can verify and says which ones it can't",
+  "Counts views, and how many people got through each step to the file",
 ];
 
 export function stepDate(releaseDate: Date, tz: string, day: number) {

@@ -1,0 +1,44 @@
+import { NextResponse, type NextRequest } from "next/server";
+import { labelRelease } from "@/lib/admin-guard";
+import { isOwnImage } from "@/lib/bio-items";
+import { prisma } from "@/lib/db";
+import { SITE_URL } from "@/lib/env";
+import { lookUpdate, pageLookSchema } from "@/lib/page-look";
+import { planOf } from "@/lib/plans";
+
+/**
+ * Save a release or download page's look (the Look tab).
+ *
+ * Gated on SAVING a look, not on serving one. A page styled on a paid plan keeps its look after a
+ * downgrade: fans who already saw it shouldn't watch it change because a card expired. Putting a
+ * page back to the default is always allowed, so a downgraded account can still undo its look.
+ */
+export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+  const got = await labelRelease((await ctx.params).id);
+  if ("error" in got) return NextResponse.json({ error: got.error }, { status: got.status });
+
+  const parsed = pageLookSchema.safeParse(await req.json().catch(() => null));
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "That look couldn't be saved." }, { status: 400 });
+  const data = lookUpdate(parsed.data);
+
+  // Only images droplr stored itself. An outside URL would put a third party's request on every
+  // fan's visit to the page, which is a tracking pixel by another name.
+  if (data.backgroundUrl && !isOwnImage(data.backgroundUrl, SITE_URL)) {
+    return NextResponse.json({ error: "Upload the background here rather than linking to it." }, { status: 400 });
+  }
+
+  const setsSomething = Object.values(data).some((v) => v !== null);
+  if (setsSomething) {
+    const org = await prisma.organization.findUnique({ where: { id: got.release.organizationId }, select: { plan: true } });
+    if (!planOf(org?.plan).pageLooks) {
+      return NextResponse.json({ error: "Your own page look is on the paid plans. Free pages use the colour from your artwork." }, { status: 402 });
+    }
+  }
+
+  const release = await prisma.release.update({
+    where: { id: got.release.id },
+    data,
+    select: { theme: true, font: true, backgroundUrl: true, backgroundColor: true, buttonColor: true },
+  });
+  return NextResponse.json(release);
+}

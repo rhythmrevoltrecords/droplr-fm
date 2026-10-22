@@ -1,6 +1,8 @@
 import { SITE_URL } from "@/lib/env";
 import { GATE_PLATFORMS, effectiveProof, fanRows, isGatePlatform, soundcloudLabel, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
+import type { PageLook } from "@/lib/page-look";
+import { lookShell } from "./page-look-shell";
 import { ContestEntry, type ContestView } from "./contest-entry";
 import { GateRefresh } from "./gate-refresh";
 import { PlatformIcon } from "./platform-icon";
@@ -25,6 +27,8 @@ export type GateViewData = {
   accentColor: string | null;
   downloadNote: string | null;
   org: { name: string; metaPixelId: string | null; tiktokPixelId: string | null; ga4Id: string | null; timezone?: string | null; publicGlow?: boolean; glowColor?: string | null };
+  /** Theme, font, button colour and background from the Look tab. Absent or empty = the default look. */
+  look?: Partial<PageLook> | null;
 };
 
 const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
@@ -49,8 +53,10 @@ const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
  *    normally leak here: the real link sits in a hidden element and View Source skips the gate.
  */
 export function GateView({
-  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest, enforcement = "enforced",
+  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest, enforcement = "enforced", preview = false,
 }: {
+  /** Renders inside a fixed-size box: the Look tab's live preview. */
+  preview?: boolean;
   release: GateViewData;
   steps: GateStepView[];
   unlocked: boolean;
@@ -76,9 +82,9 @@ export function GateView({
 
   return (
     <ArtworkPageShell
-      glow={release.org.publicGlow !== false}
+      {...lookShell(release.look, theme, release.org.publicGlow !== false)}
+      preview={preview}
       glowColor={release.org.glowColor}
-      theme={theme}
       imageUrl={release.coverUrl}
       accentColor={release.accentColor}
       footer={<ShellFooter showBranding={showBranding} orgName={release.org.name} />}
