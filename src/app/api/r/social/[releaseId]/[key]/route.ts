@@ -11,9 +11,10 @@ export const dynamic = "force-dynamic";
 /**
  * A tap on a social icon on a release page: redirect first, count afterwards. The release twin of
  * /api/b/social, with the same rule: the destination is never read from the request, only from the
- * profile the release itself shows icons from, inside the release's own organisation. Unknown
- * release, private release, a gated download, the box switched off, or a key with no https address
- * on the profile are all the same 404.
+ * profile the release itself shows icons from, inside the release's own organisation. Download gates
+ * can show the row too since the Look tab (an artist profile link gives nothing of the file away).
+ * Unknown or private page, any other kind, the box switched off, or a key with no https address on
+ * the profile are all the same 404.
  */
 export async function GET(req: NextRequest, props: { params: Promise<{ releaseId: string; key: string }> }) {
   const { releaseId, key } = await props.params;
@@ -21,7 +22,7 @@ export async function GET(req: NextRequest, props: { params: Promise<{ releaseId
     where: { id: releaseId },
     select: { id: true, kind: true, isPublic: true, socialIcons: true, organizationId: true, artistProfileId: true, organization: { select: { kind: true } } },
   });
-  if (!release || !release.isPublic || release.kind !== "release" || !showSocials(release)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!release || !release.isPublic || (release.kind !== "release" && release.kind !== "download") || !showSocials(release)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const target = socialTarget(await socialSource(release, release.organization.kind), key);
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

@@ -6,7 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hasCustomLook, lookUpdate, pageLookSchema, resolveLook } from "../src/lib/page-look";
+import { hasCustomLook, lookUpdate, lookWarnings, pageLookSchema, resolveLook } from "../src/lib/page-look";
 import { PLAN_LIMITS, type PlanKey } from "../src/lib/plans";
 import { downloadPromoSteps, promoSteps, promoStepsFor } from "../src/lib/promo";
 
@@ -36,6 +36,19 @@ check("…and resolves to the bio defaults", resolveLook({}).theme === "midnight
 check("one field set makes it custom", hasCustomLook({ buttonColor: "#ff6b00" }));
 check("a junk stored value falls back to the default theme", resolveLook({ theme: "neon" }).theme === "midnight");
 
+console.log("1b. Text, glow and icons");
+check("text, glow and icon fields parse", pageLookSchema.safeParse({ textColor: "#FFD166", glowColor: "#06D6A0", iconStyle: "solid", iconColor: "#101820" }).success);
+check("an unknown icon style is refused", !pageLookSchema.safeParse({ iconStyle: "sparkly" }).success);
+check("plain icons are stored as NULL, the row as it always was", lookUpdate({ iconStyle: "plain" }).iconStyle === null && lookUpdate({ iconStyle: "brand" }).iconStyle === "brand");
+check("an unknown stored icon style draws plain", resolveLook({ iconStyle: "sparkly" }).iconStyle === "plain");
+// Silent on ordinary input: no text colour picked, nothing to say, whatever the theme.
+check("no warning without a picked text colour", ["midnight", "paper", "mono", "poster"].every((t) => lookWarnings({ theme: t }).length === 0));
+check("white text on the dark default reads", lookWarnings({ theme: "midnight", textColor: "#ffffff" }).length === 0);
+check("near-black text on the dark default is warned about", lookWarnings({ theme: "midnight", textColor: "#111111" }).some((w) => /hard to read/.test(w)));
+check("dark text on Paper reads", lookWarnings({ theme: "paper", textColor: "#222222" }).length === 0);
+check("pale text on a pale picked background is warned about", lookWarnings({ theme: "midnight", textColor: "#eeeeee", backgroundColor: "#fafafa" }).length === 1);
+check("with an image behind it, droplr says it can't tell", lookWarnings({ textColor: "#111111", backgroundUrl: "https://x/api/cover/a.webp" }).some((w) => /can't measure/.test(w)));
+
 console.log("2. Plans");
 for (const k of Object.keys(PLAN_LIMITS) as PlanKey[]) {
   check(`${k}: page looks ${k === "free" ? "off" : "on"}`, PLAN_LIMITS[k].pageLooks === (k !== "free"));
@@ -52,11 +65,24 @@ for (const f of ["src/components/public/release-view.tsx", "src/components/publi
   check(`${f.split("/").pop()} renders the look`, read(f).includes("lookShell(release.look"));
 }
 const pr = read("src/components/public/public-route.tsx");
-check("both public pages are given the stored look", (pr.match(/look: \{ theme: release\.theme/g) ?? []).length === 2);
+check("both public pages are given the stored look", (pr.match(/look: lookOf\(release\)/g) ?? []).length === 2);
+check("download pages get the icon row when it's switched on", /socials: showSocials\(release\)/.test(pr) && read("src/components/public/gate-view.tsx").includes("<SocialIcons icons={release.socials"));
 const detail = read("src/app/admin/releases/[id]/page.tsx");
 check("the release page has a Look tab", detail.includes('{ key: "look", label: "Look" }'));
 check("the Look tab hides the controls on plans without looks", detail.includes("canEdit={plan.pageLooks}"));
 check("bio and release pages share one set of look controls", read("src/components/admin/bio-form.tsx").includes("<PageLookFields") && read("src/components/admin/release-look-editor.tsx").includes("<PageLookFields"));
+
+const icons = read("src/components/public/social-icons.tsx");
+check("Original icons use each network's colour", icons.includes("platformMeta(s.key).color"));
+check("solid icons cut the mark out in a colour that reads on the fill", icons.includes("readableTextOn(color)"));
+check("the marks are framed, never traced: the path is drawn filled every time", !/stroke=/.test(icons) && icons.includes('fill="currentColor"'));
+const css = read("src/app/globals.css");
+check("the text colour rules exist and come after the light theme's", css.indexOf(".page-ink .text-white") > css.indexOf(".shell-theme-light .text-white"));
+check("Poster's button ink is more specific than the text colour", css.includes(".bio-skin-poster .glass .text-white") && !css.includes(".page-ink .glass"));
+const lookRoute = read("src/app/api/admin/releases/[id]/look/route.ts");
+check("the icon on/off switch is outside the paid check", lookRoute.includes("const { socialIcons, ...lookInput } = parsed.data;") && lookRoute.includes("const data = lookUpdate(lookInput);") && /setsSomething = Object\.values\(data\)/.test(lookRoute));
+check("bio pages store plain icons as NULL too", read("src/app/api/admin/bio/[id]/route.ts").includes('d.iconStyle !== "plain"'));
+check("bio pages render text colour, glow colour and icon style", (() => { const v = read("src/components/public/bio-view.tsx"); return v.includes("textColor={page.textColor}") && v.includes("page.glowColor || glow.color") && v.includes("iconStyleOf(page.iconStyle)"); })());
 
 console.log("4. Download promo plan");
 const dl = downloadPromoSteps("label");

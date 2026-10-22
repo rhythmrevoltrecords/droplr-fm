@@ -26,7 +26,7 @@ export default async function NewBio() {
       <h1 className="text-2xl font-semibold">New bio link</h1>
       <BioForm
         mode="create"
-        initial={{ title, slug: slugify(title), bio: "", imageUrl: own?.photoUrl ?? "", accentColor: own?.photoUrl ? (own.accentColor ?? "") : "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", labelBadge: "", subscribe: "on", subscribeText: "", sectionOrder: "", gallery: "", socialIcons: "on", isPublic: true }}
+        initial={{ title, slug: slugify(title), bio: "", imageUrl: own?.photoUrl ?? "", accentColor: own?.photoUrl ? (own.accentColor ?? "") : "", theme: DEFAULT_BIO_THEME, font: DEFAULT_BIO_FONT, artistProfileId: "", releaseBlock: "on", backgroundUrl: "", backgroundColor: "", buttonColor: "", textColor: "", glowColor: "", iconStyle: "plain", iconColor: "", labelBadge: "", subscribe: "on", subscribeText: "", sectionOrder: "", gallery: "", socialIcons: "on", isPublic: true }}
         glow={{ on: user.organization.publicGlow, color: user.organization.glowColor }}
         artists={artists.map((a) => ({ id: a.id, name: a.name }))}
         previewReleases={previewReleases}

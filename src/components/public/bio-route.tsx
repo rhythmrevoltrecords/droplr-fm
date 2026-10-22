@@ -92,7 +92,7 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
   ]);
   const socials = bioSocials(socialLinks).map((s) => ({ key: s.key, label: s.label, href: socialHref(page.id, s.key) }));
 
-  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, merch: visibleItems(page.links, "merch"), merchDisplay: merchDisplayOf(page), socials, videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
+  const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, textColor: page.textColor, glowColor: page.glowColor, iconStyle: page.iconStyle, iconColor: page.iconColor, merch: visibleItems(page.links, "merch"), merchDisplay: merchDisplayOf(page), socials, videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
 
   return (
     <BioView

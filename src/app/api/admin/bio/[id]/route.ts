@@ -42,6 +42,11 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   if (d.backgroundUrl !== undefined) data.backgroundUrl = d.backgroundUrl || null;
   if (d.backgroundColor !== undefined) data.backgroundColor = d.backgroundColor || null;
   if (d.buttonColor !== undefined) data.buttonColor = d.buttonColor || null;
+  if (d.textColor !== undefined) data.textColor = d.textColor || null;
+  if (d.glowColor !== undefined) data.glowColor = d.glowColor || null;
+  // "plain" is the row as it always was, so it is stored as NULL like every other default.
+  if (d.iconStyle !== undefined) data.iconStyle = d.iconStyle && d.iconStyle !== "plain" ? d.iconStyle : null;
+  if (d.iconColor !== undefined) data.iconColor = d.iconColor || null;
   // Only the artist's half. The label's half (Artist.labelBadge + an active roster row) is read
   // at render time, so a label revoking it takes effect without touching this column.
   if (d.labelBadge !== undefined) data.labelBadge = d.labelBadge || null;

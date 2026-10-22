@@ -1298,6 +1298,11 @@ async function main() {
       const freeReset = await http(ownerA, "PATCH", lookUrl, reset);
       const afterReset = await readLook();
       check("a Free account can still put its page back to the default", freeReset.status === 200 && !afterReset?.theme && !afterReset?.font && !afterReset?.buttonColor && !afterReset?.backgroundUrl, `${freeReset.status}`);
+      // The social icon switch was free in Settings before the Look tab, so it stays free there.
+      const freeIcons = await http(ownerA, "PATCH", lookUrl, { socialIcons: "on" });
+      const freeText = await http(ownerA, "PATCH", lookUrl, { textColor: "#ffd166", socialIcons: "on" });
+      const afterIcons = await prisma.release.findUnique({ where: { id: A.release.id }, select: { socialIcons: true, textColor: true } });
+      check("a Free account can switch the icon row, but a text colour riding along is still refused", freeIcons.status === 200 && freeText.status === 402 && afterIcons?.socialIcons === "on" && afterIcons?.textColor === null, `${freeIcons.status}/${freeText.status}/${afterIcons?.textColor}`);
       await prisma.organization.update({ where: { id: A.org.id }, data: { plan: planBefore } });
       await prisma.release.update({ where: { id: A.release.id }, data: { theme: null, font: null, buttonColor: null, backgroundUrl: null, backgroundColor: null } });
     }
