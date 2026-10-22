@@ -16,8 +16,7 @@
  * leaves a clear band low in the frame for the sticker to land in.
  */
 import { BANDS, hexA, mixHex } from "./clip";
-
-const BG = "#0B0A10";
+import type { ClipPalette } from "./clip-theme";
 
 export type FrameCopy = {
   /** "OUT NOW" before anything else reads. Short: this is set at 86-112px. */
@@ -65,8 +64,8 @@ export type FrameArgs = {
    * so a wide logo isn't squashed into a square. Never drawn on a Story — see drawLogo.
    */
   logo: { img: CanvasImageSource; width: number; height: number } | null;
-  accent: string;
-  accent2: string;
+  /** Every colour in the frame, resolved by clipPalette() from the look and any overrides. */
+  palette: ClipPalette;
   copy: FrameCopy;
   /**
    * Preview only: draw the outline showing where the link sticker goes. Never passed by the
@@ -141,7 +140,7 @@ function drawLogo(x: CanvasRenderingContext2D, logo: NonNullable<FrameArgs["logo
   x.restore();
 }
 
-export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, kick, art, fontFamily: SANS, logo, accent, accent2, copy, stickerGuide }: FrameArgs) {
+export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, kick, art, fontFamily: SANS, logo, palette: p, copy, stickerGuide }: FrameArgs) {
   const vertical = H > W;
   const k = kick || 0;
   // A Story lays out differently because it has to make room for something drawn on top of it
@@ -150,7 +149,7 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
   const story = vertical && copy.link === null;
   const scale = H / 1920;
 
-  x.fillStyle = BG;
+  x.fillStyle = p.bg;
   x.fillRect(0, 0, W, H);
 
   // Story: smaller art, higher up, to buy the band at the bottom without crowding the top of the
@@ -159,17 +158,22 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
   const ay = story ? STORY_SAFE_TOP * scale : vertical ? 415 : 150;
 
   // Glow pulled from the artwork's own colour — already stored as Release.accentColor, so the
-  // "colour behind it follows the artwork" part needed no new work.
-  const g = x.createRadialGradient(W / 2, ay + artSide / 2, 40, W / 2, ay + artSide / 2, artSide * (0.78 + 0.3 * k));
-  g.addColorStop(0, hexA(accent, 0.3 + 0.34 * k));
-  g.addColorStop(1, "rgba(11,10,16,0)");
-  x.fillStyle = g;
-  x.fillRect(0, 0, W, H);
-  const g2 = x.createRadialGradient(W * 0.1, -60, 20, W * 0.1, -60, W * 0.95);
-  g2.addColorStop(0, hexA(accent2, 0.3));
-  g2.addColorStop(1, "rgba(11,10,16,0)");
-  x.fillStyle = g2;
-  x.fillRect(0, 0, W, H);
+  // "colour behind it follows the artwork" part needed no new work. Mono has none. Each wash fades
+  // to the background colour itself, not to a fixed near-black, or a light background would get a
+  // grey ring where the gradient ends.
+  if (p.glow && p.glow2) {
+    const fade = hexA(p.bg, 0);
+    const g = x.createRadialGradient(W / 2, ay + artSide / 2, 40, W / 2, ay + artSide / 2, artSide * (0.78 + 0.3 * k));
+    g.addColorStop(0, hexA(p.glow, 0.3 + 0.34 * k));
+    g.addColorStop(1, fade);
+    x.fillStyle = g;
+    x.fillRect(0, 0, W, H);
+    const g2 = x.createRadialGradient(W * 0.1, -60, 20, W * 0.1, -60, W * 0.95);
+    g2.addColorStop(0, hexA(p.glow2, 0.3));
+    g2.addColorStop(1, fade);
+    x.fillStyle = g2;
+    x.fillRect(0, 0, W, H);
+  }
 
   // The label's own mark, in the band the composition already leaves empty above the artwork.
   // Before the artwork is drawn, so a tall logo can never sit on top of the cover.
@@ -189,7 +193,7 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
     x.fillRect(ax, ayy, side, side);
   }
   x.restore();
-  x.strokeStyle = "rgba(255,255,255,.10)";
+  x.strokeStyle = p.artEdge;
   x.lineWidth = 2;
   roundRect(x, ax, ayy, side, side, radius);
   x.stroke();
@@ -203,7 +207,7 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
     // At rest the bars sit flat and dim, so an idle preview never reads as a frozen spectrum.
     const v = bands ? bands[b] : 0.02;
     const h = Math.max(5, v * (vertical ? 118 : 92));
-    x.fillStyle = mixHex(accent, accent2, b / (BANDS - 1));
+    x.fillStyle = mixHex(p.spectrumFrom, p.spectrumTo, b / (BANDS - 1));
     roundRect(x, pad + b * (barW + gap), barY - h, barW, h, barW / 2);
     x.fill();
   }
@@ -213,25 +217,25 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
   x.textAlign = "center";
   const ty = barY + (story ? 140 : vertical ? 150 : 112);
 
-  x.fillStyle = "#F4F4F5";
+  x.fillStyle = p.text;
   fitText(x, copy.headline, inner, "800", vertical ? 112 : 86, SANS);
   x.fillText(copy.headline, W / 2, ty);
 
   let linkY = ty;
   if (copy.link !== null) {
     linkY = ty + (vertical ? 62 : 50);
-    x.fillStyle = accent;
+    x.fillStyle = p.link;
     fitText(x, copy.link, inner, "600", vertical ? 32 : 27, MONO);
     x.fillText(copy.link, W / 2, linkY);
   }
 
   const tagY = linkY + (story ? 62 : vertical ? 46 : 38);
-  x.fillStyle = "#A1A1AA";
+  x.fillStyle = p.subtext;
   fitText(x, copy.tagline, inner, "500", vertical ? 28 : 23, SANS);
   x.fillText(copy.tagline, W / 2, tagY);
 
   if (copy.mark) {
-    x.fillStyle = "rgba(244,244,245,.55)";
+    x.fillStyle = p.mark;
     x.font = `600 ${vertical ? 24 : 20}px ${SANS}`;
     x.fillText(copy.mark, W / 2, tagY + (vertical ? 44 : 36));
   }
@@ -244,19 +248,19 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
     const side = 70 * scale;
     x.save();
     x.setLineDash([14 * scale, 12 * scale]);
-    x.strokeStyle = hexA(accent, 0.5);
+    x.strokeStyle = hexA(p.link, 0.5);
     x.lineWidth = Math.max(2, 3 * scale);
     roundRect(x, side, top, W - side * 2, h, 28 * scale);
     x.stroke();
     x.setLineDash([]);
-    x.fillStyle = hexA(accent, 0.75);
+    x.fillStyle = hexA(p.link, 0.75);
     x.textAlign = "center";
     x.font = `600 ${Math.round(30 * scale)}px ${SANS}`;
     x.fillText("Your link sticker goes here", W / 2, top + h / 2 + 10 * scale);
     x.restore();
   }
 
-  x.fillStyle = accent;
+  x.fillStyle = p.link;
   x.fillRect(0, H - 14, W * Math.min(1, Math.max(0, progress)), 14);
 }
 

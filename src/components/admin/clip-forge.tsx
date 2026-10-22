@@ -17,10 +17,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input, Label } from "@/components/ui/input";
 import {
   analyseClip, ASPECTS, type AspectKey, buildPeaks, clampFades, type ClipAnalysis, clipFileName,
-  clipAudioBuffer, CLIP_LENGTHS, FADE_CHOICES, fadeSummary, FPS, isHex, loudestWindow, mmss, partnerHex,
+  clipAudioBuffer, CLIP_LENGTHS, FADE_CHOICES, fadeSummary, FPS, isHex, loudestWindow, mmss,
 } from "@/lib/clip";
 import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
+import { CLIP_LOOKS, clipColourWarnings, clipPalette, DEFAULT_CLIP_LOOK, type ClipColourOverrides, type ClipLookId } from "@/lib/clip-theme";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ACCENT = "#8B5CF6";
@@ -80,7 +81,10 @@ export function ClipForge(props: ClipForgeProps) {
   const abortRef = useRef<AbortController | null>(null);
 
   const accent = isHex(props.accentColor) ? props.accentColor : FALLBACK_ACCENT;
-  const accent2 = useMemo(() => partnerHex(accent), [accent]);
+  const [look, setLook] = useState<ClipLookId>(DEFAULT_CLIP_LOOK);
+  const [overrides, setOverrides] = useState<ClipColourOverrides>({});
+  const palette = useMemo(() => clipPalette(look, accent, overrides), [look, accent, overrides]);
+  const colourWarnings = useMemo(() => clipColourWarnings(palette), [palette]);
   const size = ASPECTS[aspect];
   const frames = Math.round(clipLen * FPS);
 
@@ -128,15 +132,14 @@ export function ClipForge(props: ClipForgeProps) {
         art: artRef.current,
         fontFamily,
         logo: logoRef.current,
-        accent,
-        accent2,
+        palette,
         copy,
         stickerGuide: guide,
       });
     },
     // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
     // is the dependency that triggers the repaint, the same way artReady does for the cover.
-    [accent, accent2, copy, frames, fontFamily, logoReady],
+    [palette, copy, frames, fontFamily, logoReady],
   );
 
   // Ask the browser whether it can actually encode H.264, not just whether the API exists. A
@@ -521,6 +524,30 @@ export function ClipForge(props: ClipForgeProps) {
               </p>
             </CardContent>
           </Card>
+
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Colours</CardTitle>
+              <CardDescription>Start from a look, then change the background, spectrum or text if you want to match your artwork or brand.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Choices
+                label="Look"
+                value={look}
+                onChange={(v: ClipLookId) => { setLook(v); setOverrides({}); }}
+                options={CLIP_LOOKS.map((l) => ({ value: l.id, label: l.name, hint: l.blurb }))}
+              />
+              <div className="grid gap-3 sm:grid-cols-3">
+                <ColourPick id="clip-bg" label="Background" value={palette.bg} changed={!!overrides.background} onChange={(c) => setOverrides((o) => ({ ...o, background: c }))} />
+                <ColourPick id="clip-spectrum" label="Spectrum" value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
+                <ColourPick id="clip-text" label="Text" value={palette.text} changed={!!overrides.text} onChange={(c) => setOverrides((o) => ({ ...o, text: c }))} />
+              </div>
+              {colourWarnings.map((w) => <p key={w} className="text-sm text-amber-400">{w}</p>)}
+              <p className="text-xs text-muted-foreground">
+                The spectrum colour also goes on your link and the progress bar, unless it would be hard to read — then the link uses your text colour.
+              </p>
+            </CardContent>
+          </Card>
         </div>
 
         <Card className="lg:sticky lg:top-4 lg:self-start">
@@ -613,6 +640,27 @@ export function ClipForge(props: ClipForgeProps) {
             <p className="text-xs text-muted-foreground">Rendering happens on this device. A 30-second clip takes seconds on a laptop and on a recent phone; older hardware and very long tracks take longer.</p>
           </CardContent>
         </Card>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * One colour override. Shows the colour actually in use (the look's own until it's changed), and a
+ * reset that only appears once there is something to reset.
+ */
+function ColourPick({ id, label, value, changed, onChange }: { id: string; label: string; value: string; changed: boolean; onChange: (c: string | null) => void }) {
+  return (
+    <div className="space-y-1.5">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="flex items-center gap-2">
+        <input id={id} type="color" value={value} onChange={(e) => onChange(e.target.value)} className="h-9 w-12 shrink-0 cursor-pointer rounded-md border border-border bg-transparent p-1" />
+        <code className="text-xs text-muted-foreground">{value}</code>
+        {changed && (
+          <button type="button" onClick={() => onChange(null)} className="ml-auto text-xs text-muted-foreground underline hover:text-foreground">
+            Reset
+          </button>
+        )}
       </div>
     </div>
   );
