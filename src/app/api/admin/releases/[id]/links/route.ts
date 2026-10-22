@@ -12,6 +12,9 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
   const params = await props.params;
   const g = await labelRelease(params.id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
+  // A download gate has no streaming links: the tab is hidden, and the API refuses too, because a
+  // hidden tab is not a permission.
+  if (g.release.kind === "download") return NextResponse.json({ error: "A download gate doesn't have streaming links." }, { status: 409 });
   const parsed = linksPayloadSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: [...new Set(parsed.error.issues.map((i) => i.message))].join("; ") }, { status: 400 });
 
