@@ -6,7 +6,7 @@ import { SectionScrollTarget } from "@/components/marketing/section-link";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
-import { livePosts } from "@/lib/blog";
+import { liveNews } from "@/lib/blog";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
 import { platformMeta } from "@/lib/platforms";
@@ -276,7 +276,7 @@ function Bento() {
 export const revalidate = 300;
 
 export default function Landing() {
-  const news = livePosts(new Date()).slice(0, 2);
+  const news = liveNews(new Date()).slice(0, 2);
   const cta = ctaCopy();
   const tiers = pricingTiers();
   const faqs: { q: string; a: React.ReactNode }[] = [
@@ -474,7 +474,7 @@ export default function Landing() {
               <p className="mt-4 text-lg text-white/60">Short, sourced explainers on the music-business news that actually reaches independent artists. Watch it or read it.</p>
             </div>
             <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-white/60 transition-colors hover:text-white">
-              All news <ArrowRight className="h-4 w-4" aria-hidden />
+              News and guides <ArrowRight className="h-4 w-4" aria-hidden />
             </Link>
           </div>
           <div className="mt-12 grid gap-4 md:grid-cols-2">
