@@ -21,6 +21,7 @@ import {
 } from "@/lib/clip";
 import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
+import { CLIP_STYLES, CLIP_STYLE_LABELS, drawMotionFrame, MOTION_ENDING_LABELS, MOTION_ENDINGS, MOTION_ENTRANCE_LABELS, MOTION_ENTRANCES, motionCues, type ClipStyle, type MotionCues, type MotionEnding, type MotionEntrance } from "@/lib/clip-motion";
 import { CLIP_LOOKS, clipColourWarnings, clipPalette, DEFAULT_CLIP_LOOK, type ClipColourOverrides, type ClipLookId } from "@/lib/clip-theme";
 import { cn } from "@/lib/utils";
 
@@ -82,6 +83,10 @@ export function ClipForge(props: ClipForgeProps) {
 
   const accent = isHex(props.accentColor) ? props.accentColor : FALLBACK_ACCENT;
   const [look, setLook] = useState<ClipLookId>(DEFAULT_CLIP_LOOK);
+  const [style, setStyle] = useState<ClipStyle>("waveform");
+  const [entrance, setEntrance] = useState<MotionEntrance>("fade");
+  const [ending, setEnding] = useState<MotionEnding>("hold");
+  const cuesRef = useRef<{ from: ClipAnalysis | null; cues: MotionCues }>({ from: null, cues: { firstKick: 0, drop: 0 } });
   const [overrides, setOverrides] = useState<ClipColourOverrides>({});
   const palette = useMemo(() => clipPalette(look, accent, overrides), [look, accent, overrides]);
   const colourWarnings = useMemo(() => clipColourWarnings(palette), [palette]);
@@ -122,7 +127,7 @@ export function ClipForge(props: ClipForgeProps) {
       const ctx = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
       const a = analysisRef.current;
-      drawClipFrame({
+      const common = {
         ctx,
         width: canvas.width,
         height: canvas.height,
@@ -135,11 +140,19 @@ export function ClipForge(props: ClipForgeProps) {
         palette,
         copy,
         stickerGuide: guide,
-      });
+      };
+      if (style === "motion") {
+        // Cues follow the analysis they came from: worked out once per analysis, not per frame.
+        if (a && cuesRef.current.from !== a) cuesRef.current = { from: a, cues: motionCues(a.low, FPS) };
+        const cues = a ? cuesRef.current.cues : { firstKick: 0, drop: Math.round(frames * 0.45) };
+        drawMotionFrame({ ...common, i, frames, fps: FPS, cues, options: { entrance, ending, fadeIn, fadeOut } });
+      } else {
+        drawClipFrame(common);
+      }
     },
     // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
     // is the dependency that triggers the repaint, the same way artReady does for the cover.
-    [palette, copy, frames, fontFamily, logoReady],
+    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut],
   );
 
   // Ask the browser whether it can actually encode H.264, not just whether the API exists. A
@@ -409,8 +422,9 @@ export function ClipForge(props: ClipForgeProps) {
         <CardHeader>
           <CardTitle>Release clip</CardTitle>
           <CardDescription>
-            Pick {CLIP_LENGTHS.join(", ")} or so seconds of the track and droplr makes a video from it — the artwork pulsing on the kick, a spectrum
-            following the audio, and the glow pulled from the artwork&apos;s own colour. <strong className="text-foreground">The audio never leaves your
+            Pick {CLIP_LENGTHS.join(", ")} or so seconds of the track and droplr makes a video from it: either the waveform style, with the artwork
+            pulsing on the kick and a spectrum following the audio, or Motion, where the artwork drifts in, the title lands on the first kick and
+            your link on the drop. <strong className="text-foreground">The audio never leaves your
             computer.</strong> It&apos;s read, rendered and saved here, so nothing is uploaded and nothing is stored.
             {!props.removeBranding && " A small droplr.fm line sits under your link; Artist Pro and the label plans render it clean."}
             {" "}For a Story, switch the link to a sticker and droplr leaves the room for it.
@@ -467,6 +481,22 @@ export function ClipForge(props: ClipForgeProps) {
                 <span className="text-xs text-muted-foreground">Play shows exactly what renders — same analysis, same bars.</span>
               </div>
 
+              <Choices
+                label="Style"
+                value={style}
+                onChange={(v: ClipStyle) => setStyle(v)}
+                options={CLIP_STYLES.map((k) => ({ value: k, label: CLIP_STYLE_LABELS[k].name, hint: CLIP_STYLE_LABELS[k].hint }))}
+              />
+              <p className="-mt-2 text-xs text-muted-foreground">{CLIP_STYLE_LABELS[style].hint}</p>
+              {style === "motion" && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Choices label="Artwork comes in" value={entrance} onChange={(v: MotionEntrance) => setEntrance(v)} options={MOTION_ENTRANCES.map((k) => ({ value: k, label: MOTION_ENTRANCE_LABELS[k] }))} />
+                  <Choices label="Ending" value={ending} onChange={(v: MotionEnding) => setEnding(v)} options={MOTION_ENDINGS.map((k) => ({ value: k, label: MOTION_ENDING_LABELS[k] }))} />
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    The picture fades in with the audio fade-in. Fade out, Fly out and Zoom out run over the audio fade-out, so set that to 1s or 2s for a slower exit.
+                  </p>
+                </div>
+              )}
               <Choices label="Length" value={clipLen} onChange={setLength} options={CLIP_LENGTHS.map((n) => ({ value: n, label: `${n}s` }))} disabled={!ready} />
               <Choices
                 label="Shape"
@@ -539,7 +569,7 @@ export function ClipForge(props: ClipForgeProps) {
               />
               <div className="grid gap-3 sm:grid-cols-2">
                 <ColourPick id="clip-bg" label="Background" value={palette.bg} changed={!!overrides.background} onChange={(c) => setOverrides((o) => ({ ...o, background: c }))} />
-                <ColourPick id="clip-spectrum" label="Spectrum" value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
+                <ColourPick id="clip-spectrum" label={style === "motion" ? "Accent" : "Spectrum"} value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
                 <ColourPick id="clip-text" label="Text" value={palette.text} changed={!!overrides.text} onChange={(c) => setOverrides((o) => ({ ...o, text: c }))} />
                 {palette.glow ? (
                   <ColourPick id="clip-glow" label="Glow" value={palette.glow} changed={!!overrides.glow} onChange={(c) => setOverrides((o) => ({ ...o, glow: c }))} />
@@ -549,7 +579,9 @@ export function ClipForge(props: ClipForgeProps) {
               </div>
               {colourWarnings.map((w) => <p key={w} className="text-sm text-amber-400">{w}</p>)}
               <p className="text-xs text-muted-foreground">
-                The spectrum colour also goes on your link and the progress bar, unless it would be hard to read — then the link uses your text colour.
+                {style === "motion"
+                  ? "The accent colour goes on your link card and the progress bar, unless it would be hard to read — then the link uses your text colour."
+                  : "The spectrum colour also goes on your link and the progress bar, unless it would be hard to read — then the link uses your text colour."}
               </p>
             </CardContent>
           </Card>

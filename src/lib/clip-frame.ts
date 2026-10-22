@@ -74,7 +74,7 @@ export type FrameArgs = {
   stickerGuide?: boolean;
 };
 
-function roundRect(x: CanvasRenderingContext2D, rx: number, ry: number, w: number, h: number, r: number) {
+export function roundRect(x: CanvasRenderingContext2D, rx: number, ry: number, w: number, h: number, r: number) {
   x.beginPath();
   x.moveTo(rx + r, ry);
   x.arcTo(rx + w, ry, rx + w, ry + h, r);
@@ -85,7 +85,7 @@ function roundRect(x: CanvasRenderingContext2D, rx: number, ry: number, w: numbe
 }
 
 /** Shrink the text until it fits the width it has. Long titles and long links both hit this. */
-function fitText(x: CanvasRenderingContext2D, text: string, max: number, weight: string, size: number, family: string) {
+export function fitText(x: CanvasRenderingContext2D, text: string, max: number, weight: string, size: number, family: string) {
   let s = size;
   for (;;) {
     x.font = `${weight} ${s}px ${family}`;
@@ -108,7 +108,7 @@ function fitText(x: CanvasRenderingContext2D, text: string, max: number, weight:
  * each artist only ever sees their own render. clip-forge.tsx now resolves the app's real font off
  * the document and passes it, so a clip matches the share graphics and matches itself everywhere.
  */
-const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
+export const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
 
 /**
  * The label's logo, centred in the empty band between the top of the frame and the artwork.
@@ -121,7 +121,7 @@ const MONO = "ui-monospace, SFMono-Regular, Menlo, Consolas, monospace";
  * Aspect ratio is preserved from the source. Logos are wide far more often than square, and a logo
  * squashed into a box is worse than no logo: it is the artist's own mark, rendered wrong, by us.
  */
-function drawLogo(x: CanvasRenderingContext2D, logo: NonNullable<FrameArgs["logo"]>, W: number, bandTop: number, bandBottom: number, scale: number) {
+export function drawLogo(x: CanvasRenderingContext2D, logo: NonNullable<FrameArgs["logo"]>, W: number, bandTop: number, bandBottom: number, scale: number) {
   const band = bandBottom - bandTop;
   if (band < 70 * scale) return; // No room: better nothing than a logo jammed against the artwork.
   const h = Math.min(Math.round(72 * scale), Math.round(band * 0.42));
@@ -242,26 +242,30 @@ export function drawClipFrame({ ctx: x, width: W, height: H, progress, bands, ki
 
   // Where the sticker goes. Drawn in the preview so the artist can see the room is deliberate,
   // and never in the render — the reserved band's job is to be empty.
-  if (story && stickerGuide) {
-    const top = STORY_STICKER_BAND.top * scale;
-    const h = (STORY_STICKER_BAND.bottom - STORY_STICKER_BAND.top) * scale;
-    const side = 70 * scale;
-    x.save();
-    x.setLineDash([14 * scale, 12 * scale]);
-    x.strokeStyle = hexA(p.link, 0.5);
-    x.lineWidth = Math.max(2, 3 * scale);
-    roundRect(x, side, top, W - side * 2, h, 28 * scale);
-    x.stroke();
-    x.setLineDash([]);
-    x.fillStyle = hexA(p.link, 0.75);
-    x.textAlign = "center";
-    x.font = `600 ${Math.round(30 * scale)}px ${SANS}`;
-    x.fillText("Your link sticker goes here", W / 2, top + h / 2 + 10 * scale);
-    x.restore();
-  }
+  if (story && stickerGuide) drawStickerGuide(x, W, scale, p.link, SANS);
 
   x.fillStyle = p.link;
   x.fillRect(0, H - 14, W * Math.min(1, Math.max(0, progress)), 14);
+}
+
+
+/** Where the link sticker goes, in the preview only. Shared by both clip styles. */
+export function drawStickerGuide(x: CanvasRenderingContext2D, W: number, scale: number, link: string, SANS: string) {
+  const top = STORY_STICKER_BAND.top * scale;
+  const h = (STORY_STICKER_BAND.bottom - STORY_STICKER_BAND.top) * scale;
+  const side = 70 * scale;
+  x.save();
+  x.setLineDash([14 * scale, 12 * scale]);
+  x.strokeStyle = hexA(link, 0.5);
+  x.lineWidth = Math.max(2, 3 * scale);
+  roundRect(x, side, top, W - side * 2, h, 28 * scale);
+  x.stroke();
+  x.setLineDash([]);
+  x.fillStyle = hexA(link, 0.75);
+  x.textAlign = "center";
+  x.font = `600 ${Math.round(30 * scale)}px ${SANS}`;
+  x.fillText("Your link sticker goes here", W / 2, top + h / 2 + 10 * scale);
+  x.restore();
 }
 
 /** The resting frame, before anything is loaded or while the artist is still choosing. */

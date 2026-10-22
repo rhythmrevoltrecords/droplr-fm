@@ -21,8 +21,12 @@ import {
 } from "../src/lib/clip";
 import { blobHasAudio, isIOS, verifyAudio } from "../src/lib/clip-encode";
 import { CLIP_LOOKS, clipColourWarnings, clipPalette, contrastOf, type ClipPalette } from "../src/lib/clip-theme";
+import { drawMotionFrame, MOTION_ENDINGS, MOTION_ENTRANCES, motionCues, type MotionCues, type MotionEntrance, type MotionOptions } from "../src/lib/clip-motion";
 import { drawClipFrame, type FrameArgs, type FrameCopy, STORY_SAFE_BOTTOM, STORY_SAFE_TOP, STORY_STICKER_BAND } from "../src/lib/clip-frame";
 import { planOf } from "../src/lib/plans";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+const read = (f: string) => readFileSync(join(import.meta.dirname, "..", f), "utf8");
 
 let passed = 0;
 const failures: string[] = [];
@@ -443,6 +447,100 @@ async function main() {
     check("the headline is drawn in the text colour", head?.fill === "#ffd166", head?.fill);
     check("the link is drawn in the spectrum colour when it reads", link?.fill === "#06d6a0", link?.fill);
     check("the tagline is not drawn in the old fixed grey", t.find((o) => o.text.startsWith("Ototo"))?.fill !== "#A1A1AA");
+  }
+
+  console.log("\nMotion style");
+  {
+    const FPS_ = 30;
+    // A quiet 4-second build, then a kick on every beat (0.5s) at full level: the first kick and the
+    // drop should both land at the 4-second mark, not in the build.
+    const build = Array.from({ length: 450 }, (_, i) => (i < 120 ? 0.08 + 0.04 * Math.sin(i) : i % 15 < 3 ? 0.95 : 0.5));
+    const c1 = motionCues(build, FPS_);
+    check("the first kick is found where the beat comes in, not in the quiet build", c1.firstKick >= 118 && c1.firstKick <= 125, String(c1.firstKick));
+    check("the drop is at least a second after the first kick", c1.drop >= c1.firstKick + 30, `${c1.firstKick}/${c1.drop}`);
+    check("the drop leaves three seconds for the link to be read", c1.drop <= 450 - 90, String(c1.drop));
+    // Loud from the first frame: kick almost at once, drop falls back to a fixed point.
+    const loud = Array.from({ length: 450 }, (_, i) => (i % 15 < 3 ? 0.95 : 0.6));
+    const c2 = motionCues(loud, FPS_);
+    check("a clip that's loud from the start kicks early", c2.firstKick <= 15, String(c2.firstKick));
+    check("…and with no drop to find, the link still lands in the first half", c2.drop >= c2.firstKick + 30 && c2.drop <= 450 * 0.5, String(c2.drop));
+    // Silence: no cue is invented in it, and nothing crashes.
+    const quiet = motionCues(new Array(450).fill(0), FPS_);
+    check("silence gets fixed cues, not NaN", Number.isFinite(quiet.firstKick) && Number.isFinite(quiet.drop) && quiet.drop > quiet.firstKick, JSON.stringify(quiet));
+    check("an empty clip doesn't crash", JSON.stringify(motionCues([], FPS_)) === JSON.stringify({ firstKick: 0, drop: 0 }));
+
+    let moves: { x: number; y: number; a: number }[] = [];
+    let fills: { style: string; w: number; h: number }[] = [];
+    const recordMotion = (i: number, cues: MotionCues, copy: Partial<FrameCopy> = {}, W = 1080, H = 1920, options: Partial<MotionOptions> = {}) => {
+      const ops: Op[] = [];
+      moves = [];
+      fills = [];
+      const ctx = {
+        fillStyle: "", strokeStyle: "", lineWidth: 0, textAlign: "", font: "", globalAlpha: 1, filter: "none", shadowColor: "", shadowBlur: 0, shadowOffsetY: 0,
+        fillRect: (_x: number, y: number, w: number, h: number) => { ops.push({ kind: "rect", y, h }); fills.push({ style: String((ctx as { fillStyle: unknown }).fillStyle), w, h }); },
+        fillText: (text: string, x: number, y: number) => ops.push({ kind: "text", text, x, y, font: (ctx as { font: string }).font, fill: (ctx as { fillStyle: string }).fillStyle }),
+        measureText: (t: string) => ({ width: t.length * 14 }),
+        createRadialGradient: () => ({ addColorStop: () => {} }),
+        drawImage: (src: unknown, x: number, y: number, w: number, h: number) => ops.push({ kind: "image", src, x, y, w, h }),
+        save: () => {}, restore: () => {}, clip: () => {}, stroke: () => {}, fill: () => {}, translate: (x: number, y: number) => moves.push({ x, y, a: (ctx as { globalAlpha: number }).globalAlpha }), transform: () => {},
+        beginPath: () => {}, moveTo: () => {}, arcTo: () => {}, closePath: () => {}, setLineDash: () => {},
+      } as unknown as CanvasRenderingContext2D;
+      drawMotionFrame({
+        ctx, width: W, height: H, progress: 0.5, bands: null, kick: 0, art: null, fontFamily: TEST_FAMILY, logo: null,
+        palette: clipPalette("glow", "#8B5CF6", { text: "#FFD166" }),
+        copy: { headline: "OUT NOW", link: "droplr.fm/rrr/track", tagline: "Ototo — Again", mark: "droplr.fm", ...copy },
+        stickerGuide: false, i, frames: 450, fps: 30, cues, options,
+      });
+      return texts(ops);
+    };
+    const cues: MotionCues = { firstKick: 120, drop: 180 };
+    check("before the first kick there's no headline yet", !recordMotion(60, cues).some((o) => o.text === "OUT NOW"));
+    check("after the kick the headline is there, in the text colour", recordMotion(150, cues).find((o) => o.text === "OUT NOW")?.fill === "#ffd166");
+    check("before the drop there's no link yet", !recordMotion(170, cues).some((o) => o.text === "droplr.fm/rrr/track"));
+    const end = recordMotion(449, cues);
+    check("it ends holding on the headline, the artist line, the link and the mark", ["OUT NOW", "Ototo — Again", "droplr.fm/rrr/track", "droplr.fm"].every((t) => end.some((o) => o.text === t)));
+    const rest = recordMotion(-1, cues);
+    check("the resting preview shows the finished frame, not an empty one", rest.some((o) => o.text === "OUT NOW") && rest.some((o) => o.text === "droplr.fm/rrr/track"));
+    const story = recordMotion(449, cues, { link: null });
+    check("a Story draws no link", !story.some((o) => o.text.includes("rrr/track")));
+    check("…and nothing inside the sticker band", story.every((o) => o.y < STORY_STICKER_BAND.top || o.y > STORY_STICKER_BAND.bottom), story.map((o) => `${o.text}@${Math.round(o.y)}`).join(", "));
+    check("…and nothing under Instagram's profile row", story.every((o) => o.y > STORY_SAFE_TOP));
+    const sq = recordMotion(449, cues, {}, 1080, 1080);
+    check("a square post keeps every line inside the frame", sq.every((o) => o.y > 0 && o.y < 1080 - 14), sq.map((o) => `${o.text}@${Math.round(o.y)}`).join(", "));
+    check("every proportional line uses the family it was given", end.filter((o) => o.text !== "droplr.fm/rrr/track").every((o) => o.font.includes(TEST_FAMILY)));
+    // Entrances: all three land in the same place; only the way in differs.
+    const settled = (entrance: MotionEntrance) => { recordMotion(300, cues, {}, 1080, 1920, { entrance }); return moves[0]; };
+    const still = settled("still"), fade = settled("fade"), fly = settled("fly"), zoom = settled("zoom");
+    check("every entrance ends with the card in the same place", [fade, fly, zoom].every((m) => Math.abs(m.y - still.y) < 2 && Math.abs(m.x - still.x) < 2), [still, fade, fly, zoom].map((m) => Math.round(m.y)).join("/"));
+    check("there are four entrances and four endings, in pairs", MOTION_ENTRANCES.length === 4 && MOTION_ENDINGS.length === 4);
+    recordMotion(3, cues, {}, 1080, 1920, { entrance: "fly" });
+    check("Fly in starts off the right edge", moves[0]?.x > 1080, String(moves[0]?.x));
+    recordMotion(1, cues, {}, 1080, 1920, { entrance: "still" });
+    check("Still is in its place, fully visible, from the first frame", moves.length > 0 && Math.abs(moves[0].y - still.y) < 2 && moves[0].a === 1, moves.length ? `${moves[0].y}/${moves[0].a}` : "not drawn");
+    recordMotion(1, cues, {}, 1080, 1920, { entrance: "fade" });
+    check("Fade in doesn't move the card, only fades it", moves.length === 0 || (Math.abs(moves[0].y - still.y) < 2 && moves[0].a < 0.5), moves.length ? `${moves[0].y}/${moves[0].a}` : "not drawn yet");
+    // Endings.
+    const held = recordMotion(449, cues, {}, 1080, 1920, { ending: "hold" });
+    check("Hold ends with everything on screen", held.some((o) => o.text === "droplr.fm/rrr/track" && o.y < 1920));
+    recordMotion(449, cues, {}, 1080, 1920, { ending: "flyout", fadeOut: 1 });
+    check("Fly out sends the card up off the top", moves.length === 0 || moves[0].y < 0, moves.length ? String(moves[0].y) : "not drawn");
+    const gone = recordMotion(449, cues, {}, 1080, 1920, { ending: "flyout", fadeOut: 1 });
+    check("…and the link off the bottom", gone.every((o) => o.text !== "droplr.fm/rrr/track" || o.y > 1920), gone.map((o) => `${o.text}@${Math.round(o.y)}`).join(", "));
+    const midExit = recordMotion(449 - 30, cues, {}, 1080, 1920, { ending: "flyout", fadeOut: 2 });
+    check("Fly out runs over the audio fade-out, not just the last frame", midExit.some((o) => o.text === "droplr.fm/rrr/track" && o.y > 1500), midExit.map((o) => `${o.text}@${Math.round(o.y)}`).join(", "));
+    const zoomed = recordMotion(449, cues, {}, 1080, 1920, { ending: "zoomout", fadeOut: 1 });
+    check("Zoom out ends with nothing left: card, words and link gone", moves.length === 0 && zoomed.length === 0, zoomed.map((o) => o.text).join(", "));
+    recordMotion(449 - 15, cues, {}, 1080, 1920, { ending: "zoomout", fadeOut: 1 });
+    check("…and the card zooms in place rather than flying off", moves.length > 0 && Math.abs(moves[0].y - still.y) < 2);
+    recordMotion(449, cues, {}, 1080, 1920, { ending: "fade", fadeOut: 1 });
+    check("Fade out ends on black", fills.some((f) => /^rgba\(0,0,0,(1|0\.9\d*)/.test(f.style) && f.w >= 1080 && f.h >= 1920), fills.map((f) => f.style).join(" | "));
+    recordMotion(449, cues, {}, 1080, 1920, { ending: "hold", fadeOut: 1 });
+    check("Hold never draws a black overlay at the end", !fills.some((f) => /^rgba\(0,0,0,/.test(f.style)));
+    recordMotion(0, cues, {}, 1080, 1920, { fadeIn: 0.5 });
+    check("the picture fades in with the audio fade-in", fills.some((f) => f.style === "rgba(0,0,0,1.000)"));
+    recordMotion(-1, cues, {}, 1080, 1920, { ending: "flyout", fadeIn: 1, fadeOut: 2 });
+    check("the resting preview never shows an exit or a fade", moves[0]?.y > 0 && !fills.some((f) => /^rgba\(0,0,0,/.test(f.style)));
+    check("the motion style ships no Remotion: nothing is sent anywhere", !/remotion/i.test(read("package.json")) && !/fetch\(|navigator\.sendBeacon/.test(read("src/lib/clip-motion.ts")));
   }
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
