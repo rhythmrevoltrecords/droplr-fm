@@ -28,9 +28,8 @@ import { ReportShare } from "@/components/admin/report-share";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { VariantManager } from "@/components/admin/variant-manager";
 import { ReleaseLookEditor, type LookPreview } from "@/components/admin/release-look-editor";
-import { publicTheme } from "@/components/public/artwork-shell";
 import { bioFontOf, bioThemeOf } from "@/lib/bio-themes";
-import { blurOf, iconStyleOf } from "@/lib/page-look";
+import { blurOf, iconStyleOf, pageModeOf } from "@/lib/page-look";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -313,7 +312,7 @@ export default async function ReleaseDetail(
             canEdit={plan.pageLooks}
             preview={preview}
             showBranding={!plan.removeBranding}
-            theme={publicTheme(org)}
+            initialMode={pageModeOf(release.pageMode)}
             upgradeLine={`Your own look — theme, font, button colour and background — is on the paid plans, from A$${planOf(org.kind === "artist" ? "artist" : "pro").price}/month. Free pages use the colour from your artwork with droplr's look.`}
           />
         );

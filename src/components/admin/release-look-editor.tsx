@@ -3,12 +3,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { GateView, type GateStepView, type GateViewData } from "@/components/public/gate-view";
-import type { PublicTheme } from "@/components/public/artwork-shell";
 import { ReleaseView, type ReleaseViewData } from "@/components/public/release-view";
 import type { SocialIcon } from "@/components/public/social-icons";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { hasCustomLook } from "@/lib/page-look";
+import { hasCustomLook, PAGE_MODE_LABELS, PAGE_MODES, type PageMode } from "@/lib/page-look";
 import { PageLookFields, type LookValues } from "./page-look-fields";
 import { PhonePreview } from "./phone-preview";
 
@@ -26,8 +25,10 @@ export type LookPreview =
  * default from here — the API allows that on every plan.
  */
 export function ReleaseLookEditor({
-  releaseId, initial, accentPreview, sample, canEdit, preview, showBranding, theme, upgradeLine, glowDefault, socials, initialSocialsOn,
+  releaseId, initial, accentPreview, sample, canEdit, preview, showBranding, initialMode, upgradeLine, glowDefault, socials, initialSocialsOn,
 }: {
+  /** Light, dark or system: free on every plan, used while the page is on droplr's default look. */
+  initialMode: PageMode;
   glowDefault: string;
   /** The icon row as it would show, already resolved on the server. Shown in the preview when switched on. */
   socials: SocialIcon[];
@@ -39,12 +40,12 @@ export function ReleaseLookEditor({
   canEdit: boolean;
   preview: LookPreview;
   showBranding: boolean;
-  theme: PublicTheme;
   upgradeLine: string;
 }) {
   const router = useRouter();
   const [v, setV] = useState<LookValues>(initial);
   const [socialsOn, setSocialsOn] = useState(initialSocialsOn);
+  const [mode, setMode] = useState<PageMode>(initialMode);
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const saved = hasCustomLook(initial);
@@ -55,7 +56,7 @@ export function ReleaseLookEditor({
     const res = await fetch(`/api/admin/releases/${releaseId}/look`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...values, socialIcons: socialsOn ? "on" : "" }),
+      body: JSON.stringify({ ...values, socialIcons: socialsOn ? "on" : "", pageMode: mode }),
     });
     const j = await res.json().catch(() => ({}));
     setBusy(false);
@@ -90,6 +91,29 @@ export function ReleaseLookEditor({
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-5">
+          {/* Free on every plan: the one look choice a Free account has on these pages. */}
+          <div className="space-y-2">
+            <div className="text-sm font-medium">Light or dark</div>
+            <div role="radiogroup" className="inline-flex rounded-lg border p-0.5 text-sm">
+              {PAGE_MODES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={mode === m}
+                  onClick={() => { setMsg(null); setMode(m); }}
+                  className={`rounded-md px-3 py-1 ${mode === m ? "bg-secondary text-foreground" : "text-muted-foreground hover:text-foreground"}`}
+                >
+                  {PAGE_MODE_LABELS[m]}
+                </button>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {hasCustomLook(look)
+                ? "Your look below decides this while it's set: Paper is light, the others are dark."
+                : "System follows each fan's phone setting."}
+            </p>
+          </div>
           {canEdit ? (
             <>
               <div className="grid gap-5 sm:grid-cols-2">
@@ -138,9 +162,9 @@ export function ReleaseLookEditor({
       <div className="lg:sticky lg:top-20 lg:self-start">
         <PhonePreview>
           {preview.kind === "download" ? (
-              <GateView preview demo release={{ ...preview.data, look, socials: socialsOn ? socials : [] }} steps={preview.steps} unlocked={false} query={{}} showBranding={showBranding} theme={theme} />
+              <GateView preview demo release={{ ...preview.data, look, socials: socialsOn ? socials : [] }} steps={preview.steps} unlocked={false} query={{}} showBranding={showBranding} theme={mode} />
             ) : (
-              <ReleaseView preview demo release={{ ...preview.data, look, socials: socialsOn ? socials : [] }} live={preview.live} query={{}} spotifyEnabled deezerEnabled={false} showBranding={showBranding} theme={theme} />
+              <ReleaseView preview demo release={{ ...preview.data, look, socials: socialsOn ? socials : [] }} live={preview.live} query={{}} spotifyEnabled deezerEnabled={false} showBranding={showBranding} theme={mode} />
             )}
         </PhonePreview>
         <p className="mt-2 text-center text-xs text-muted-foreground">Scroll the preview to see the whole page.</p>

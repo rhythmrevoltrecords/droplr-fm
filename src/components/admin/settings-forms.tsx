@@ -2,7 +2,7 @@
 import { Check, ChevronsUpDown, Loader2, Monitor, Moon, Sun, Upload, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArtworkPageShell, GlassLink, type PublicTheme } from "@/components/public/artwork-shell";
+import type { PublicTheme } from "@/components/public/artwork-shell";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { LOCATIONS } from "@/lib/time";
@@ -236,10 +236,11 @@ const THEMES = [
   { key: "system", label: "System", icon: Monitor },
 ] as const;
 
-function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel, glow }: { theme: PublicTheme; applyPublic: boolean; accent: string | null; orgName: string; locationLabel: string; glow: boolean }) {
+/** The dashboard in the chosen theme. Public pages aren't shown: each one sets its own mode on its Look tab. */
+function ThemePreview({ theme, accent, orgName, locationLabel, glow }: { theme: PublicTheme; accent: string | null; orgName: string; locationLabel: string; glow: boolean }) {
   const adminClass = theme === "light" ? "theme-light" : theme === "system" ? "theme-system" : "theme-dark";
   return (
-    <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_200px]">
+    <div className="grid gap-4">
       {/* Admin table in the chosen theme */}
       <div className={cn(adminClass, "relative isolate overflow-hidden rounded-xl border bg-background text-foreground")} style={accent ? { borderTop: `2px solid ${accent}` } : undefined}>
         {glow && <DashboardGlow accent={accent} className="absolute opacity-50" />}
@@ -259,32 +260,18 @@ function ThemePreview({ theme, applyPublic, accent, orgName, locationLabel, glow
           </tbody>
         </table>
       </div>
-      {/* Smart link button: themed only when applied to public pages */}
-      <div className="relative mx-auto h-[150px] w-[200px] overflow-hidden rounded-xl border sm:mx-0">
-        {/* Real shell at phone width, scaled to 50% */}
-        <div className="origin-top-left" style={{ width: 400, height: 300, transform: "scale(0.5)" }}>
-          <ArtworkPageShell preview theme={applyPublic ? theme : "dark"} imageUrl="/demo/two-step-sky.svg" accentColor="#22D3EE">
-            <div className="space-y-2.5">
-              <GlassLink href="#" track={false} platform="beatport" />
-              <GlassLink href="#" track={false} platform="soundcloud" label="SoundCloud (2)" />
-              <GlassLink href="#" track={false} platform="custom" label="Merch & Vinyl" action="Buy" />
-            </div>
-          </ArtworkPageShell>
-        </div>
-      </div>
     </div>
   );
 }
 
-export function AppearanceForm({ initial, orgName, locationLabel, accent }: { initial: { themePreference: string; themePublic: boolean; dashboardGlow: boolean; publicGlow: boolean; glowColor: string | null }; orgName: string; locationLabel: string; accent: string | null }) {
+export function AppearanceForm({ initial, orgName, locationLabel, accent }: { initial: { themePreference: string; dashboardGlow: boolean; publicGlow: boolean; glowColor: string | null }; orgName: string; locationLabel: string; accent: string | null }) {
   const [theme, setTheme] = useState<PublicTheme>((["dark", "light", "system"].includes(initial.themePreference) ? initial.themePreference : "dark") as PublicTheme);
-  const [applyPublic, setApplyPublic] = useState(initial.themePublic);
   const [glow, setGlow] = useState(initial.dashboardGlow);
   const [publicGlow, setPublicGlow] = useState(initial.publicGlow);
   const [glowColor, setGlowColor] = useState(initial.glowColor ?? "");
   const { busy, msg, save } = useSave();
   return (
-    <form className="space-y-5" onSubmit={async (e) => { e.preventDefault(); await save({ themePreference: theme, themePublic: applyPublic, dashboardGlow: glow, publicGlow, glowColor }); }}>
+    <form className="space-y-5" onSubmit={async (e) => { e.preventDefault(); await save({ themePreference: theme, dashboardGlow: glow, publicGlow, glowColor }); }}>
       <fieldset>
         <legend className="mb-2 text-sm font-medium">Glow on your public pages</legend>
         <p className="mb-2 text-xs text-muted-foreground">
@@ -315,7 +302,7 @@ export function AppearanceForm({ initial, orgName, locationLabel, accent }: { in
       </fieldset>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Theme</legend>
+        <legend className="mb-2 text-sm font-medium">Dashboard theme</legend>
         <div role="radiogroup" className="grid grid-cols-3 gap-2 sm:max-w-md">
           {THEMES.map((t) => (
             <button
@@ -341,17 +328,14 @@ export function AppearanceForm({ initial, orgName, locationLabel, accent }: { in
         </span>
       </label>
 
-      <label className="flex min-h-[44px] items-start gap-3 rounded-lg border p-3 text-sm">
-        <input type="checkbox" checked={applyPublic} onChange={(e) => setApplyPublic(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0" />
-        <span>
-          <span className="font-medium">Apply theme to public smart links</span>
-          <span className="block text-muted-foreground">Off: fan pages keep the signature look (artwork-colour glow on a black gradient). On: they follow the theme above.</span>
-        </span>
-      </label>
+      <p className="text-xs text-muted-foreground">
+        Your fan pages don&apos;t follow this. Each release and download page sets its own light, dark or system mode on its Look tab,
+        and each bio page has its own look.
+      </p>
 
       <div>
         <div className="mb-2 text-sm font-medium">Preview</div>
-        <ThemePreview theme={theme} applyPublic={applyPublic} accent={accent} orgName={orgName} locationLabel={locationLabel} glow={glow} />
+        <ThemePreview theme={theme} accent={accent} orgName={orgName} locationLabel={locationLabel} glow={glow} />
       </div>
 
       <div className="flex flex-wrap items-center gap-3">

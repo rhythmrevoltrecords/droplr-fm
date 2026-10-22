@@ -6,7 +6,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { hasCustomLook, lookUpdate, lookWarnings, pageLookSchema, resolveLook } from "../src/lib/page-look";
+import { hasCustomLook, lookUpdate, lookWarnings, pageLookSchema, pageModeOf, resolveLook } from "../src/lib/page-look";
 import { PLAN_LIMITS, type PlanKey } from "../src/lib/plans";
 import { downloadPromoSteps, promoSteps, promoStepsFor } from "../src/lib/promo";
 
@@ -96,6 +96,18 @@ check("the pre-save report link isn't offered on a gate", detailNow.includes("{!
 check("a release still gets its pre-save cards", /"Conv\. rate"/.test(panels) && panels.includes("gate = null"));
 
 
+console.log("3c. Page mode (light, dark, system)");
+check("an unknown or empty mode is dark", pageModeOf(null) === "dark" && pageModeOf("neon") === "dark" && pageModeOf("system") === "system");
+const lr2 = read("src/app/api/admin/releases/[id]/look/route.ts");
+check("the mode is outside the paid check", /const \{ socialIcons, pageMode, [^}]*\.\.\.lookInput \} = parsed\.data;/.test(lr2) && /setsSomething = Object\.values\(data\)/.test(lr2));
+const prNow = read("src/components/public/public-route.tsx");
+check("release and download pages use their own mode, not the account's", (prNow.match(/theme=\{pageModeOf\(release\.pageMode\)\}/g) ?? []).length === 2 && !/publicTheme/.test(prNow));
+check("the account-wide public switch is gone from Settings and its API", !/themePublic|applyPublic/.test(read("src/components/admin/settings-forms.tsx")) && !/themePublic/.test(read("src/app/api/admin/org/route.ts")));
+check("a chosen look decides light or dark by its theme", read("src/components/public/page-look-shell.ts").includes('bioThemeIsLight(l.theme) ? "light" : "dark"'));
+const modeSql = read("prisma/migrations/20261107000000_page_mode/migration.sql");
+check("the migration carries the old switch over, only onto unset pages", /"pageMode" IS NULL/.test(modeSql) && /"theme" IS NULL/.test(modeSql) && !/DROP\s+(COLUMN|TABLE)/i.test(modeSql));
+
+console.log("4. Download promo plan");
 const dl = downloadPromoSteps("label");
 const words = dl.map((s) => `${s.title} ${s.body}`).join(" ");
 check("shorter than the release plan", dl.length > 0 && dl.length <= 8 && dl.length < promoSteps("label").length, dl.length);

@@ -97,7 +97,7 @@ model Organization {
   timezone        String   @default("Australia/Brisbane") // IANA zone: date display + scheduling input
   locationLabel   String   @default("Brisbane") // shown in admin, e.g. "DATE (SYDNEY)"
   themePreference String   @default("dark") // dark | light | system
-  themePublic     Boolean  @default(false) // also apply themePreference to public smart links / bio pages
+  themePublic     Boolean  @default(false) // UNUSED since migration 20261107000000_page_mode: each page sets its own mode. Kept, not dropped, so a rollback still works.
   dashboardGlow   Boolean  @default(true) // soft accent-colour gradient behind the admin / artist dashboards
   /**
    * The glow on PUBLIC pages: the halo behind the artwork or avatar, and the accent wash behind
@@ -216,6 +216,11 @@ model Release {
   backgroundSourceUrl String?
   /** soft | strong, or NULL for none. Baked into the image at save time, never a live CSS blur (LCP). lib/background-blur. */
   backgroundBlur      String?
+  /**
+   * dark | light | system for this page's public view, or NULL for dark. Free on every plan (the full
+   * look is paid). Replaces the account-wide "apply theme to public smart links" switch.
+   */
+  pageMode            String?
   /** One line of the artist's own lyric, for the lyric share graphic. Never fetched from anywhere. */
   lyricLine      String?
   spotifyUrl     String?

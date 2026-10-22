@@ -146,3 +146,13 @@ export const lookOf = (r: PageLook): PageLook => ({
   theme: r.theme, font: r.font, backgroundUrl: r.backgroundUrl, backgroundColor: r.backgroundColor, buttonColor: r.buttonColor,
   glowColor: r.glowColor, textColor: r.textColor, iconStyle: r.iconStyle, iconColor: r.iconColor,
 });
+
+/**
+ * Light, dark or system for a release or download page. Free on every plan: it is the one look choice
+ * a Free account has on these pages (bio pages have their whole look). NULL means dark, the signature
+ * look. With a paid look set, the chosen theme decides instead (Paper is light, the rest dark).
+ */
+export const PAGE_MODES = ["dark", "light", "system"] as const;
+export type PageMode = (typeof PAGE_MODES)[number];
+export const PAGE_MODE_LABELS: Record<PageMode, string> = { dark: "Dark", light: "Light", system: "System" };
+export const pageModeOf = (v: string | null | undefined): PageMode => (PAGE_MODES.includes(v as PageMode) ? (v as PageMode) : "dark");
