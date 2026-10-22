@@ -6,14 +6,47 @@ import { fmtNum, pct } from "@/lib/utils";
 import { DailyChart, PlatformBars } from "./charts";
 import { ActivityHeatmap, DeviceShare, InsightList, RankBars, StoreChoiceBars } from "./insights";
 
-export function StatCards({ stats }: { stats: Stats }) {
-  const items = [
-    { label: "Views", value: fmtNum(stats.views) },
-    { label: "Clicks", value: fmtNum(stats.clicks) },
-    { label: "CTR", value: pct(stats.clicks, stats.views) },
-    { label: "Pre-saves", value: fmtNum(stats.presaves) },
-    { label: "Conv. rate", value: pct(stats.presaves, stats.views) },
-  ];
+/**
+ * A download gate's own numbers, for the same range as the rest of the panel. A gate has no pre-saves,
+ * so the pre-save cards, columns and the "where pre-savers listen" card are swapped for these.
+ */
+export type GateStats = { started: number; gotFile: number; steps: { label: string; done: number }[] };
+
+/** Each step and the file as a share of the people who started. Not RankBars: those are shares of a total, and a funnel's rows overlap. */
+function GateFunnel({ gate }: { gate: GateStats }) {
+  if (!gate.started) return <p className="py-6 text-center text-sm text-muted-foreground">Nobody&apos;s tried it yet.</p>;
+  const rows = [...gate.steps.map((st) => ({ label: st.label, value: st.done })), { label: "Got the file", value: gate.gotFile }];
+  return (
+    <ul className="space-y-2">
+      {rows.map((r) => (
+        <li key={r.label} className="grid grid-cols-[minmax(0,8rem)_1fr] items-center gap-3 text-sm">
+          <span className="truncate">{r.label}</span>
+          <span className="flex min-w-0 items-center gap-2">
+            <span className="h-3.5 rounded-r-[4px]" style={{ width: `${Math.max(2, (r.value / gate.started) * 85)}%`, background: "var(--viz-bar)" }} />
+            <span className="shrink-0 tabular-nums text-muted-foreground">{fmtNum(r.value)} <span className="text-xs">({pct(r.value, gate.started)})</span></span>
+          </span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+export function StatCards({ stats, gate }: { stats: Stats; gate?: GateStats | null }) {
+  const items = gate
+    ? [
+        { label: "Views", value: fmtNum(stats.views) },
+        { label: "Started", value: fmtNum(gate.started) },
+        { label: "Got the file", value: fmtNum(gate.gotFile) },
+        { label: "Download rate", value: pct(gate.gotFile, stats.views) },
+        { label: "Finish rate", value: pct(gate.gotFile, gate.started) },
+      ]
+    : [
+        { label: "Views", value: fmtNum(stats.views) },
+        { label: "Clicks", value: fmtNum(stats.clicks) },
+        { label: "CTR", value: pct(stats.clicks, stats.views) },
+        { label: "Pre-saves", value: fmtNum(stats.presaves) },
+        { label: "Conv. rate", value: pct(stats.presaves, stats.views) },
+      ];
   return (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
       {items.map((i) => (
@@ -47,35 +80,44 @@ export function RangeTabs({ base, days, maxDays = Infinity }: { base: string; da
   );
 }
 
-export function AnalyticsPanels({ stats, showArtists = false, perLink = false }: { stats: Stats; showArtists?: boolean; perLink?: boolean }) {
+export function AnalyticsPanels({ stats, showArtists = false, perLink = false, gate = null }: { stats: Stats; showArtists?: boolean; perLink?: boolean; gate?: GateStats | null }) {
   return (
     <div className="space-y-4">
-      <StatCards stats={stats} />
+      <StatCards stats={stats} gate={gate} />
       <Card>
         <CardHeader><CardTitle>What we&apos;re seeing</CardTitle><CardDescription>Patterns in how fans find and use your links</CardDescription></CardHeader>
         <CardContent><InsightList items={stats.insights} enough={stats.views >= 30} /></CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>Traffic</CardTitle></CardHeader>
-        <CardContent><DailyChart data={stats.daily} presaves /></CardContent>
+        <CardContent><DailyChart data={stats.daily} presaves={!gate} /></CardContent>
       </Card>
       <Card>
         <CardHeader><CardTitle>When fans are active</CardTitle><CardDescription>Day and hour in each fan&apos;s own timezone. Post just before your busiest hours.</CardDescription></CardHeader>
-        <CardContent><ActivityHeatmap views={stats.heat.views} presaves={stats.heat.presaves} /></CardContent>
+        <CardContent><ActivityHeatmap views={stats.heat.views} presaves={gate ? null : stats.heat.presaves} /></CardContent>
       </Card>
       <div className="grid gap-4 lg:grid-cols-2 [&>*]:min-w-0">
-        <Card>
-          <CardHeader><CardTitle>Clicks by platform</CardTitle><CardDescription>Stores and streaming, side by side</CardDescription></CardHeader>
-          <CardContent><PlatformBars data={perLink ? stats.byLink : stats.byPlatform} /></CardContent>
-        </Card>
+        {gate ? (
+          <Card>
+            <CardHeader><CardTitle>How far people got</CardTitle><CardDescription>People who did each step. The one that loses the most is the one to drop.</CardDescription></CardHeader>
+            <CardContent>
+              <GateFunnel gate={gate} />
+            </CardContent>
+          </Card>
+        ) : (
+          <Card>
+            <CardHeader><CardTitle>Clicks by platform</CardTitle><CardDescription>Stores and streaming, side by side</CardDescription></CardHeader>
+            <CardContent><PlatformBars data={perLink ? stats.byLink : stats.byPlatform} /></CardContent>
+          </Card>
+        )}
         <Card>
           <CardHeader><CardTitle>Performance by source</CardTitle></CardHeader>
           <CardContent className="px-2">
             <Table>
-              <THead><TR><TH>Source</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="hidden text-right sm:table-cell">CTR</TH><TH className="text-right">Pre-saves</TH></TR></THead>
+              <THead><TR><TH>Source</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="hidden text-right sm:table-cell">CTR</TH>{!gate && <TH className="text-right">Pre-saves</TH>}</TR></THead>
               <TBody>
                 {stats.bySource.map((s) => (
-                  <TR key={s.source}><TD className="max-w-[9rem] truncate font-medium">{s.source}</TD><TD className="text-right tabular-nums">{fmtNum(s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.clicks)}</TD><TD className="hidden text-right tabular-nums sm:table-cell">{pct(s.clicks, s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.presaves)}</TD></TR>
+                  <TR key={s.source}><TD className="max-w-[9rem] truncate font-medium">{s.source}</TD><TD className="text-right tabular-nums">{fmtNum(s.views)}</TD><TD className="text-right tabular-nums">{fmtNum(s.clicks)}</TD><TD className="hidden text-right tabular-nums sm:table-cell">{pct(s.clicks, s.views)}</TD>{!gate && <TD className="text-right tabular-nums">{fmtNum(s.presaves)}</TD>}</TR>
                 ))}
                 {!stats.bySource.length && <TR><TD colSpan={5} className="py-8 text-center text-muted-foreground">No traffic yet</TD></TR>}
               </TBody>
@@ -90,10 +132,12 @@ export function AnalyticsPanels({ stats, showArtists = false, perLink = false }:
           <CardHeader><CardTitle>Devices</CardTitle><CardDescription>Share of page views</CardDescription></CardHeader>
           <CardContent><DeviceShare rows={stats.byDevice} /></CardContent>
         </Card>
-        <Card>
-          <CardHeader><CardTitle>Where pre-savers listen</CardTitle><CardDescription>The store fans picked on the email pre-save</CardDescription></CardHeader>
-          <CardContent><StoreChoiceBars rows={stats.byListenOn} /></CardContent>
-        </Card>
+        {!gate && (
+          <Card>
+            <CardHeader><CardTitle>Where pre-savers listen</CardTitle><CardDescription>The store fans picked on the email pre-save</CardDescription></CardHeader>
+            <CardContent><StoreChoiceBars rows={stats.byListenOn} /></CardContent>
+          </Card>
+        )}
         {showArtists && (
           <Card>
             <CardHeader><CardTitle>Clicks by artist</CardTitle><CardDescription>Which artist is driving the roster</CardDescription></CardHeader>
