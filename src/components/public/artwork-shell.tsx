@@ -2,6 +2,7 @@ import Image from "next/image";
 import { SITE_URL } from "@/lib/env";
 import { platformMeta } from "@/lib/platforms";
 import { posterFill, readableTextOn } from "@/lib/bio-themes";
+import { BLUR_PREVIEW_PX } from "@/lib/page-look";
 import { cn } from "@/lib/utils";
 import { Pixels } from "./pixels";
 import { PlatformIcon } from "./platform-icon";
@@ -57,10 +58,11 @@ export function ArtworkPageShell({
    * Whole-page background chosen by the page's owner. The image wins when both are set.
    *
    * Painted UNDER the accent wash and always under a scrim, so there is no upload that can make
-   * the links unreadable — the one failure mode a free-form background has. Never blurred: a
-   * full-screen blur was measured as the main LCP cost on these pages and removed once already.
+   * the links unreadable — the one failure mode a free-form background has. Never blurred live: a
+   * full-screen blur was measured as the main LCP cost on these pages and removed once already. A
+   * blurred background is a blurred image (lib/background-blur); `blur` here is the editor preview's.
    */
-  background?: { url?: string | null; color?: string | null } | null;
+  background?: { url?: string | null; color?: string | null; blur?: "none" | "soft" | "strong" } | null;
   /** Overrides the accent used for the wash. From the account, like the halo. */
   glowColor?: string | null;
   /**
@@ -101,7 +103,16 @@ export function ArtworkPageShell({
         <div aria-hidden className="absolute inset-0">
           <div
             className="absolute inset-0 bg-cover bg-center"
-            style={background?.url ? { backgroundImage: `url(${JSON.stringify(background.url)})` } : { backgroundColor: background?.color ?? undefined }}
+            style={background?.url
+              ? {
+                  backgroundImage: `url(${JSON.stringify(background.url)})`,
+                  // Editor preview only. A live page is handed an image with the blur already baked in
+                  // (lib/background-blur), because a full-screen CSS blur was the main LCP cost once.
+                  ...(preview && background.blur && background.blur !== "none"
+                    ? { filter: `blur(${BLUR_PREVIEW_PX[background.blur]}px)`, transform: "scale(1.08)" }
+                    : {}),
+                }
+              : { backgroundColor: background?.color ?? undefined }}
           />
           {/* The guarantee. Strength is per theme (see .bio-bg-scrim in globals.css), and it sits
               above the image so nothing an artist uploads can take the text with it. */}

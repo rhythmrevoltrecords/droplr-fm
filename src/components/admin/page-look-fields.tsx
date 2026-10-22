@@ -4,10 +4,10 @@ import { bioFontClass } from "@/components/public/bio-fonts";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/input";
 import { BIO_FONTS, BIO_THEMES, readableTextOn, type BioFontId, type BioThemeId } from "@/lib/bio-themes";
-import { ICON_STYLES, ICON_STYLE_LABELS, lookWarnings, themeInk, type IconStyle } from "@/lib/page-look";
+import { BLUR_LABELS, BLUR_LEVELS, ICON_STYLES, ICON_STYLE_LABELS, lookWarnings, themeInk, type BlurLevel, type IconStyle } from "@/lib/page-look";
 import { useImageUpload } from "./image-crop-dialog";
 
-export type LookValues = { theme: BioThemeId; font: BioFontId; buttonColor: string; backgroundUrl: string; backgroundColor: string; textColor: string; glowColor: string; iconStyle: IconStyle; iconColor: string };
+export type LookValues = { theme: BioThemeId; font: BioFontId; buttonColor: string; backgroundUrl: string; backgroundColor: string; textColor: string; glowColor: string; iconStyle: IconStyle; iconColor: string; backgroundBlur: BlurLevel };
 
 /**
  * Look, font, button colour and background: the bio page's look controls, shared with the release
@@ -141,12 +141,28 @@ export function PageLookFields({
             />
           </label>
           {(value.backgroundUrl || value.backgroundColor) && (
-            <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ backgroundUrl: "", backgroundColor: "" })}>Remove</Button>
+            <Button type="button" variant="ghost" size="sm" onClick={() => onChange({ backgroundUrl: "", backgroundColor: "", backgroundBlur: "none" })}>Remove</Button>
           )}
         </div>
+        {value.backgroundUrl && (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Blur</span>
+            {BLUR_LEVELS.map((b) => (
+              <button
+                key={b}
+                type="button"
+                aria-pressed={value.backgroundBlur === b}
+                onClick={() => onChange({ backgroundBlur: b })}
+                className={`rounded-md border px-3 py-1 text-xs transition ${value.backgroundBlur === b ? "border-primary ring-2 ring-primary/40" : "border-input text-muted-foreground hover:text-foreground"}`}
+              >
+                {BLUR_LABELS[b]}
+              </button>
+            ))}
+          </div>
+        )}
         <p className="text-xs text-muted-foreground">
           {value.backgroundUrl
-            ? "Your image, with a shade over it so the text stays readable whatever you upload."
+            ? "Your image, with a shade over it so the text stays readable whatever you upload. A blur is saved into the picture, so the page loads just as fast."
             : value.backgroundColor
               ? "A plain colour behind the page."
               : "Optional. Leave it empty and the page uses the colour from your picture."}

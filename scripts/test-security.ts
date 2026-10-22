@@ -1290,6 +1290,10 @@ async function main() {
       const ownImg = await http(ownerA, "PATCH", lookUrl, { backgroundUrl: `${SITE_URL}/api/cover/looktest-${RUN}.webp`, backgroundColor: "#112233" });
       const withImg = await readLook();
       check("droplr's own upload is accepted as a background, and the image wins over a colour", ownImg.status === 200 && withImg?.backgroundUrl?.endsWith(`looktest-${RUN}.webp`) === true && withImg?.backgroundColor === null, `${ownImg.status}/${withImg?.backgroundColor}`);
+      // A blur of an image droplr can't find fails as a sentence, and leaves the stored look alone.
+      const missingBlur = await http(ownerA, "PATCH", lookUrl, { backgroundUrl: `${SITE_URL}/api/cover/nope-${RUN}.webp`, backgroundBlur: "soft" });
+      const afterMissing = await prisma.release.findUnique({ where: { id: A.release.id }, select: { backgroundUrl: true, backgroundBlur: true } });
+      check("blurring a missing image is a 400 and changes nothing", missingBlur.status === 400 && afterMissing?.backgroundUrl?.endsWith(`looktest-${RUN}.webp`) === true && afterMissing?.backgroundBlur === null, `${missingBlur.status}`);
 
       await prisma.organization.update({ where: { id: A.org.id }, data: { plan: "free", compPlan: null } });
       const freeSet = await http(ownerA, "PATCH", lookUrl, { theme: "mono" });
@@ -1304,7 +1308,7 @@ async function main() {
       const afterIcons = await prisma.release.findUnique({ where: { id: A.release.id }, select: { socialIcons: true, textColor: true } });
       check("a Free account can switch the icon row, but a text colour riding along is still refused", freeIcons.status === 200 && freeText.status === 402 && afterIcons?.socialIcons === "on" && afterIcons?.textColor === null, `${freeIcons.status}/${freeText.status}/${afterIcons?.textColor}`);
       await prisma.organization.update({ where: { id: A.org.id }, data: { plan: planBefore } });
-      await prisma.release.update({ where: { id: A.release.id }, data: { theme: null, font: null, buttonColor: null, backgroundUrl: null, backgroundColor: null } });
+      await prisma.release.update({ where: { id: A.release.id }, data: { theme: null, font: null, buttonColor: null, backgroundUrl: null, backgroundColor: null, backgroundSourceUrl: null, backgroundBlur: null, textColor: null, glowColor: null, iconStyle: null, iconColor: null } });
     }
 
     console.log("\n16. Owner signup invites");
