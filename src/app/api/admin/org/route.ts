@@ -22,7 +22,6 @@ const schema = z.object({
   timezone: z.string().max(64).refine(isValidTimeZone, "Unknown timezone").optional(),
   locationLabel: z.string().trim().min(1).max(40).optional(),
   themePreference: z.enum(["dark", "light", "system"]).optional(),
-  themePublic: z.boolean().optional(),
   dashboardGlow: z.boolean().optional(),
   publicGlow: z.boolean().optional(),
   glowColor: z.string().regex(/^$|^#[0-9a-fA-F]{6}$/, "Glow colour must be a hex like #8B5CF6").optional(),
@@ -99,7 +98,6 @@ export async function PATCH(req: NextRequest) {
       ...(d.timezone !== undefined && { timezone: d.timezone }),
       ...(d.locationLabel !== undefined && { locationLabel: d.locationLabel }),
       ...(d.themePreference !== undefined && { themePreference: d.themePreference }),
-      ...(d.themePublic !== undefined && { themePublic: d.themePublic }),
       ...(d.dashboardGlow !== undefined && { dashboardGlow: d.dashboardGlow }),
       ...(d.publicGlow !== undefined && { publicGlow: d.publicGlow }),
       // Empty string means "back to the colour from the artwork", which is NULL in the column.

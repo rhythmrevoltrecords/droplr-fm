@@ -39,8 +39,8 @@
 
 /* ---------- Theme scopes (admin + optional public) ----------
    Admin: <div class="theme-dark|theme-light|theme-system"> (Organization.themePreference)
-   Public: ArtworkPageShell adds shell-theme-light|shell-theme-system only when the label ticks
-   "Apply theme to public smart links". Default public pages render exactly as before (dark). */
+   Public: ArtworkPageShell adds shell-theme-light|shell-theme-system only when the page asks
+   for it (Release.pageMode, or a Paper look). Default public pages render dark. */
 .logo-adaptive { filter: brightness(0) invert(1); }
 .shell-light-layer { display: none; }
 

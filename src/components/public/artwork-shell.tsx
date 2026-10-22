@@ -18,11 +18,8 @@ export const DEFAULT_ACCENT = "#8B5CF6";
 
 export type PublicTheme = "dark" | "light" | "system";
 
-/** Label setting → theme for public pages (dark unless "Apply theme to public smart links" is on). */
-export function publicTheme(org: { themePublic?: boolean | null; themePreference?: string | null }): PublicTheme {
-  if (!org.themePublic) return "dark";
-  return org.themePreference === "light" || org.themePreference === "system" ? org.themePreference : "dark";
-}
+// Public pages no longer follow the account's dashboard theme. Release and download pages set their
+// own mode (Release.pageMode, lib/page-look pageModeOf); bio pages pick their own look.
 
 export type ShellPixels = { meta: string | null; tiktok: string | null; ga4: string | null; contentName: string };
 

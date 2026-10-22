@@ -20,7 +20,9 @@ export function lookShell(look: Partial<PageLook> | null | undefined, theme: Pub
   if (!l.custom) {
     return { shell: { theme, glow: glowOn, glowColor }, glowColor, icons: { iconStyle: "plain" as IconStyle, color: null, light: theme === "light" } };
   }
-  const shellTheme: PublicTheme = bioThemeIsLight(l.theme) && theme === "dark" ? "light" : theme;
+  // A chosen look decides light or dark by its theme (Paper is the light one); the page's mode is
+  // for pages on droplr's default look.
+  const shellTheme: PublicTheme = bioThemeIsLight(l.theme) ? "light" : "dark";
   return {
     shell: {
       theme: shellTheme,
