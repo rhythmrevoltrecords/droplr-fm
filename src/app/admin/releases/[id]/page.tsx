@@ -35,6 +35,7 @@ import { GuideSlot } from "@/components/admin/guide-slot";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
+import { DOWNLOAD_HIDDEN_TABS } from "@/lib/gate-steps";
 import { publicReleaseUrl } from "@/lib/releases";
 import { dateToZonedLocal, formatInTz, isReleased } from "@/lib/time";
 
@@ -61,7 +62,9 @@ export default async function ReleaseDetail(
     include: { links: { orderBy: { position: "asc" } }, linkVariants: { orderBy: { createdAt: "asc" } }, organization: true },
   });
   if (!release) notFound();
-  const tab = TABS.some((t) => t.key === searchParams.tab) ? searchParams.tab! : "links";
+  const isDownload = release.kind === "download";
+  const tabs = isDownload ? TABS.filter((t) => !DOWNLOAD_HIDDEN_TABS.includes(t.key)) : TABS;
+  const tab = tabs.some((t) => t.key === searchParams.tab) ? searchParams.tab! : tabs[0].key;
   // Only the settings tab needs the roster, and its socials are only ever this organisation's own.
   const settingsArtists = tab === "settings"
     ? await prisma.artist.findMany({ where: { organizationId: user.organizationId }, orderBy: { name: "asc" }, select: { id: true, name: true, userId: true, status: true, socialLinks: true } })
@@ -81,13 +84,16 @@ export default async function ReleaseDetail(
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="truncate text-2xl font-semibold">{release.title}</h1>
-            {live ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Pre-save until {formatInTz(release.releaseDate, release.organization.timezone)} ({release.organization.locationLabel})</Badge>}
+            {isDownload
+              ? <><Badge variant="secondary">Download gate</Badge>{release.isPublic ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Off</Badge>}</>
+              : live ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Pre-save until {formatInTz(release.releaseDate, release.organization.timezone)} ({release.organization.locationLabel})</Badge>}
           </div>
           <p className="text-sm text-muted-foreground">{release.artistName}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <code className="truncate rounded bg-secondary px-2 py-1 text-xs">{url}</code>
             <CopyButton value={url} />
             <Button asChild size="sm" variant="ghost"><a href={`${publicReleaseUrl({ slug: release.organization.slug, customDomain: null }, release.slug, "")}?preview=1`} target="_blank" rel="noreferrer"><ExternalLink /> Preview</a></Button>
+            {isDownload && <Button asChild size="sm" variant="outline"><Link href={`/admin/downloads/${release.id}`}>Edit the gate</Link></Button>}
           </div>
         </div>
       </div>
@@ -100,7 +106,7 @@ export default async function ReleaseDetail(
 
       <ScrollActiveIntoView>
       <nav className="no-scrollbar flex gap-1 overflow-x-auto border-b">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <Link key={t.key} data-active={tab === t.key} href={`/admin/releases/${release.id}?tab=${t.key}`} className={`-mb-px shrink-0 border-b-2 px-3 py-2 text-sm ${tab === t.key ? "border-primary text-foreground" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
             {t.label}
           </Link>

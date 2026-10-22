@@ -33,16 +33,24 @@ export default async function AdminHome(
     include: { artist: { select: { artistName: true, email: true } } },
   });
   const ids = releases.map((r) => r.id);
+  // Download gates live in the same table but get their own list below: a stems pack has no release
+  // date, no pre-saves and no streaming links, so the release columns would all be wrong for it.
+  const releaseRows = releases.filter((r) => r.kind === "release");
+  const gateRows = releases.filter((r) => r.kind === "download");
   // Grants go in the same Promise.all rather than after it: almost every account has none, and
   // a serial round trip to find that out is a round trip every label pays for nothing.
   // Analytics is the heaviest query and nothing above it depends on the result, so it streams
   // separately: the release table paints as soon as its own data lands instead of waiting for
   // the heatmap, the source table and the platform breakdown to finish.
-  const [totals, dueWork, grants] = await Promise.all([
+  const [totals, dueWork, grants, gateDone] = await Promise.all([
     releaseTotals(ids),
     duePromoWork(user.organizationId),
     grantsFor(user.id),
+    gateRows.length
+      ? prisma.gateUnlock.groupBy({ by: ["releaseId"], where: { releaseId: { in: gateRows.map((r) => r.id) }, completedAt: { not: null } }, _count: { _all: true } })
+      : Promise.resolve([]),
   ]);
+  const gotFile = new Map(gateDone.map((g) => [g.releaseId, g._count._all]));
 
   // Releases another label puts out under this artist's name, through an accepted roster link.
   // Never mixed into `releases`: everything below assumes the caller owns what it's looking at,
@@ -118,7 +126,7 @@ export default async function AdminHome(
           <p className="mt-0.5 flex items-center gap-2 text-sm text-muted-foreground">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {org.logoUrl && <img src={org.logoUrl} alt="" className="h-5 w-5 rounded object-cover ring-1 ring-border" />}
-            <span>{org.name} · {releases.length} release{releases.length === 1 ? "" : "s"}</span>
+            <span>{org.name} · {releaseRows.length} release{releaseRows.length === 1 ? "" : "s"}</span>
             {atLimit && <Link href="/admin/settings/billing" className="text-xs text-violet-400 underline">{plan.name} limit reached · Upgrade</Link>}
           </p>
         </div>
@@ -129,7 +137,7 @@ export default async function AdminHome(
 
       {/* Phones: one card per release (a 9-column table is unreadable at 390px). */}
       <div className="space-y-3 md:hidden">
-        {releases.map((r) => {
+        {releaseRows.map((r) => {
           const t = totals.get(r.id)!;
           return (
             <Card key={r.id} className="p-3">
@@ -153,7 +161,7 @@ export default async function AdminHome(
             </Card>
           );
         })}
-        {!releases.length && <Card className="py-10 text-center text-sm text-muted-foreground">No releases yet.</Card>}
+        {!releaseRows.length && <Card className="py-10 text-center text-sm text-muted-foreground">No releases yet.</Card>}
       </div>
 
       <Card className="hidden p-0 md:block">
@@ -162,7 +170,7 @@ export default async function AdminHome(
             <TR><TH>Release</TH><TH>Artist</TH><TH>Date ({location})</TH><TH>Public link</TH><TH>Status</TH><TH className="text-right">Views</TH><TH className="text-right">Clicks</TH><TH className="text-right">CTR</TH><TH className="text-right">Pre-saves</TH></TR>
           </THead>
           <TBody>
-            {releases.map((r) => {
+            {releaseRows.map((r) => {
               const t = totals.get(r.id)!;
               return (
                 <TR key={r.id}>
@@ -188,10 +196,76 @@ export default async function AdminHome(
                 </TR>
               );
             })}
-            {!releases.length && <TR><TD colSpan={9} className="py-12 text-center text-muted-foreground">No releases yet.</TD></TR>}
+            {!releaseRows.length && <TR><TD colSpan={9} className="py-12 text-center text-muted-foreground">No releases yet.</TD></TR>}
           </TBody>
         </Table>
       </Card>
+
+      {gateRows.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Download gates</h2>
+            <Link href="/admin/downloads" className="text-sm text-muted-foreground hover:text-foreground hover:underline">All downloads</Link>
+          </div>
+
+          <div className="space-y-3 md:hidden">
+            {gateRows.map((r) => {
+              const t = totals.get(r.id)!;
+              return (
+                <Card key={r.id} className="p-3">
+                  <Link href={`/admin/releases/${r.id}`} className="flex items-center gap-3">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={r.coverUrl} alt="" className="h-14 w-14 shrink-0 rounded-lg object-cover" />
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate font-medium">{r.title}</div>
+                      <div className="truncate text-sm text-muted-foreground">{r.artist?.artistName ?? r.artistName}</div>
+                      <div className="mt-1">{r.isPublic ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Off</Badge>}</div>
+                    </div>
+                  </Link>
+                  <dl className="mt-3 grid grid-cols-2 gap-1 border-t pt-3 text-center">
+                    {[["Views", fmtNum(t.views)], ["Got the file", fmtNum(gotFile.get(r.id) ?? 0)]].map(([k, v]) => (
+                      <div key={k}><dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{k}</dt><dd className="font-semibold tabular-nums">{v}</dd></div>
+                    ))}
+                  </dl>
+                </Card>
+              );
+            })}
+          </div>
+
+          <Card className="hidden p-0 md:block">
+            <Table>
+              <THead>
+                <TR><TH>Download</TH><TH>Artist</TH><TH>Public link</TH><TH>Status</TH><TH className="text-right">Views</TH><TH className="text-right">Got the file</TH></TR>
+              </THead>
+              <TBody>
+                {gateRows.map((r) => {
+                  const t = totals.get(r.id)!;
+                  return (
+                    <TR key={r.id}>
+                      <TD>
+                        <Link href={`/admin/releases/${r.id}`} className="flex items-center gap-3">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={r.coverUrl} alt="" className="h-10 w-10 rounded-md object-cover" />
+                          <span className="font-medium hover:underline">{r.title}</span>
+                        </Link>
+                      </TD>
+                      <TD className="text-muted-foreground">{r.artist?.artistName ?? r.artistName}</TD>
+                      <TD className="max-w-[220px]">
+                        <a href={`/${org.slug}/${r.slug}?preview=1`} target="_blank" rel="noreferrer" className="block truncate font-mono text-xs text-muted-foreground hover:text-foreground hover:underline" title="Open public page (preview: not counted as a view)">
+                          /{org.slug}/{r.slug}
+                        </a>
+                      </TD>
+                      <TD>{r.isPublic ? <Badge variant="success">Live</Badge> : <Badge variant="warning">Off</Badge>}</TD>
+                      <TD className="text-right tabular-nums">{fmtNum(t.views)}</TD>
+                      <TD className="text-right tabular-nums">{fmtNum(gotFile.get(r.id) ?? 0)}</TD>
+                    </TR>
+                  );
+                })}
+              </TBody>
+            </Table>
+          </Card>
+        </section>
+      )}
 
       <GrantedReleases releases={granted} />
 

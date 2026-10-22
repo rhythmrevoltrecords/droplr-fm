@@ -241,3 +241,10 @@ export function soundcloudTargetProblem(action: string, sharing: string | undefi
   }
   return null;
 }
+
+/**
+ * Release-page tabs a download gate doesn't get. A stems pack has no streaming links to manage and
+ * nothing to pre-save, so both tabs could only ever be empty. Everything else — QR and variants,
+ * analytics, share graphics, clips, the remix contest — works the same on a download as on a release.
+ */
+export const DOWNLOAD_HIDDEN_TABS: readonly string[] = ["links", "presaves"];

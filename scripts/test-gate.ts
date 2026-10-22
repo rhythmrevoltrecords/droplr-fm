@@ -18,7 +18,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
-import { downloadUrlProblem, duplicateStepProblem, soundcloudTargetProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
+import { DOWNLOAD_HIDDEN_TABS as GATE_HIDDEN, downloadUrlProblem, duplicateStepProblem, soundcloudTargetProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
 import { clientCredentialsRequest, codeChallenge, codeExchangeBody, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
 
@@ -48,6 +48,29 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (!page.includes("soundcloudRedirectUri()")) fail("the setup steps must print the redirect URI from lib/soundcloud, not a hardcoded copy");
   if (!page.includes("Downloads \u2192 New") && !page.includes("Downloads → New")) fail("the setup steps must say where to build the gate");
   console.log("  \u2713 the SoundCloud setup steps are present and current");
+}
+
+// A download gate is a Release row, so every list and tool that reads releases sees it. The home
+// page gives gates their own table, and the release page drops the two tabs a stems pack can't
+// use. The links API refuses as well: a hidden tab is not a permission.
+{
+  const root = join(import.meta.dirname, "..");
+  const read = (f: string) => readFileSync(join(root, f), "utf8");
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  const home = read("src/app/admin/(home)/page.tsx");
+  if (!home.includes('releases.filter((r) => r.kind === "release")')) fail("the home release table must list kind=release only");
+  if (!home.includes('releases.filter((r) => r.kind === "download")')) fail("the home page must list download gates separately");
+  if (/\{releases\.map\(/.test(home)) fail("the home page must not map every release into the release table: gates would show as releases");
+  if (!home.includes("Download gates")) fail("the home page needs a Download gates heading");
+  const detail = read("src/app/admin/releases/[id]/page.tsx");
+  if (!detail.includes("DOWNLOAD_HIDDEN_TABS")) fail("the release page must hide tabs for download gates");
+  if (/\{TABS\.map\(/.test(detail)) fail("the release page nav must render the filtered tabs, not every tab");
+  if (!/tabs\.some\(\(t\) => t\.key === searchParams\.tab\)/.test(detail)) fail("a hidden tab named in the URL must fall back, not render");
+  for (const t of ["links", "presaves"]) if (!GATE_HIDDEN.includes(t)) fail(`download gates must not get the ${t} tab`);
+  for (const t of ["contest", "variants", "clip", "share", "analytics"]) if (GATE_HIDDEN.includes(t)) fail(`download gates must keep the ${t} tab`);
+  const links = read("src/app/api/admin/releases/[id]/links/route.ts");
+  if (!/g\.release\.kind === "download"\) return NextResponse\.json\([^)]*\{ status: 409 \}/.test(links)) fail("the links API must refuse a download gate");
+  console.log("  \u2713 download gates have their own home table and no links or pre-saves tab");
 }
 
 // A performed step says droplr did the thing. What counts as "did" is the whole claim, and the

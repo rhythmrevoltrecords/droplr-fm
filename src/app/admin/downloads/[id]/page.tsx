@@ -41,6 +41,9 @@ export default async function EditDownloadPage(props: { params: Promise<{ id: st
         <a href={url} target="_blank" rel="noreferrer" className="text-sm text-muted-foreground hover:text-foreground">
           {url.replace(/^https?:\/\//, "")} ↗
         </a>
+        <p className="mt-2 text-sm">
+          <Link href={`/admin/releases/${r.id}`} className="text-violet-400 underline">QR codes, clips, share graphics and remix contest</Link>
+        </p>
       </div>
 
       <Card className="p-5">
