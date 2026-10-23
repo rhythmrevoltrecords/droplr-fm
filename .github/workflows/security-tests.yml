@@ -208,6 +208,9 @@ jobs:
       - name: Who reaches a connected Mailchimp
         run: npx tsx scripts/test-esp-audience.ts
 
+      - name: Structured data, canonicals and the release plan tool
+        run: npx tsx scripts/test-structured-data.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

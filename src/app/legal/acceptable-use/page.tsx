@@ -3,7 +3,7 @@ import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
 import { CONTACT, LEGAL } from "@/lib/legal";
 
-export const metadata = { title: "Acceptable Use Policy" };
+export const metadata = { alternates: { canonical: "/legal/acceptable-use" }, title: "Acceptable Use Policy" };
 
 const toc = [
   { id: "content", title: "Releases and content" },

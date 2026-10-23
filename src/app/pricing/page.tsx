@@ -4,8 +4,18 @@ import { MarketingShell } from "@/components/marketing/site-chrome";
 import { ctaCopy } from "@/lib/launch";
 import { pricingTiers } from "@/lib/pricing-tiers";
 import { planPrice } from "@/lib/plan-copy";
+import { PLAN_LIMITS } from "@/lib/plans";
+import { SITE_CARD } from "@/lib/seo";
 
-export const metadata = { title: "Pricing" };
+// Read from the plan table, so a price change can't leave a stale number in Google's snippet.
+const DESCRIPTION = `Start free. Paid plans from A$${PLAN_LIMITS.artist.price} a month for an artist, or A$${PLAN_LIMITS.pro.price} for a label.`;
+export const metadata = {
+  alternates: { canonical: "/pricing" },
+  title: "Pricing",
+  description: DESCRIPTION,
+  openGraph: { title: "Pricing · droplr.fm", description: DESCRIPTION, url: "/pricing", images: [SITE_CARD.og] },
+  twitter: { card: "summary_large_image" as const, title: "Pricing · droplr.fm", description: DESCRIPTION, images: [SITE_CARD.twitter] },
+};
 
 // No searchParams here: reading them makes the route dynamic, and this page is the same for
 // everyone. ?for=label is handled inside AudiencePricing, which is already a client component.

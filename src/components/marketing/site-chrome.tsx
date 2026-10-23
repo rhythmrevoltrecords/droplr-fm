@@ -67,6 +67,7 @@ export function SiteFooter() {
           <SectionLink section="roadmap" className="hover:text-foreground">Roadmap</SectionLink>
           <Link href="/learn" className="hover:text-foreground">Knowledge</Link>
           <Link href="/pricing" className="hover:text-foreground">Pricing</Link>
+          <Link href="/tools/release-plan" className="hover:text-foreground">Free release plan</Link>
           <Link href="/demo/demo-track" className="hover:text-foreground">Demo</Link>
           <Link href="/docs/custom-domain" className="hover:text-foreground">Custom domains</Link>
           <Link href="/docs/spotify-byo" className="hover:text-foreground">Spotify BYO app</Link>

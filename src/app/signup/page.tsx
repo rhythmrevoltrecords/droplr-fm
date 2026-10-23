@@ -7,7 +7,7 @@ import { CONTACT } from "@/lib/legal";
 import { findUsableInvite } from "@/lib/signup-invites";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Start free" };
+export const metadata = { alternates: { canonical: "/signup" }, title: "Start free" };
 
 type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string; ref?: string; code?: string };
 

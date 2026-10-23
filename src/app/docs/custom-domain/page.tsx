@@ -1,6 +1,6 @@
 import { DocShell } from "@/components/marketing/doc-shell";
 
-export const metadata = { title: "Custom domain setup" };
+export const metadata = { alternates: { canonical: "/docs/custom-domain" }, title: "Custom domain setup" };
 
 export default function CustomDomainDocs() {
   return (

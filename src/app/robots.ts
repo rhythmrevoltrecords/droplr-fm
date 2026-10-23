@@ -1,7 +1,7 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
 import { SITE_URL } from "@/lib/env";
-import { NEVER_INDEX, robotsAudience } from "@/lib/seo";
+import { ALWAYS_CRAWLABLE, NEVER_INDEX, robotsAudience } from "@/lib/seo";
 
 // Host-aware, so it has to be resolved per request rather than baked at build: the same app
 // serves droplr.fm, every *.droplr.fm subdomain, every tenant custom domain and the Netlify
@@ -25,13 +25,13 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     const proto = h.get("x-forwarded-proto") ?? "https";
     const self = `${proto}://${(host ?? "").split(":")[0]}`;
     return {
-      rules: { userAgent: "*", allow: "/", disallow: [...NEVER_INDEX] },
+      rules: { userAgent: "*", allow: ["/", ...ALWAYS_CRAWLABLE], disallow: [...NEVER_INDEX] },
       sitemap: [`${self}/sitemap-releases.xml`, `${self}/sitemap-bio.xml`],
     };
   }
 
   return {
-    rules: { userAgent: "*", allow: "/", disallow: [...NEVER_INDEX] },
+    rules: { userAgent: "*", allow: ["/", ...ALWAYS_CRAWLABLE], disallow: [...NEVER_INDEX] },
     sitemap: [`${SITE_URL}/sitemap.xml`, `${SITE_URL}/sitemap-releases.xml`, `${SITE_URL}/sitemap-bio.xml`],
     host: SITE_URL,
   };
