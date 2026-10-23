@@ -91,7 +91,12 @@ check("bio and release pages share one icon component", /<SocialIcons icons=\{pa
 const pr = code(read("src/components/public/public-route.tsx"));
 check("the release page only looks the profile up when the box is ticked", /showSocials\(release\)\s*\?\s*bioSocials\(await socialSource\(release, org\.kind\)\)/.test(pr));
 check("every release icon goes through the counted route", /href: releaseSocialHref\(release\.id, s\.key\)/.test(pr));
-check("the demo shows no icons, so an example can't read as a real profile", /socials: \[\]/.test(read("src/app/demo/demo-track/demo-view.tsx")));
+// The demo shows the icon row (it's a feature people ask to see), but it can't read as a real
+// profile: every icon goes nowhere, and the page says the artist is made up.
+const demo = read("src/app/demo/demo-track/demo-view.tsx");
+const demoHrefs = [...(demo.match(/const SOCIALS[\s\S]*?\];/)?.[0] ?? "").matchAll(/href: "([^"]*)"/g)].map((m) => m[1]);
+check("the demo's social icons link nowhere", demoHrefs.length > 0 && demoHrefs.every((h) => h === "#"));
+check("the demo artist is called Demo Artist and says it's made up", /const ARTIST = "Demo Artist"/.test(demo) && /all made up/.test(demo));
 check("a new release starts with icons on", /socialIcons: "on"/.test(code(read("src/app/api/admin/releases/route.ts"))));
 check("an existing release keeps what it had (the switch now lives on the Look tab)", /initialSocialsOn=\{release\.socialIcons === "on"\}/.test(read("src/app/admin/releases/[id]/page.tsx")));
 const an = code(read("src/lib/analytics.ts"));

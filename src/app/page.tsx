@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, CalendarCheck, ChevronDown, Globe, Image as ImageIcon, Link2 as LinkIcon, Mail, Users } from "lucide-react";
+import { ArrowRight, BarChart3, CalendarCheck, CalendarDays, ChevronDown, Download, Globe, Image as ImageIcon, Link2 as LinkIcon, ListMusic, Mail, Users } from "lucide-react";
 import { AudiencePricing, AudienceStory } from "@/components/marketing/audience-pricing";
 import { RevealOnScroll } from "@/components/marketing/reveal";
 import { SectionScrollTarget } from "@/components/marketing/section-link";
@@ -16,8 +16,13 @@ import { cn } from "@/lib/utils";
 import { SITE_URL } from "@/lib/env";
 import { siteJsonLd } from "@/lib/structured-data";
 import { JsonLd } from "@/components/seo/json-ld";
+import { promoSteps } from "@/lib/promo";
+import { relativeLabel } from "@/lib/release-plan";
 
 const DEMO_COVER = "/demo/two-step-theory.svg";
+
+/** The first steps of the real promo plan, read from the same source as the tool, so the card can't drift from it. */
+const PLAN_PREVIEW = promoSteps("artist").sort((a, b) => a.day - b.day).filter((s, i, all) => all.findIndex((x) => x.day === s.day) === i).slice(0, 4);
 
 /* ---------- Content ---------- */
 
@@ -37,7 +42,7 @@ const FOR_ARTISTS = [
 const FOR_LABELS = [
   { title: "Run the whole roster", body: "Every release, every artist, one account. Artists log in to grab their links, see their stats and make their own clips — the release stays yours to edit." },
   { title: "A link per placement", body: "/ig, /tiktok, a QR on the flyer: each tracked, so you know which post moved people." },
-  { title: "Your domain, connected for you", body: "listen.yourlabel.com with one DNS record. We verify it and issue the certificate." },
+  { title: "Your domain, connected for you", body: "listen.yourlabel.com with one DNS record. droplr verifies it and issues the certificate." },
   { title: "See what works across releases", body: "Busiest hours, top countries, best sources and the stores fans actually use." },
 ];
 
@@ -52,8 +57,8 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?
     { title: "Release clips", body: "Pick 30 seconds and droplr renders the video for Reels — artwork moving on the kick, your link on it. It happens in your browser, so your master never leaves your computer." },
     { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
     { title: "Artists linked to your roster", body: "An artist with their own droplr account sees the releases you put out under their name — their numbers, their links, their clips. They stay yours to edit." },
-    { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which nobody but us can see." },
-    { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. We say which steps are actually checked and which aren't." },
+    { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which only droplr can see." },
+    { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. The page says which steps are actually checked and which aren't, and the stats show which step people drop at." },
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
     { title: "Bio link page", body: "One link for everything you do. Your latest release sits at the top and updates itself — the page reads the release record, so you never edit it. You see who opened it: where they came from, what country they are in, and which button they tapped. Videos play on the page without slowing it down, and merch sits there as pictures that link to your shop. Switch on the email box and fans can ask to hear about your next one, so it reaches them whatever an algorithm decides. On every plan, including Free." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
@@ -225,42 +230,8 @@ function Bento() {
           ))}
         </ul>
       </div>
-      {/* Bio link. Full width on purpose: it shipped a while ago and nothing public has ever
-          mentioned it, which is the same failure as news emails and custom store links. */}
-      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-6">
-        <div className="grid gap-8 md:grid-cols-2 md:items-center">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-violet-200"><LinkIcon className="h-4 w-4" /> Bio link</div>
-            <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-tight">Between releases, it&apos;s still your page.</h3>
-            <p className="mt-2 max-w-lg text-sm text-white/60">
-              One link for everything you do — music, shows, merch, whatever you put on it. Pick one of four looks
-              and one of four fonts, and the colour comes off your own artwork. Every tap is counted per link, so you
-              find out which one people actually press. On every plan, including Free.
-            </p>
-            <p className="mt-3 max-w-lg text-sm text-white/60">
-              Your latest release sits at the top of it and changes by itself — droplr already has the record, so
-              there is nothing to update. A release page is right for release week. This is the rest of the year.
-            </p>
-          </div>
-          <div className="relative mx-auto w-full max-w-[280px]">
-            <div className="absolute -right-2 -top-2 z-10 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/50">Example — not real numbers</div>
-            <div className="rounded-[1.75rem] border border-white/10 bg-[#0f0f14] p-5">
-              <div className="mx-auto h-14 w-14 rounded-full" style={{ background: "linear-gradient(140deg,#8B5CF6,#22D3EE)" }} aria-hidden />
-              <div className="mt-3 text-center text-sm font-semibold">OTOTO</div>
-              <div className="mt-0.5 text-center text-[11px] text-white/45">Brisbane · UK garage</div>
-              <div className="mt-4 space-y-2">
-                {[["Latest release", "1,204"], ["Tickets \u2014 Sat 8 Nov", "318"], ["Merch", "96"]].map(([label, taps]) => (
-                  <div key={label} className="flex items-center justify-between rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2">
-                    <span className="text-xs text-white/85">{label}</span>
-                    <span className="text-[10px] tabular-nums text-white/40">{taps} taps</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* Fan list */}
+      {/* Fan list. Third in its row: before the bio card, so the row of three is full and the
+          full-width card below it starts clean. */}
       <div className="mk-card mk-reveal p-6 md:col-span-2">
         <div className="flex items-center justify-between gap-2 text-sm text-violet-200"><span className="flex items-center gap-2"><Users className="h-4 w-4" /> Fan list</span><span className="text-[10px] uppercase tracking-wider text-white/40">Example</span></div>
         <h3 className="mt-3 text-xl font-semibold tracking-tight">Fans you keep, not rent.</h3>
@@ -269,6 +240,102 @@ function Bento() {
           <div><div className="text-3xl font-semibold tabular-nums">2,418</div><div className="text-xs text-white/50">fans</div></div>
           <div><div className="text-3xl font-semibold tabular-nums text-emerald-300">61%</div><div className="text-xs text-white/50">opted in to news</div></div>
         </div>
+      </div>
+      {/* Bio link. Full width: it is the page an artist uses most of the year. */}
+      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-6">
+        <div className="grid gap-8 md:grid-cols-2 md:items-center">
+          <div>
+            <div className="flex items-center gap-2 text-sm text-violet-200"><LinkIcon className="h-4 w-4" /> Bio link</div>
+            <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-tight">Between releases, it&apos;s still your page.</h3>
+            <p className="mt-2 max-w-lg text-sm text-white/60">
+              One link for everything you do. Your latest release sits at the top and changes by itself, because
+              droplr already has the record. Under it go your links, your social icons, videos that play on the page
+              and merch as pictures that open your shop. Switch on the email box and fans can ask to hear about the
+              next one.
+            </p>
+            <p className="mt-3 max-w-lg text-sm text-white/60">
+              Pick one of four looks and one of four fonts, then your own text and glow colours and a background
+              you can blur. You see where people came from and what they tapped. The bio page, its looks included,
+              is on every plan, including Free. Release and download pages get the same looks from Artist.
+            </p>
+            <Link href="/demo/demo-track?view=bio" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-violet-200 hover:text-white">
+              See a demo bio page <ArrowRight className="h-4 w-4" aria-hidden />
+            </Link>
+          </div>
+          <div className="relative mx-auto w-full max-w-[280px]" aria-hidden>
+            <div className="absolute -right-2 -top-2 z-10 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/50">Example</div>
+            <div className="rounded-[1.75rem] border border-white/10 bg-[#0f0f14] p-5">
+              <div className="mx-auto h-14 w-14 rounded-full" style={{ background: "linear-gradient(140deg,#8B5CF6,#22D3EE)" }} />
+              <div className="mt-3 text-center text-sm font-semibold">Your Artist</div>
+              <div className="mt-2 flex justify-center gap-2">
+                {["instagram", "tiktok", "soundcloud", "youtube"].map((p) => <PlatformIcon key={p} platform={p} className="h-6 w-6 text-[9px]" />)}
+              </div>
+              <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={DEMO_COVER} alt="" width={36} height={36} loading="lazy" className="h-9 w-9 rounded-md" />
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[9px] uppercase tracking-[.18em] text-white/50">Out Friday</span>
+                  <span className="block truncate text-xs font-semibold">Two Step Theory</span>
+                </span>
+                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-black">Pre-save</span>
+              </div>
+              <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/85">Tickets: Saturday show</div>
+              <div className="relative mt-2 grid aspect-video place-items-center overflow-hidden rounded-xl border border-white/10" style={{ background: "linear-gradient(135deg,#1e1033,#3b0a2e)" }}>
+                <span className="grid h-8 w-8 place-items-center rounded-full bg-black/70 ring-1 ring-white/30"><svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5 fill-white"><path d="M8 5.5v13l11-6.5z" /></svg></span>
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {["/demo/merch-tee.svg", "/demo/merch-hoodie.svg", "/demo/merch-vinyl.svg"].map((src) => (
+                  /* eslint-disable-next-line @next/next/no-img-element */
+                  <img key={src} src={src} alt="" width={72} height={72} loading="lazy" className="aspect-square w-full rounded-lg border border-white/10" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {/* Download gates */}
+      <div className="mk-card mk-reveal p-6 md:col-span-2">
+        <div className="flex items-center justify-between gap-2 text-sm text-violet-200"><span className="flex items-center gap-2"><Download className="h-4 w-4" /> Download gates</span><span className="text-[10px] uppercase tracking-wider text-white/40">Example</span></div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">A free pack that grows your list.</h3>
+        <p className="mt-2 text-sm text-white/60">Stems, edits or an unreleased track behind an email or a follow. The page tells fans which steps are checked and which are on trust, and the file&apos;s address is never in the page.</p>
+        <p className="mt-4 text-xs text-white/50">How far people got</p>
+        <div className="mt-2 space-y-1.5 text-xs" aria-hidden>
+          {[["Email", 82], ["SoundCloud follow", 64], ["Got the file", 58]].map(([label, v]) => (
+            <div key={label as string} className="flex items-center gap-2">
+              <span className="w-28 shrink-0 text-white/70">{label}</span>
+              <span className="h-2 rounded-full bg-violet-400/80" style={{ width: `${(v as number) * 0.6}%` }} />
+              <span className="tabular-nums text-white/45">{v}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+      {/* Spotify playlist context */}
+      <div className="mk-card mk-reveal p-6 md:col-span-2">
+        <div className="flex items-center gap-2 text-sm text-violet-200"><ListMusic className="h-4 w-4" /> Spotify button</div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">Open the song inside your playlist.</h3>
+        <p className="mt-2 text-sm text-white/60">Add one of your playlists and, when the Spotify button is the track&apos;s own link, it opens the track inside that playlist. When a fan plays it, what comes next is your playlist, not a song Spotify chose. Settings tell you when it can&apos;t apply. Free on every plan.</p>
+        <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#1ED760]/30 bg-[#1ED760]/10 p-1.5 pr-3 text-xs" aria-hidden>
+          <PlatformIcon platform="spotify" className="h-7 w-7 text-xs" />
+          <span className="min-w-0 flex-1">
+            <span className="block font-medium">Spotify</span>
+            <span className="block truncate text-[10px] text-white/50">Opens in: your playlist</span>
+          </span>
+          <span className="text-[10px] font-semibold text-[#1ED760]">Play</span>
+        </div>
+      </div>
+      {/* Free release plan tool. A real link, not a mock: it works without an account. */}
+      <div className="mk-card mk-reveal p-6 md:col-span-2">
+        <div className="flex items-center gap-2 text-sm text-violet-200"><CalendarDays className="h-4 w-4" /> Free tool</div>
+        <h3 className="mt-3 text-xl font-semibold tracking-tight">A release plan, no account needed.</h3>
+        <p className="mt-2 text-sm text-white/60">Pick your release day and get every step dated. Add it to your calendar or copy it out.</p>
+        <ul className="mt-4 space-y-1.5 text-xs">
+          {PLAN_PREVIEW.map((s) => (
+            <li key={s.key} className="flex gap-3"><span className="w-24 shrink-0 text-white/45">{relativeLabel(s.day)}</span><span className="text-white/85">{s.title}</span></li>
+          ))}
+        </ul>
+        <Link href="/tools/release-plan" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-violet-200 hover:text-white">
+          Make your plan <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
       </div>
     </div>
   );
@@ -295,7 +362,7 @@ export default function Landing() {
       q: "Do Spotify pre-saves go straight into fans' libraries?",
       a: (
         <>
-          <p>Not for most fans, and we&apos;d rather say so now than have you find out on release day. Since February 2026, Spotify only lets a new app save music for 5 people you allowlist by hand. Lifting that needs Spotify&apos;s Extended Quota, which is only for registered businesses with 250,000+ monthly users. Any newer pre-save service without that approval has the same limit.</p>
+          <p>Not for most fans, and I&apos;d rather say so now than have you find out on release day. Since February 2026, Spotify only lets a new app save music for 5 people you allowlist by hand. Lifting that needs Spotify&apos;s Extended Quota, which is only for registered businesses with 250,000+ monthly users. Any newer pre-save service without that approval has the same limit.</p>
           <p className="mt-3">So droplr.fm is built around what works for every fan: an email pre-save where they choose their store, a release-day email at 9am in their own timezone, and a Follow on Spotify button so new releases show up for them in Spotify. <Link href="/docs/spotify-byo" className="text-foreground underline underline-offset-4">How it works</Link></p>
         </>
       ),
@@ -306,7 +373,7 @@ export default function Landing() {
     },
     {
       q: "Can I email my fans about other things?",
-      a: <p>Fans who tick the optional &quot;news and new music&quot; box are yours to email. Fans who only pre-saved agreed to hear about that release, and droplr sends that email for you. The fan list shows which is which and exports it as CSV.</p>,
+      a: <p>Fans who tick the optional &quot;news and new music&quot; box are yours to email. Fans who only pre-saved agreed to hear about that release, and droplr sends that email for you. The fan list shows which is which, and exports it as CSV on a paid plan.</p>,
     },
     {
       q: "It's one person. What happens to my stuff if you stop?",
@@ -323,9 +390,9 @@ export default function Landing() {
       q: "Can I customise how my release page looks?",
       a: (
         <>
-          <p>More than people expect, and less than a page builder. You set the accent colour — taken from your artwork or picked by hand — choose light or dark and push it to your public pages, add your own logo, and run it on your own domain. Every link is yours to shape: its title, its button text (<em>Play</em>, <em>Buy</em>, <em>Tickets</em>, <em>Dubplate Download</em>, whatever you type), its icon, whether it shows at all, and the order they sit in.</p>
+          <p>More than people expect, and less than a page builder. Your bio page gets one of four looks and one of four fonts on every plan, and release and download pages get them from Artist. Each look comes with an accent colour taken from your artwork or picked by hand, your own text, button and glow colours, and a background image you can blur. Light, dark or following the fan&apos;s phone is free on every page. Add your own logo, and from Artist Pro run it all on your own domain. <Link href="/demo/demo-track" className="text-foreground underline underline-offset-4">Try the looks on the demo</Link>. Every link is yours to shape: its title, its button text (<em>Play</em>, <em>Buy</em>, <em>Tickets</em>, <em>Dubplate Download</em>, whatever you type), its icon, whether it shows at all, and the order they sit in.</p>
           <p className="mt-3">What you don&apos;t get is custom CSS or a free-form layout, and that is a decision rather than a gap. A fan is on that page for about four seconds, on a phone, half way through scrolling, looking for the store they already use. Hand-written CSS is how link pages end up slow and broken on a three-year-old Android, and the page has one job.</p>
-          <p className="mt-3">If the shape is stopping you doing something specific — a merch row, a video, something I haven&apos;t thought of — <a href={`mailto:${CONTACT.hello}`} className="text-foreground underline underline-offset-4">tell me what you&apos;re trying to build</a>. It&apos;s one person here, which is a downside in plenty of ways, but it does mean the person you&apos;re asking is the person who can build it.</p>
+          <p className="mt-3">If the shape is stopping you doing something specific — <a href={`mailto:${CONTACT.hello}`} className="text-foreground underline underline-offset-4">tell me what you&apos;re trying to build</a>. It&apos;s one person here, which is a downside in plenty of ways, but it does mean the person you&apos;re asking is the person who can build it.</p>
         </>
       ),
     },
@@ -367,7 +434,7 @@ export default function Landing() {
     },
     {
       q: "Can I use my own domain?",
-      a: <p>Yes, on Artist Pro and the label plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and we verify it and issue the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
+      a: <p>Yes, on Artist Pro and the label plans. Point a subdomain like music.yourname.com at droplr.fm with one DNS record, and droplr verifies it and issues the certificate for you. <Link href="/docs/custom-domain" className="text-foreground underline underline-offset-4">Domain setup</Link></p>,
     },
     {
       q: "Can a label's artists log in?",
@@ -379,7 +446,7 @@ export default function Landing() {
     },
     ...(cta.open
       ? []
-      : [{ q: "Can anyone sign up?", a: <p>Not yet. We&apos;re onboarding a small group of artists and labels first. <Link href={cta.primary.href} className="text-foreground underline underline-offset-4">Request early access</Link>, or email {CONTACT.hello}. Have an invite? <Link href={cta.hint!.link.href} className="text-foreground underline underline-offset-4">Sign up</Link>.</p> }]),
+      : [{ q: "Can anyone sign up?", a: <p>Not yet. I&apos;m onboarding a small group of artists and labels first. <Link href={cta.primary.href} className="text-foreground underline underline-offset-4">Request early access</Link>, or email {CONTACT.hello}. Have an invite? <Link href={cta.hint!.link.href} className="text-foreground underline underline-offset-4">Sign up</Link>.</p> }]),
   ];
 
   return (
@@ -449,7 +516,7 @@ export default function Landing() {
         <div className="mk-reveal max-w-2xl">
           <Eyebrow>Where it&apos;s going</Eyebrow>
           <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">From your first <span className="whitespace-nowrap">pre-save</span> to getting signed.</h2>
-          <p className="mt-4 text-lg text-white/60">What&apos;s shipped, and the order we&apos;re building the rest in. Dates when things ship, not before.</p>
+          <p className="mt-4 text-lg text-white/60">What&apos;s shipped, and the order I&apos;m building the rest in. Dates when things ship, not before.</p>
         </div>
         <div className="mt-12 grid gap-4 lg:grid-cols-3">
           {ROADMAP.map((col) => (
@@ -538,7 +605,7 @@ export default function Landing() {
           <div aria-hidden className="mk-aurora absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.55), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(217,70,239,.25), transparent 70%)" }} />
           <h2 className="mk-text-gradient mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Your next release deserves a proper launch.</h2>
           <p className="mx-auto mt-4 max-w-lg text-white/65">
-            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases in any 12 months, for artists and labels. Upgrade when you're ready.` : "Invite-only while we onboard our first artists and labels."}
+            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases in any 12 months, for artists and labels. Upgrade when you're ready.` : "Invite-only while I onboard the first artists and labels."}
           </p>
           <Actions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="mt-8 sm:justify-center" />
           <InviteHint cta={cta} className="mt-4" />

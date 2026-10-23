@@ -100,8 +100,10 @@ function MerchItems({ items, layout, preview }: { items: BioItem[]; layout: Merc
  */
 export type BioSubscribe = { on: boolean; pageId: string; buttonText: string | null };
 
-export function BioView({ page, orgName, showBranding, pixels, preview = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null }, subscribe, done, order }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null }; subscribe: BioSubscribe; done?: string | null; order: BioSection[] }) {
+export function BioView({ page, orgName, showBranding, pixels, preview = false, demo = false, theme = "dark", timezone, labels = [], glow = { on: true, color: null }, subscribe, done, order }: { page: BioViewData; orgName: string; showBranding: boolean; pixels?: ShellPixels | null; preview?: boolean; /** The public demo: full-size like a live page, but nothing links, counts or submits. */ demo?: boolean; theme?: PublicTheme; timezone?: string | null; labels?: LabelBadge[]; glow?: { on: boolean; color: string | null }; subscribe: BioSubscribe; done?: string | null; order: BioSection[] }) {
   const [hero, ...more] = page.releases ?? [];
+  // Nothing on the page goes anywhere: the editor preview, and the public demo whose ids are made up.
+  const inert = preview || demo;
   const skin = bioThemeOf(page.theme);
   const font = bioFontOf(page.font);
   // Paper is the light shell treatment. The org-wide theme preference still wins
@@ -146,7 +148,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
       <ArtworkHero imageUrl={page.imageUrl} accentColor={page.accentColor} glow={glow.on} glowColor={glowColor} alt={page.title} shape="circle" title={page.title}>
         {page.bio && <p className="mx-auto mt-2 max-w-sm whitespace-pre-line text-balance text-[15px] leading-relaxed text-white/70">{page.bio}</p>}
         {/* Each is a counted tap, the same as a button. Shared with the release page. */}
-        <SocialIcons icons={page.socials} preview={preview} iconStyle={iconStyleOf(page.iconStyle)} color={page.iconColor || page.textColor || null} light={shellTheme === "light"} />
+        <SocialIcons icons={page.socials} preview={inert} iconStyle={iconStyleOf(page.iconStyle)} color={page.iconColor || page.textColor || null} light={shellTheme === "light"} />
       </ArtworkHero>
 
       {/* The blocks below are rendered in the owner's order. `order` is already reconciled by
@@ -160,7 +162,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                     /* Nobody maintains this block: it reads the release record droplr already holds. It sits
                        above the links because on release week it is the reason the page was opened. */
                     <a
-                      href={preview ? undefined : hero.href}
+                      href={inert ? undefined : hero.href}
                       className="glass mt-7 flex items-center gap-3 rounded-2xl p-3 transition hover:scale-[1.01]"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -189,7 +191,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                              redirect refuses anything that is not http(s) on purpose, and a 302 to mailto: is
                              a coin flip inside the in-app browsers these pages are mostly opened from. The
                              cost is that email taps are not counted, which the admin says plainly. */
-                          href={preview ? "#" : l.url && isMailto(l.url) ? l.url : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!preview} />
+                          href={inert ? "#" : l.url && isMailto(l.url) ? l.url : `/api/b/${l.id}`} platform={l.platform} label={l.label} action={l.buttonText} icon={l.icon} iconUrl={l.iconUrl} track={!inert} />
                       </li>
                     ))}
                     {page.links.length === 0 && page.merch.length === 0 && page.videos.length === 0 && <li className="glass rounded-2xl p-4 text-center text-sm text-white/70">Links coming soon.</li>}
@@ -211,7 +213,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                       ) : (
                         <form
                           method="post"
-                          action={preview ? undefined : "/api/bio/subscribe"}
+                          action={inert ? undefined : "/api/bio/subscribe"}
                           className="glass space-y-3 rounded-2xl p-4"
                         >
                           <input type="hidden" name="bioPageId" value={subscribe.pageId} />
@@ -241,7 +243,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                           </label>
                           <button
                             type="submit"
-                            disabled={preview}
+                            disabled={inert}
                             className="h-12 w-full rounded-xl bg-white font-semibold text-black transition active:scale-[0.99] disabled:opacity-70"
                           >
                             {subscribeButtonText(subscribe.buttonText)}
@@ -266,7 +268,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                 {page.videos.map((v) => (
                   <li key={v.id}>
                     {v.highlight ? (
-                      <BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={preview} />
+                      <BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={inert} />
                     ) : (
                       <details className="group">
                         <summary className="glass flex cursor-pointer list-none items-center gap-3 rounded-2xl p-2.5 pr-3 transition hover:bg-white/[0.12] [&::-webkit-details-marker]:hidden">
@@ -280,7 +282,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                           <span className="min-w-0 flex-1 truncate text-sm font-medium">{v.name}</span>
                           <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black"><span className="group-open:hidden">Watch</span><span className="hidden group-open:inline">Close</span></span>
                         </summary>
-                        <div className="mt-2.5"><BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={preview} /></div>
+                        <div className="mt-2.5"><BioVideo id={v.id} url={v.url} title={v.name} imageUrl={v.imageUrl} preview={inert} /></div>
                       </details>
                     )}
                   </li>
@@ -308,12 +310,12 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                     <span className="min-w-0 flex-1 truncate font-medium">Merch</span>
                     <span className="rounded-full bg-white px-4 py-1.5 text-xs font-semibold text-black"><span className="group-open:hidden">Shop</span><span className="hidden group-open:inline">Close</span></span>
                   </summary>
-                  <MerchItems items={page.merch} layout={page.merchDisplay.layout} preview={preview} />
+                  <MerchItems items={page.merch} layout={page.merchDisplay.layout} preview={inert} />
                 </details>
               ) : (
                 <>
                   <h2 className="mt-2 text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">Merch</h2>
-                  <MerchItems items={page.merch} layout={page.merchDisplay.layout} preview={preview} />
+                  <MerchItems items={page.merch} layout={page.merchDisplay.layout} preview={inert} />
                 </>
               )}
             </section>
@@ -328,7 +330,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                       <ul className="mt-3 space-y-2">
                         {more.map((r) => (
                           <li key={r.href}>
-                            <a href={preview ? undefined : r.href} className="glass flex items-center gap-3 rounded-xl p-2 transition hover:scale-[1.01]">
+                            <a href={inert ? undefined : r.href} className="glass flex items-center gap-3 rounded-xl p-2 transition hover:scale-[1.01]">
                               {/* eslint-disable-next-line @next/next/no-img-element */}
                               <img src={r.coverUrl} alt="" loading="lazy" decoding="async" className="h-10 w-10 shrink-0 rounded-md object-cover ring-1 ring-white/10" />
                               <span className="min-w-0 flex-1">

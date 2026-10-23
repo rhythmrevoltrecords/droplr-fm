@@ -107,7 +107,7 @@ check("there is a honeypot field", /name="website"/.test(view));
 check("the form sits below the links", view.indexOf("page.links.map") < view.indexOf('name="bioPageId"'));
 check("the form posts to the capture route", view.includes("/api/bio/subscribe"));
 // A page being previewed in the admin must not write a real fan row.
-check("the preview cannot submit", /action=\{preview \? undefined : "\/api\/bio\/subscribe"\}/.test(view));
+check("the preview and the demo cannot submit", /action=\{inert \? undefined : "\/api\/bio\/subscribe"\}/.test(view) && /const inert = preview \|\| demo;/.test(view));
 
 // ---- the route does not trust the page it was handed ------------------------
 
