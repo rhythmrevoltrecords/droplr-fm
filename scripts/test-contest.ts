@@ -17,6 +17,7 @@
  *   npx tsx scripts/test-contest.ts
  */
 import { isPrivateIp } from "../src/lib/color";
+import { LINK_TYPES } from "../src/lib/link-types";
 import {
   acceptingEntries, checkEntryLink, closingMessage, contestState, DECLARATION_TEXT,
   DECLARATION_VERSION, duplicateMessage, duplicateVerdict, embedFor, entryProblem,
@@ -307,6 +308,14 @@ function main() {
     ["2606:4700::1111", false, "public IPv6"],
   ];
   for (const [ip, priv, why] of ipCases) check(`${why} (${ip}) is ${priv ? "refused" : "allowed"}`, isPrivateIp(ip) === priv);
+
+  // The "coming soon" giveaway tile in the New link picker must not be called a contest: remix
+  // contests are live, and on 22 Oct the owner went looking for them there.
+  {
+    const tile = LINK_TYPES.find((t) => t.key === "contest");
+    check("the unbuilt giveaway tile isn't named 'Contest'", !!tile && !/contest/i.test(tile.name));
+    check("…and it points remix-contest seekers at the release tab", !!tile && tile.description.includes("Remix contest tab"));
+  }
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {
