@@ -2,7 +2,10 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PostArticle } from "@/components/blog/blog-ui";
 import { MarketingShell } from "@/components/marketing/site-chrome";
-import { findPost, livePosts } from "@/lib/blog";
+import { findPost, livePosts, postThumb } from "@/lib/blog";
+import { SITE_URL } from "@/lib/env";
+import { articleJsonLd } from "@/lib/structured-data";
+import { JsonLd } from "@/components/seo/json-ld";
 import { ctaCopy } from "@/lib/launch";
 
 export const revalidate = 300;
@@ -21,8 +24,10 @@ export async function generateMetadata(props: { params: Promise<{ slug: string }
       description: post.summary,
       url: `/blog/${post.slug}`,
       publishedTime: new Date(post.publishAt).toISOString(),
-      images: [`https://i.ytimg.com/vi/${post.youTubeId}/maxresdefault.jpg`],
+      images: [postThumb(post)],
     },
+    // Without its own twitter block a post inherits the site's, and X shows the homepage card.
+    twitter: { card: "summary_large_image" as const, title: post.title, description: post.summary, images: [postThumb(post)] },
   };
 }
 
@@ -35,6 +40,7 @@ export default async function BlogPost(props: { params: Promise<{ slug: string }
   const more = livePosts(now).filter((p) => p.slug !== post.slug).slice(0, 2);
   return (
     <MarketingShell>
+      <JsonLd data={articleJsonLd({ title: post.title, summary: post.summary, url: `${SITE_URL}/blog/${post.slug}`, published: new Date(post.publishAt).toISOString(), image: postThumb(post), siteUrl: SITE_URL })} />
       <div className="container max-w-3xl py-14">
         <p className="mb-6 text-sm text-muted-foreground"><Link href="/blog" className="hover:underline">News and guides</Link> / {post.tag}</p>
         <PostArticle post={post} signupHref={ctaCopy().primary.href} />

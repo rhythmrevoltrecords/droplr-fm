@@ -3,7 +3,7 @@ import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
 import { CONTACT, LEGAL } from "@/lib/legal";
 
-export const metadata = { title: "Cookie Policy" };
+export const metadata = { alternates: { canonical: "/legal/cookies" }, title: "Cookie Policy" };
 
 const toc = [
   { id: "what", title: "What cookies are" },

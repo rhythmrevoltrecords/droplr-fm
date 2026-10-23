@@ -2,7 +2,7 @@ import Link from "next/link";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { CONTACT, LEGAL, LEGAL_DOCS, copyrightLine, operatorLine } from "@/lib/legal";
 
-export const metadata = { title: "Legal" };
+export const metadata = { alternates: { canonical: "/legal" }, title: "Legal" };
 
 export default function LegalIndex() {
   return (

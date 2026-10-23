@@ -17,6 +17,8 @@ import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { BioView, type BioViewData } from "./bio-view";
+import { bioJsonLd } from "@/lib/structured-data";
+import { JsonLd } from "@/components/seo/json-ld";
 
 /** Cached per request: generateMetadata and the page both call it. */
 export const loadBio = cache(async function loadBio(slug: string, host?: string) {
@@ -93,7 +95,16 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
 
   const data: BioViewData = { title: page.title, bio: page.bio, imageUrl: page.imageUrl, accentColor: page.accentColor ?? page.organization.accentColor, theme: page.theme, font: page.font, releases, background: { url: page.backgroundUrl, color: page.backgroundColor }, buttonColor: page.buttonColor, textColor: page.textColor, glowColor: page.glowColor, iconStyle: page.iconStyle, iconColor: page.iconColor, merch: visibleItems(page.links, "merch"), merchDisplay: merchDisplayOf(page), socials, videos: visibleItems(page.links, "video"), links: labelDuplicateLinks(page.links.filter((l) => l.section === null).map((l) => ({ ...l, title: l.label }))).map((l) => ({ id: l.id, platform: l.platform, url: l.url, label: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl })) };
 
+  // A label's own page (no artist profile behind it) is about the label; anything else is a musician.
+  const ld = bioJsonLd(page, {
+    url: bioPublicUrl(page.organization, page.slug),
+    isLabel: page.organization.kind === "label" && !page.artistProfileId,
+    socialUrls: bioSocials(socialLinks).map((s) => s.url),
+  });
+
   return (
+    <>
+    <JsonLd data={ld} />
     <BioView
       page={data}
       orgName={page.organization.name}
@@ -109,5 +120,6 @@ export async function BioRoute({ page, done }: { page: Awaited<ReturnType<typeof
       theme="dark"
       pixels={plan.pixels ? { meta: page.organization.metaPixelId, tiktok: page.organization.tiktokPixelId, ga4: page.organization.ga4Id, contentName: `Bio - ${page.title}` } : null}
     />
+    </>
   );
 }

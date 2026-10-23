@@ -6,7 +6,10 @@ import { deezerGloballyEnabled, soundcloudGateEnforcement } from "@/lib/env";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { planOf } from "@/lib/plans";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
-import type { Resolution } from "@/lib/releases";
+import { publicReleaseUrl, type Resolution } from "@/lib/releases";
+import { SITE_URL } from "@/lib/env";
+import { releaseJsonLd } from "@/lib/structured-data";
+import { JsonLd } from "@/components/seo/json-ld";
 import { isReleased, isReleasedFor, releaseInstantFor } from "@/lib/time";
 import { requestMeta, resolveSource } from "@/lib/tracking";
 import { OrgView } from "./org-view";
@@ -143,6 +146,19 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
   }
 
   const org = release.organization;
+  // Same canonical address the metadata declares. Store links only once the page itself shows
+  // them: before release day it is a countdown, and a store URL found early must not be published
+  // ahead of the artist.
+  const ldFor = (live: boolean) => (
+    <JsonLd
+      data={releaseJsonLd(release, {
+        url: publicReleaseUrl(org, release.slug, SITE_URL),
+        timezone: org.timezone,
+        storeUrls: live ? release.links.map((l) => l.url) : [],
+        labelName: org.kind === "label" ? org.name : null,
+      })}
+    />
+  );
 
   // A download gate is the same Release record with a different front door: no store links, no
   // release day, a list of actions and a file at the end.
@@ -178,6 +194,8 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
     }));
     const usable = steps.filter((s) => s.available);
     return (
+      <>
+      {ldFor(false)}
       <GateView
         enforcement={enforcement}
         release={{
@@ -200,6 +218,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         theme={pageModeOf(release.pageMode)}
         contest={await contestViewOf(release.contest, org.timezone)}
       />
+      </>
     );
   }
 
@@ -212,6 +231,8 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
     ? bioSocials(await socialSource(release, org.kind)).map((s) => ({ key: s.key, label: s.label, href: releaseSocialHref(release.id, s.key) }))
     : [];
   return (
+    <>
+    {ldFor(live)}
     <ReleaseView
       release={{
         socials,
@@ -235,6 +256,7 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
       theme={pageModeOf(release.pageMode)}
       contest={await contestViewOf(release.contest, org.timezone)}
     />
+    </>
   );
 }
 
@@ -257,10 +279,15 @@ export async function releaseMetadata(resolution: Resolution) {
       : live
         ? `Listen to ${r.title} by ${r.artistName} on your favourite platform.`
         : `Pre-save ${r.title} by ${r.artistName}.`;
+  // One page, one address, as bio pages already do: the same release answers on droplr.fm and on
+  // the label's custom domain, and every /ig, /tiktok variant is the same page again. Without this
+  // Google picks one, and it may not be the label's own domain.
+  const canonical = publicReleaseUrl(resolution.release.organization, r.slug, SITE_URL);
   return {
     title: { absolute: title },
     description,
-    openGraph: { title, description, images: [{ url: r.coverUrl, width: 640, height: 640 }], type: r.kind === "download" ? ("website" as const) : ("music.album" as const) },
+    alternates: { canonical },
+    openGraph: { title, description, url: canonical, images: [{ url: r.coverUrl, width: 640, height: 640 }], type: r.kind === "download" ? ("website" as const) : ("music.album" as const) },
     twitter: { card: "summary_large_image" as const, title, description, images: [r.coverUrl] },
   };
 }

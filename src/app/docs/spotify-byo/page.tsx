@@ -1,6 +1,6 @@
 import { DocShell } from "@/components/marketing/doc-shell";
 
-export const metadata = { title: "Bring your own Spotify app" };
+export const metadata = { alternates: { canonical: "/docs/spotify-byo" }, title: "Bring your own Spotify app" };
 
 export default function SpotifyByoDocs() {
   return (

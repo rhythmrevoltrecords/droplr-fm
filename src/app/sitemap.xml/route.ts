@@ -32,6 +32,8 @@ export async function GET() {
     { loc: url("/pricing"), lastmod: now, changefreq: "weekly", priority: 0.9 },
     { loc: url("/learn"), lastmod: now, changefreq: "weekly", priority: 0.9 },
     { loc: url("/blog"), lastmod: now, changefreq: "weekly", priority: 0.9 },
+    // A free tool: the page that answers "how do I plan a release", for people who have never heard of droplr.
+    { loc: url("/tools/release-plan"), changefreq: "monthly", priority: 0.9 },
     { loc: url("/signup"), lastmod: now, changefreq: "monthly", priority: 0.7 },
     // The guides are the funnel. lastmod is the date each guide's facts were last checked
     // against the official sources, which is the honest answer and the one that matters.

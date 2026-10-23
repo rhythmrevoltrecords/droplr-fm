@@ -13,6 +13,9 @@ import { platformMeta } from "@/lib/platforms";
 import { CUSTOM_DOMAIN_GRACE_DAYS, PLAN_LIMITS } from "@/lib/plans";
 import { pricingTiers } from "@/lib/pricing-tiers";
 import { cn } from "@/lib/utils";
+import { SITE_URL } from "@/lib/env";
+import { siteJsonLd } from "@/lib/structured-data";
+import { JsonLd } from "@/components/seo/json-ld";
 
 const DEMO_COVER = "/demo/two-step-theory.svg";
 
@@ -54,6 +57,7 @@ const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?
     { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
     { title: "Bio link page", body: "One link for everything you do. Your latest release sits at the top and updates itself — the page reads the release record, so you never edit it. You see who opened it: where they came from, what country they are in, and which button they tapped. Videos play on the page without slowing it down, and merch sits there as pictures that link to your shop. Switch on the email box and fans can ask to hear about your next one, so it reaches them whatever an algorithm decides. On every plan, including Free." },
     { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
+    { title: "Free release plan", body: "The promo plan every droplr release gets, on a page anyone can use without an account. Pick your release day, get every step dated, add it to your calendar." },
     { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
   ] },
   // Deliberately empty. Everything that could honestly be built without users is built; the next
@@ -275,6 +279,9 @@ function Bento() {
 /** Posts appear on their publishAt, so the homepage cannot be baked once at build time. */
 export const revalidate = 300;
 
+/** Title and description come from the layout; a UTM-tagged share must still point here. */
+export const metadata = { alternates: { canonical: "/" } };
+
 export default function Landing() {
   const news = liveNews(new Date()).slice(0, 2);
   const cta = ctaCopy();
@@ -377,6 +384,7 @@ export default function Landing() {
 
   return (
     <MarketingShell>
+      <JsonLd data={siteJsonLd(SITE_URL)} />
       <RevealOnScroll />
       <SectionScrollTarget />
 

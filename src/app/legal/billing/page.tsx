@@ -3,7 +3,7 @@ import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
 import { CONTACT } from "@/lib/legal";
 
-export const metadata = { title: "Billing & Refund Policy" };
+export const metadata = { alternates: { canonical: "/legal/billing" }, title: "Billing & Refund Policy" };
 
 const toc = [
   { id: "plans", title: "Plans and prices" },

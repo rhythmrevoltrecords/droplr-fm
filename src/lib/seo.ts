@@ -65,6 +65,22 @@ export const NEVER_INDEX = [
  * a custom domain and the same page on droplr.fm never compete with each other.
  */
 
+/**
+ * Carved out of NEVER_INDEX's "/api/". Cover art and bio pictures are served from /api/cover/, and
+ * every release and bio page names one as its og:image. Blocked, Google Images can't index the
+ * artwork and X's crawler, which obeys robots.txt, draws share cards with no picture. Crawlers
+ * take the longest matching rule, so this Allow beats the shorter Disallow. These are files a
+ * public page already shows; nothing private lives under this path.
+ */
+export const ALWAYS_CRAWLABLE = ["/api/cover/"] as const;
+
+/**
+ * droplr's own share card (app/opengraph-image.tsx, app/twitter-image.tsx). A page that sets its
+ * own `openGraph` or `twitter` block REPLACES the inherited one, image included, so those pages
+ * have to name the card again or they share as a blank.
+ */
+export const SITE_CARD = { og: "/opengraph-image", twitter: "/twitter-image" } as const;
+
 /** Spread into a page's `metadata` to keep it out of search whatever the site-wide setting is. */
 export const NOINDEX = { robots: { index: false, follow: false } } as const;
 

@@ -3,7 +3,7 @@ import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
 import { CONTACT, LEGAL, operatorLine } from "@/lib/legal";
 
-export const metadata = { title: "Copyright & Trade Marks" };
+export const metadata = { alternates: { canonical: "/legal/copyright" }, title: "Copyright & Trade Marks" };
 
 const toc = [
   { id: "ours", title: "droplr.fm's own material" },
