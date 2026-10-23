@@ -227,6 +227,12 @@ model Release {
   spotifyAlbumId String?
   spotifyTrackId String?
   spotifyArtistId String?
+  /**
+   * A Spotify playlist ID. When set, the Spotify button opens the release's track inside that
+   * playlist (?context=spotify:playlist:…), so listening carries on through it. NULL = a plain
+   * link. Needs a track to start from; lib/spotify-context.
+   */
+  spotifyPlaylist String?
   upc            String?
   isrc           String?
   releaseDate    DateTime

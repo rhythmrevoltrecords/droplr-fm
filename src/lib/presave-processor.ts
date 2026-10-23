@@ -12,6 +12,7 @@ import { emailConfigured, releaseDayEmail, sendBatch } from "./email";
 import { linkCustomDomain, planOf } from "./plans";
 import { isReleased, isValidTimeZone, releaseEmailDueFor, releaseInstantFor, releaseWindow } from "./time";
 import { tidalConfigured } from "./odesli";
+import { pingIndexNow, releaseAddress } from "./indexnow-server";
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const MIN = 60_000;
@@ -183,6 +184,9 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
   }
   if (orgLive && release.status !== "live") {
     await prisma.release.update({ where: { id: releaseId }, data: { status: "live" } });
+    // The page just turned from a countdown into a smart link with store buttons: the biggest change
+    // it will ever have. Awaited, because this job has no after(); it times out in 5s per host.
+    await pingIndexNow([await releaseAddress(releaseId)]);
   }
 
   let quotaStop = false;

@@ -2,16 +2,22 @@
 import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { contextState, parsePlaylistId } from "@/lib/spotify-context";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
 import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook } from "@/lib/exclusivity";
 import type { ArtistOption } from "./release-create-form";
 import type { BioSocial } from "@/lib/bio-socials";
 
-type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string };
+type Initial = { title: string; artistName: string; coverUrl: string; accentColor: string; slug: string; releaseDateLocal: string; artistProfileId: string; spotifyAlbumId: string; spotifyTrackId: string; spotifyArtistId: string; spotifyPlaylist: string; upc: string; isrc: string; autoReResolve: boolean; isPublic: boolean; rollout: "local" | "global"; exclusiveStore: string; exclusiveFromLocal: string; exclusiveWeeks: string; exclusiveRulebook: string; lyricLine: string };
 
-export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, locationLabel = "Brisbane", soloArtist = false }: {
+export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, spotifyLinkUrl, locationLabel = "Brisbane", soloArtist = false }: {
   releaseId: string;
+  /**
+   * The release's Spotify button, if it has one, or "gate" for a download gate, which has no store
+   * buttons and so no playlist option. Required: whether the option works depends on it.
+   */
+  spotifyLinkUrl: string | null | "gate";
   initial: Initial;
   artists: ArtistOption[];
   /** The icons each artist choice would show, keyed by profile id; "" is the release's default. Required so the hint can't silently go blank. */
@@ -72,6 +78,20 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, l
         {field("spotifyAlbumId", "Spotify album ID")}
         {field("spotifyTrackId", "Spotify track ID")}
         {field("spotifyArtistId", "Spotify artist ID (follow)")}
+        {spotifyLinkUrl !== "gate" && <div className="space-y-2 sm:col-span-2">
+          <Label>Play it inside a playlist <span className="font-normal text-muted-foreground">(optional)</span></Label>
+          <Input value={f.spotifyPlaylist} onChange={(e) => set("spotifyPlaylist", e.target.value)} placeholder="https://open.spotify.com/playlist/…" />
+          <p className="text-xs text-muted-foreground">
+            {(() => {
+              const state = contextState({ playlistId: parsePlaylistId(f.spotifyPlaylist), linkUrl: spotifyLinkUrl });
+              if (f.spotifyPlaylist.trim() && !parsePlaylistId(f.spotifyPlaylist)) return "That isn't a Spotify playlist link. In Spotify: the playlist's ⋯ menu → Share → Copy link to playlist.";
+              if (state === "on") return "On. The Spotify button opens this track inside the playlist, so when it ends Spotify carries on through your playlist. Whether it starts playing by itself is up to Spotify and the fan's device.";
+              if (state === "no-button") return "Not working yet: this release has no Spotify button. Add one on the Links tab, as a link to the track.";
+              if (state === "needs-track") return "Not working yet: the Spotify button links to the album, and a playlist needs one track to start from. On the Links tab, change the Spotify link to the track's link (in Spotify: the track's ⋯ menu → Share → Copy song link).";
+              return "Paste one of your own playlists and the Spotify button opens this track inside it, so fans keep listening to your music when it ends.";
+            })()}
+          </p>
+        </div>}
         {field("upc", "UPC (finds Apple Music, Deezer, Spotify, TIDAL)")}
         {field("isrc", "ISRC")}
 

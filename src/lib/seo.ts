@@ -19,6 +19,10 @@ import { isPlatformHost, platformSubdomain } from "./env";
  * can 404 — these pages also answer on labels' own domains, where inheriting droplr.fm's default
  * title put droplr's marketing headline in the tab of somebody else's broken link.
  */
+/** droplr's own title and description: the root layout's defaults, and the top of /llms.txt. */
+export const SITE_TITLE = "droplr.fm — Launch every release like a label would";
+export const SITE_DESCRIPTION = "Pre-saves that land at 9am in every fan's timezone, smart links with the DJ stores, promo plans and a fan list you keep. For independent artists and labels.";
+
 export const NOT_FOUND_TITLE = "Nobody's in this room";
 
 export function seoIndexable() {
@@ -80,6 +84,35 @@ export const ALWAYS_CRAWLABLE = ["/api/cover/"] as const;
  * have to name the card again or they share as a blank.
  */
 export const SITE_CARD = { og: "/opengraph-image", twitter: "/twitter-image" } as const;
+
+/**
+ * A description that fits a search result: whole if it's short enough, else cut at the last full
+ * sentence that fits, else at a word, with an ellipsis. Google shows roughly 155 characters.
+ */
+export function snippet(text: string, max = 155): string {
+  const t = text.replace(/\s+/g, " ").trim();
+  if (t.length <= max) return t;
+  const cut = t.slice(0, max);
+  const sentence = cut.match(/^.*[.!?](?=\s|$)/)?.[0];
+  if (sentence && sentence.length >= max * 0.4) return sentence;
+  return `${cut.slice(0, cut.lastIndexOf(" ")).replace(/[\s,;:—–-]+$/, "")}…`;
+}
+
+/**
+ * Metadata for one of droplr's own pages: its title, its own description, its own canonical, and
+ * a share card that says the same thing. Without the openGraph and twitter blocks a page shares
+ * as the homepage, and with them but no images it shares as a blank (see SITE_CARD).
+ */
+export function pageMeta(o: { title: string; description: string; path: string }) {
+  const share = `${o.title} · droplr.fm`;
+  return {
+    title: o.title,
+    description: o.description,
+    alternates: { canonical: o.path },
+    openGraph: { title: share, description: o.description, url: o.path, images: [SITE_CARD.og] },
+    twitter: { card: "summary_large_image" as const, title: share, description: o.description, images: [SITE_CARD.twitter] },
+  };
+}
 
 /** Spread into a page's `metadata` to keep it out of search whatever the site-wide setting is. */
 export const NOINDEX = { robots: { index: false, follow: false } } as const;

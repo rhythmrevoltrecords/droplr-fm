@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { after } from "next/server";
+import { bioAddress, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { resolveReleaseArtist } from "@/lib/artists";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -96,5 +98,7 @@ export async function POST(req: NextRequest) {
       linkVariants: { create: [{ slug: "ig", source: "instagram" }, { slug: "tiktok", source: "tiktok" }, { slug: "bio", source: "bio" }] },
     },
   });
+  // Tell Bing the page exists now rather than whenever it next crawls. Never holds up the response.
+  after(async () => pingIndexNow([await releaseAddress(release.id)]));
   return NextResponse.json({ id: release.id });
 }

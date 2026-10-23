@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { labelRelease } from "@/lib/admin-guard";
+import { after } from "next/server";
+import { bioAddress, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { prisma } from "@/lib/db";
 import { blankToNull, linksPayloadSchema } from "@/lib/link-input";
 
@@ -42,5 +44,6 @@ export async function PUT(req: NextRequest, props: { params: Promise<{ id: strin
     }),
   ]);
   const links = await prisma.releaseLink.findMany({ where: { releaseId: g.release.id }, orderBy: { position: "asc" } });
+  after(async () => pingIndexNow([await releaseAddress(g.release.id)]));
   return NextResponse.json({ ok: true, links });
 }

@@ -232,11 +232,11 @@ export function updatesSince(acceptedVersion: string | null | undefined) {
 
 export const LEGAL_DOCS = [
   { slug: "terms", title: "Terms of Service", short: "Terms", blurb: "The agreement between your label and droplr.fm." },
-  { slug: "privacy", title: "Privacy Policy", short: "Privacy", blurb: "What we collect from labels, artists and fans, and why." },
+  { slug: "privacy", title: "Privacy Policy", short: "Privacy", blurb: "What droplr.fm collects from labels, artists and fans, and why." },
   { slug: "billing", title: "Billing & Refund Policy", short: "Billing & refunds", blurb: "Subscriptions, renewals, cancellations and refunds." },
   { slug: "cookies", title: "Cookie Policy", short: "Cookies", blurb: "Cookies and pixels on droplr.fm and label pages." },
   { slug: "acceptable-use", title: "Acceptable Use Policy", short: "Acceptable use", blurb: "What you can't use droplr.fm for." },
-  { slug: "data-processing", title: "Data Processing Terms", short: "Data processing", blurb: "How we handle fan data on your behalf." },
+  { slug: "data-processing", title: "Data Processing Terms", short: "Data processing", blurb: "How droplr.fm handles fan data on your behalf." },
   { slug: "copyright", title: "Copyright & Trade Marks", short: "Copyright", blurb: "Who owns what, and how to report infringement." },
 ] as const;
 

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pageMeta } from "@/lib/seo";
 import { AuthShell } from "@/components/marketing/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { CONTACT } from "@/lib/legal";
 import { findUsableInvite } from "@/lib/signup-invites";
 
 export const dynamic = "force-dynamic";
-export const metadata = { alternates: { canonical: "/signup" }, title: "Start free" };
+export const metadata = pageMeta({ title: "Start free", description: "Make a droplr.fm account for your releases: pre-saves, smart links, download gates and a bio page.", path: "/signup" });
 
 type SP = { error?: string; plan?: string; invite?: string; closed?: string; waitlisted?: string; waitlist_error?: string; type?: string; ref?: string; code?: string };
 

@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { after } from "next/server";
+import { bioAddress, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
@@ -56,6 +58,7 @@ async function saveLinks(page: Page, body: unknown) {
     }),
   ]);
   const links = await prisma.bioLink.findMany({ where: { bioPageId: page.id, ...sectionWhere(null) }, orderBy: { order: "asc" } });
+  after(async () => pingIndexNow([await bioAddress(page.id)]));
   return NextResponse.json({ ok: true, links: links.map((l) => ({ id: l.id, platform: l.platform, url: l.url, title: l.label, buttonText: l.buttonText, icon: l.icon, iconUrl: l.iconUrl, visible: l.isActive })) });
 }
 
@@ -121,5 +124,6 @@ async function saveItems(page: Page, section: BioItemSection, body: unknown) {
     ...(display ? [prisma.bioPage.update({ where: { id: page.id }, data: display })] : []),
   ]);
   const saved = await prisma.bioLink.findMany({ where: { bioPageId: page.id, ...sectionWhere(section) }, orderBy: { order: "asc" } });
+  after(async () => pingIndexNow([await bioAddress(page.id)]));
   return NextResponse.json({ ok: true, items: saved.map(itemOut) });
 }

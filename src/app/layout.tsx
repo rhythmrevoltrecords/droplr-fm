@@ -1,10 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { GeistSans } from "geist/font/sans";
 import "./globals.css";
-import { seoIndexable } from "@/lib/seo";
-
-const TITLE = "droplr.fm — Launch every release like a label would";
-const DESCRIPTION = "Pre-saves that land at 9am in every fan's timezone, smart links with the DJ stores, promo plans and a fan list you keep. For independent artists and labels.";
+import { SITE_DESCRIPTION as DESCRIPTION, SITE_TITLE as TITLE, seoIndexable } from "@/lib/seo";
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:8888"),

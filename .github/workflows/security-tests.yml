@@ -211,6 +211,9 @@ jobs:
       - name: Structured data, canonicals and the release plan tool
         run: npx tsx scripts/test-structured-data.ts
 
+      - name: Spotify playlist context and slugs from pasted links
+        run: npx tsx scripts/test-spotify-context.ts
+
       - name: Server log on failure
         if: failure()
         run: tail -100 /tmp/next.log

@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { after } from "next/server";
+import { indexNowOn, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { apiUser, isLabelRole } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { downloadUrlProblem } from "@/lib/downloads";
@@ -48,6 +50,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     if ("error" in steps) return NextResponse.json({ error: steps.error }, { status: 400 });
   }
 
+  const before = indexNowOn() ? await releaseAddress(id) : null;
   await prisma.$transaction(async (tx) => {
     await tx.release.update({
       where: { id },
@@ -67,6 +70,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     }
   });
 
+  after(async () => pingIndexNow([before, await releaseAddress(id)]));
   return NextResponse.json({ ok: true });
 }
 
@@ -93,6 +97,8 @@ export async function DELETE(_: NextRequest, props: { params: Promise<{ id: stri
     return NextResponse.json({ error: "This gate has a remix contest attached. Deleting it would delete the contest and every entry, so it can't be deleted from here." }, { status: 409 });
   }
 
+  const before = indexNowOn() ? await releaseAddress(existing.id) : null;
   await prisma.release.delete({ where: { id: existing.id } });
+  after(() => pingIndexNow([before]));
   return NextResponse.json({ ok: true });
 }

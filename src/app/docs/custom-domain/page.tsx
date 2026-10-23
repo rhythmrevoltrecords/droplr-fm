@@ -1,6 +1,7 @@
 import { DocShell } from "@/components/marketing/doc-shell";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = { alternates: { canonical: "/docs/custom-domain" }, title: "Custom domain setup" };
+export const metadata = pageMeta({ title: "Custom domain setup", description: "How to put your droplr.fm releases on your own domain, like listen.yourlabel.com, with two DNS records.", path: "/docs/custom-domain" });
 
 export default function CustomDomainDocs() {
   return (

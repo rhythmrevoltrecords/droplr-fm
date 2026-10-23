@@ -1,6 +1,7 @@
 import { DocShell } from "@/components/marketing/doc-shell";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = { alternates: { canonical: "/docs/spotify-byo" }, title: "Bring your own Spotify app" };
+export const metadata = pageMeta({ title: "Bring your own Spotify app", description: "The two kinds of pre-save on droplr.fm, and how to set up your own Spotify app for library pre-saves for up to 5 VIP fans.", path: "/docs/spotify-byo" });
 
 export default function SpotifyByoDocs() {
   return (
