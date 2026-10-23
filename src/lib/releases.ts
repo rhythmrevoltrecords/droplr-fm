@@ -155,9 +155,5 @@ export function resolveTenantPath(host: string, parts: string[], variantQuery?: 
   return cachedTenantPath(host, JSON.stringify(parts), variantQuery ?? null);
 }
 
-export function publicReleaseUrl(org: { slug: string; customDomain: string | null; plan?: string | null; planUpdatedAt?: Date | null; customDomainLiveAt?: Date | null }, slug: string, siteUrl: string, variant?: string) {
-  // Callers without plan info (e.g. previews) pass customDomain: null.
-  const domain = org.plan === undefined ? org.customDomain : linkCustomDomain({ plan: org.plan, customDomain: org.customDomain, planUpdatedAt: org.planUpdatedAt, customDomainLiveAt: org.customDomainLiveAt ?? null });
-  const base = domain ? `https://${domain}/${slug}` : `${siteUrl}/${org.slug}/${slug}`;
-  return variant ? `${base}/${variant}` : base;
-}
+// Lives in release-url so code bundled outside Next (the release-day job) can use it without React.
+export { publicReleaseUrl } from "./release-url";

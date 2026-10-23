@@ -5,8 +5,26 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/**
+ * A pasted link is not a name. Someone who pastes "https://soundcloud.com/artist/track-name" into
+ * a slug or title box means the track, not "https-soundcloud-com-artist-track-name", which is what
+ * an address built from the whole link looks like. Keep only the last part of its path.
+ * Existing slugs are stored and never re-derived, so no live address changes because of this.
+ */
+function fromPastedLink(input: string): string {
+  const t = input.trim();
+  if (!/^(?:https?:\/\/|www\.)\S+$/i.test(t)) return input;
+  try {
+    const u = new URL(/^www\./i.test(t) ? `https://${t}` : t);
+    const last = u.pathname.split("/").filter(Boolean).pop();
+    return last ? decodeURIComponent(last) : u.hostname.replace(/^www\./i, "").split(".")[0];
+  } catch {
+    return input;
+  }
+}
+
 export function slugify(input: string) {
-  return input
+  return fromPastedLink(input)
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")

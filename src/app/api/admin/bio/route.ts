@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { after } from "next/server";
+import { bioAddress, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { apiUser } from "@/lib/auth";
 import { BIO_PAGE_LIMIT_MESSAGE, bioPageLimit, bioSchema } from "@/lib/bio";
 import { storedOrder } from "@/lib/bio-sections";
@@ -40,5 +42,6 @@ export async function POST(req: NextRequest) {
   const page = await prisma.bioPage.create({
     data: { organizationId: user.organizationId, slug, title: d.title, bio: d.bio || null, imageUrl: d.imageUrl, accentColor, theme: d.theme || null, font: d.font || null, artistProfileId: d.artistProfileId || null, releaseBlock: d.releaseBlock || null, backgroundUrl: bg.patch.backgroundUrl ?? null, backgroundSourceUrl: bg.patch.backgroundSourceUrl ?? null, backgroundBlur: bg.patch.backgroundBlur ?? null, backgroundColor: d.backgroundColor || null, buttonColor: d.buttonColor || null, textColor: d.textColor || null, glowColor: d.glowColor || null, iconStyle: d.iconStyle && d.iconStyle !== "plain" ? d.iconStyle : null, iconColor: d.iconColor || null, labelBadge: d.labelBadge || null, subscribe: d.subscribe || null, subscribeText: d.subscribeText || null, sectionOrder: storedOrder(d.sectionOrder), gallery: d.gallery || null, socialIcons: d.socialIcons || null, galleryAt: d.gallery ? new Date() : null, isPublic: d.isPublic ?? true },
   });
+  after(async () => pingIndexNow([await bioAddress(page.id)]));
   return NextResponse.json({ id: page.id });
 }

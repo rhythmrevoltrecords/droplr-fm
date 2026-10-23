@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { after } from "next/server";
+import { bioAddress, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { apiUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { downloadLimitMessage, downloadLimitReached, downloadUrlProblem } from "@/lib/downloads";
@@ -83,5 +85,6 @@ export async function POST(req: NextRequest) {
     select: { id: true, slug: true },
   });
 
+  after(async () => pingIndexNow([await releaseAddress(created.id)]));
   return NextResponse.json(created, { status: 201 });
 }

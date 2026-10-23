@@ -1,8 +1,9 @@
 import Link from "next/link";
+import { pageMeta } from "@/lib/seo";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { CONTACT, LEGAL, LEGAL_DOCS, copyrightLine, operatorLine } from "@/lib/legal";
 
-export const metadata = { alternates: { canonical: "/legal" }, title: "Legal" };
+export const metadata = pageMeta({ title: "Legal", description: "droplr.fm's terms, privacy policy, billing and refunds, cookies, acceptable use, data processing terms and copyright.", path: "/legal" });
 
 export default function LegalIndex() {
   return (

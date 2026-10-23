@@ -2,13 +2,13 @@ import Link from "next/link";
 import { PostCards } from "@/components/blog/blog-ui";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { livePosts } from "@/lib/blog";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMeta({
   title: "News and guides for independent artists",
-  description:
-    "Short, sourced explainers on the music-business news that actually reaches independent artists and labels, plus the how-to videos: streaming fraud, AI tools, distribution, the small print, and how to run a release.",
-  alternates: { canonical: "/blog" },
-};
+  description: "Sourced explainers on the music-business news that reaches independent artists and labels, plus how-to guides for running a release.",
+  path: "/blog",
+});
 
 /** Posts appear on their publishAt, so this page can't be baked at build time. */
 export const revalidate = 300;

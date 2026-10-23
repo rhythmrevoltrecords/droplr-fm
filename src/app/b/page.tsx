@@ -4,6 +4,7 @@ import { MarketingShell } from "@/components/marketing/site-chrome";
 import { GALLERY_INDEX_MIN } from "@/lib/bio-gallery";
 import { galleryPages, type GalleryCard } from "@/lib/bio-gallery-server";
 import { ctaCopy } from "@/lib/launch";
+import { pageMeta } from "@/lib/seo";
 
 /**
  * droplr.fm/b -- bio pages their owners chose to show. Rules in lib/bio-gallery.
@@ -26,9 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const pages = await load();
   const enough = !!pages && pages.length >= GALLERY_INDEX_MIN;
   return {
-    title: "Live bio pages",
-    description: "Link-in-bio pages independent artists and labels made on droplr.fm and chose to show here.",
-    alternates: { canonical: "/b" },
+    ...pageMeta({ title: "Live bio pages", description: "Link-in-bio pages independent artists and labels made on droplr.fm and chose to show here.", path: "/b" }),
     // An almost-empty room is not a page to send Google to.
     robots: enough ? undefined : { index: false, follow: true },
   };

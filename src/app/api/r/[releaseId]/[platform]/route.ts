@@ -8,6 +8,7 @@ import { getSpotifyCreds, spotifyAuthorizeUrl } from "@/lib/spotify";
 import { capText, fanTimezone, requestMeta, resolveSource, SRC_COOKIE, ANON_COOKIE } from "@/lib/tracking";
 import { isListenChoice } from "@/lib/platforms";
 import { planOf } from "@/lib/plans";
+import { spotifyListenUrl } from "@/lib/spotify-context";
 
 export const dynamic = "force-dynamic";
 
@@ -144,6 +145,9 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
 
   // 4) Smart link redirect
   if (!link || !/^https?:\/\//i.test(link.url)) return finish(pageUrl);
+  // Spotify can open the track inside the artist's chosen playlist (lib/spotify-context). Unchanged
+  // when no playlist is set, or when the button is an album link.
+  if (link.platform === "spotify") return finish(spotifyListenUrl({ linkUrl: link.url, playlistId: release.spotifyPlaylist }));
   return finish(link.url);
 }
 

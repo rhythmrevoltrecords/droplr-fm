@@ -1,5 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { z } from "zod";
+import { after } from "next/server";
+import { bioAddress, indexNowOn, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { labelRelease } from "@/lib/admin-guard";
 import { resolveReleaseArtist } from "@/lib/artists";
 import { prisma } from "@/lib/db";
@@ -7,6 +9,7 @@ import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
 import { isReleased, zonedLocalToDate } from "@/lib/time";
 import { isRulebook } from "@/lib/exclusivity";
 import { isPlatformKey } from "@/lib/platforms";
+import { parsePlaylistId } from "@/lib/spotify-context";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
 const schema = z.object({
@@ -21,6 +24,8 @@ const schema = z.object({
   spotifyAlbumId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyTrackId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
   spotifyArtistId: z.string().regex(/^[A-Za-z0-9]{22}$/).nullable().optional().or(z.literal("")),
+  /** A playlist link, URI or ID; "" or null turns "play it inside this playlist" off. */
+  spotifyPlaylist: z.string().max(300).nullable().optional(),
   /**
    * One line for the lyric graphic. Capped here rather than in the column so the limit can move
    * without a migration, and so an over-long line is a sentence instead of a 500. "" clears it.
@@ -63,6 +68,12 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
     data.poolOptInAt = d.poolOptIn ? new Date() : null;
   }
   for (const k of ["spotifyAlbumId", "spotifyTrackId", "spotifyArtistId"] as const) if (d[k] !== undefined) data[k] = d[k] || null;
+  if (d.spotifyPlaylist !== undefined) {
+    const raw = (d.spotifyPlaylist ?? "").trim();
+    const id = raw ? parsePlaylistId(raw) : null;
+    if (raw && !id) return NextResponse.json({ error: "That isn't a Spotify playlist link. In Spotify: the playlist's ⋯ menu → Share → Copy link to playlist." }, { status: 400 });
+    data.spotifyPlaylist = id;
+  }
   if (d.upc !== undefined) {
     if (d.upc && !normaliseUpc(d.upc)) return NextResponse.json({ error: "UPC should be 12–14 digits" }, { status: 400 });
     data.upc = normaliseUpc(d.upc);
@@ -124,7 +135,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   const assigned = await resolveReleaseArtist(g.user.organizationId, { artistProfileId: d.artistProfileId, artistId: d.artistId });
   if (!assigned.ok) return NextResponse.json({ error: assigned.error }, { status: 400 });
   if (assigned.data) Object.assign(data, assigned.data);
+  // Before the update: a new slug moves the page, and the old address has to be announced too.
+  const before = indexNowOn() ? await releaseAddress(g.release.id) : null;
   await prisma.release.update({ where: { id: g.release.id }, data });
+  after(async () => pingIndexNow([before, await releaseAddress(g.release.id)]));
   return NextResponse.json({ ok: true });
 }
 
@@ -132,6 +146,9 @@ export async function DELETE(_: NextRequest, props: { params: Promise<{ id: stri
   const params = await props.params;
   const g = await labelRelease(params.id);
   if ("error" in g) return NextResponse.json({ error: g.error }, { status: g.status });
+  const before = indexNowOn() ? await releaseAddress(g.release.id) : null;
   await prisma.release.delete({ where: { id: g.release.id } });
+  // A deleted page is announced too, so it leaves the index instead of lingering as a 404.
+  after(() => pingIndexNow([before]));
   return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { after } from "next/server";
+import { bioAddress, indexNowOn, pingIndexNow, releaseAddress } from "@/lib/indexnow-server";
 import { apiUser } from "@/lib/auth";
 import { bioSchema } from "@/lib/bio";
 import { storedOrder } from "@/lib/bio-sections";
@@ -79,7 +81,9 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   } else if (d.accentColor !== undefined) {
     data.accentColor = d.accentColor || null;
   }
+  const before = indexNowOn() ? await bioAddress(g.page.id) : null;
   await prisma.bioPage.update({ where: { id: g.page.id }, data });
+  after(async () => pingIndexNow([before, await bioAddress(g.page.id)]));
   return NextResponse.json({ ok: true });
 }
 
@@ -87,6 +91,8 @@ export async function DELETE(_: NextRequest, props: { params: Promise<{ id: stri
   const params = await props.params;
   const g = await guard(params.id);
   if (!g) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const before = indexNowOn() ? await bioAddress(g.page.id) : null;
   await prisma.bioPage.delete({ where: { id: g.page.id } });
+  after(() => pingIndexNow([before]));
   return NextResponse.json({ ok: true });
 }

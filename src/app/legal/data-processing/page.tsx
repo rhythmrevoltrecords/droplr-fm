@@ -2,8 +2,9 @@ import Link from "next/link";
 import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
 import { CONTACT, LEGAL } from "@/lib/legal";
+import { legalMeta } from "@/lib/legal-meta";
 
-export const metadata = { alternates: { canonical: "/legal/data-processing" }, title: "Data Processing Terms" };
+export const metadata = legalMeta("data-processing");
 
 const toc = [
   { id: "scope", title: "Scope and roles" },

@@ -3,12 +3,13 @@ import { GuideCards } from "@/components/learn/learn-ui";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { ctaCopy } from "@/lib/launch";
 import { LEGAL_NOTE } from "@/lib/learn";
+import { pageMeta } from "@/lib/seo";
 
-export const metadata = {
+export const metadata = pageMeta({
   title: "Knowledge for independent artists",
-  description: "Plain-language guides for independent artists and labels: royalties in Australia, choosing a distributor, Spotify and store tools, release planning, deals and contracts.",
-  alternates: { canonical: "/learn" },
-};
+  description: "Plain-language guides for independent artists and labels: royalties in Australia, distributors, Spotify, release planning, deals and contracts.",
+  path: "/learn",
+});
 
 export default function LearnIndex() {
   const cta = ctaCopy();

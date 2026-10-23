@@ -28,13 +28,15 @@ export async function GET() {
   const now = new Date();
   const url = (path: string) => `${SITE_URL}${path}`;
   const entries: SitemapEntry[] = [
-    { loc: url("/"), lastmod: now, changefreq: "weekly", priority: 1 },
-    { loc: url("/pricing"), lastmod: now, changefreq: "weekly", priority: 0.9 },
-    { loc: url("/learn"), lastmod: now, changefreq: "weekly", priority: 0.9 },
-    { loc: url("/blog"), lastmod: now, changefreq: "weekly", priority: 0.9 },
+    // No lastmod where droplr has no honest date for the page. It used to be "now" on every request,
+    // and Google stops trusting lastmod once it can see the date is always the time of the crawl.
+    { loc: url("/"), changefreq: "weekly", priority: 1 },
+    { loc: url("/pricing"), changefreq: "weekly", priority: 0.9 },
+    { loc: url("/learn"), lastmod: newest(GUIDES.map((g) => g.checked)), changefreq: "weekly", priority: 0.9 },
+    { loc: url("/blog"), lastmod: newest(livePosts(now).map((p) => p.publishAt)), changefreq: "weekly", priority: 0.9 },
     // A free tool: the page that answers "how do I plan a release", for people who have never heard of droplr.
     { loc: url("/tools/release-plan"), changefreq: "monthly", priority: 0.9 },
-    { loc: url("/signup"), lastmod: now, changefreq: "monthly", priority: 0.7 },
+    { loc: url("/signup"), changefreq: "monthly", priority: 0.7 },
     // The guides are the funnel. lastmod is the date each guide's facts were last checked
     // against the official sources, which is the honest answer and the one that matters.
     ...GUIDES.map((g) => ({
@@ -53,11 +55,10 @@ export async function GET() {
     })),
     ...["/docs/custom-domain", "/docs/spotify-byo"].map((p) => ({
       loc: url(p),
-      lastmod: now,
       changefreq: "monthly" as const,
       priority: 0.4,
     })),
-    { loc: url("/legal"), lastmod: now, changefreq: "yearly", priority: 0.3 },
+    { loc: url("/legal"), lastmod: parseOr(LEGAL.version, undefined), changefreq: "yearly", priority: 0.3 },
     ...LEGAL_DOCS.map((d) => ({
       loc: url(`/legal/${d.slug}`),
       lastmod: parseOr(LEGAL.version, now),
@@ -70,7 +71,13 @@ export async function GET() {
 }
 
 /** These dates are free text a human edits. An unparseable one must not break the sitemap. */
-function parseOr(s: string, fallback: Date) {
+function parseOr<T extends Date | undefined>(s: string, fallback: T): Date | T {
   const t = Date.parse(s);
   return Number.isNaN(t) ? fallback : new Date(t);
+}
+
+/** The latest of some dates, or none if none parse. */
+function newest(dates: string[]): Date | undefined {
+  const ts = dates.map((d) => Date.parse(d)).filter((t) => !Number.isNaN(t));
+  return ts.length ? new Date(Math.max(...ts)) : undefined;
 }

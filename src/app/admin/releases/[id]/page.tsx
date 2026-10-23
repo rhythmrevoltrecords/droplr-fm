@@ -433,6 +433,7 @@ export default async function ReleaseDetail(
           <CardContent>
             <ReleaseSettingsForm
               releaseId={release.id}
+              spotifyLinkUrl={release.kind === "download" ? "gate" : release.links.find((l) => l.platform === "spotify" && l.visible)?.url ?? null}
               locationLabel={release.organization.locationLabel}
               soloArtist={release.organization.kind === "artist"}
               artists={settingsArtists.map((a) => ({ id: a.id, name: a.name, hasLogin: !!a.userId }))}
@@ -444,7 +445,7 @@ export default async function ReleaseDetail(
               initial={{
                 title: release.title, artistName: release.artistName, coverUrl: release.coverUrl, accentColor: release.accentColor ?? "", slug: release.slug,
                 releaseDateLocal: dateToZonedLocal(release.releaseDate, release.organization.timezone), artistProfileId: release.artistProfileId ?? "", spotifyAlbumId: release.spotifyAlbumId ?? "",
-                spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic, rollout: release.rollout === "global" ? "global" : "local",
+                spotifyTrackId: release.spotifyTrackId ?? "", spotifyArtistId: release.spotifyArtistId ?? "", spotifyPlaylist: release.spotifyPlaylist ? `https://open.spotify.com/playlist/${release.spotifyPlaylist}` : "", upc: release.upc ?? "", isrc: release.isrc ?? "", autoReResolve: release.autoReResolve, isPublic: release.isPublic, rollout: release.rollout === "global" ? "global" : "local",
                 exclusiveStore: release.exclusiveStore ?? "",
                 exclusiveFromLocal: release.exclusiveFrom ? dateToZonedLocal(release.exclusiveFrom, release.organization.timezone).slice(0, 10) : "",
                 exclusiveWeeks: release.exclusiveWeeks == null ? "" : String(release.exclusiveWeeks),
