@@ -21,7 +21,10 @@ export const LINK_TYPES: LinkType[] = [
   { key: "shortlink", name: "Short Link", description: "Branded short URL for anything, with the same tracking and pixels.", status: "soon", artwork: "release", preview: { a: "#64748B", b: "#8B5CF6", title: "Link" } },
   { key: "tour", name: "Tour", description: "Dates and ticket links on a page themed from your artist photo.", status: "soon", artwork: "artist", preview: { a: "#EF4444", b: "#F97316", title: "Live" } },
   { key: "action", name: "Action Page", description: "Unlock a download or exclusive after an email sign-up.", status: "soon", artwork: "release", preview: { a: "#10B981", b: "#3B82F6", title: "Unlock" } },
-  { key: "contest", name: "Contest", description: "Giveaways that grow your email list, with entries tracked per source.", status: "soon", artwork: "release", preview: { a: "#EAB308", b: "#A855F7", title: "Win" } },
+  // Key stays "contest": existing Notify Me sign-ups are stored under it. Named "Giveaway" because
+  // "Contest" sat in this picker as "coming soon" while remix contests were already live on every
+  // release's Remix contest tab, and the owner himself went looking for the remix contest here.
+  { key: "contest", name: "Giveaway", description: "Fans enter with their email for a chance to win, with entries tracked per source. Looking for a remix contest? That's the Remix contest tab on any release.", status: "soon", artwork: "release", preview: { a: "#EAB308", b: "#A855F7", title: "Win" } },
   { key: "podcast", name: "Podcast", description: "Episode or show link across every podcast app.", status: "soon", artwork: "release", preview: { a: "#8B5CF6", b: "#0EA5E9", title: "Mixtape" } },
   { key: "scheduled", name: "Scheduled Release", description: "Set it once: page, emails and socials go live on the minute.", status: "soon", artwork: "release", preview: { a: "#DB2777", b: "#6366F1", title: "Friday" } },
 ];
