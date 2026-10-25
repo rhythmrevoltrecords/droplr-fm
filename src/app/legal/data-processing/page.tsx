@@ -27,10 +27,10 @@ const s = tocHelper(toc);
 export default function DataProcessingPage() {
   return (
     <LegalShell slug="data-processing" toc={toc} contact="privacy">
-      <p>These Data Processing Terms (&quot;<strong>DPA</strong>&quot;) form part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link> between us and your label. They apply automatically to every label account; you don&apos;t need to sign anything separately. If you need a countersigned copy, email <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a>.</p>
+      <p>These Data Processing Terms (&quot;<strong>DPA</strong>&quot;) form part of the droplr.fm <Link href="/legal/terms">Terms of Service</Link> between us and you, whether you run a label or release as an artist. They apply automatically to every account, artist or label; you don&apos;t need to sign anything separately. If you need a countersigned copy, email <a href={`mailto:${CONTACT.privacy}`}>{CONTACT.privacy}</a>.</p>
 
       <Section {...s("scope")}>
-        <p>For fan data, your label is the controller (the organisation that decides why and how it&apos;s processed) and we&apos;re your processor. Under Australian privacy law this is equivalent to us providing a service to you. Where the GDPR or UK GDPR applies, these terms are intended to meet Article 28.</p>
+        <p>For fan data, you are the controller (the one who decides why and how it&apos;s processed: your label, or you as the artist) and we&apos;re your processor. Under Australian privacy law this is equivalent to us providing a service to you. Where the GDPR or UK GDPR applies, these terms are intended to meet Article 28.</p>
         <p>This DPA doesn&apos;t cover customer account and billing data. We&apos;re responsible for that data under our <Link href="/legal/privacy">Privacy Policy</Link>.</p>
       </Section>
 
@@ -51,12 +51,12 @@ export default function DataProcessingPage() {
       </Section>
 
       <Section {...s("instructions")}>
-        <p>We process fan data only to provide the service as you configure it, and on your other documented instructions. Your settings and actions in the dashboard are instructions. We&apos;ll tell you if we believe an instruction breaks the law. We won&apos;t use fan data for our own purposes, sell it, or combine it with other labels&apos; data, except in aggregated, de-identified form to secure and improve the service, and to describe how much the service is used overall. That last one means counts and nothing else — how many links, fans and accounts there are across droplr.fm — and no address, name or any other individual detail ever leaves in that form, nor is any label identified.</p>
+        <p>We process fan data only to provide the service as you configure it, and on your other documented instructions. Your settings and actions in the dashboard are instructions. We&apos;ll tell you if we believe an instruction breaks the law. We won&apos;t use fan data for our own purposes, sell it, or combine it with other accounts&apos; data, except in aggregated, de-identified form to secure and improve the service, and to describe how much the service is used overall. That last one means counts and nothing else — how many links, fans and accounts there are across droplr.fm — and no address, name or any other individual detail ever leaves in that form, nor is any account identified.</p>
       </Section>
 
       <Section {...s("label")}>
         <ul>
-          <li>You have a lawful basis for the processing and give fans any privacy notice the law requires, including telling them how your label will use their information.</li>
+          <li>You have a lawful basis for the processing and give fans any privacy notice the law requires, including telling them how you will use their information.</li>
           <li>You only use exported fan data lawfully and keep it secure.</li>
           <li>You follow the anti-spam, pixel and consent requirements in the <Link href="/legal/terms#fans">Terms</Link> and <Link href="/legal/cookies">Cookie Policy</Link>.</li>
           <li>Where you import a list, everything in <Link href="#imported">Lists you import</Link> applies.</li>
@@ -88,7 +88,7 @@ export default function DataProcessingPage() {
       </Section>
 
       <Section {...s("confidentiality")}>
-        <p>People authorised to access fan data are bound by confidentiality. We maintain appropriate technical and organisational measures, including HTTPS for all traffic, encryption of platform tokens and credentials at rest, hashed IP addresses and passwords, separation of each label&apos;s data, least-privilege access to production systems, and use of reputable infrastructure providers. We may update these measures as long as protection isn&apos;t reduced.</p>
+        <p>People authorised to access fan data are bound by confidentiality. We maintain appropriate technical and organisational measures, including HTTPS for all traffic, encryption of platform tokens and credentials at rest, hashed IP addresses and passwords, separation of each account&apos;s data, least-privilege access to production systems, and use of reputable infrastructure providers. We may update these measures as long as protection isn&apos;t reduced.</p>
       </Section>
 
       <Section {...s("subprocessors")}>

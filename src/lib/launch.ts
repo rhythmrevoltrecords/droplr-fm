@@ -41,7 +41,7 @@ export function canConnectDomain(org: { domainsAllowedAt: Date | null }) {
 
 /** Shown in settings in place of the domain field, and returned by the API when it refuses. */
 export const DOMAIN_INVITE_ONLY =
-  "Connecting your own domain is invite-only while we prove the setup on real domains. Email hello@droplr.fm and we'll switch it on for your account — usually same day.";
+  "Connecting your own domain is invite-only while I prove the setup on real domains. Email hello@droplr.fm and I'll switch it on for your account — usually same day.";
 
 export type Cta = { label: string; href: string };
 export type CtaCopy = {
@@ -79,7 +79,7 @@ export function ctaCopy(): CtaCopy {
     open: false,
     primary: { label: "Request early access", href: "/signup" },
     primaryShort: access,
-    hint: { text: "Invite-only while we onboard our first artists and labels. Have an invite?", link: { label: "Sign up", href: "/signup?invite=1" } },
+    hint: { text: "Invite-only while I onboard the first artists and labels. Have an invite?", link: { label: "Sign up", href: "/signup?invite=1" } },
     plans: { free: access, artist: access, artist_pro: access, pro: access, label: access },
   };
 }
