@@ -212,6 +212,11 @@ console.log("4. Release plan tool");
   check("the tool page is static", page.includes('export const dynamic = "force-static"'));
   check("it is in the sitemap", src("src/app/sitemap.xml/route.ts").includes('url("/tools/release-plan")'));
   check("and linked from every marketing page's footer", src("src/components/marketing/site-chrome.tsx").includes('href="/tools/release-plan"'));
+  // The roadmap moved off the homepage to its own page (25 Oct): it has to stay findable.
+  check("/roadmap is in the sitemap", src("src/app/sitemap.xml/route.ts").includes('url("/roadmap")'));
+  check("/roadmap is in the header nav and the footer", src("src/components/marketing/site-chrome.tsx").includes('href: "/roadmap"') && src("src/components/marketing/site-chrome.tsx").includes('href="/roadmap"'));
+  // Spotify only lets a new app save for 5 allowlisted people; the homepage must never promise saves.
+  check("the homepage never says Spotify saves land", !/Spotify saves land/i.test(src("src/app/page.tsx")));
 }
 
 console.log("5. IndexNow");

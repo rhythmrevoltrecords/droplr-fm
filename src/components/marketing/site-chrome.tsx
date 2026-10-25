@@ -9,7 +9,7 @@ import { SectionLink } from "./section-link";
 // Homepage sections jump without a "#product" in the URL (SectionLink).
 const NAV: { href: string; label: string; section?: string }[] = [
   { href: "/", section: "product", label: "Product" },
-  { href: "/", section: "roadmap", label: "Roadmap" },
+  { href: "/roadmap", label: "Roadmap" },
   { href: "/learn", label: "Knowledge" },
   { href: "/blog", label: "News" },
   { href: "/pricing", label: "Pricing" },
@@ -58,26 +58,38 @@ export function SiteHeader() {
 }
 
 export function SiteFooter() {
+  const col = "space-y-2.5";
+  const head = "mb-3 text-xs font-medium uppercase tracking-[0.18em] text-white/50";
+  const link = "block hover:text-foreground";
   return (
-    <footer className="border-t border-white/5 py-10 text-sm text-muted-foreground">
-      <div className="container flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <Logo />
-        <div className="flex flex-wrap gap-x-5 gap-y-2">
-          <SectionLink section="product" className="hover:text-foreground">Product</SectionLink>
-          <SectionLink section="roadmap" className="hover:text-foreground">Roadmap</SectionLink>
-          <Link href="/learn" className="hover:text-foreground">Knowledge</Link>
-          <Link href="/pricing" className="hover:text-foreground">Pricing</Link>
-          <Link href="/tools/release-plan" className="hover:text-foreground">Free release plan</Link>
-          <Link href="/demo/demo-track" className="hover:text-foreground">Demo</Link>
-          <Link href="/docs/custom-domain" className="hover:text-foreground">Custom domains</Link>
-          <Link href="/docs/spotify-byo" className="hover:text-foreground">Spotify BYO app</Link>
-          <Link href="/legal/terms" className="hover:text-foreground">Terms</Link>
-          <Link href="/legal/privacy" className="hover:text-foreground">Privacy</Link>
-          <Link href="/legal" className="hover:text-foreground">Legal</Link>
+    <footer className="border-t border-white/5 py-14 text-sm text-muted-foreground">
+      <div className="container grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
+        <div className="space-y-3">
+          <Logo />
+          <p className="max-w-xs">Made in Brisbane by Cody Morrison. droplr.fm isn&apos;t affiliated with Spotify, Apple or Deezer.</p>
         </div>
-        <p>Made in Brisbane. droplr.fm isn&apos;t affiliated with Spotify, Apple or Deezer.</p>
+        <div className={col}>
+          <p className={head}>Product</p>
+          <SectionLink section="product" className={link}>Features</SectionLink>
+          <Link href="/pricing" className={link}>Pricing</Link>
+          <Link href="/demo/demo-track" className={link}>Demo</Link>
+          <Link href="/roadmap" className={link}>Roadmap</Link>
+        </div>
+        <div className={col}>
+          <p className={head}>Resources</p>
+          <Link href="/tools/release-plan" className={link}>Free release plan</Link>
+          <Link href="/learn" className={link}>Knowledge</Link>
+          <Link href="/docs/custom-domain" className={link}>Custom domains</Link>
+          <Link href="/docs/spotify-byo" className={link}>Spotify BYO app</Link>
+        </div>
+        <div className={col}>
+          <p className={head}>Legal</p>
+          <Link href="/legal/terms" className={link}>Terms</Link>
+          <Link href="/legal/privacy" className={link}>Privacy</Link>
+          <Link href="/legal" className={link}>All legal</Link>
+        </div>
       </div>
-      <p className="container mt-6 text-xs text-muted-foreground/70">
+      <p className="container mt-10 text-xs text-muted-foreground/70">
         {copyrightLine()} Platform names and logos are trade marks of their owners. <Link href="/legal/copyright" className="underline">Copyright &amp; trade marks</Link>
       </p>
     </footer>

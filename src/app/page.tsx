@@ -1,37 +1,32 @@
 import Link from "next/link";
-import { ArrowRight, BarChart3, CalendarCheck, CalendarDays, ChevronDown, Download, Globe, Image as ImageIcon, Link2 as LinkIcon, ListMusic, Mail, Users } from "lucide-react";
-import { AudiencePricing, AudienceStory } from "@/components/marketing/audience-pricing";
+import { ArrowRight, BarChart3, CalendarCheck, ChevronDown, Clapperboard, Download, Globe, Image as ImageIcon, Link2 as LinkIcon, ListMusic, Mail, ShieldCheck, Users } from "lucide-react";
+import { AudiencePricing } from "@/components/marketing/audience-pricing";
 import { RevealOnScroll } from "@/components/marketing/reveal";
 import { SectionScrollTarget } from "@/components/marketing/section-link";
 import { MarketingShell } from "@/components/marketing/site-chrome";
 import { PlatformIcon } from "@/components/public/platform-icon";
 import { Button } from "@/components/ui/button";
-import { liveNews } from "@/lib/blog";
 import { ctaCopy, type CtaCopy } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
-import { platformMeta } from "@/lib/platforms";
+import { PLATFORM_LOGOS } from "@/lib/platform-logos";
+import { platformMeta, type PlatformKey } from "@/lib/platforms";
 import { CUSTOM_DOMAIN_GRACE_DAYS, PLAN_LIMITS } from "@/lib/plans";
 import { pricingTiers } from "@/lib/pricing-tiers";
 import { cn } from "@/lib/utils";
 import { SITE_URL } from "@/lib/env";
 import { siteJsonLd } from "@/lib/structured-data";
 import { JsonLd } from "@/components/seo/json-ld";
-import { promoSteps } from "@/lib/promo";
-import { relativeLabel } from "@/lib/release-plan";
 
 const DEMO_COVER = "/demo/two-step-theory.svg";
 
-/** The first steps of the real promo plan, read from the same source as the tool, so the card can't drift from it. */
-const PLAN_PREVIEW = promoSteps("artist").sort((a, b) => a.day - b.day).filter((s, i, all) => all.findIndex((x) => x.day === s.day) === i).slice(0, 4);
-
 /* ---------- Content ---------- */
 
-// Where a release actually lands. Ordered so the strip opens on the ones everyone knows and the
-// less familiar names arrive once it's already reading as credible. Beatport stays — it isn't a
-// DistroKid destination, but dance labels reach it through their own distributor and it's the
-// store their fans buy from. Juno and Traxsource came off on 28 Sep 2026: too niche to earn a slot
-// in a marquee, and still available as link types for the labels that do sell there.
-const STORES = ["spotify", "appleMusic", "youtubeMusic", "amazonMusic", "tidal", "deezer", "soundcloud", "beatport", "bandcamp", "pandora", "iheartRadio", "audiomack", "qobuz", "anghami", "boomplay"];
+// The store row. One static, single-colour row of real marks only: a store without a mark of its
+// own used to render as a letter tile, which read as unfinished, and a scrolling strip of
+// full-colour logos read like a partner wall the footer then has to deny. Led by the DJ stores,
+// because that is the difference. Traxsource is back (it came off a marquee on 28 Sep for space):
+// for UK garage it is the store people check for.
+const STORE_ROW: PlatformKey[] = ["beatport", "traxsource", "bandcamp", "spotify", "appleMusic", "soundcloud", "youtubeMusic", "tidal", "deezer"];
 
 const FOR_ARTISTS = [
   { title: "Make the release page", body: "Paste a Spotify link. Artwork, colour and store links fill in, unreleased is fine." },
@@ -46,36 +41,15 @@ const FOR_LABELS = [
   { title: "See what works across releases", body: "Busiest hours, top countries, best sources and the stores fans actually use." },
 ];
 
-type Status = "Live now" | "Next" | "Later";
-const ROADMAP: { status: Status; items: { title: string; body: string }[]; note?: string }[] = [
-  // Kept honest against droplr/platform-vision-roadmap.md. "Next" means the next thing being
-  // built, not the next thing worth wanting — a demo inbox sat here for weeks while the plan had
-  // it at phase 4, which is a promise to everyone who signs up.
-  { status: "Live now", items: [
-    { title: "Exclusivity warnings", body: "Tell droplr a release is exclusive to Beatport and it warns you when a link you're about to publish breaks the window — because it's the only thing that knows both. Beatport, LabelWorx and Symphonic publish different rules about what counts; droplr answers under your distributor's and says which." },
-    { title: "Remix contests", body: "Your stems go out through a gate; remixes come back as links on the same release, with a deadline, a prize and everyone's contact in one list instead of thirty DMs. When entries close the tracks go public with a play button and a vote. Free to enter, always." },
-    { title: "Release clips", body: "Pick 30 seconds and droplr renders the video for Reels — artwork moving on the kick, your link on it. It happens in your browser, so your master never leaves your computer." },
-    { title: "Artist accounts", body: "Artists run their own releases, fan list and promo plans, on Free, Artist or Artist Pro." },
-    { title: "Artists linked to your roster", body: "An artist with their own droplr account sees the releases you put out under their name — their numbers, their links, their clips. They stay yours to edit." },
-    { title: "Metadata check", body: "Your barcode, your ISRC and your titles, checked against what stores actually reject for — including whether you've already used that ISRC on another release, which only droplr can see." },
-    { title: "Download gates", body: "Put an edit pack, stems or an unreleased track behind a follow or an email. The page says which steps are actually checked and which aren't, and the stats show which step people drop at." },
-    { title: "Fan updates", body: "Email the fans who opted in to news, from your name, straight out of droplr." },
-    { title: "Bio link page", body: "One link for everything you do. Your latest release sits at the top and updates itself — the page reads the release record, so you never edit it. You see who opened it: where they came from, what country they are in, and which button they tapped. Videos play on the page without slowing it down, and merch sits there as pictures that link to your shop. Switch on the email box and fans can ask to hear about your next one, so it reaches them whatever an algorithm decides. On every plan, including Free." },
-    { title: "Phone app and notifications", body: "Add your dashboard to your Home Screen and get a ping for pre-save milestones and release day." },
-    { title: "Free release plan", body: "The promo plan every droplr release gets, on a page anyone can use without an account. Pick your release day, get every step dated, add it to your calendar." },
-    { title: "Refer a friend", body: "A free month for each artist or label you bring who stays paid for 30 days, up to 3 a year." },
-  ] },
-  // Deliberately empty. Everything that could honestly be built without users is built; the next
-  // thing comes from the first artists and labels using it. An invented item here would be the same
-  // mistake as the demo inbox that sat in this column for weeks.
-  { status: "Next", items: [], note: "Nothing's queued here on purpose. Everything that could be built without knowing real artists' problems is built. What comes next is decided by the people using droplr now — not by a list written before anyone turned up." },
-  { status: "Later", items: [
-    { title: "Release planning for teams", body: "Tasks assigned to the label or the artist, with reminders, and a calendar across the roster so two releases don't collide." },
-    { title: "Royalties and splits", body: "Confirmed split sheets, then distributor statements imported and turned into a clear statement per collaborator. Tracked, never held." },
-    { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply. Waits until there are enough labels for it not to be an empty room." },
-    { title: "Unsigned pool", body: "Artists opt in unreleased tracks; labels discover them by genre, BPM and traction." },
-    { title: "Contracts", body: "Agreements kept next to the roster and the releases they cover." },
-  ] },
+// Everything else droplr does, in one line each. These were full cards; nine cards made every
+// feature look the same size, and the page twice as long.
+const ALSO = [
+  { icon: CalendarCheck, title: "A promo plan per release", body: "Dated steps from four weeks out to two months after, each with what it needs." },
+  { icon: ImageIcon, title: "Share graphics", body: "Countdown, out now and lyric cards, made from your artwork." },
+  { icon: Clapperboard, title: "Release clips", body: "30 seconds for Reels, rendered in your browser. Your master never leaves your computer." },
+  { icon: Users, title: "One fan list", body: "Every pre-saver across every release, with their store and whether they opted in to news." },
+  { icon: BarChart3, title: "Insights", body: "When your fans are active, where they are, and which source actually works." },
+  { icon: ListMusic, title: "Play inside your playlist", body: "The Spotify button can open the track inside a playlist you run, when it's the track's own link." },
 ];
 
 /* ---------- Pieces ---------- */
@@ -84,10 +58,15 @@ function Eyebrow({ children }: { children: React.ReactNode }) {
   return <p className="text-xs font-semibold uppercase tracking-[0.22em] text-violet-300/90">{children}</p>;
 }
 
+/** Every made-up number or row on this page sits under one of these, big enough to read. */
+function ExampleTag({ className }: { className?: string }) {
+  return <span className={cn("rounded-full border border-white/20 bg-black/60 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wider text-white/70", className)}>Example</span>;
+}
+
 function Actions({ cta, secondary, className }: { cta: CtaCopy; secondary: { label: string; href: string }; className?: string }) {
   return (
     <div className={cn("flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center", className)}>
-      <Button asChild size="lg" variant="white" className="mk-shine relative h-12 overflow-hidden rounded-full px-6 text-[15px]">
+      <Button asChild size="lg" variant="white" className="h-12 rounded-full px-6 text-[15px] shadow-[0_10px_40px_-10px_rgba(255,255,255,.45)]">
         <Link href={cta.primary.href}>{cta.primary.label} <ArrowRight aria-hidden /></Link>
       </Button>
       <Button asChild size="lg" variant="outline" className="h-12 rounded-full border-white/15 px-6 text-[15px] hover:bg-white/5">
@@ -100,26 +79,38 @@ function Actions({ cta, secondary, className }: { cta: CtaCopy; secondary: { lab
 function InviteHint({ cta, className }: { cta: CtaCopy; className?: string }) {
   if (!cta.hint) return null;
   return (
-    <p className={cn("text-sm text-white/55", className)}>
+    <p className={cn("text-sm text-white/60", className)}>
       {cta.hint.text}{" "}
       <Link href={cta.hint.link.href} className="font-medium text-white underline decoration-white/30 underline-offset-4 hover:decoration-white">{cta.hint.link.label}</Link>
     </p>
   );
 }
 
-/** The phone rises in tilted, the artwork opens up and the link sheet slides over it, then it floats. */
+/** A store's own mark, in one colour. Only stores that have a mark are ever passed in. */
+function StoreMark({ platform }: { platform: PlatformKey }) {
+  const logo = PLATFORM_LOGOS[platform];
+  if (!logo) return null;
+  return (
+    <li className="flex items-center gap-2 text-white/55">
+      <svg viewBox="0 0 24 24" aria-hidden className="h-5 w-5 fill-current"><path d={logo.path} /></svg>
+      <span className="text-sm">{platformMeta(platform).name}</span>
+    </li>
+  );
+}
+
+/** The phone rises in and the link sheet slides over the artwork. One moving thing, then it holds still. */
 function HeroPhone() {
   const links = ["spotify", "appleMusic", "beatport"];
   return (
     <div className="mk-phone-wrap relative mx-auto w-full max-w-[420px] py-6 [perspective:1600px]">
-      <div aria-hidden className="absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(139,92,246,.45), rgba(217,70,239,.12) 55%, transparent 75%)" }} />
-      <div className="mk-phone-float relative">
-        <div className="mk-phone relative mx-auto w-[272px] rounded-[2.9rem] border border-white/15 bg-[#0a0a0d] p-2.5 shadow-[0_60px_140px_-40px_rgba(139,92,246,.75),inset_0_0_0_1px_rgba(255,255,255,.04)] sm:w-[292px]">
+      <div aria-hidden className="absolute left-1/2 top-1/2 h-[120%] w-[120%] -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ background: "radial-gradient(closest-side, rgba(139,92,246,.38), rgba(139,92,246,.08) 55%, transparent 75%)" }} />
+      <div className="relative">
+        <div className="mk-phone relative mx-auto w-[272px] rounded-[2.9rem] border border-white/15 bg-[#0a0a0d] p-2.5 shadow-[0_60px_140px_-40px_rgba(139,92,246,.7),inset_0_0_0_1px_rgba(255,255,255,.04)] sm:w-[292px]">
           <div className="absolute left-1/2 top-4 z-20 h-6 w-24 -translate-x-1/2 rounded-full bg-black" aria-hidden />
-          <div className="relative h-[540px] overflow-hidden rounded-[2.35rem] bg-black sm:h-[570px]" style={{ background: "radial-gradient(120% 60% at 50% 0%, rgba(168,85,247,.55) 0%, rgba(236,72,153,.16) 45%, transparent 72%), #050507" }}>
+          <div className="relative h-[540px] overflow-hidden rounded-[2.35rem] bg-black sm:h-[570px]" style={{ background: "radial-gradient(120% 60% at 50% 0%, rgba(139,92,246,.5) 0%, rgba(139,92,246,.1) 45%, transparent 72%), #050507" }}>
             <div className="px-6 pt-12 text-center">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={DEMO_COVER} alt="Example release artwork" width={160} height={160} fetchPriority="high" decoding="async" className="mk-cover mx-auto aspect-square w-[150px] shadow-[0_30px_60px_-18px_rgba(168,85,247,.8)] sm:w-[160px]" />
+              <img src={DEMO_COVER} alt="Example release artwork" width={160} height={160} fetchPriority="high" decoding="async" className="mk-cover mx-auto aspect-square w-[150px] rounded-md shadow-[0_30px_60px_-18px_rgba(139,92,246,.8)] sm:w-[160px]" />
               <p className="mt-3 text-[10px] uppercase tracking-[.24em] text-white/60">Out Friday</p>
               <p className="mt-1 text-lg font-semibold">Two Step Theory</p>
               <p className="text-xs text-white/60">Your Artist</p>
@@ -127,9 +118,9 @@ function HeroPhone() {
             <div className="mk-sheet absolute inset-x-0 bottom-0 rounded-t-[1.75rem] border-t border-white/10 bg-[#0f0f14] px-4 pb-5 pt-3 shadow-[0_-20px_60px_-20px_rgba(0,0,0,.9)]">
               <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/20" aria-hidden />
               <div className="mk-stagger space-y-2">
-                <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-white/40">you@email.com</div>
+                <div className="rounded-xl border border-white/10 bg-black/40 px-3 py-2.5 text-xs text-white/45">you@email.com</div>
                 <div>
-                  <p className="mb-1.5 text-[10px] text-white/50">Where do you listen?</p>
+                  <p className="mb-1.5 text-[10px] text-white/55">Where do you listen?</p>
                   <div className="flex flex-wrap gap-1">
                     {links.map((p, i) => (
                       <span key={p} className={cn("rounded-full border px-2 py-1 text-[10px]", i === 0 ? "border-white bg-white text-black" : "border-white/15 text-white/75")}>{platformMeta(p).name}</span>
@@ -137,220 +128,194 @@ function HeroPhone() {
                   </div>
                 </div>
                 <div className="rounded-xl bg-white py-2.5 text-center text-xs font-semibold text-black">Pre-save with email</div>
-                <div className="flex items-center gap-2 rounded-xl border border-[#1ED760]/30 bg-[#1ED760]/10 p-1.5 pr-2 text-xs">
+                <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-white/[0.04] p-1.5 pr-2 text-xs">
                   <PlatformIcon platform="spotify" className="h-7 w-7 text-xs" />
                   <span className="flex-1 truncate">Follow on Spotify</span>
-                  <span className="text-[10px] font-semibold text-[#1ED760]">Follow</span>
+                  <span className="text-[10px] font-semibold text-white/80">Follow</span>
                 </div>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Floating proof points (desktop) */}
-        <div className="mk-pop absolute -left-24 top-[46%] hidden w-56 rounded-2xl border border-white/10 bg-[#13111c]/90 p-3 text-xs shadow-2xl lg:block" style={{ animationDelay: "1.7s" }}>
-          <div className="flex items-center gap-2 text-white/60"><Mail className="h-3.5 w-3.5 text-violet-300" /> Release-day email</div>
-          <div className="mt-2 space-y-1.5">
-            {[["Brisbane", "9:00am"], ["London", "9:00am"], ["Los Angeles", "9:00am"]].map(([c, t], i) => (
-              <div key={c} className="flex justify-between"><span className="text-white/80">{c}</span><span className="mk-sweep font-medium tabular-nums text-emerald-300" style={{ animationDelay: `${i * 0.6}s` }}>{t}</span></div>
+        {/* One proof point, clear of the phone (desktop). */}
+        <div className="mk-pop absolute -left-32 bottom-[2%] hidden w-56 rounded-2xl border border-white/10 bg-[#13111c]/95 p-3.5 text-xs shadow-2xl xl:block" style={{ animationDelay: "1.7s" }}>
+          <div className="flex items-center gap-2 text-white/65"><Mail className="h-3.5 w-3.5 text-violet-300" /> Release-day email</div>
+          <div className="mt-2.5 space-y-1.5">
+            {[["Brisbane", "9:00am"], ["London", "9:00am"], ["Los Angeles", "9:00am"]].map(([c, t]) => (
+              <div key={c} className="flex justify-between"><span className="text-white/80">{c}</span><span className="font-medium tabular-nums text-white">{t}</span></div>
             ))}
           </div>
-        </div>
-        <div className="mk-pop absolute -right-16 -top-2 hidden w-52 rounded-2xl border border-white/10 bg-[#13111c]/90 p-3 text-xs shadow-2xl lg:block" style={{ animationDelay: "2s" }}>
-          <div className="flex items-center justify-between gap-2 text-white/60"><span className="flex items-center gap-2"><BarChart3 className="h-3.5 w-3.5 text-violet-300" /> Busiest time</span><span className="text-[9px] uppercase tracking-wider text-white/35">Example</span></div>
-          <p className="mt-1.5 text-sm font-semibold">Thu 7pm to 10pm</p>
-          <div className="mt-2 grid grid-cols-12 gap-[2px]" aria-hidden>
-            {Array.from({ length: 36 }, (_, i) => {
-              const v = [1, 1, 2, 1, 2, 3, 2, 3, 4, 5, 4, 3][i % 12];
-              return <span key={i} className="aspect-square rounded-[2px]" style={{ background: ["#1c1c21", "#104281", "#1c5cab", "#2a78d6", "#5598e7", "#9ec5f4"][v] }} />;
-            })}
-          </div>
+          <p className="mt-2.5 text-[11px] text-white/55">Each fan&apos;s own time.</p>
         </div>
       </div>
     </div>
   );
 }
 
-function Bento() {
+/** A big feature: words on one side, the thing itself on the other, swapping sides down the page. */
+function FeatureRow({ icon: Icon, kicker, title, body, visual, flip, link }: { icon: React.ElementType; kicker: string; title: string; body: React.ReactNode; visual: React.ReactNode; flip?: boolean; link?: { href: string; label: string } }) {
   return (
-    <div className="grid gap-4 md:grid-cols-6">
-      {/* Timezones */}
-      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-4">
-        <div className="flex items-center gap-2 text-sm text-violet-200"><Globe className="h-4 w-4" /> Pre-saves that follow the sun</div>
-        <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-tight">Out at midnight in every country. In their inbox at 9am their time.</h3>
-        <p className="mt-2 max-w-lg text-sm text-white/60">Stores release country by country, so droplr does too. The page flips, Spotify saves land and the release-day email arrives when the track has actually unlocked for that fan.</p>
-        <div className="mt-6 grid gap-3 sm:grid-cols-3">
-          {[["Brisbane", "Fri 25 Sep", "+10:00"], ["London", "Fri 25 Sep", "+01:00"], ["Los Angeles", "Fri 25 Sep", "−07:00"]].map(([city, day, off], i) => (
-            <div key={city} className="rounded-2xl border border-white/10 bg-black/30 p-4">
-              <div className="flex items-center justify-between text-xs text-white/50"><span>{city}</span><span className="font-mono">{off}</span></div>
-              <div className="mt-3 text-3xl font-semibold tabular-nums">9:00<span className="text-base text-white/50">am</span></div>
-              <div className="mt-1 flex items-center gap-1.5 text-xs text-emerald-300"><span className="mk-sweep h-1.5 w-1.5 rounded-full bg-emerald-400" style={{ animationDelay: `${i * 0.7}s` }} /> {day} · email sent</div>
-            </div>
-          ))}
+    <div className="mk-reveal grid items-center gap-10 py-14 md:grid-cols-2 md:gap-16 md:py-20">
+      <div className={cn("max-w-lg", flip && "md:order-2")}>
+        <div className="flex items-center gap-2 text-sm text-violet-200"><Icon className="h-4 w-4" aria-hidden /> {kicker}</div>
+        <h3 className="mt-4 text-balance text-3xl font-semibold tracking-[-0.025em] md:text-[2.5rem] md:leading-[1.08]">{title}</h3>
+        <div className="mt-4 space-y-3 text-base leading-relaxed text-white/65">{body}</div>
+        {link && (
+          <Link href={link.href} className="mt-6 inline-flex items-center gap-1.5 text-sm font-medium text-violet-200 hover:text-white">
+            {link.label} <ArrowRight className="h-4 w-4" aria-hidden />
+          </Link>
+        )}
+      </div>
+      <div className={cn("relative", flip && "md:order-1")}>{visual}</div>
+    </div>
+  );
+}
+
+function Panel({ children, className }: { children: React.ReactNode; className?: string }) {
+  return <div className={cn("relative overflow-hidden rounded-[1.75rem] border border-white/10 bg-[linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.015))] p-6 shadow-[0_40px_120px_-60px_rgba(139,92,246,.6)] sm:p-8", className)}>{children}</div>;
+}
+
+function TimezoneVisual() {
+  return (
+    <Panel>
+      <div className="grid grid-cols-3 gap-2 sm:gap-3">
+        {["Brisbane", "London", "Los Angeles"].map((city) => (
+          <div key={city} className="rounded-2xl border border-white/10 bg-black/30 p-3 sm:p-4">
+            <div className="truncate text-[11px] text-white/55 sm:text-xs">{city}</div>
+            <div className="mt-3 text-2xl font-semibold tabular-nums sm:text-3xl">9:00<span className="text-sm text-white/55 sm:text-base">am</span></div>
+            <div className="mt-1 text-[11px] text-white/60 sm:text-xs">Friday · sent</div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 text-sm text-white/55">Same release, same Friday. The email arrives when the track has actually unlocked for that fan.</p>
+    </Panel>
+  );
+}
+
+function LinksVisual() {
+  const rows: { p: PlatformKey; note: string; flag?: boolean }[] = [
+    { p: "beatport", note: "Exclusive until 14 Nov" },
+    { p: "spotify", note: "Play" },
+    { p: "bandcamp", note: "Not yet", flag: true },
+  ];
+  return (
+    <Panel>
+      <ExampleTag className="absolute right-5 top-5" />
+      <p className="text-sm font-medium text-white/80">Two Step Theory · smart link</p>
+      <ul className="mt-4 space-y-2">
+        {rows.map((r) => (
+          <li key={r.p} className={cn("flex items-center gap-3 rounded-xl border p-2.5 pr-3 text-sm", r.flag ? "border-amber-300/25 bg-amber-300/[0.05]" : "border-white/10 bg-white/[0.04]")}>
+            <PlatformIcon platform={r.p} className="h-8 w-8 text-xs" />
+            <span className="flex-1">{platformMeta(r.p).name}</span>
+            <span className={cn("text-xs", r.flag ? "text-amber-100/90" : "text-white/60")}>{r.note}</span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-4 flex items-start gap-2.5 rounded-xl border border-amber-300/25 bg-amber-300/[0.07] p-3 text-[13px] leading-snug text-amber-100/90">
+        <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+        <span>Publishing the Bandcamp link now would break the Beatport exclusive, under your distributor&apos;s rules.</span>
+      </div>
+    </Panel>
+  );
+}
+
+function GateVisual() {
+  const steps = [
+    { label: "Enter your email", note: "Joins your fan list", tone: "text-white/60" },
+    { label: "Follow on SoundCloud", note: "Done for the fan, not just a link", tone: "text-violet-200" },
+    { label: "Follow on Instagram", note: "On trust. Nobody can check this one", tone: "text-white/50" },
+  ];
+  return (
+    <Panel>
+      <ExampleTag className="absolute right-5 top-5" />
+      <p className="text-sm font-medium text-white/80">Free download · Edit pack</p>
+      <ul className="mt-4 space-y-2">
+        {steps.map((s, i) => (
+          <li key={s.label} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/[0.04] p-3">
+            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-full border border-white/15 text-xs text-white/70">{i + 1}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm">{s.label}</span>
+              <span className={cn("block text-xs", s.tone)}>{s.note}</span>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="mt-5 border-t border-white/10 pt-4">
+        <p className="text-xs text-white/55">How far people got</p>
+        <div className="mt-2 space-y-1.5" aria-hidden>
+          {[92, 74, 66].map((w, i) => <span key={i} className="block h-1.5 rounded-full bg-violet-400/70" style={{ width: `${w}%` }} />)}
         </div>
       </div>
-      {/* Insights */}
-      <div className="mk-card mk-reveal p-6 md:col-span-2">
-        <div className="flex items-center gap-2 text-sm text-violet-200"><BarChart3 className="h-4 w-4" /> Insights</div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">Know exactly when to post.</h3>
-        <p className="mt-2 text-sm text-white/60">When fans are active in their own time, where they are, and which source converts.</p>
-        <div className="mt-5 grid grid-cols-12 gap-[3px]" aria-hidden>
-          {Array.from({ length: 84 }, (_, i) => {
-            const h = i % 12;
-            const d = Math.floor(i / 12);
-            const v = Math.min(5, Math.max(0, Math.round(((h >= 7 ? 3 : 1) + (d === 3 || d === 5 ? 2 : 0) + ((i * 7) % 3) - 1))));
-            return <span key={i} className="aspect-square rounded-[3px]" style={{ background: ["#1c1c21", "#104281", "#1c5cab", "#2a78d6", "#5598e7", "#9ec5f4"][v] }} />;
+    </Panel>
+  );
+}
+
+function BioVisual() {
+  return (
+    <div className="relative mx-auto w-full max-w-[300px]">
+      <ExampleTag className="absolute -right-2 -top-2 z-10" />
+      <div className="rounded-[1.75rem] border border-white/10 bg-[#0f0f14] p-5 shadow-[0_40px_120px_-50px_rgba(139,92,246,.7)]">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/demo/avatar.svg" alt="" width={56} height={56} loading="lazy" className="mx-auto h-14 w-14 rounded-full" />
+        <div className="mt-3 text-center text-sm font-semibold">Your Artist</div>
+        <div className="mt-2 flex justify-center gap-3 text-white/70">
+          {(["instagram", "tiktok", "soundcloud", "youtube"] as PlatformKey[]).map((p) => {
+            const logo = PLATFORM_LOGOS[p];
+            return logo ? <svg key={p} viewBox="0 0 24 24" aria-hidden className="h-4 w-4 fill-current"><path d={logo.path} /></svg> : null;
           })}
         </div>
-      </div>
-      {/* Share graphics */}
-      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-2">
-        <div className="flex items-center gap-2 text-sm text-violet-200"><ImageIcon className="h-4 w-4" /> Share graphics</div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">Stories that make themselves.</h3>
-        <p className="mt-2 text-sm text-white/60">Countdown, out now, pre-save milestones and a lyric card, sized for Instagram, made from your artwork, your logo and a line you pick.</p>
-        <div className="relative mt-6 flex h-40 items-end justify-center" aria-hidden>
-          {[{ r: -14, x: -70, t: "7 days to go" }, { r: -5, x: -24, t: "Out now" }, { r: 5, x: 24, t: "500 pre-saves" }, { r: 14, x: 70, t: "\u201CLyric\u201D" }].map((c, i) => (
-            <div key={c.t} className="absolute bottom-0 flex h-36 w-20 flex-col items-center justify-end rounded-xl border border-white/15 p-2 shadow-xl" style={{ transform: `translateX(${c.x}px) rotate(${c.r}deg)`, zIndex: i === 1 || i === 2 ? 2 : 1, background: "radial-gradient(90% 60% at 50% 20%, rgba(168,85,247,.7), rgba(15,15,20,1) 75%)" }}>
-              <span className="mb-auto mt-2 aspect-square w-12 rounded-md bg-[linear-gradient(135deg,#f0abfc,#7c3aed)]" />
-              <span className="rounded-full bg-white px-1.5 py-0.5 text-[7px] font-bold text-black">{c.t}</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* Promo plan */}
-      <div className="mk-card mk-reveal p-6 md:col-span-2">
-        <div className="flex items-center gap-2 text-sm text-violet-200"><CalendarCheck className="h-4 w-4" /> Promo plan</div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">What to post, and when.</h3>
-        <ul className="mt-4 space-y-2 text-sm">
-          {[["Announce + countdown graphic", true], ["Pitch to Spotify editors", true], ["Teaser clip at your busiest hour", false], ["Release day: out now", false]].map(([t, done]) => (
-            <li key={t as string} className="flex items-center gap-2.5">
-              <span className={cn("grid h-4 w-4 place-items-center rounded border text-[10px]", done ? "border-emerald-400 bg-emerald-400 text-black" : "border-white/25")}>{done ? "✓" : ""}</span>
-              <span className={done ? "text-white/45 line-through" : "text-white/85"}>{t}</span>
-            </li>
-          ))}
-        </ul>
-      </div>
-      {/* Fan list. Third in its row: before the bio card, so the row of three is full and the
-          full-width card below it starts clean. */}
-      <div className="mk-card mk-reveal p-6 md:col-span-2">
-        <div className="flex items-center justify-between gap-2 text-sm text-violet-200"><span className="flex items-center gap-2"><Users className="h-4 w-4" /> Fan list</span><span className="text-[10px] uppercase tracking-wider text-white/40">Example</span></div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">Fans you keep, not rent.</h3>
-        <p className="mt-2 text-sm text-white/60">Every pre-saver across every release, with the store they use, where they are and whether they opted in to news.</p>
-        <div className="mt-5 flex items-end gap-6">
-          <div><div className="text-3xl font-semibold tabular-nums">2,418</div><div className="text-xs text-white/50">fans</div></div>
-          <div><div className="text-3xl font-semibold tabular-nums text-emerald-300">61%</div><div className="text-xs text-white/50">opted in to news</div></div>
-        </div>
-      </div>
-      {/* Bio link. Full width: it is the page an artist uses most of the year. */}
-      <div className="mk-card mk-reveal overflow-hidden p-6 md:col-span-6">
-        <div className="grid gap-8 md:grid-cols-2 md:items-center">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-violet-200"><LinkIcon className="h-4 w-4" /> Bio link</div>
-            <h3 className="mt-3 max-w-md text-2xl font-semibold tracking-tight">Between releases, it&apos;s still your page.</h3>
-            <p className="mt-2 max-w-lg text-sm text-white/60">
-              One link for everything you do. Your latest release sits at the top and changes by itself, because
-              droplr already has the record. Under it go your links, your social icons, videos that play on the page
-              and merch as pictures that open your shop. Switch on the email box and fans can ask to hear about the
-              next one.
-            </p>
-            <p className="mt-3 max-w-lg text-sm text-white/60">
-              Pick one of four looks and one of four fonts, then your own text and glow colours and a background
-              you can blur. You see where people came from and what they tapped. The bio page, its looks included,
-              is on every plan, including Free. Release and download pages get the same looks from Artist.
-            </p>
-            <Link href="/demo/demo-track?view=bio" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-violet-200 hover:text-white">
-              See a demo bio page <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
-          <div className="relative mx-auto w-full max-w-[280px]" aria-hidden>
-            <div className="absolute -right-2 -top-2 z-10 rounded-full border border-white/15 bg-black/70 px-2 py-0.5 text-[10px] uppercase tracking-wider text-white/50">Example</div>
-            <div className="rounded-[1.75rem] border border-white/10 bg-[#0f0f14] p-5">
-              <div className="mx-auto h-14 w-14 rounded-full" style={{ background: "linear-gradient(140deg,#8B5CF6,#22D3EE)" }} />
-              <div className="mt-3 text-center text-sm font-semibold">Your Artist</div>
-              <div className="mt-2 flex justify-center gap-2">
-                {["instagram", "tiktok", "soundcloud", "youtube"].map((p) => <PlatformIcon key={p} platform={p} className="h-6 w-6 text-[9px]" />)}
-              </div>
-              <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={DEMO_COVER} alt="" width={36} height={36} loading="lazy" className="h-9 w-9 rounded-md" />
-                <span className="min-w-0 flex-1">
-                  <span className="block text-[9px] uppercase tracking-[.18em] text-white/50">Out Friday</span>
-                  <span className="block truncate text-xs font-semibold">Two Step Theory</span>
-                </span>
-                <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-black">Pre-save</span>
-              </div>
-              <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/85">Tickets: Saturday show</div>
-              <div className="relative mt-2 grid aspect-video place-items-center overflow-hidden rounded-xl border border-white/10" style={{ background: "linear-gradient(135deg,#1e1033,#3b0a2e)" }}>
-                <span className="grid h-8 w-8 place-items-center rounded-full bg-black/70 ring-1 ring-white/30"><svg viewBox="0 0 24 24" className="ml-0.5 h-3.5 w-3.5 fill-white"><path d="M8 5.5v13l11-6.5z" /></svg></span>
-              </div>
-              <div className="mt-2 grid grid-cols-3 gap-1.5">
-                {["/demo/merch-tee.svg", "/demo/merch-hoodie.svg", "/demo/merch-vinyl.svg"].map((src) => (
-                  /* eslint-disable-next-line @next/next/no-img-element */
-                  <img key={src} src={src} alt="" width={72} height={72} loading="lazy" className="aspect-square w-full rounded-lg border border-white/10" />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      {/* Download gates */}
-      <div className="mk-card mk-reveal p-6 md:col-span-2">
-        <div className="flex items-center justify-between gap-2 text-sm text-violet-200"><span className="flex items-center gap-2"><Download className="h-4 w-4" /> Download gates</span><span className="text-[10px] uppercase tracking-wider text-white/40">Example</span></div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">A free pack that grows your list.</h3>
-        <p className="mt-2 text-sm text-white/60">Stems, edits or an unreleased track behind an email or a follow. The page tells fans which steps are checked and which are on trust, and the file&apos;s address is never in the page.</p>
-        <p className="mt-4 text-xs text-white/50">How far people got</p>
-        <div className="mt-2 space-y-1.5 text-xs" aria-hidden>
-          {[["Email", 82], ["SoundCloud follow", 64], ["Got the file", 58]].map(([label, v]) => (
-            <div key={label as string} className="flex items-center gap-2">
-              <span className="w-28 shrink-0 text-white/70">{label}</span>
-              <span className="h-2 rounded-full bg-violet-400/80" style={{ width: `${(v as number) * 0.6}%` }} />
-              <span className="tabular-nums text-white/45">{v}%</span>
-            </div>
-          ))}
-        </div>
-      </div>
-      {/* Spotify playlist context */}
-      <div className="mk-card mk-reveal p-6 md:col-span-2">
-        <div className="flex items-center gap-2 text-sm text-violet-200"><ListMusic className="h-4 w-4" /> Spotify button</div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">Open the song inside your playlist.</h3>
-        <p className="mt-2 text-sm text-white/60">Add one of your playlists and, when the Spotify button is the track&apos;s own link, it opens the track inside that playlist. When a fan plays it, what comes next is your playlist, not a song Spotify chose. Settings tell you when it can&apos;t apply. Free on every plan.</p>
-        <div className="mt-5 flex items-center gap-2 rounded-xl border border-[#1ED760]/30 bg-[#1ED760]/10 p-1.5 pr-3 text-xs" aria-hidden>
-          <PlatformIcon platform="spotify" className="h-7 w-7 text-xs" />
+        <div className="mt-4 flex items-center gap-2.5 rounded-xl border border-white/10 bg-white/[0.04] p-2">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={DEMO_COVER} alt="" width={36} height={36} loading="lazy" className="h-9 w-9 rounded-md" />
           <span className="min-w-0 flex-1">
-            <span className="block font-medium">Spotify</span>
-            <span className="block truncate text-[10px] text-white/50">Opens in: your playlist</span>
+            <span className="block text-[9px] uppercase tracking-[.18em] text-white/55">Out Friday</span>
+            <span className="block truncate text-xs font-semibold">Two Step Theory</span>
           </span>
-          <span className="text-[10px] font-semibold text-[#1ED760]">Play</span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-[10px] font-semibold text-black">Pre-save</span>
+        </div>
+        <div className="mt-2 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-xs text-white/85">Tickets: Saturday show</div>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/demo/video-still.svg" alt="" width={260} height={146} loading="lazy" className="mt-2 aspect-video w-full rounded-xl border border-white/10 object-cover" />
+        <div className="mt-2 grid grid-cols-3 gap-1.5">
+          {["/demo/merch-tee.svg", "/demo/merch-hoodie.svg", "/demo/merch-vinyl.svg"].map((src) => (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img key={src} src={src} alt="" width={72} height={72} loading="lazy" className="aspect-square w-full rounded-lg border border-white/10" />
+          ))}
         </div>
       </div>
-      {/* Free release plan tool. A real link, not a mock: it works without an account. */}
-      <div className="mk-card mk-reveal p-6 md:col-span-2">
-        <div className="flex items-center gap-2 text-sm text-violet-200"><CalendarDays className="h-4 w-4" /> Free tool</div>
-        <h3 className="mt-3 text-xl font-semibold tracking-tight">A release plan, no account needed.</h3>
-        <p className="mt-2 text-sm text-white/60">Pick your release day and get every step dated. Add it to your calendar or copy it out.</p>
-        <ul className="mt-4 space-y-1.5 text-xs">
-          {PLAN_PREVIEW.map((s) => (
-            <li key={s.key} className="flex gap-3"><span className="w-24 shrink-0 text-white/45">{relativeLabel(s.day)}</span><span className="text-white/85">{s.title}</span></li>
-          ))}
-        </ul>
-        <Link href="/tools/release-plan" className="mt-5 inline-flex items-center gap-1.5 text-sm font-medium text-violet-200 hover:text-white">
-          Make your plan <ArrowRight className="h-4 w-4" aria-hidden />
-        </Link>
-      </div>
+    </div>
+  );
+}
+
+function AudienceColumn({ title, items }: { title: string; items: { title: string; body: string }[] }) {
+  return (
+    <div className="mk-card p-7 md:p-8">
+      <h3 className="text-xl font-semibold tracking-tight">{title}</h3>
+      <ol className="mt-6 space-y-5">
+        {items.map((it, i) => (
+          <li key={it.title} className="flex gap-4">
+            <span className="mt-0.5 font-mono text-xs text-violet-300/80">{String(i + 1).padStart(2, "0")}</span>
+            <span>
+              <span className="block font-medium">{it.title}</span>
+              <span className="mt-1 block text-[15px] leading-relaxed text-white/65">{it.body}</span>
+            </span>
+          </li>
+        ))}
+      </ol>
     </div>
   );
 }
 
 /* ---------- Page ---------- */
 
-/** Posts appear on their publishAt, so the homepage cannot be baked once at build time. */
-export const revalidate = 300;
-
 /** Title and description come from the layout; a UTM-tagged share must still point here. */
 export const metadata = { alternates: { canonical: "/" } };
 
+/** The questions shown open on the page; the rest sit behind "More questions". */
+const TOP_FAQ = 7;
+
 export default function Landing() {
-  const news = liveNews(new Date()).slice(0, 2);
   const cta = ctaCopy();
   const tiers = pricingTiers();
   const faqs: { q: string; a: React.ReactNode }[] = [
@@ -380,8 +345,8 @@ export default function Landing() {
       a: (
         <>
           <p>Fair question, and the honest answer is the reason droplr exists. One person runs it, and droplr has no investors to outlast — it stays up on what subscriptions pay for.</p>
-          <p className="mt-3">So here is exactly what you walk away with, on every plan including Free. Your fan list is yours: every address is visible on Free and exports as CSV on any paid plan, with the consent each person gave and the date they gave it. Your release pages and their links are yours to point anywhere. Nothing is locked to droplr and nothing has to be asked for.</p>
-          <p className="mt-3">That matters because of what has already happened to other people. smartURL was bought and its analytics closed on migration. Songwhip shut down and the links in people&apos;s bios stopped resolving. Songlink switched off its API with about six weeks&apos; notice. Every time, the link survived and the data didn&apos;t. <strong className="text-foreground">Take your list with you now, not when you need it.</strong></p>
+          <p className="mt-3">So here is exactly what you walk away with, on every plan including Free. Your fan list is yours: every address is visible on Free and exports as CSV on any paid plan, with the consent each person gave and the date they gave it. None of that has to be asked for. The one thing that doesn&apos;t outlive droplr is a link on droplr itself, which is exactly why the list matters.</p>
+          <p className="mt-3">That matters because of what has already happened to other people. smartURL was bought and its analytics closed on migration. Songwhip shut down and the links in people&apos;s bios stopped resolving. Songlink switched off its API with about six weeks&apos; notice. Every time, the fan data was the part people couldn&apos;t get back. <strong className="text-foreground">Take your list with you now, not when you need it.</strong></p>
         </>
       ),
     },
@@ -442,12 +407,34 @@ export default function Landing() {
     },
     {
       q: "Is there a phone app?",
-      a: <p>Yes, without the App Store. Open your dashboard on your phone and add it to your Home Screen (Safari or Chrome on iPhone, Chrome on Android). It opens full screen and can notify you about pre-save milestones, release day and replies from the droplr team.</p>,
+      a: <p>Yes, without the App Store. Open your dashboard on your phone and add it to your Home Screen (Safari or Chrome on iPhone, Chrome on Android). It opens full screen and can notify you about pre-save milestones, release day and replies from me.</p>,
     },
     ...(cta.open
       ? []
       : [{ q: "Can anyone sign up?", a: <p>Not yet. I&apos;m onboarding a small group of artists and labels first. <Link href={cta.primary.href} className="text-foreground underline underline-offset-4">Request early access</Link>, or email {CONTACT.hello}. Have an invite? <Link href={cta.hint!.link.href} className="text-foreground underline underline-offset-4">Sign up</Link>.</p> }]),
   ];
+  // Ordered by what someone deciding needs first. Every answer is unchanged.
+  const ORDER = [
+    "Do Spotify pre-saves go straight into fans' libraries?",
+    "What's the catch on Free?",
+    "Is droplr.fm for artists or labels?",
+    "It's one person. What happens to my stuff if you stop?",
+    "Can I customise how my release page looks?",
+    "I already have a fan list somewhere else. Can I bring it?",
+    "Can I use my own domain?",
+  ];
+  const ordered = [...ORDER.map((q) => faqs.find((f) => f.q === q)).filter((f): f is (typeof faqs)[number] => !!f), ...faqs.filter((f) => !ORDER.includes(f.q))];
+  const shown = ordered.slice(0, TOP_FAQ);
+  const more = ordered.slice(TOP_FAQ);
+  const faqItem = (f: (typeof faqs)[number]) => (
+    <details key={f.q} className="group px-6">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-medium [&::-webkit-details-marker]:hidden">
+        <span>{f.q}</span>
+        <ChevronDown className="h-4 w-4 shrink-0 text-white/55 transition-transform duration-300 group-open:rotate-180" aria-hidden />
+      </summary>
+      <div className="pb-6 text-[15px] leading-relaxed text-white/65">{f.a}</div>
+    </details>
+  );
 
   return (
     <MarketingShell>
@@ -458,17 +445,17 @@ export default function Landing() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div aria-hidden className="mk-grid-bg pointer-events-none absolute inset-0" />
-        <div aria-hidden className="mk-aurora pointer-events-none absolute -top-1/3 left-1/2 h-[900px] w-[1200px] -translate-x-1/2" style={{ background: "radial-gradient(40% 40% at 40% 40%, rgba(139,92,246,.35), transparent 70%), radial-gradient(30% 30% at 65% 55%, rgba(217,70,239,.18), transparent 70%)" }} />
-        <div className="container relative grid items-center gap-10 pb-16 pt-14 md:pt-20 lg:grid-cols-[1.05fr_.95fr] lg:gap-6 lg:pb-24">
+        <div aria-hidden className="pointer-events-none absolute -top-1/3 left-1/2 h-[900px] w-[1200px] -translate-x-1/2" style={{ background: "radial-gradient(40% 40% at 40% 40%, rgba(139,92,246,.32), transparent 70%), radial-gradient(30% 30% at 65% 55%, rgba(139,92,246,.12), transparent 70%)" }} />
+        <div className="container relative grid items-center gap-10 pb-16 pt-12 md:pt-16 lg:grid-cols-[1.05fr_.95fr] lg:gap-6 lg:pb-24">
           <div className="min-w-0">
             <p className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-xs text-white/70">
               <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden /> For independent artists and the labels behind them
             </p>
-            <h1 className="mk-text-gradient mt-6 text-balance text-[2.6rem] font-semibold leading-[1.02] tracking-[-0.035em] sm:text-6xl lg:text-7xl">
-              Launch every release like a label would.
+            <h1 className="mk-text-gradient mt-6 text-balance text-[2.5rem] font-semibold leading-[1.02] tracking-[-0.04em] sm:text-6xl lg:text-[4.25rem]">
+              Every release, launched properly.
             </h1>
-            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-white/65">
-              Pre-saves that land at 9am in every fan&apos;s timezone. Smart links with the DJ stores. A promo plan that tells you what to post and when, and a fan list you keep.
+            <p className="mt-6 max-w-xl text-pretty text-lg leading-relaxed text-white/70">
+              Pre-saves with a release-day email at 9am in each fan&apos;s own timezone. Smart links with Beatport and Bandcamp next to Spotify. Download gates, a bio page that keeps itself up to date, and a promo plan for every release. For one artist or a whole roster.
             </p>
             <Actions cta={cta} secondary={{ label: "See a live demo", href: "/demo/demo-track" }} className="mt-9" />
             <InviteHint cta={cta} className="mt-4" />
@@ -477,136 +464,180 @@ export default function Landing() {
         </div>
       </section>
 
-      {/* Store marquee */}
-      <section aria-label="Stores and platforms" className="border-y border-white/5 bg-white/[0.015] py-6">
-        <div className="mk-mask-x overflow-hidden">
-          <div className="mk-marquee flex w-max gap-3">
-            {[...STORES, ...STORES].map((p, i) => (
-              <span key={`${p}-${i}`} aria-hidden={i >= STORES.length} className="flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] py-1.5 pl-1.5 pr-4 text-sm text-white/70">
-                <PlatformIcon platform={p} className="h-6 w-6 text-[10px]" /> {platformMeta(p).name}
-              </span>
-            ))}
-          </div>
+      {/* Stores: one still row of real marks */}
+      <section aria-label="Stores droplr links to" className="border-y border-white/5 bg-white/[0.015]">
+        <div className="container flex flex-col items-center gap-5 py-8 text-center">
+          <p className="text-xs font-medium uppercase tracking-[0.2em] text-white/55">The DJ stores, next to the big ones</p>
+          <ul className="flex flex-wrap items-center justify-center gap-x-8 gap-y-3">
+            {STORE_ROW.map((p) => <StoreMark key={p} platform={p} />)}
+          </ul>
+        </div>
+      </section>
+
+      {/* Who built it. The only honest stand-in for testimonials droplr has, so it goes near the top. */}
+      <section className="container pt-20 md:pt-24">
+        <div className="mk-reveal mx-auto max-w-3xl text-center">
+          <p className="text-balance text-2xl font-medium leading-snug tracking-[-0.015em] text-white/90 md:text-[1.75rem]">
+            &ldquo;I built droplr for my own releases, because the tools I was using didn&apos;t know how dance music actually comes out: country by country, on DJ stores, often with an exclusive window.&rdquo;
+          </p>
+          <p className="mt-5 text-sm text-white/60">
+            Cody Morrison (Ototo) · UK garage DJ and producer, runs Rhythm Revolt Records in Brisbane. It&apos;s just me, so when you email, you&apos;re talking to the person who can fix it.
+          </p>
         </div>
       </section>
 
       {/* Product */}
-      <section id="product" className="container scroll-mt-16 py-24">
+      <section id="product" className="container scroll-mt-16 pt-16 md:pt-24">
         <div className="mk-reveal max-w-2xl">
           <Eyebrow>The product</Eyebrow>
           <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Everything around the release, handled.</h2>
-          <p className="mt-4 text-lg text-white/60">Built from what independent releases actually need: reach, timing, and fans you get to keep.</p>
         </div>
-        <div className="mt-12"><Bento /></div>
-      </section>
+        <div className="divide-y divide-white/5">
+          <FeatureRow
+            icon={Globe}
+            kicker="Pre-saves that follow the sun"
+            title="Out at midnight in every country. In their inbox at 9am their time."
+            body={<>
+              <p>Stores release country by country, so droplr does too. The page flips at midnight wherever the fan is, and the release-day email leads with the store they picked.</p>
+              <p>Spotify only lets new apps save music for a handful of people, so droplr leads with an email pre-save that works for every fan, and a Follow button so you show up in their Spotify.</p>
+            </>}
+            link={{ href: "/docs/spotify-byo", label: "How pre-saves work" }}
+            visual={<TimezoneVisual />}
+          />
+          <FeatureRow
+            flip
+            icon={LinkIcon}
+            kicker="Smart links that know the release"
+            title="Beatport and Bandcamp next to Spotify. And a warning before you break an exclusive."
+            body={<>
+              <p>Paste a Spotify link and the artwork, colour and store links fill in, DJ stores included. Unreleased is fine.</p>
+              <p>Tell droplr a release is exclusive to Beatport and it warns you before a link breaks the window. It checks your barcode, ISRC and titles against what stores reject, too.</p>
+            </>}
+            visual={<LinksVisual />}
+          />
+          <FeatureRow
+            icon={Download}
+            kicker="Download gates"
+            title="A free pack that grows a list you keep."
+            body={<>
+              <p>Put stems, an edit pack or an unreleased track behind an email or a follow. Connect your own SoundCloud app (it needs SoundCloud Artist Pro) and the follow and repost are actually done for the fan.</p>
+              <p>Every step that can&apos;t be checked says so, and the file&apos;s address is never in the page.</p>
+            </>}
+            visual={<GateVisual />}
+          />
+          <FeatureRow
+            flip
+            icon={LinkIcon}
+            kicker="Bio link"
+            title="Between releases, it's still your page."
+            body={<>
+              <p>Your latest release sits at the top and changes by itself. Under it go your links, social icons, videos that play on the page and merch that opens your shop. Four looks, four fonts, your own colours.</p>
+              <p>The bio page, looks included, is on every plan, including Free.</p>
+            </>}
+            link={{ href: "/demo/demo-track?view=bio", label: "See a demo bio page" }}
+            visual={<BioVisual />}
+          />
+        </div>
 
-      {/* Audience */}
-      <section className="border-y border-white/5 bg-white/[0.015]">
-        <div className="container py-24">
-          <div className="mk-reveal mb-10 max-w-2xl">
-            <Eyebrow>Built for both sides</Eyebrow>
-            <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Going it alone, or running a roster.</h2>
-          </div>
-          <div className="mk-reveal"><AudienceStory artist={FOR_ARTISTS} label={FOR_LABELS} /></div>
-        </div>
-      </section>
-
-      {/* Roadmap */}
-      <section id="roadmap" className="container scroll-mt-16 py-24">
-        <div className="mk-reveal max-w-2xl">
-          <Eyebrow>Where it&apos;s going</Eyebrow>
-          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">From your first <span className="whitespace-nowrap">pre-save</span> to getting signed.</h2>
-          <p className="mt-4 text-lg text-white/60">What&apos;s shipped, and the order I&apos;m building the rest in. Dates when things ship, not before.</p>
-        </div>
-        <div className="mt-12 grid gap-4 lg:grid-cols-3">
-          {ROADMAP.map((col) => (
-            <div key={col.status} className={cn("mk-card mk-reveal p-6", col.status === "Live now" && "border-emerald-400/30 bg-[linear-gradient(180deg,rgba(52,211,153,.10),rgba(52,211,153,.015))]", col.status === "Next" && "border-violet-400/40 bg-[linear-gradient(180deg,rgba(139,92,246,.12),rgba(139,92,246,.02))]")}>
-              <span className={cn("inline-flex items-center gap-2 rounded-full border px-2.5 py-1 text-xs font-medium", col.status === "Live now" ? "border-emerald-300/40 text-emerald-100" : col.status === "Next" ? "border-violet-300/40 text-violet-100" : "border-white/15 text-white/70")}>
-                <span className={cn("h-1.5 w-1.5 rounded-full", col.status === "Live now" ? "bg-emerald-400" : col.status === "Next" ? "mk-sweep bg-violet-300" : "bg-white/40")} aria-hidden />
-                {col.status}
-              </span>
-              <ul className="mt-5 space-y-5">
-                {col.items.map((it) => (
-                  <li key={it.title}>
-                    <h3 className="font-semibold">{it.title}</h3>
-                    <p className="mt-1 text-sm leading-relaxed text-white/60">{it.body}</p>
-                  </li>
-                ))}
-              </ul>
-              {col.note && <p className="mt-5 text-sm leading-relaxed text-white/60">{col.note}</p>}
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* News. Hidden entirely until there is something to show: an empty strip is worse than none. */}
-      {news.length > 0 && (
-        <section className="container scroll-mt-16 py-24">
-          <div className="mk-reveal flex flex-wrap items-end justify-between gap-4">
-            <div className="max-w-2xl">
-              <Eyebrow>News</Eyebrow>
-              <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">What happened, and what it means for you.</h2>
-              <p className="mt-4 text-lg text-white/60">Short, sourced explainers on the music-business news that actually reaches independent artists. Watch it or read it.</p>
-            </div>
-            <Link href="/blog" className="inline-flex items-center gap-1.5 text-sm text-white/60 transition-colors hover:text-white">
-              News and guides <ArrowRight className="h-4 w-4" aria-hidden />
-            </Link>
-          </div>
-          <div className="mt-12 grid gap-4 md:grid-cols-2">
-            {news.map((p) => (
-              <Link key={p.slug} href={`/blog/${p.slug}`} className="mk-card mk-reveal group p-6">
-                <span className="text-xs text-white/50">{p.tag} · {p.minutes} min read · {p.runtime} to watch</span>
-                <h3 className="mt-2.5 text-balance text-lg font-semibold">{p.title}</h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-white/60">{p.summary}</p>
-                <span className="mt-4 inline-flex items-center gap-1.5 text-sm text-violet-200 transition-colors group-hover:text-white">
-                  Read it <ArrowRight className="h-4 w-4" aria-hidden />
+        {/* Also included */}
+        <div className="mk-reveal mt-6 rounded-[1.75rem] border border-white/10 bg-white/[0.02] p-6 md:p-10">
+          <h3 className="text-lg font-semibold">Also in droplr</h3>
+          <ul className="mt-6 grid gap-x-10 gap-y-6 sm:grid-cols-2 lg:grid-cols-3">
+            {ALSO.map(({ icon: Icon, title, body }) => (
+              <li key={title} className="flex gap-3.5">
+                <Icon className="mt-0.5 h-5 w-5 shrink-0 text-violet-300" aria-hidden />
+                <span>
+                  <span className="block font-medium">{title}</span>
+                  <span className="mt-1 block text-[15px] leading-relaxed text-white/60">{body}</span>
                 </span>
-              </Link>
+              </li>
             ))}
+          </ul>
+          <div className="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 text-[15px] sm:flex-row sm:items-center sm:justify-between">
+            <span className="text-white/65">Not ready to sign up? The release plan is free, no account needed.</span>
+            <Link href="/tools/release-plan" className="inline-flex items-center gap-1.5 font-medium text-violet-200 hover:text-white">Make your release plan <ArrowRight className="h-4 w-4" aria-hidden /></Link>
           </div>
-        </section>
-      )}
+        </div>
+      </section>
+
+      {/* Audience: both sides visible at once, no toggle */}
+      <section className="container py-24 md:py-32">
+        <div className="mk-reveal mb-10 max-w-2xl">
+          <Eyebrow>Built for both sides</Eyebrow>
+          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Going it alone, or running a roster.</h2>
+        </div>
+        <div className="mk-reveal grid gap-4 md:grid-cols-2">
+          <AudienceColumn title="For artists" items={FOR_ARTISTS} />
+          <AudienceColumn title="For labels" items={FOR_LABELS} />
+        </div>
+      </section>
 
       {/* Pricing */}
       <section id="pricing" className="relative scroll-mt-16 overflow-hidden border-y border-white/5 bg-white/[0.015]">
-        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80" style={{ background: "radial-gradient(50% 100% at 50% 0%, rgba(139,92,246,.18), transparent 70%)" }} />
+        <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-80" style={{ background: "radial-gradient(50% 100% at 50% 0%, rgba(139,92,246,.16), transparent 70%)" }} />
         <div className="container relative py-24">
           <div className="mk-reveal mx-auto mb-10 max-w-2xl text-center">
             <Eyebrow>Pricing</Eyebrow>
             <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Priced per account, not per release.</h2>
-            <p className="mt-4 text-white/60">Australian dollars, including tax. Every plan includes email pre-saves, the release-day email, promo plans and share graphics.</p>
+            <p className="mt-4 text-white/65">Australian dollars, including tax. Every plan includes email pre-saves, the release-day email, promo plans and share graphics.</p>
           </div>
           <div className="mk-reveal"><AudiencePricing artist={tiers.artist} label={tiers.label} /></div>
           <p className="mt-8 text-center text-sm"><Link href="/pricing" className="inline-flex items-center gap-1.5 font-medium text-violet-200 hover:text-white">Compare every feature <ArrowRight className="h-4 w-4" aria-hidden /></Link></p>
         </div>
       </section>
 
+      {/* Your fans stay yours */}
+      <section className="container py-24">
+        <div className="mk-reveal max-w-2xl">
+          <Eyebrow>Your fans stay yours</Eyebrow>
+          <h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">The list is yours, and so is the decision to leave.</h2>
+        </div>
+        <div className="mk-reveal mt-10 grid gap-4 md:grid-cols-3">
+          <div className="mk-card p-6">
+            <h3 className="font-semibold">Every address, on every plan</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-white/65">You can see every fan&apos;s address on every plan, Free included. Export to CSV is on the paid plans, and the whole list downloads on any plan when you close your account.</p>
+          </div>
+          <div className="mk-card p-6">
+            <h3 className="font-semibold">Not used for anything else</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-white/65">droplr handles your fans only to run your pages. I don&apos;t sell them, use them for my own label, or mix them with anyone else&apos;s list. <Link href="/legal/data-processing" className="text-white underline decoration-white/30 underline-offset-4">Read the data processing terms</Link>.</p>
+          </div>
+          <div className="mk-card p-6">
+            <h3 className="font-semibold">Straight answers</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-white/65">Closing your account is one confirmation, with no discount and no second ask. If droplr ever shut down, its links would stop working, which is why the list is always yours to take. Questions go to <a href={`mailto:${CONTACT.hello}`} className="text-white underline decoration-white/30 underline-offset-4">{CONTACT.hello}</a>.</p>
+          </div>
+        </div>
+      </section>
+
       {/* FAQ */}
-      <section id="faq" className="container scroll-mt-16 py-24">
+      <section id="faq" className="container scroll-mt-16 pb-24">
         <div className="mx-auto max-w-3xl">
           <div className="mk-reveal"><Eyebrow>FAQ</Eyebrow><h2 className="mt-4 text-balance text-4xl font-semibold tracking-[-0.03em]">Questions people ask</h2></div>
           <div className="mk-reveal mt-10 divide-y divide-white/10 rounded-3xl border border-white/10 bg-white/[0.02]">
-            {faqs.map((f) => (
-              <details key={f.q} className="group px-6">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-5 font-medium [&::-webkit-details-marker]:hidden">
-                  <span>{f.q}</span>
-                  <ChevronDown className="h-4 w-4 shrink-0 text-white/50 transition-transform duration-300 group-open:rotate-180" aria-hidden />
-                </summary>
-                <div className="pb-6 text-sm leading-relaxed text-white/60">{f.a}</div>
-              </details>
-            ))}
+            {shown.map(faqItem)}
           </div>
+          {more.length > 0 && (
+            <details className="group mk-reveal mt-4 rounded-3xl border border-white/10 bg-white/[0.02]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-6 py-5 text-[15px] font-medium text-white/80 [&::-webkit-details-marker]:hidden">
+                <span>More questions ({more.length})</span>
+                <ChevronDown className="h-4 w-4 shrink-0 text-white/55 transition-transform duration-300 group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="divide-y divide-white/10 border-t border-white/10">{more.map(faqItem)}</div>
+            </details>
+          )}
+          <p className="mk-reveal mt-8 text-[15px] text-white/65">
+            Want to see what&apos;s live and what&apos;s coming? <Link href="/roadmap" className="font-medium text-violet-200 hover:text-white">Read the roadmap <ArrowRight className="inline h-4 w-4" aria-hidden /></Link>
+          </p>
         </div>
       </section>
 
       {/* Final CTA */}
       <section className="container pb-28">
         <div className="mk-reveal relative isolate overflow-hidden rounded-[2rem] border border-violet-400/25 px-6 py-16 text-center shadow-[0_0_120px_-40px_rgba(124,58,237,0.8)] sm:px-12">
-          <div aria-hidden className="mk-aurora absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.55), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(217,70,239,.25), transparent 70%)" }} />
+          <div aria-hidden className="absolute -inset-1/2 -z-10" style={{ background: "radial-gradient(35% 35% at 45% 45%, rgba(139,92,246,.5), transparent 70%), radial-gradient(30% 30% at 60% 60%, rgba(139,92,246,.18), transparent 70%)" }} />
           <h2 className="mk-text-gradient mx-auto max-w-2xl text-balance text-4xl font-semibold tracking-[-0.03em] sm:text-5xl">Your next release deserves a proper launch.</h2>
-          <p className="mx-auto mt-4 max-w-lg text-white/65">
-            {cta.open ? `Free for ${PLAN_LIMITS.free.releases} releases in any 12 months, for artists and labels. Upgrade when you're ready.` : "Invite-only while I onboard the first artists and labels."}
-          </p>
+          {cta.open && (
+            <p className="mx-auto mt-4 max-w-lg text-white/70">Free for {PLAN_LIMITS.free.releases} releases in any 12 months, for artists and labels. Upgrade when you&apos;re ready.</p>
+          )}
           <Actions cta={cta} secondary={{ label: "See pricing", href: "/pricing" }} className="mt-8 sm:justify-center" />
           <InviteHint cta={cta} className="mt-4" />
         </div>
