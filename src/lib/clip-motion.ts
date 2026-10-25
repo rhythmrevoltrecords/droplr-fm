@@ -20,11 +20,12 @@
 import { hexA } from "./clip";
 import { drawLogo, drawStickerGuide, fitText, MONO, roundRect, STORY_SAFE_TOP, type FrameArgs } from "./clip-frame";
 
-export const CLIP_STYLES = ["waveform", "motion"] as const;
+export const CLIP_STYLES = ["waveform", "motion", "type"] as const;
 export type ClipStyle = (typeof CLIP_STYLES)[number];
 export const CLIP_STYLE_LABELS: Record<ClipStyle, { name: string; hint: string }> = {
   waveform: { name: "Waveform", hint: "Artwork pulsing on the kick, a spectrum following the audio." },
   motion: { name: "Motion", hint: "The artwork drifts in, the title lands on the first kick, the link on the drop." },
+  type: { name: "Type", hint: "Your words, huge, cut on the beat. Colours swap on every cut and your logo slams in on the drop." },
 };
 
 /** Frames, not seconds: the renderer works in frames. */

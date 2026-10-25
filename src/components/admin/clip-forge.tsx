@@ -23,6 +23,11 @@ import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode"
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
 import { CLIP_STYLES, CLIP_STYLE_LABELS, drawMotionFrame, MOTION_ENDING_LABELS, MOTION_ENDINGS, MOTION_ENTRANCE_LABELS, MOTION_ENTRANCES, motionCues, type ClipStyle, type MotionCues, type MotionEnding, type MotionEntrance } from "@/lib/clip-motion";
 import { CLIP_LOOKS, clipColourWarnings, clipPalette, DEFAULT_CLIP_LOOK, type ClipColourOverrides, type ClipLookId } from "@/lib/clip-theme";
+import {
+  beatGrid, DEFAULT_TYPE_FONT, DEFAULT_TYPE_PALETTE, demoAnalysis, drawTypeFrame, loadTypeFont, TYPE_BACKGROUND_LABELS, TYPE_BACKGROUNDS,
+  TYPE_CUT_LABELS, TYPE_CUTS, TYPE_FONTS, TYPE_PALETTES, typeColourWarnings, typeFontStack, typePalette, typeTimeline, typeWords,
+  type BeatGrid, type TypeBackground, type TypeColourOverrides, type TypeCut, type TypeFontId, type TypePaletteId, type TypeStep,
+} from "@/lib/clip-type";
 import { cn } from "@/lib/utils";
 
 const FALLBACK_ACCENT = "#8B5CF6";
@@ -42,6 +47,10 @@ export type ClipForgeProps = {
   live: boolean;
   /** False on Free and Artist: the droplr mark goes under the link. */
   removeBranding: boolean;
+  /** The Type style: paid plans, the same line as page looks (plan.pageLooks). */
+  typeStyle: boolean;
+  /** "Fri 30 Oct" in the label's timezone, for the Type end card before release. */
+  releaseDay: string | null;
 };
 
 type Phase = { kind: "idle" } | { kind: "working"; note: string; progress: number } | { kind: "done"; result: RenderResult };
@@ -80,6 +89,7 @@ export function ClipForge(props: ClipForgeProps) {
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
   const rafRef = useRef<number | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const ensureAnalysisRef = useRef<(() => ClipAnalysis | null) | null>(null);
 
   const accent = isHex(props.accentColor) ? props.accentColor : FALLBACK_ACCENT;
   const [look, setLook] = useState<ClipLookId>(DEFAULT_CLIP_LOOK);
@@ -87,11 +97,34 @@ export function ClipForge(props: ClipForgeProps) {
   const [entrance, setEntrance] = useState<MotionEntrance>("fade");
   const [ending, setEnding] = useState<MotionEnding>("hold");
   const cuesRef = useRef<{ from: ClipAnalysis | null; cues: MotionCues }>({ from: null, cues: { firstKick: 0, drop: 0 } });
+  // --- Type style ---
+  // Before release the end card says when it's out; after, OUT NOW. Worked out from the release
+  // date when the page loads, so nobody has to remember to change it. It's still a field: an
+  // artist may want "OUT NOW ON SOUNDCLOUD" or "FRIDAY".
+  const endDefault = props.live ? "OUT NOW" : props.releaseDay ? `OUT ${props.releaseDay.replace(/,/g, "").toUpperCase()}` : "PRE-SAVE NOW";
+  const [typeText, setTypeText] = useState("");
+  const [endLine, setEndLine] = useState(endDefault);
+  const [typeFont, setTypeFont] = useState<TypeFontId>(DEFAULT_TYPE_FONT);
+  const [typeCut, setTypeCut] = useState<TypeCut>(2);
+  const [typeBg, setTypeBg] = useState<TypeBackground>("scratch");
+  const [typeLoops, setTypeLoops] = useState(true);
+  const [typeGlitch, setTypeGlitch] = useState(true);
+  const [typePaletteId, setTypePaletteId] = useState<TypePaletteId>(DEFAULT_TYPE_PALETTE);
+  const [typeOverrides, setTypeOverrides] = useState<TypeColourOverrides>({});
+  const [fontsLoaded, setFontsLoaded] = useState<Partial<Record<TypeFontId, boolean>>>({});
+  const [typeLockedNote, setTypeLockedNote] = useState(false);
+  const [gridInfo, setGridInfo] = useState<BeatGrid | null>(null);
+  const timelineRef = useRef<{ key: string; from: ClipAnalysis | null; steps: TypeStep[]; grid: BeatGrid | null }>({ key: "", from: null, steps: [], grid: null });
   const [overrides, setOverrides] = useState<ClipColourOverrides>({});
   const palette = useMemo(() => clipPalette(look, accent, overrides), [look, accent, overrides]);
+  const typeColours = useMemo(() => typePalette(typePaletteId, accent, typeOverrides), [typePaletteId, accent, typeOverrides]);
+  const typeColourNotes = useMemo(() => typeColourWarnings(typeColours), [typeColours]);
+  const words = useMemo(() => typeWords(typeText, [props.title, props.artistName]), [typeText, props.title, props.artistName]);
   const colourWarnings = useMemo(() => clipColourWarnings(palette), [palette]);
   const size = ASPECTS[aspect];
   const frames = Math.round(clipLen * FPS);
+  // Moves the preview before a track is chosen. Never reaches a render: render() needs the track.
+  const demo = useMemo(() => demoAnalysis(frames, FPS), [frames]);
 
   const story = aspect === "tall" && linkMode === "sticker";
   const copyLink = props.link.replace(/^https?:\/\//, "");
@@ -120,13 +153,16 @@ export function ClipForge(props: ClipForgeProps) {
     if (resolved) setFontFamily(resolved);
   }, []);
 
-  /** One frame of the composition. Index -1 means the resting state. */
+  /**
+   * One frame of the composition. Index -1 means the resting state. `demo` is the looping preview:
+   * it uses the track's analysis when there is one and a made-up 128 BPM one when there isn't.
+   */
   const paint = useCallback(
-    (i: number, guide = true) => {
+    (i: number, guide = true, demoLoop = false) => {
       const canvas = frameRef.current;
       const ctx = canvas?.getContext("2d");
       if (!canvas || !ctx) return;
-      const a = analysisRef.current;
+      const a: ClipAnalysis | null = analysisRef.current ?? (demoLoop ? demo : null);
       const common = {
         ctx,
         width: canvas.width,
@@ -141,7 +177,28 @@ export function ClipForge(props: ClipForgeProps) {
         copy,
         stickerGuide: guide,
       };
-      if (style === "motion") {
+      if (style === "type") {
+        if (a && cuesRef.current.from !== a) cuesRef.current = { from: a, cues: motionCues(a.low, FPS) };
+        const drop = a ? cuesRef.current.cues.drop : Math.round(frames * 0.45);
+        const key = JSON.stringify([words, typeCut, typeLoops, !!logoRef.current, frames, fadeOut]);
+        if (timelineRef.current.key !== key || timelineRef.current.from !== a) {
+          const grid = a ? beatGrid(a.low, FPS) : beatGrid([], FPS);
+          timelineRef.current = {
+            key,
+            from: a,
+            grid: a && a !== demo ? grid : null,
+            steps: typeTimeline({ frames, fps: FPS, grid, drop, words, every: typeCut, hasLogo: !!logoRef.current, loops: typeLoops, fadeOut }),
+          };
+        }
+        drawTypeFrame({
+          ...common,
+          i,
+          frames,
+          fps: FPS,
+          timeline: timelineRef.current.steps,
+          options: { font: typeFont, background: typeBg, glitch: typeGlitch, colours: typeColours, endLine, fadeIn, fadeOut },
+        });
+      } else if (style === "motion") {
         // Cues follow the analysis they came from: worked out once per analysis, not per frame.
         if (a && cuesRef.current.from !== a) cuesRef.current = { from: a, cues: motionCues(a.low, FPS) };
         const cues = a ? cuesRef.current.cues : { firstKick: 0, drop: Math.round(frames * 0.45) };
@@ -152,8 +209,27 @@ export function ClipForge(props: ClipForgeProps) {
     },
     // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
     // is the dependency that triggers the repaint, the same way artReady does for the cover.
-    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut],
+    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded],
   );
+
+  // The tempo the Type cuts follow, for the line under the style. Read after a paint has built it.
+  useEffect(() => {
+    if (style !== "type" || !peaks) { setGridInfo(null); return; }
+    const a = ensureAnalysisRef.current?.();
+    setGridInfo(a ? beatGrid(a.low, FPS) : null);
+  }, [style, peaks, selStart, clipLen]);
+
+  // Type fonts are files, loaded when picked. The render waits for them too (see render()).
+  useEffect(() => {
+    if (style !== "type" || fontsLoaded[typeFont]) return;
+    let live = true;
+    void loadTypeFont(typeFont).then((ok) => {
+      if (!live) return;
+      if (ok) setFontsLoaded((f) => ({ ...f, [typeFont]: true }));
+      else setError("Couldn't load that font, so the preview is using a stand-in. Try another, or reload the page.");
+    });
+    return () => { live = false; };
+  }, [style, typeFont, fontsLoaded]);
 
   // Ask the browser whether it can actually encode H.264, not just whether the API exists. A
   // Chromium built without proprietary codecs has WebCodecs and still can't make an MP4, and the
@@ -198,6 +274,23 @@ export function ClipForge(props: ClipForgeProps) {
     canvas.height = size.height;
     paint(-1);
   }, [size.width, size.height, paint, artReady]);
+
+  // The preview moves on its own while nothing is playing or rendering, so picking a style shows
+  // that style moving. It used to sit on one still frame until Play, and Motion's still frame read
+  // as "nothing changed". Silent, and off for anyone who has asked their device for less motion.
+  const previewing = !playing && phase.kind === "idle";
+  useEffect(() => {
+    if (!previewing || !frames) return;
+    if (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      paint(Math.floor(((now - t0) / 1000) * FPS) % frames, true, true);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [previewing, paint, frames]);
 
   // --- waveform --------------------------------------------------------------------------------
   const drawWave = useCallback(() => {
@@ -274,6 +367,7 @@ export function ClipForge(props: ClipForgeProps) {
     }
     return analysisRef.current;
   }, [selStart, clipLen, frames, fadeIn, fadeOut]);
+  ensureAnalysisRef.current = ensureAnalysis;
 
   const stop = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
@@ -382,6 +476,7 @@ export function ClipForge(props: ClipForgeProps) {
     try {
       // Canvas text uses the app's fonts; measuring before they load gives the wrong size.
       await document.fonts?.ready;
+      if (style === "type" && !(await loadTypeFont(typeFont))) setPhase((cur) => (cur.kind === "working" ? { ...cur, note: "The font didn't load, so this uses a stand-in face." } : cur));
       await new Promise((r) => setTimeout(r, 0));
       ensureAnalysis();
       const result = await renderClip({
@@ -484,10 +579,30 @@ export function ClipForge(props: ClipForgeProps) {
               <Choices
                 label="Style"
                 value={style}
-                onChange={(v: ClipStyle) => setStyle(v)}
-                options={CLIP_STYLES.map((k) => ({ value: k, label: CLIP_STYLE_LABELS[k].name, hint: CLIP_STYLE_LABELS[k].hint }))}
+                onChange={(v: ClipStyle) => {
+                  // The renderer runs in the browser, so this is a door, not a lock: the gate is on the
+                  // option, and the plan page is where it opens.
+                  if (v === "type" && !props.typeStyle) { setTypeLockedNote(true); return; }
+                  setTypeLockedNote(false);
+                  setStyle(v);
+                }}
+                options={CLIP_STYLES.map((k) => ({ value: k, label: k === "type" && !props.typeStyle ? `${CLIP_STYLE_LABELS[k].name} · paid` : CLIP_STYLE_LABELS[k].name, hint: CLIP_STYLE_LABELS[k].hint }))}
               />
               <p className="-mt-2 text-xs text-muted-foreground">{CLIP_STYLE_LABELS[style].hint}</p>
+              {typeLockedNote && (
+                <p className="-mt-2 text-xs text-amber-400">
+                  Type is on every paid plan. <a href="/admin/settings/billing" className="underline">See plans</a> — Waveform and Motion stay free.
+                </p>
+              )}
+              {style === "type" && (
+                <p className="-mt-2 text-xs text-muted-foreground">
+                  {!peaks
+                    ? "The preview is cutting to a stand-in 128 BPM beat. Choose the track and it follows yours."
+                    : gridInfo?.sure
+                      ? `Cutting to your track: about ${Math.round(gridInfo.bpm)} BPM.`
+                      : "Couldn't find a clear beat in this part of the track, so it cuts at 128 BPM from the first kick. Try a section with drums."}
+                </p>
+              )}
               {style === "motion" && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Choices label="Artwork comes in" value={entrance} onChange={(v: MotionEntrance) => setEntrance(v)} options={MOTION_ENTRANCES.map((k) => ({ value: k, label: MOTION_ENTRANCE_LABELS[k] }))} />
@@ -539,10 +654,35 @@ export function ClipForge(props: ClipForgeProps) {
               <CardDescription>Your link is always on it — that&apos;s the point of the clip.</CardDescription>
             </CardHeader>
             <CardContent className="grid gap-3 sm:grid-cols-2">
-              <div className="space-y-1.5">
-                <Label htmlFor="clip-headline">Headline</Label>
-                <Input id="clip-headline" value={headline} maxLength={24} onChange={(e) => setHeadline(e.target.value)} />
-              </div>
+              {style === "type" ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="clip-endline">End card</Label>
+                  <Input id="clip-endline" value={endLine} maxLength={28} onChange={(e) => setEndLine(e.target.value)} />
+                </div>
+              ) : (
+                <div className="space-y-1.5">
+                  <Label htmlFor="clip-headline">Headline</Label>
+                  <Input id="clip-headline" value={headline} maxLength={24} onChange={(e) => setHeadline(e.target.value)} />
+                </div>
+              )}
+              {style === "type" && (
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label htmlFor="clip-words">Words, one per line</Label>
+                  <textarea
+                    id="clip-words"
+                    value={typeText}
+                    rows={4}
+                    maxLength={240}
+                    placeholder={`${props.title}\n${props.artistName}`}
+                    onChange={(e) => setTypeText(e.target.value)}
+                    className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Up to 8 lines, flashed one per cut. A hook from the vocal works best. Empty, it uses the title and your name.
+                    {props.live ? "" : ` The end card says ${endDefault} — change it if you like.`}
+                  </p>
+                </div>
+              )}
               <div className="space-y-1.5">
                 <Label htmlFor="clip-tagline">Line underneath</Label>
                 <Input id="clip-tagline" value={tagline} maxLength={60} onChange={(e) => setTagline(e.target.value)} />
@@ -555,6 +695,63 @@ export function ClipForge(props: ClipForgeProps) {
             </CardContent>
           </Card>
 
+          {style === "type" && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="text-base">Type</CardTitle>
+                <CardDescription>The font, the colours and how hard it cuts. The two colours swap places on every cut.</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-1.5">
+                  <span className="text-sm font-medium">Font</span>
+                  <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                    {TYPE_FONTS.map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        aria-pressed={typeFont === f.id}
+                        title={f.hint}
+                        onClick={() => setTypeFont(f.id)}
+                        onMouseEnter={() => { void loadTypeFont(f.id).then((ok) => ok && setFontsLoaded((l) => ({ ...l, [f.id]: true }))); }}
+                        className={cn(
+                          "truncate rounded-md border px-3 py-2 text-left text-lg leading-tight transition",
+                          typeFont === f.id ? "border-violet-500/60 bg-violet-500/10 text-foreground" : "border-border text-muted-foreground hover:text-foreground",
+                        )}
+                        style={{ fontFamily: fontsLoaded[f.id] ? typeFontStack(f.id) : undefined }}
+                      >
+                        {f.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <Choices
+                  label="Colours"
+                  value={typePaletteId}
+                  onChange={(v: TypePaletteId) => { setTypePaletteId(v); setTypeOverrides({}); }}
+                  options={TYPE_PALETTES.map((p) => ({ value: p.id, label: p.name }))}
+                />
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <ColourPick id="type-a" label="Colour 1" value={typeColours.a} changed={!!typeOverrides.a} onChange={(c) => setTypeOverrides((o) => ({ ...o, a: c ?? undefined }))} />
+                  <ColourPick id="type-b" label="Colour 2" value={typeColours.b} changed={!!typeOverrides.b} onChange={(c) => setTypeOverrides((o) => ({ ...o, b: c ?? undefined }))} />
+                  <ColourPick id="type-pop" label="Pop" value={typeColours.pop} changed={!!typeOverrides.pop} onChange={(c) => setTypeOverrides((o) => ({ ...o, pop: c ?? undefined }))} />
+                </div>
+                {typeColourNotes.map((w) => <p key={w} className="text-sm text-amber-400">{w}</p>)}
+                <p className="-mt-2 text-xs text-muted-foreground">Pop goes on the glitch, the progress bar and the link over the loops.</p>
+                <Choices label="Cut" value={typeCut} onChange={(v: TypeCut) => setTypeCut(v)} options={TYPE_CUTS.map((n) => ({ value: n, label: TYPE_CUT_LABELS[n] }))} />
+                <Choices label="Texture" value={typeBg} onChange={(v: TypeBackground) => setTypeBg(v)} options={TYPE_BACKGROUNDS.map((b) => ({ value: b, label: TYPE_BACKGROUND_LABELS[b] }))} />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Choices label="Tunnel and spiral breaks" value={typeLoops ? "on" : "off"} onChange={(v: string) => setTypeLoops(v === "on")} options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]} />
+                  <Choices label="Glitch on the kick" value={typeGlitch ? "on" : "off"} onChange={(v: string) => setTypeGlitch(v === "on")} options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {props.logoSrc ? "Your logo slams in on the drop, and the artwork shows once before it." : "The artwork slams in on the drop. Add a logo in Settings and it takes the drop instead."}
+                  {" "}However fast the track, the colours never swap more than three times a second — faster flashing is a seizure risk.
+                </p>
+              </CardContent>
+            </Card>
+          )}
+
+          {style !== "type" && (
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Colours</CardTitle>
@@ -585,6 +782,7 @@ export function ClipForge(props: ClipForgeProps) {
               </p>
             </CardContent>
           </Card>
+          )}
         </div>
 
         <Card className="lg:sticky lg:top-4 lg:self-start">

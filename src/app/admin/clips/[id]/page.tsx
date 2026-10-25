@@ -9,7 +9,7 @@ import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
 import { grantedRelease } from "@/lib/roster-grant";
-import { isReleased } from "@/lib/time";
+import { formatInTz, isReleased } from "@/lib/time";
 
 /**
  * Making a clip for a release a label put out under this artist's name.
@@ -80,6 +80,8 @@ export default async function GrantedClipPage(props: { params: Promise<{ id: str
         link={url}
         live={live}
         removeBranding={plan.removeBranding}
+        typeStyle={plan.pageLooks}
+        releaseDay={formatInTz(release.releaseDate, label.timezone, { weekday: "short", day: "numeric", month: "short" })}
       />
     </div>
   );
