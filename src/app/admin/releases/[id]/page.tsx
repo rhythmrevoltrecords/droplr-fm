@@ -270,6 +270,8 @@ export default async function ReleaseDetail(
           link={url}
           live={live}
           removeBranding={plan.removeBranding}
+          typeStyle={plan.pageLooks}
+          releaseDay={formatInTz(release.releaseDate, release.organization.timezone, { weekday: "short", day: "numeric", month: "short" })}
         />
       )}
 

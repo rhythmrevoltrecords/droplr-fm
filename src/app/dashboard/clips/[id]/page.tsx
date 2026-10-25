@@ -8,7 +8,7 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
-import { isReleased } from "@/lib/time";
+import { formatInTz, isReleased } from "@/lib/time";
 
 /**
  * An artist on a label's roster making a clip for their own release.
@@ -67,6 +67,8 @@ export default async function ArtistClipPage(props: { params: Promise<{ id: stri
         link={url}
         live={live}
         removeBranding={plan.removeBranding}
+        typeStyle={plan.pageLooks}
+        releaseDay={formatInTz(release.releaseDate, org.timezone, { weekday: "short", day: "numeric", month: "short" })}
       />
     </div>
   );
