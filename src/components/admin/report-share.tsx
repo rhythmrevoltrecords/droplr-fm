@@ -9,9 +9,12 @@ import { Input } from "@/components/ui/input";
  * Turn the shareable release report on or off. Off by default: nothing about a release
  * is public until the label asks for a link, and rotating the token kills the old one.
  */
-export function ReportShare({ releaseId, url: initial }: { releaseId: string; url: string | null }) {
+export function ReportShare({ releaseId, url: initial, sharedButHidden }: { releaseId: string; url: string | null; sharedButHidden: boolean }) {
   const router = useRouter();
   const [url, setUrl] = useState(initial);
+  // Sharing is on but droplr can't show the link here (made before links were stored encrypted and
+  // not yet converted, or its copy can't be read). Saying "off" would be untrue: the link works.
+  const [hidden, setHidden] = useState(sharedButHidden && !initial);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -32,6 +35,7 @@ export function ReportShare({ releaseId, url: initial }: { releaseId: string; ur
         return;
       }
       setUrl(j.url ?? null);
+      setHidden(false);
       router.refresh();
     } finally {
       setBusy(null);
@@ -48,12 +52,29 @@ export function ReportShare({ releaseId, url: initial }: { releaseId: string; ur
               A one-page summary for a distributor, manager or grant application. Numbers only — no fan is named on it.
             </p>
           </div>
-          {!url && (
+          {!url && !hidden && (
             <Button size="sm" disabled={!!busy} onClick={() => act("enable", "Enable")}>
               {busy === "Enable" ? "Creating…" : "Create a link"}
             </Button>
           )}
         </div>
+
+        {hidden && (
+          <div className="space-y-2">
+            <p className="text-sm">
+              Sharing is on, but this page can&apos;t show the link. Anyone who already has it can still open the report.
+              Make a new link to see it here (the old one stops working), or turn sharing off.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="secondary" disabled={!!busy} onClick={() => act("rotate", "Rotate")}>
+                {busy === "Rotate" ? "Working…" : "New link (breaks the old one)"}
+              </Button>
+              <Button size="sm" variant="ghost" disabled={!!busy} onClick={() => act("disable", "Disable")}>
+                {busy === "Disable" ? "Turning off…" : "Turn sharing off"}
+              </Button>
+            </div>
+          </div>
+        )}
 
         {url && (
           <>

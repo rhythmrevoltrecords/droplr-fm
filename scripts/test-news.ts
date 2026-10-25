@@ -95,12 +95,12 @@ async function main() {
 
   await prisma.preSave.createMany({
     data: [
-      fan(A.rel.id, optedIn, { newsConsent: true, newsConsentAt: new Date(), country: "GB", listenOn: "spotify" }),
+      fan(A.rel.id, optedIn, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), country: "GB", listenOn: "spotify" }),
       fan(A.rel.id, releaseOnly, { newsConsent: false, country: "GB" }),
-      fan(A.rel.id, gone, { newsConsent: true, newsConsentAt: new Date(), status: "unsubscribed" }),
-      fan(A.rel2.id, otherRelease, { newsConsent: true, newsConsentAt: new Date(), country: "US", listenOn: "beatport" }),
-      fan(A.rel.id, auFan, { newsConsent: true, newsConsentAt: new Date(), country: "AU", listenOn: "spotify" }),
-      fan(B.rel.id, `b-${RUN}@fans.dev`, { newsConsent: true, newsConsentAt: new Date() }),
+      fan(A.rel.id, gone, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), status: "unsubscribed" }),
+      fan(A.rel2.id, otherRelease, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), country: "US", listenOn: "beatport" }),
+      fan(A.rel.id, auFan, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), country: "AU", listenOn: "spotify" }),
+      fan(B.rel.id, `b-${RUN}@fans.dev`, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date() }),
     ],
   });
 
@@ -180,7 +180,7 @@ async function main() {
       const r = await prisma.release.create({
         data: { organizationId: F.o.id, slug: `free-rel-${RUN}`, title: "Free", artistName: "Free", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), rollout: "local" },
       });
-      await prisma.preSave.create({ data: fan(r.id, `free-${RUN}@fans.dev`, { newsConsent: true, newsConsentAt: new Date() }) });
+      await prisma.preSave.create({ data: fan(r.id, `free-${RUN}@fans.dev`, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date() }) });
     }
     const freeNews = await prisma.newsEmail.create({ data: { organizationId: F.o.id, subject: `Free ${RUN}`, body: "x", status: "scheduled" } });
     sentTo = [];
@@ -207,9 +207,9 @@ async function main() {
     const nowhereFan = `nowhere-${RUN}@fans.dev`;
     await prisma.preSave.createMany({
       data: [
-        fan(A.rel.id, ukFan, { newsConsent: true, newsConsentAt: new Date(), timezone: "Europe/London" }),
-        fan(A.rel.id, laFan, { newsConsent: true, newsConsentAt: new Date(), timezone: "America/Los_Angeles" }),
-        fan(A.rel.id, nowhereFan, { newsConsent: true, newsConsentAt: new Date() }),
+        fan(A.rel.id, ukFan, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), timezone: "Europe/London" }),
+        fan(A.rel.id, laFan, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), timezone: "America/Los_Angeles" }),
+        fan(A.rel.id, nowhereFan, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date() }),
       ],
     });
     const zoned = await newsAudience(A.o.id, {});
@@ -326,7 +326,7 @@ async function main() {
         fan(C.rel.id, importWithPresave, { newsConsent: false }),
         fan(C.rel.id, bioAndPresave, { newsConsent: false }),
         // Unsubscribed through a pre-save: the opt-out is to the account.
-        fan(C.rel.id, bioThenUnsubscribed, { newsConsent: true, newsConsentAt: new Date(), status: "unsubscribed" }),
+        fan(C.rel.id, bioThenUnsubscribed, { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), status: "unsubscribed" }),
         // Consent withdrawn with no "unsubscribed" row behind it — the shape an unsubscribe leaves
         // when the fan only ever pre-saved through Spotify or Deezer, since that route only writes
         // `status: "unsubscribed"` onto `platform: "email"` rows. lib/fan-consent is the one place

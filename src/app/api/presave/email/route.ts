@@ -2,6 +2,7 @@ import { FAN_EMAIL_CONSENT_VERSION } from "@/lib/legal";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { notifyPresaveMilestone } from "@/lib/push";
 import { prisma } from "@/lib/db";
+import { requestNewsConfirmation } from "@/lib/news-confirm";
 import { isOptedOut } from "@/lib/fan-consent";
 import { SITE_URL } from "@/lib/env";
 import { releasePageUrl, requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
@@ -73,5 +74,8 @@ export async function POST(req: NextRequest) {
     });
     after(() => notifyPresaveMilestone(releaseId).catch((e) => console.error("[push milestone]", e)));
   }
+  // The release-day email needs nothing more; the optional news box is ongoing mail, so it waits
+  // for the fan to confirm by email (lib/news-confirm).
+  if (news) after(() => requestNewsConfirmation(release.organization, email).then(() => {}).catch((e) => console.error("[news-confirm]", e)));
   return NextResponse.redirect(withParam(pageUrl, "done", "email"), 303);
 }

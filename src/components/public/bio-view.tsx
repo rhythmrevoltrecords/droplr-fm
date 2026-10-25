@@ -207,8 +207,8 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                     <section className="mt-7">
                       {done === "subscribed" ? (
                         <div role="status" className="glass rounded-2xl p-4 text-center text-sm">
-                          <span className="font-semibold">You&apos;re on the list.</span>
-                          <span className="mt-1 block text-white/60">{orgName} will email you about new music.</span>
+                          <span className="font-semibold">Check your email.</span>
+                          <span className="mt-1 block text-white/60">Press the button in it and {orgName} can email you about new music. Already confirmed before? You&apos;re all set.</span>
                         </div>
                       ) : (
                         <form

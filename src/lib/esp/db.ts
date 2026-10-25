@@ -104,7 +104,7 @@ export async function claimEspConnection(id: string, leaseMinutes = 15): Promise
 export async function markUnsubscribedByEmail(orgId: string, email: string): Promise<number> {
   const e = email.trim().toLowerCase();
   const a = await prisma.$executeRaw`
-    UPDATE "PreSave" p SET "emailConsent" = false, "newsConsent" = false
+    UPDATE "PreSave" p SET "emailConsent" = false, "newsConsent" = false, "newsConfirmedAt" = NULL
     FROM "Release" r
     WHERE p."releaseId" = r."id" AND r."organizationId" = ${orgId} AND lower(p.email) = ${e}
       AND (p."emailConsent" OR p."newsConsent")`;

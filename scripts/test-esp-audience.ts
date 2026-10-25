@@ -64,16 +64,16 @@ async function main() {
 
   try {
     await prisma.preSave.createMany({ data: [
-      ps(e("news"), { newsConsent: true, newsConsentAt: new Date(), country: "AU" }),
+      ps(e("news"), { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), country: "AU" }),
       ps(e("releaseonly"), { newsConsent: false }),
-      ps(e("gone"), { newsConsent: true, newsConsentAt: new Date(), status: "unsubscribed", emailConsent: false }),
+      ps(e("gone"), { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), status: "unsubscribed", emailConsent: false }),
       // The shape an unsubscribe leaves when the fan only ever pre-saved through Spotify or
       // Deezer: the unsubscribe route writes `status: "unsubscribed"` onto `platform: "email"`
       // rows only, so there is no unsubscribed row anywhere — just consent withdrawn.
       { releaseId: rel.id, platform: "spotify", email: e("spotifygone"), emailConsent: false, newsConsent: false, consentAt: new Date() },
-      { releaseId: relOther.id, platform: "email", email: e("otherlabel"), emailConsent: true, newsConsent: true, newsConsentAt: new Date() },
+      { releaseId: relOther.id, platform: "email", email: e("otherlabel"), emailConsent: true, newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date() },
       // Both a pre-saver who ticked news AND a contact row, so the merge branch actually runs.
-      ps(e("both"), { newsConsent: true, newsConsentAt: new Date(), country: "GB" }),
+      ps(e("both"), { newsConsent: true, newsConsentAt: new Date(), newsConfirmedAt: new Date(), country: "GB" }),
     ] });
     await prisma.fanContact.createMany({ data: [
       fc(e("import")),

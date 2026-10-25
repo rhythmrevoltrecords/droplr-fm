@@ -1,4 +1,5 @@
 import { type NextRequest } from "next/server";
+import { withdrawTokenHash } from "@/lib/contest-server";
 import { prisma } from "@/lib/db";
 import { prefsPage } from "@/lib/email-prefs";
 import { acceptingEntries } from "@/lib/contest";
@@ -21,8 +22,8 @@ export const dynamic = "force-dynamic";
  * shortlist mark back, because the label's judgement didn't change — only the entrant's mind did.
  */
 async function checked(token: string) {
-  const entry = await prisma.contestEntry.findUnique({
-    where: { withdrawToken: token },
+  const entry = !token || token.length > 64 ? null : await prisma.contestEntry.findUnique({
+    where: { withdrawTokenHash: withdrawTokenHash(token) },
     select: {
       id: true, email: true, contestId: true, withdrawnAt: true,
       contest: {

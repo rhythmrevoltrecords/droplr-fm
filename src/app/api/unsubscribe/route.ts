@@ -20,7 +20,7 @@ async function unsubscribe(t: string | null, via: ConsentEventVia) {
     await prisma.fanContact.update({ where: { id: c.id }, data: { status: "unsubscribed" } });
     await prisma.preSave.updateMany({
       where: { email: c.email, release: { organizationId: c.organizationId } },
-      data: { emailConsent: false, newsConsent: false },
+      data: { emailConsent: false, newsConsent: false, newsConfirmedAt: null },
     });
     await prisma.preSave.updateMany({
       where: { email: c.email, platform: "email", release: { organizationId: c.organizationId } },
@@ -36,7 +36,7 @@ async function unsubscribe(t: string | null, via: ConsentEventVia) {
   // Unsubscribe this address from every release of this label
   await prisma.preSave.updateMany({
     where: { email: ps.email, release: { organizationId: ps.release.organizationId } },
-    data: { emailConsent: false, newsConsent: false },
+    data: { emailConsent: false, newsConsent: false, newsConfirmedAt: null },
   });
   await prisma.preSave.updateMany({
     where: { email: ps.email, platform: "email", release: { organizationId: ps.release.organizationId } },

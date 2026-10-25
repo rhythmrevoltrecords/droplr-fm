@@ -41,7 +41,7 @@ function audienceWhere(orgId: string, f: NewsFilter) {
 function audienceHaving(f: NewsFilter) {
   // Opted in to news AND never unsubscribed from this label. bool_or across every row for
   // the address, so one unsubscribe anywhere wins over an older opt-in.
-  const parts = [Prisma.sql`bool_or(p."newsConsent") AND NOT bool_or(p.status = 'unsubscribed')`];
+  const parts = [Prisma.sql`bool_or(p."newsConsent" AND p."newsConfirmedAt" IS NOT NULL) AND NOT bool_or(p.status = 'unsubscribed')`];
   if (f.country) parts.push(Prisma.sql`(array_agg(p.country ORDER BY p."createdAt" DESC) FILTER (WHERE p.country IS NOT NULL))[1] = ${f.country}`);
   if (f.listenOn) parts.push(Prisma.sql`(array_agg(p."listenOn" ORDER BY p."createdAt" DESC) FILTER (WHERE p."listenOn" IS NOT NULL))[1] = ${f.listenOn}`);
   return Prisma.join(parts, " AND ");

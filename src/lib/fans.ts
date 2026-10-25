@@ -29,7 +29,7 @@ function where(orgId: string, f: FanFilter) {
 
 function having(f: FanFilter) {
   const parts: Prisma.Sql[] = [];
-  if (f.news) parts.push(Prisma.sql`bool_or(p."newsConsent") AND NOT bool_or(p.status = 'unsubscribed')`);
+  if (f.news) parts.push(Prisma.sql`bool_or(p."newsConsent" AND p."newsConfirmedAt" IS NOT NULL) AND NOT bool_or(p.status = 'unsubscribed')`);
   // A label can't re-subscribe anyone, but it should be able to see who is suppressed
   // rather than think the addresses vanished.
   if (f.unsubscribed) parts.push(Prisma.sql`bool_or(p.status = 'unsubscribed')`);
@@ -44,7 +44,7 @@ export async function listFans(orgId: string, f: FanFilter, limit = 100, offset 
       MIN(p."createdAt") AS "firstSeen",
       MAX(p."createdAt") AS "lastSeen",
       COUNT(DISTINCT p."releaseId") AS releases,
-      bool_or(p."newsConsent") AND NOT bool_or(p.status = 'unsubscribed') AS news,
+      bool_or(p."newsConsent" AND p."newsConfirmedAt" IS NOT NULL) AND NOT bool_or(p.status = 'unsubscribed') AS news,
       bool_or(p.status = 'unsubscribed') AS unsubscribed,
       (array_agg(p."listenOn" ORDER BY p."createdAt" DESC) FILTER (WHERE p."listenOn" IS NOT NULL))[1] AS "listenOn",
       (array_agg(p.country ORDER BY p."createdAt" DESC) FILTER (WHERE p.country IS NOT NULL))[1] AS country,
@@ -66,7 +66,7 @@ export async function fanSummary(orgId: string) {
       COUNT(*) FILTER (WHERE unsub) AS unsub,
       COUNT(*) FILTER (WHERE releases > 1) AS returning
     FROM (
-      SELECT bool_or(p."newsConsent") AS news, bool_or(p.status = 'unsubscribed') AS unsub, COUNT(DISTINCT p."releaseId") AS releases
+      SELECT bool_or(p."newsConsent" AND p."newsConfirmedAt" IS NOT NULL) AS news, bool_or(p.status = 'unsubscribed') AS unsub, COUNT(DISTINCT p."releaseId") AS releases
       FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
       WHERE r."organizationId" = ${orgId} AND p.email IS NOT NULL
       GROUP BY lower(p.email)

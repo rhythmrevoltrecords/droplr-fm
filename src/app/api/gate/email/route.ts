@@ -1,5 +1,6 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { requestNewsConfirmation } from "@/lib/news-confirm";
 import { isOptedOut } from "@/lib/fan-consent";
 import { SITE_URL } from "@/lib/env";
 import { DOWNLOAD_CONSENT_VERSION } from "@/lib/legal";
@@ -77,6 +78,8 @@ export async function POST(req: NextRequest) {
         },
       });
     }
+    // The news box is ongoing mail, so it waits for the fan to confirm by email (lib/news-confirm).
+    if (news) after(() => requestNewsConfirmation(release.organization, email).then(() => {}).catch((e) => console.error("[news-confirm]", e)));
   }
 
   await completeStep({ releaseId, anonId, platform: "email", email, country: meta.country, timezone });
