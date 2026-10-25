@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { isPlatformHost, platformSubdomain, SITE_URL } from "./lib/env";
+import { crossOriginWrite } from "./lib/origin-check";
 
 const ANON_COOKIE = "dfm_anon";
 // Whole path segments only, so a release slug like "iconic-dubplate" or "logo-riddim" still reaches the tenant rewrite.
@@ -11,7 +12,7 @@ const PASSTHROUGH = /^\/(api|_next|uploads|logo|platforms|app|host|r)(\/|$)|^\/(
  * Anything else on the platform host is a public release, org or bio page (/{org}/{slug}, /b/*, /r/*) and still gets a visitor id.
  */
 const PLATFORM_NO_VISITOR_ID =
-  /^\/(?:$|(?:pricing|docs|learn|legal|demo|login|signup|join|forgot-password|reset-password|invite|admin|dashboard|platform|platforms|app|logo|uploads|_next|opengraph-image|twitter-image|icon|apple-icon)(?:[/.]|$)|(?:favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest|sw\.js)$|api\/(?!(?:r|b|presave|spotify|deezer)(?:\/|$)))/;
+  /^\/(?:$|b$|(?:pricing|docs|learn|legal|demo|login|signup|join|forgot-password|reset-password|invite|admin|dashboard|platform|platforms|app|logo|uploads|_next|opengraph-image|twitter-image|icon|apple-icon|blog|tools|roadmap|report|llms\.txt|indexnow-key\.txt)(?:[/.]|$)|(?:favicon\.ico|robots\.txt|sitemap\.xml|manifest\.webmanifest|sw\.js)$|api\/(?!(?:r|b|presave|spotify|deezer)(?:\/|$)))/;
 
 export async function middleware(req: NextRequest) {
   const url = req.nextUrl;
@@ -21,6 +22,13 @@ export async function middleware(req: NextRequest) {
   // directly, any domain (or droplr.fm) could render another label's page — pixels included — on its own
   // origin. Middleware doesn't run again for its own rewrites, so this only catches outside requests.
   if (url.pathname === "/host" || url.pathname.startsWith("/host/")) return new NextResponse("Not found", { status: 404 });
+
+  // 0b) Cross-site writes to signed-in APIs. The session cookie is SameSite=Lax, but every label
+  // subdomain (label.droplr.fm) counts as the same site, and JSON routes accept a text/plain body,
+  // so a page on one of those hosts could otherwise make a logged-in visitor's browser change their
+  // account. A browser always says where a write came from; it has to be this host.
+  const forbidden = crossOriginWrite(req.method, url.pathname, req.headers.get("origin"), host);
+  if (forbidden) return NextResponse.json({ error: "Cross-site request refused" }, { status: 403 });
 
   // 1) Auth guard (full role checks happen server-side)
   if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/platform")) {

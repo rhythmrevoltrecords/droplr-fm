@@ -9,6 +9,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/db";
 import type { EspProvider } from "./types";
+import { recordConsentEvent } from "../consent-events";
 
 export type EspConnectionRow = {
   id: string;
@@ -94,15 +95,28 @@ export async function claimEspConnection(id: string, leaseMinutes = 15): Promise
   return n > 0;
 }
 
-/** An unsubscribe in the ESP is an opt-out from the label: mirror it onto pre-saves and imports. */
+/**
+ * An unsubscribe in the ESP is an opt-out from the label: mirror it exactly as droplr's own
+ * unsubscribe link does. Email consent and news consent off on every row for that address;
+ * status "unsubscribed" on email rows only. Spotify and Deezer rows keep their status, because
+ * a pending library save is not an email and opting out of email must not cancel it.
+ */
 export async function markUnsubscribedByEmail(orgId: string, email: string): Promise<number> {
   const e = email.trim().toLowerCase();
   const a = await prisma.$executeRaw`
+    UPDATE "PreSave" p SET "emailConsent" = false, "newsConsent" = false
+    FROM "Release" r
+    WHERE p."releaseId" = r."id" AND r."organizationId" = ${orgId} AND lower(p.email) = ${e}
+      AND (p."emailConsent" OR p."newsConsent")`;
+  const s = await prisma.$executeRaw`
     UPDATE "PreSave" p SET "status" = 'unsubscribed'
     FROM "Release" r
-    WHERE p."releaseId" = r."id" AND r."organizationId" = ${orgId} AND lower(p.email) = ${e} AND p."status" <> 'unsubscribed'`;
+    WHERE p."releaseId" = r."id" AND r."organizationId" = ${orgId} AND lower(p.email) = ${e}
+      AND p."platform" = 'email' AND p."status" <> 'unsubscribed'`;
   const b = await prisma.$executeRaw`
     UPDATE "FanContact" SET "status" = 'unsubscribed', "updatedAt" = now()
     WHERE "organizationId" = ${orgId} AND lower("email") = ${e} AND "status" <> 'unsubscribed'`;
-  return Number(a) + Number(b);
+  const changed = Number(a) + Number(s) + Number(b);
+  if (changed) await recordConsentEvent(orgId, e, "unsubscribe", "esp");
+  return changed;
 }

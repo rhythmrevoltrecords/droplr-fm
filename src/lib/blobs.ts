@@ -47,3 +47,29 @@ export async function readCover(key: string) {
   if (!res) return null;
   return { data: res.data, contentType: String(res.metadata?.contentType ?? "image/jpeg") };
 }
+
+/** Remove stored images by key. Best-effort: a missing key or no Blobs context is not an error. */
+export async function deleteStoredImages(keys: string[]): Promise<void> {
+  if (!keys.length) return;
+  try {
+    const { getStore } = await import("@netlify/blobs");
+    const store = getStore(STORE);
+    for (const key of keys) await store.delete(key).catch(() => {});
+  } catch {
+    // Plain `next dev` with no Netlify context: the images are files under public/uploads.
+  }
+  // /api/cover answers are cached at Netlify's edge for a year, tagged per key (coverCacheTag).
+  // Deleting the blob alone would leave the edge copy serving. Copies already in a visitor's own
+  // browser are out of anyone's reach, and the privacy wording says so.
+  // No env gate: purgeCache skips itself under `netlify dev` and throws without a site id off
+  // Netlify, which the catch absorbs.
+  try {
+    const { purgeCache } = await import("@netlify/functions");
+    for (let i = 0; i < keys.length; i += 50) await purgeCache({ tags: keys.slice(i, i + 50).map(coverCacheTag) });
+  } catch (e) {
+    console.error("[blobs] cache purge", e instanceof Error ? e.message : e);
+  }
+}
+
+/** The edge-cache tag for one stored image, set on /api/cover responses so a delete can purge it. */
+export const coverCacheTag = (key: string) => `cover-${key}`;

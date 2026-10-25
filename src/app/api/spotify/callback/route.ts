@@ -33,7 +33,8 @@ export async function GET(req: NextRequest) {
     const existing = await prisma.preSave.findFirst({ where: { releaseId: release.id, platform: "spotify", spotifyUserId: me.id } });
     const consent = await oauthEmailConsent(state.em, release.organizationId);
     const data = {
-      refreshTokenEncrypted: encrypt(token.refresh_token),
+      // A save that already happened needs no token; keep one only while the save is still to come.
+      refreshTokenEncrypted: existing?.status === "completed" ? null : encrypt(token.refresh_token),
       // A fresh consent carries its own timestamp and wording version; otherwise keep what the row had.
       ...(consent ?? { email: existing?.email ?? null, emailConsent: !!existing?.emailConsent }),
       sourceVariantId: state.vid ?? existing?.sourceVariantId ?? null,
@@ -44,7 +45,12 @@ export async function GET(req: NextRequest) {
       listenOn: state.lo ?? existing?.listenOn ?? null,
     };
     const ps = existing
-      ? await prisma.preSave.update({ where: { id: existing.id }, data: { ...data, status: existing.status === "completed" ? "completed" : "pending" } })
+      ? await prisma.preSave.update({ where: { id: existing.id }, data: {
+            ...data,
+            // A reconnect is a fresh token and a fresh try. Without resetting attempts, a row that had
+            // already failed five times would sit as "pending" with a live token the processor never picks up.
+            ...(existing.status === "completed" ? { status: "completed" } : { status: "pending", attempts: 0, lastError: null }),
+          } })
       : await prisma.preSave.create({ data: { ...data, releaseId: release.id, platform: "spotify", spotifyUserId: me.id, status: "pending" } });
     if (!existing) after(() => notifyPresaveMilestone(release.id).catch((e) => console.error("[push milestone]", e)));
 
@@ -58,7 +64,7 @@ export async function GET(req: NextRequest) {
     if (isReleasedFor(release, release.organization.timezone, state.tz)) {
       try {
         await saveToLibrary(token.access_token, { albumId: release.spotifyAlbumId, trackId: release.spotifyTrackId, artistId: release.spotifyArtistId });
-        await prisma.preSave.update({ where: { id: ps.id }, data: { status: "completed", completedAt: new Date(), attempts: { increment: 1 } } });
+        await prisma.preSave.update({ where: { id: ps.id }, data: { status: "completed", completedAt: new Date(), attempts: { increment: 1 }, refreshTokenEncrypted: null } });
         return NextResponse.redirect(withParam(state.ret, "done", "spotify-saved"));
       } catch (e) {
         await prisma.preSave.update({ where: { id: ps.id }, data: { lastError: String(e).slice(0, 500), attempts: { increment: 1 } } });

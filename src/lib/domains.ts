@@ -1,9 +1,11 @@
 import { randomBytes } from "node:crypto";
 import { Resolver } from "node:dns/promises";
+import { publicHttpsUrl } from "./color";
 import { prisma } from "./db";
 import { attachDomain, detachDomain, friendlyNetlifyError, isProtectedDomain, NetlifyError, netlifyConfigured, provisionCertificate } from "./netlify";
 import { activeCustomDomain, CUSTOM_DOMAIN_GRACE_DAYS } from "./plans";
 import { allow } from "./throttle";
+import { untrustedGet } from "./untrusted-get";
 
 /**
  * Self-serve custom domains.
@@ -170,17 +172,26 @@ async function pointsAt(domain: string): Promise<{ netlify: boolean; found: stri
   return { netlify: false, found: null };
 }
 
-/** https://domain/api/domain-check must answer as droplr for this exact host. */
+/**
+ * https://domain/api/domain-check must answer as droplr for this exact host.
+ *
+ * The account holder controls this domain's DNS and certificate, so they control the answer: it
+ * goes through untrustedGet (no decompression, no redirects, size-capped) like any other address
+ * someone else chose. See lib/untrusted-get.
+ */
 export async function probeDomain(domain: string): Promise<{ ok: boolean; tls: boolean; dns: boolean; status?: number }> {
+  let code = "";
   try {
-    const res = await fetch(`https://${domain}/api/domain-check`, { redirect: "manual", signal: AbortSignal.timeout(8000), cache: "no-store" });
-    if (!res.ok) return { ok: false, tls: false, dns: false, status: res.status };
-    const j = (await res.json().catch(() => ({}))) as { service?: string; host?: string };
+    const url = await publicHttpsUrl(`https://${domain}/api/domain-check`);
+    if (!url) return { ok: false, tls: false, dns: true };
+    const res = await untrustedGet(url, { maxBytes: 4096, timeoutMs: 8000, accept: "application/json", onError: (c) => { code = c; } });
+    if (!res) return { ok: false, tls: /CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(code), dns: code === "ENOTFOUND" || code === "EAI_AGAIN" };
+    if (res.status < 200 || res.status >= 300) return { ok: false, tls: false, dns: false, status: res.status };
+    let j: { service?: string; host?: string } = {};
+    try { j = JSON.parse(res.body.toString("utf8")); } catch {}
     return { ok: j.service === "droplr.fm" && j.host === domain, tls: false, dns: false, status: res.status };
-  } catch (e) {
-    const cause = (e as { cause?: { code?: string } }).cause;
-    const code = cause?.code ?? "";
-    return { ok: false, tls: /CERT|TLS|SSL|SELF_SIGNED|UNABLE_TO_VERIFY/i.test(code), dns: code === "ENOTFOUND" || code === "EAI_AGAIN" };
+  } catch {
+    return { ok: false, tls: false, dns: false };
   }
 }
 

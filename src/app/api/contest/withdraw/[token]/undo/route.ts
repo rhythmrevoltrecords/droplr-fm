@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { prefsPage } from "@/lib/email-prefs";
 import { acceptingEntries } from "@/lib/contest";
@@ -20,8 +20,7 @@ export const dynamic = "force-dynamic";
  * `status` is left as the label set it. Someone who withdrew a shortlisted entry by mistake gets their
  * shortlist mark back, because the label's judgement didn't change — only the entrant's mind did.
  */
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
-  const { token } = await ctx.params;
+async function checked(token: string) {
   const entry = await prisma.contestEntry.findUnique({
     where: { withdrawToken: token },
     select: {
@@ -34,22 +33,48 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ token: str
       },
     },
   });
-  if (!entry) return prefsPage("<h1>Link expired</h1><p>This link isn't valid any more.</p>", 404);
-  if (!entry.withdrawnAt) return prefsPage("<h1>You're still in</h1><p>That entry was never withdrawn.</p>");
+  if (!entry) return { page: prefsPage("<h1>Link expired</h1><p>This link isn't valid any more.</p>", 404) };
+  if (!entry.withdrawnAt) return { page: prefsPage("<h1>You're still in</h1><p>That entry was never withdrawn.</p>") };
   if (!acceptingEntries(entry.contest)) {
-    return prefsPage("<h1>Entries have closed</h1><p>Your entry can't be put back after the deadline. Get in touch with the label if this was a mistake.</p>", 409);
+    return { page: prefsPage("<h1>Entries have closed</h1><p>Your entry can't be put back after the deadline. Get in touch with the label if this was a mistake.</p>", 409) };
   }
 
   const live = await prisma.contestEntry.count({
     where: { contestId: entry.contestId, email: entry.email, withdrawnAt: null },
   });
   if (live >= entry.contest.maxPerEntrant) {
-    return prefsPage(
-      `<h1>You're already entered</h1><p>You have ${live === 1 ? "an entry" : `${live} entries`} standing, which is the limit for this one. Withdraw one of those if you'd rather have this one judged instead.</p>`,
-      409,
-    );
+    return {
+      page: prefsPage(
+        `<h1>You're already entered</h1><p>You have ${live === 1 ? "an entry" : `${live} entries`} standing, which is the limit for this one. Withdraw one of those if you'd rather have this one judged instead.</p>`,
+        409,
+      ),
+    };
   }
+  return { entry };
+}
 
-  await prisma.contestEntry.update({ where: { id: entry.id }, data: { withdrawnAt: null } });
+/**
+ * GET only asks; POST acts. Mail gateways and link scanners follow every GET in an email, so a GET
+ * that changed state would let a scanner put an entry back that the entrant had pulled. Same rule as
+ * withdraw itself and the unsubscribe links.
+ */
+export async function GET(_req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
+  const { token } = await ctx.params;
+  const r = await checked(token);
+  if (r.page) return r.page;
+  return prefsPage(
+    `<h1>Put your entry back in?</h1>
+     <form method="post" style="margin-top:28px">
+       <button style="background:#fafafa;color:#09090b;border:0;border-radius:10px;padding:12px 20px;font:600 15px system-ui;cursor:pointer">Yes, put it back</button>
+     </form>
+     <p style="color:#71717a;font-size:13px;margin-top:16px">Nothing happens unless you press that.</p>`,
+  );
+}
+
+export async function POST(_req: NextRequest, ctx: { params: Promise<{ token: string }> }) {
+  const { token } = await ctx.params;
+  const r = await checked(token);
+  if (r.page) return r.page;
+  await prisma.contestEntry.update({ where: { id: r.entry.id }, data: { withdrawnAt: null } });
   return prefsPage("<h1>You're back in</h1><p>Your entry is standing again and will be judged with the rest.</p>");
 }

@@ -1,6 +1,7 @@
 "use client";
 import Script from "next/script";
 import { useEffect } from "react";
+import { pixelId } from "@/lib/pixel-ids";
 
 type W = Window & { fbq?: (...a: unknown[]) => void; ttq?: { track: (e: string, p?: object) => void }; gtag?: (...a: unknown[]) => void };
 
@@ -21,8 +22,9 @@ export function Pixels({ meta, tiktok, ga4, contentName }: { meta?: string | nul
     return () => document.removeEventListener("click", onClick, { capture: true });
   }, [contentName]);
 
-  const safe = (v?: string | null) => (v && /^[A-Za-z0-9_-]+$/.test(v) ? v : null);
-  const m = safe(meta), t = safe(tiktok), g = safe(ga4);
+  // Re-checked at render, so an id saved under the old, looser rule (a GTM- container in the GA4
+  // field, say) stops loading the moment this ships rather than when someone re-saves settings.
+  const m = pixelId("meta", meta), t = pixelId("tiktok", tiktok), g = pixelId("ga4", ga4);
   return (
     <>
       {m && (

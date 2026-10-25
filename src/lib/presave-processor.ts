@@ -2,7 +2,7 @@
 // Relative imports only — this file is bundled by Netlify's esbuild outside Next.
 import { prisma } from "./db";
 import { optedOutAmong } from "./fan-consent";
-import { decrypt, encrypt } from "./crypto";
+import { decrypt } from "./crypto";
 import { SITE_URL, deezerGloballyEnabled } from "./env";
 import { normaliseIsrc, normaliseUpc, resolveFromSpotifyUri, resolveStores } from "./odesli";
 import { platformMeta } from "./platforms";
@@ -219,7 +219,9 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
                 completedAt: new Date(),
                 attempts: { increment: 1 },
                 lastError: null,
-                ...(token.refresh_token ? { refreshTokenEncrypted: encrypt(token.refresh_token) } : {}),
+                // The save is done, so the fan's Spotify access is no longer needed: drop it rather than
+                // keep a token that can change their library for as long as the row exists.
+                refreshTokenEncrypted: null,
               },
             });
             out.spotifyDone++;
@@ -239,7 +241,13 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
             const failed = ps.attempts + 1 >= 5 || err.status === 400 || err.status === 401 || err.status === 403;
             await prisma.preSave.update({
               where: { id: ps.id },
-              data: { attempts: { increment: 1 }, lastError: String(err.message).slice(0, 500), status: failed ? "failed" : "pending" },
+              data: {
+                attempts: { increment: 1 },
+                lastError: String(err.message).slice(0, 500),
+                status: failed ? "failed" : "pending",
+                // A rotated token is kept only while the save may still be retried.
+                ...(failed ? { refreshTokenEncrypted: null } : {}),
+              },
             });
             if (failed) out.spotifyFailed++;
             return;
@@ -261,10 +269,10 @@ async function processReleaseLeased(releaseId: string, deadlineMs: number, out: 
       await pool(rows, 20, async (ps) => {
         try {
           await deezerSaveAlbum(decrypt(ps.refreshTokenEncrypted!), albumId);
-          await prisma.preSave.update({ where: { id: ps.id }, data: { status: "completed", completedAt: new Date() } });
+          await prisma.preSave.update({ where: { id: ps.id }, data: { status: "completed", completedAt: new Date(), refreshTokenEncrypted: null } });
           out.deezerDone++;
         } catch (e) {
-          await prisma.preSave.update({ where: { id: ps.id }, data: { status: "failed", lastError: String(e).slice(0, 500), attempts: { increment: 1 } } });
+          await prisma.preSave.update({ where: { id: ps.id }, data: { status: "failed", lastError: String(e).slice(0, 500), attempts: { increment: 1 }, refreshTokenEncrypted: null } });
         }
       }, stop);
     } else out.notes.push("Deezer album link not resolved yet");

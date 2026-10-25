@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { COVER_TYPES, readCover } from "@/lib/blobs";
+import { COVER_TYPES, coverCacheTag, readCover } from "@/lib/blobs";
 
 // Even if something slipped into the store, the browser must never render it as a document.
 const SAFE_HEADERS = {
@@ -15,7 +15,7 @@ export async function GET(_: Request, props: { params: Promise<{ key: string }> 
     if (!blob) return new NextResponse("Not found", { status: 404, headers: SAFE_HEADERS });
     // Older uploads trusted the browser's file.type: only serve the image types we allow.
     if (!(COVER_TYPES as readonly string[]).includes(blob.contentType)) return new NextResponse("Not found", { status: 404, headers: SAFE_HEADERS });
-    return new NextResponse(blob.data, { headers: { ...SAFE_HEADERS, "Content-Type": blob.contentType, "Cache-Control": "public, max-age=31536000, immutable" } });
+    return new NextResponse(blob.data, { headers: { ...SAFE_HEADERS, "Content-Type": blob.contentType, "Cache-Control": "public, max-age=31536000, immutable", "Netlify-Cache-Tag": coverCacheTag(params.key) } });
   } catch {
     return new NextResponse("Blobs unavailable", { status: 404, headers: SAFE_HEADERS });
   }

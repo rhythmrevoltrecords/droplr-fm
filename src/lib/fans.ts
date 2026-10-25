@@ -181,6 +181,9 @@ export type FanExportRow = {
  * pre-save row wins because it carries more that is true (releases, store, clicks); `source`
  * names both so nothing about where they came from is lost.
  */
+/** The closing export's cap: far above any real list, so in practice the whole list. */
+export const CLOSING_EXPORT_LIMIT = 1_000_000;
+
 export async function fanExportRows(orgId: string, f: FanFilter, limit = 50_000): Promise<FanExportRow[]> {
   const [fans, contacts] = await Promise.all([
     listFans(orgId, f, limit, 0),
