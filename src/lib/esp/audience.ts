@@ -31,7 +31,7 @@ export async function espAudience(orgId: string): Promise<AudienceMember[]> {
       FROM "PreSave" p JOIN "Release" r ON r.id = p."releaseId"
       WHERE r."organizationId" = ${orgId} AND p.email IS NOT NULL
       GROUP BY lower(p.email)
-      HAVING bool_or(p."newsConsent") AND NOT bool_or(p.status = 'unsubscribed')`,
+      HAVING bool_or(p."newsConsent" AND p."newsConfirmedAt" IS NOT NULL) AND NOT bool_or(p.status = 'unsubscribed')`,
     prisma.$queryRaw<{ email: string; name: string | null; country: string | null }[]>`
       SELECT lower(fc.email) AS email, fc.name, fc.country
       FROM "FanContact" fc

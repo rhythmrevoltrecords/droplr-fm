@@ -129,7 +129,7 @@ async function main() {
       data: { organizationId: A.id, title: `Fan ${RUN}`, artistName: "X", slug: `fan-${RUN}`, coverUrl: "https://x/c.jpg", releaseDate: new Date(), isPublic: true },
     });
     const real = `real-${RUN}@example.com`;
-    await prisma.preSave.create({ data: { releaseId: rel.id, platform: "email", email: real, status: "completed", emailConsent: true, newsConsent: true } });
+    await prisma.preSave.create({ data: { releaseId: rel.id, platform: "email", email: real, status: "completed", emailConsent: true, newsConsent: true, newsConfirmedAt: new Date() } });
     const r = await importContacts({
       organizationId: A.id, contacts: [{ email: real }], skipped: 0,
       consentSource: "hypeddit", consentKind: "marketing", consentAt: null, consentNote: "old opt-in",

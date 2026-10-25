@@ -68,7 +68,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ contestId:
       .findUnique({
         where: { id: entryId },
         select: {
-          email: true, artistName: true, link: true, withdrawToken: true,
+          email: true, artistName: true, link: true,
           contest: {
             select: {
               headline: true, closesAt: true,
@@ -93,7 +93,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ contestId:
         link: entry.link,
         closesAt: entry.contest.closesAt,
         timezone: org.timezone,
-        withdrawUrl: `${SITE_URL}/api/contest/withdraw/${entry.withdrawToken}`,
+        withdrawUrl: `${SITE_URL}/api/contest/withdraw/${result.withdrawToken}`,
         warnings: result.warnings,
         showBranding: !planOf(org.plan).removeBranding,
       }),

@@ -1,11 +1,11 @@
 // Relative imports only: also called from lib/esp, which the sync job bundles outside Next.
 import { prisma } from "./db";
 
-export type ConsentEventKind = "unsubscribe" | "restore";
+export type ConsentEventKind = "unsubscribe" | "restore" | "confirm";
 export type ConsentEventVia = "link" | "one-click" | "esp";
 
 /**
- * Write down that a fan opted out of (or back in to) an account's emails, and when. Append-only:
+ * Write down that a fan opted out of (or back in to, or confirmed) an account's emails, and when. Append-only:
  * the current state lives on PreSave and FanContact, this is the history behind it. Never throws;
  * a failed log line must not stop the opt-out itself.
  */

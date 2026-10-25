@@ -266,9 +266,16 @@ model Release {
   exclusiveWeeks    Int?
   exclusiveRulebook String?
 
-  /** Shareable release report: off until the label turns it on, revocable by rotating the token. */
-  reportToken    String?   @unique
-  reportSharedAt DateTime?
+  /**
+   * Shareable release report: off until the label turns it on, revocable by turning it off.
+   * The link's token is looked up by its sha256 and kept encrypted so the dashboard can show the
+   * link again; a copy of the database alone opens no report. `reportToken` is the old plaintext
+   * column, emptied by the release-check sweep (lib/report sealLegacyReportTokens) and unused otherwise.
+   */
+  reportToken          String?   @unique
+  reportTokenHash      String?   @unique
+  reportTokenEncrypted String?
+  reportSharedAt       DateTime?
 
   /**
    * Intent only, captured ahead of the unreleased pool being built. Ticking it shares
@@ -489,6 +496,12 @@ model ClickEvent {
 }
 
 model PreSave {
+  /**
+   * When the fan clicked the confirmation email for this account's news (lib/news-confirm).
+   * `newsConsent` is the box they ticked; news only goes out, and Mailchimp only receives them,
+   * once this is set. Anyone can type anyone's address into a form; only the owner can click.
+   */
+  newsConfirmedAt DateTime?
   id                    String    @id @default(cuid())
   releaseId             String
   release               Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
@@ -1143,7 +1156,14 @@ model ContestEntry {
   labelNote      String?
   /** The entrant pulled it. Keeps the row, so its link stays reserved and the count stays honest. */
   withdrawnAt    DateTime?
-  withdrawToken  String   @unique
+  /**
+   * sha256 of the token in the entrant's withdraw link. The token itself is only ever in that email.
+   * Nullable only until the release that drops `withdrawToken`: rows written by the old code during
+   * a deploy have the plaintext and no hash until the release check hashes them.
+   */
+  withdrawTokenHash String?  @unique
+  /** Old plaintext token. Emptied by hashLegacyWithdrawTokens; never read or written otherwise. Drop next release. */
+  withdrawToken     String?  @unique
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 

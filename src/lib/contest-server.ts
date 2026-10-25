@@ -1,4 +1,4 @@
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { isPrivateIp } from "./color";
@@ -19,6 +19,29 @@ import { isEmail, normalizeEmail } from "./fan-import";
  */
 
 export const withdrawToken = () => randomBytes(18).toString("base64url");
+/** What the database keeps instead of the token: the token itself is only ever in the entrant's email. */
+export const withdrawTokenHash = (token: string) => createHash("sha256").update(token).digest("hex");
+
+/**
+ * Entries whose withdraw token is still stored in plain text (from before hashing, or written by the
+ * old code while a deploy was building): store the hash, then empty the plaintext, each row only if
+ * it hasn't changed since it was read. Run from the scheduled release check; returns how many.
+ */
+export async function hashLegacyWithdrawTokens(deadline = Date.now() + 20_000): Promise<number> {
+  const rows = await prisma.contestEntry.findMany({ where: { withdrawToken: { not: null } }, select: { id: true, withdrawToken: true, withdrawTokenHash: true }, take: 500 });
+  let n = 0;
+  for (const r of rows) {
+    if (Date.now() > deadline) break;
+    // A row that already has a hash (the migration's, or a newer one) keeps it: only the
+    // plaintext goes. Compare-and-set on both, so nothing written since the read is undone.
+    const done = await prisma.contestEntry.updateMany({
+      where: { id: r.id, withdrawToken: r.withdrawToken, withdrawTokenHash: r.withdrawTokenHash },
+      data: { withdrawToken: null, ...(r.withdrawTokenHash ? {} : { withdrawTokenHash: withdrawTokenHash(r.withdrawToken!) }) },
+    });
+    n += done.count;
+  }
+  return n;
+}
 
 // ---------------------------------------------------------------------------
 // Taking an entry
@@ -37,7 +60,7 @@ export type EnterInput = {
 
 export type EnterResult =
   | { ok: false; status: number; error: string }
-  | { ok: true; entryId: string; revived: boolean; warnings: EntryWarning[] };
+  | { ok: true; entryId: string; revived: boolean; warnings: EntryWarning[]; withdrawToken: string };
 
 /**
  * Record one entry, or say precisely why not.
@@ -100,6 +123,9 @@ export async function enterContest(input: EnterInput, now = new Date()): Promise
 
   let entryId: string;
   const revived = verdict.kind === "revive";
+  // A fresh token every time: the receipt needs one to put in its link, and the stored hash can't
+  // give the old one back. Reviving rotates it, so only the newest receipt's link works.
+  const token = withdrawToken();
   try {
     if (verdict.kind === "revive") {
       // Additive only: the same person putting their own withdrawn entry back. Nothing about the row
@@ -107,13 +133,15 @@ export async function enterContest(input: EnterInput, now = new Date()): Promise
       // because an unverified email address is not authority to destroy anything.
       const row = await prisma.contestEntry.update({
         where: { id: verdict.entryId },
-        data: { withdrawnAt: null },
+        // withdrawToken cleared too: a plaintext token from before hashing would otherwise be hashed
+        // over this new one by the sweep, killing the link in the receipt about to be sent.
+        data: { withdrawnAt: null, withdrawTokenHash: withdrawTokenHash(token), withdrawToken: null },
         select: { id: true },
       });
       entryId = row.id;
     } else {
       const row = await prisma.contestEntry.create({
-        data: { ...data, withdrawToken: withdrawToken() },
+        data: { ...data, withdrawTokenHash: withdrawTokenHash(token) },
         select: { id: true },
       });
       entryId = row.id;
@@ -139,7 +167,7 @@ export async function enterContest(input: EnterInput, now = new Date()): Promise
     }
   }
 
-  return { ok: true, entryId, revived, warnings };
+  return { ok: true, entryId, revived, warnings, withdrawToken: token };
 }
 
 // ---------------------------------------------------------------------------

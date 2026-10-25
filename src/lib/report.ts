@@ -1,4 +1,4 @@
-import { randomToken } from "./crypto";
+import { decrypt, encrypt, randomToken, sha256 } from "./crypto";
 import { prisma } from "./db";
 import { getStats } from "./analytics";
 
@@ -17,19 +17,55 @@ export const reportUrlPath = (token: string) => `/report/${token}`;
 
 export async function enableReport(releaseId: string) {
   const token = randomToken(18); // ~29 chars of base64url: not guessable, still pasteable
-  await prisma.release.update({ where: { id: releaseId }, data: { reportToken: token, reportSharedAt: new Date() } });
+  await prisma.release.update({ where: { id: releaseId }, data: { ...sealed(token), reportToken: null, reportSharedAt: new Date() } });
   return token;
+}
+
+/**
+ * Looked up by hash, shown again from the encrypted copy. A leaked database dump opens no report;
+ * it would also need ENCRYPTION_KEY, which lives only in Netlify.
+ */
+const sealed = (token: string) => ({ reportTokenHash: sha256(token), reportTokenEncrypted: encrypt(token) });
+
+/** The link for the dashboard, or null when sharing is off (or the copy can't be read). */
+export function reportTokenFor(r: { reportTokenEncrypted: string | null }): string | null {
+  if (!r.reportTokenEncrypted) return null;
+  try {
+    return decrypt(r.reportTokenEncrypted);
+  } catch {
+    return null;
+  }
 }
 
 /** Turning it off clears the token, so the old URL 404s rather than going quiet. */
 export async function disableReport(releaseId: string) {
-  await prisma.release.update({ where: { id: releaseId }, data: { reportToken: null, reportSharedAt: null } });
+  await prisma.release.update({ where: { id: releaseId }, data: { reportToken: null, reportTokenHash: null, reportTokenEncrypted: null, reportSharedAt: null } });
+}
+
+/**
+ * Tokens from before hashing: the migration gave them a hash (so their links work) but SQL can't
+ * encrypt, so the plaintext waits here. Run from the scheduled release check; returns how many.
+ */
+export async function sealLegacyReportTokens(deadline = Date.now() + 20_000): Promise<number> {
+  const rows = await prisma.release.findMany({ where: { reportToken: { not: null } }, select: { id: true, reportToken: true }, take: 500 });
+  let n = 0;
+  for (const r of rows) {
+    if (Date.now() > deadline) break;
+    // Only if nothing changed since the read: a disable landing in between must not be undone.
+    const done = await prisma.release.updateMany({ where: { id: r.id, reportToken: r.reportToken }, data: { ...sealed(r.reportToken!), reportToken: null } });
+    n += done.count;
+  }
+  // The old code's disable cleared reportToken and reportSharedAt but knew nothing of the hash the
+  // migration added, so a link turned off during a deploy would keep a hash. Clear it.
+  await prisma.release.updateMany({ where: { reportSharedAt: null, OR: [{ reportTokenHash: { not: null } }, { reportTokenEncrypted: { not: null } }] }, data: { reportTokenHash: null, reportTokenEncrypted: null } });
+  return n;
 }
 
 export async function reportByToken(token: string) {
   if (!token || token.length < 16 || token.length > 64) return null;
   const release = await prisma.release.findFirst({
-    where: { reportToken: token },
+    // reportSharedAt too: it is what "sharing is on" means, and a disable by older code cleared it.
+    where: { reportTokenHash: sha256(token), reportSharedAt: { not: null } },
     select: {
       id: true,
       title: true,

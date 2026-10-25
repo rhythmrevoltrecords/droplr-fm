@@ -37,6 +37,7 @@ import { createServer } from "node:http";
 import { encrypt, signToken } from "../src/lib/crypto";
 import { createVerificationToken } from "../src/lib/email-verification";
 import { prisma } from "../src/lib/db";
+import { withdrawToken, withdrawTokenHash } from "../src/lib/contest-server";
 import { fanExportRows, listCaptured } from "../src/lib/fans";
 import { LEGAL } from "../src/lib/legal";
 import { linkCustomDomain, planOf } from "../src/lib/plans";
@@ -928,6 +929,9 @@ async function main() {
     const nf = await prisma.preSave.findFirst({ where: { email: newsFan } });
     const pf = await prisma.preSave.findFirst({ where: { email: plainFan } });
     check("news opt-in is stored separately from release-day consent", !!nf?.newsConsent && !!nf.newsConsentAt && !!pf && !pf.newsConsent && pf.emailConsent, JSON.stringify({ nf: nf?.newsConsent, pf: pf?.newsConsent }));
+    // The tick waits for the fan's confirmation email (lib/news-confirm); this fan has pressed it.
+    check("a news tick is not confirmed until the fan presses the email's button", !!nf && nf.newsConfirmedAt === null);
+    await prisma.preSave.updateMany({ where: { email: newsFan }, data: { newsConfirmedAt: new Date() } });
     const fansOwnerB = await login(B.owner.email);
     const fansPage = await http(fansOwnerB, "GET", "/admin/fans?news=1");
     check("fan list filters to news opt-ins", fansPage.status === 200 && fansPage.text.includes(newsFan) && !fansPage.text.includes(plainFan), `${fansPage.status}`);
@@ -1108,7 +1112,7 @@ async function main() {
       await prisma.authThrottle.deleteMany({});
       const first = await entry();
       const stored = await prisma.contestEntry.findFirst({ where: { contestId: cid } });
-      check("an entry is stored with the org, the declaration and a withdraw token", first.status === 200 && stored?.organizationId === A.org.id && stored?.declarationVersion === 2 && stored.declarationText.length > 40 && !!stored.withdrawToken && stored.linkNormalised === `https://soundcloud.com/remixer-${RUN}/one`, `${first.status} ${first.text.slice(0, 120)}`);
+      check("an entry is stored with the org, the declaration and a withdraw token", first.status === 200 && stored?.organizationId === A.org.id && stored?.declarationVersion === 2 && stored.declarationText.length > 40 && /^[0-9a-f]{64}$/.test(stored.withdrawTokenHash ?? "") && stored.withdrawToken === null && stored.linkNormalised === `https://soundcloud.com/remixer-${RUN}/one`, `${first.status} ${first.text.slice(0, 120)}`);
       check("the raw IP is never stored", !!stored && (stored.ipHash === null || !/^[0-9.]+$|:/.test(stored.ipHash)), String(stored?.ipHash));
 
       const noTick = await entry({ declarationAccepted: false, link: `https://soundcloud.com/remixer-${RUN}/two` });
@@ -1147,7 +1151,9 @@ async function main() {
       const exportArtist = await http(artistA, "GET", `/api/admin/releases/${A.release.id}/contest/export`);
       check("the entries CSV is label-only and carries the declaration", exportCross.status === 404 && exportArtist.status === 401 && exportOwn.status === 200 && exportOwn.text.includes(`remixer-${RUN}@sectest.dev`) && exportOwn.text.includes("declarationText"), `${exportCross.status}/${exportArtist.status}/${exportOwn.status}`);
 
-      const tok = afterReplace[0].withdrawToken;
+      // The token only exists in the entrant's email, so the test gives the row one it knows.
+      const tok = withdrawToken();
+      await prisma.contestEntry.update({ where: { id: eid }, data: { withdrawTokenHash: withdrawTokenHash(tok) } });
       const wrongTok = await http(null, "GET", `/api/contest/withdraw/${"z".repeat(24)}`);
       // A GET must only ASK. Mail gateways and inbox previews follow links in email, so a GET that
       // withdrew would silently pull entries from people who never clicked.
@@ -1506,8 +1512,8 @@ async function main() {
 
       // ---- Release report + download page --------------------------------------------------------
       const rep = await http(ownerA, "POST", `/api/admin/releases/${B.release.id}/report`, { action: "enable" });
-      const bRelRep = await prisma.release.findUnique({ where: { id: B.release.id }, select: { reportToken: true, reportSharedAt: true } });
-      check("A can't turn on B's release report", rep.status === 404 && !leaks(rep.text) && bRelRep?.reportToken === null && bRelRep?.reportSharedAt === null, `got ${rep.status}`);
+      const bRelRep = await prisma.release.findUnique({ where: { id: B.release.id }, select: { reportTokenHash: true, reportSharedAt: true } });
+      check("A can't turn on B's release report", rep.status === 404 && !leaks(rep.text) && bRelRep?.reportTokenHash === null && bRelRep?.reportSharedAt === null, `got ${rep.status}`);
       const bDl = await prisma.release.create({ data: { organizationId: B.org.id, kind: "download", slug: `sectest-dl-b-${RUN}`, title: `B download ${RUN}`, artistName: "X", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), status: "live", downloadUrl: "https://example.com/b-secret-file.zip" } });
       const dlPage = await http(ownerA, "GET", `/admin/downloads/${bDl.id}`);
       const bDlNow = await prisma.release.findUnique({ where: { id: bDl.id } });
@@ -1760,8 +1766,8 @@ async function main() {
       await prisma.$executeRaw`INSERT INTO "EspConnection" ("id","organizationId","provider","apiKeyEncrypted","listId","listName","status","lastSyncedAt","updatedAt") VALUES (${bConnId}, ${B.org.id}, 'mailchimp', ${encrypt("fake-key-us1")}, 'listB123', 'B Secret Audience', 'active', ${past}, now())`;
       // Same-emailed fan in both labels, so the webhook's org scoping is provable, not assumed.
       const espFan = `espfan-${RUN}@fans.dev`;
-      await prisma.preSave.create({ data: { releaseId: B.release.id, platform: "email", email: espFan, emailConsent: true, newsConsent: true, status: "emailed" } });
-      await prisma.preSave.create({ data: { releaseId: A.release.id, platform: "email", email: espFan, emailConsent: true, newsConsent: true, status: "emailed" } });
+      await prisma.preSave.create({ data: { releaseId: B.release.id, platform: "email", email: espFan, emailConsent: true, newsConsent: true, newsConfirmedAt: new Date(), status: "emailed" } });
+      await prisma.preSave.create({ data: { releaseId: A.release.id, platform: "email", email: espFan, emailConsent: true, newsConsent: true, newsConfirmedAt: new Date(), status: "emailed" } });
 
       // A's owner sees only A's (empty) connection, never B's list or secret audience name.
       const aGet = await http(ownerA, "GET", "/api/admin/integrations/esp");

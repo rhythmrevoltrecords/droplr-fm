@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { withdrawTokenHash } from "@/lib/contest-server";
 import { prisma } from "@/lib/db";
 import { prefsPage } from "@/lib/email-prefs";
 
@@ -26,7 +27,7 @@ const esc = (s: string) => s.replace(/[<>&"]/g, (c) => ({ "<": "&lt;", ">": "&gt
 async function load(token: string) {
   if (!token || token.length > 64) return null;
   return prisma.contestEntry.findUnique({
-    where: { withdrawToken: token },
+    where: { withdrawTokenHash: withdrawTokenHash(token) },
     select: {
       id: true, artistName: true, link: true, withdrawnAt: true,
       contest: { select: { headline: true, closesAt: true, organization: { select: { name: true } } } },

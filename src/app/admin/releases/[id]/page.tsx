@@ -42,6 +42,7 @@ import { planOf } from "@/lib/plans";
 import { DOWNLOAD_HIDDEN_TABS } from "@/lib/gate-steps";
 import { gateStatsFor } from "@/lib/downloads";
 import { publicReleaseUrl } from "@/lib/releases";
+import { reportTokenFor } from "@/lib/report";
 import { dateToZonedLocal, formatInTz, isReleased } from "@/lib/time";
 
 const TABS = [
@@ -69,6 +70,8 @@ export default async function ReleaseDetail(
   });
   if (!release) notFound();
   const isDownload = release.kind === "download";
+  const reportToken = reportTokenFor(release);
+  const reportLink = reportToken ? `${SITE_URL}/report/${reportToken}` : null;
   const tabs = isDownload ? TABS.filter((t) => !DOWNLOAD_HIDDEN_TABS.includes(t.key)) : TABS;
   const tab = tabs.some((t) => t.key === searchParams.tab) ? searchParams.tab! : tabs[0].key;
   // Only the settings tab needs the roster, and its socials are only ever this organisation's own.
@@ -165,7 +168,7 @@ export default async function ReleaseDetail(
           </div>
           <AnalyticsPanels perLink stats={await getStats([release.id], days, release.organization.timezone)} gate={isDownload ? await gateStatsFor(release.id, days) : null} />
           {/* The shareable report is built around pre-saves and store choice, none of which a gate has. */}
-          {!isDownload && <ReportShare releaseId={release.id} url={release.reportToken ? `${SITE_URL}/report/${release.reportToken}` : null} />}
+          {!isDownload && <ReportShare releaseId={release.id} url={reportLink} sharedButHidden={!!release.reportSharedAt && !reportLink} />}
         </div>
       )}
 

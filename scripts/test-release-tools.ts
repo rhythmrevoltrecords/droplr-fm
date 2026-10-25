@@ -244,7 +244,7 @@ async function main() {
     await disableReport(rel.id);
 
     // --- Release report ---
-    check("a release has no report until asked", !(await prisma.release.findUnique({ where: { id: rel.id } }))?.reportToken);
+    check("a release has no report until asked", !(await prisma.release.findUnique({ where: { id: rel.id } }))?.reportTokenHash);
     check("a junk token resolves to nothing", (await reportByToken("not-a-real-token-at-all")) === null);
     check("a short token is refused outright", (await reportByToken("abc")) === null);
 
@@ -268,7 +268,8 @@ async function main() {
 
     await disableReport(rel.id);
     check("turning sharing off kills the link", (await reportByToken(rotated)) === null);
-    check("turning sharing off clears the stored token", !(await prisma.release.findUnique({ where: { id: rel.id } }))?.reportToken);
+    const off = await prisma.release.findUnique({ where: { id: rel.id } });
+    check("turning sharing off clears the stored token", !off?.reportToken && !off?.reportTokenHash && !off?.reportTokenEncrypted);
   } finally {
     setPushSenderForTests(null);
     await prisma.organization.deleteMany({ where: { slug: { in: [org.slug, other.slug] } } });

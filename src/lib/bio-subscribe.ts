@@ -61,7 +61,7 @@ export function subscribeButtonText(raw: string | null | undefined): string {
  * consent is how the fan knows it exists before they hand anything over.
  */
 export function subscribeConsentLine(orgName: string): string {
-  return `${orgName} can email me about new music. Unsubscribe anytime.`;
+  return `${orgName} can email me about new music. I'll get one email to confirm first. Unsubscribe anytime.`;
 }
 
 /** Heading above the form. Short on purpose: the links are what the page is for. */

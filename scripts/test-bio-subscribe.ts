@@ -132,7 +132,8 @@ const legal = read("src/lib/legal.ts");
 check("the subscribe wording has a version of its own", /BIO_SUBSCRIBE_CONSENT_VERSION = "[^"]+"/.test(legal));
 check("the row records the wording verbatim", route.includes("subscribeConsentNote("));
 check("the row is marked as a page capture", route.includes("consentSource: BIO_CONSENT_SOURCE"));
-check("the row is mailable, not pending", /status: "mailable"/.test(route));
+// Mailable only once confirmed by email (lib/news-confirm); test:dataprotection drives the real flow.
+check("the row waits for email confirmation unless already confirmed", /status: confirmed \? "mailable" : "pending"/.test(route) && route.includes("requestNewsConfirmation("));
 check("the row is marketing consent", /consentKind: "marketing"/.test(route));
 // Leaving importId set would keep the row inside every count and screen labelled "imported".
 check("the row carries no import id, on create and on update",

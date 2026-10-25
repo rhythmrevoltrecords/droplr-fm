@@ -39,9 +39,10 @@ export const CONTACT = {
  * Version of the fan consent line on the email pre-save form (src/components/public/release-view.tsx:
  * "Email me on release day. {label} can send me updates about this release. Unsubscribe anytime. Privacy").
  * v2 added the Privacy link. v3 added the separate, optional "news and new music" box (PreSave.newsConsent).
+ * v4 (26 Oct 2026) says the news box sends one email to confirm (lib/news-confirm).
  * Change this whenever that wording changes; it's stored on PreSave.consentVersion as proof of consent.
  */
-export const FAN_EMAIL_CONSENT_VERSION = "2026-09-17.release-day-v3-news-optional";
+export const FAN_EMAIL_CONSENT_VERSION = "2026-10-26.release-day-v4-news-confirmed";
 
 /**
  * Consent shown on a download gate's email step. Versioned separately from the pre-save one on
@@ -53,7 +54,8 @@ export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
 
 /**
  * Consent shown on a bio page's subscribe box (src/lib/bio-subscribe.ts subscribeConsentLine:
- * "{label} can email me about new music. Unsubscribe anytime.").
+ * "{label} can email me about new music. I'll get one email to confirm first. Unsubscribe anytime.").
+ * v2 (26 Oct 2026) added the confirmation sentence: the address is mailable only once confirmed.
  *
  * Versioned separately for the same reason the download gate is. It was stamped with
  * FAN_EMAIL_CONSENT_VERSION for about an hour while this was being built, which would have put
@@ -61,7 +63,7 @@ export const DOWNLOAD_CONSENT_VERSION = "2026-09-21.download-gate-v1";
  * version exists to prevent. A fan asking to hear about new music agreed to different words from
  * a fan asking to be told when one single comes out.
  */
-export const BIO_SUBSCRIBE_CONSENT_VERSION = "2026-10-20.bio-subscribe-v1";
+export const BIO_SUBSCRIBE_CONSENT_VERSION = "2026-10-26.bio-subscribe-v2";
 
 /**
  * What a remix contest entrant ticks, and the version stored against their entry.
@@ -106,6 +108,7 @@ export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }
       "Closing your account yourself: the closing page offers your whole fan list as a download first, then your account and fan data are deleted at once, including your uploaded images (copies already held elsewhere, such as in a visitor's browser, an email provider's image cache or a site that previewed the page, are outside our reach). The old wording offered a 30-day export window after closure, which only applies when we close an account. If you want your list, take it before you close.",
       "Fans' Spotify and Deezer access is now deleted as soon as their save has been made, and droplr now records when a fan unsubscribes or opts back in. The fan data list names everything droplr keeps, including timezone, bio-page subscriptions and contest votes.",
       "Tracking pixel ids must now be in each provider's real format, and the cookie and privacy policies name the referral cookie and SoundCloud's contest player.",
+      "Fans who tick the news box or use a bio-page subscribe box now get one email to confirm, and an address from those boxes only gets news or goes to your Mailchimp audience once it is confirmed, so a stranger typing someone's address in can't put it on your list. Ticks given before this change still count, lists you import are unchanged, and the pre-save itself needs no confirmation.",
     ],
   },
   {

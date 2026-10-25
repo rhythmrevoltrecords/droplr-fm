@@ -172,7 +172,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
               </label>
               <label className="flex items-start gap-2.5 text-xs leading-relaxed text-white/70">
                 <input type="checkbox" name="news" value="yes" className="mt-0.5 h-4 w-4 accent-white" />
-                <span>Also send me news and new music from {release.artistName}. <span className="text-white/45">Optional</span></span>
+                <span>Also send me news and new music from {release.artistName}. You&apos;ll get one email to confirm. <span className="text-white/45">Optional</span></span>
               </label>
               <button type="submit" data-track="email" data-kind="presave" className="h-12 w-full rounded-xl font-semibold text-black transition active:scale-[0.99]" style={{ backgroundColor: "#fff" }}>
                 Pre-save with email

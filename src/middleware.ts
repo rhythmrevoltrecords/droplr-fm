@@ -34,9 +34,11 @@ export async function middleware(req: NextRequest) {
   if (url.pathname.startsWith("/admin") || url.pathname.startsWith("/dashboard") || url.pathname.startsWith("/platform")) {
     const token = req.cookies.get("dfm_session")?.value;
     let ok = false;
-    if (token && process.env.JWT_SECRET) {
+    // JWT_SECRET_PREVIOUS: see jwtSecrets() in lib/crypto. Inlined because middleware runs on the edge.
+    for (const secret of token ? [process.env.JWT_SECRET, process.env.JWT_SECRET_PREVIOUS] : []) {
+      if (ok || !secret) continue;
       try {
-        await jwtVerify(token, new TextEncoder().encode(process.env.JWT_SECRET), { algorithms: ["HS256"], audience: "session" });
+        await jwtVerify(token!, new TextEncoder().encode(secret), { algorithms: ["HS256"], audience: "session" });
         ok = true;
       } catch {}
     }

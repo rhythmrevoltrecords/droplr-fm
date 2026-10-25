@@ -1,4 +1,4 @@
-import { NextResponse, type NextRequest } from "next/server";
+import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { bioPublicUrl } from "@/lib/bio";
 import {
@@ -9,6 +9,7 @@ import {
   subscribeConsentNote,
 } from "@/lib/bio-subscribe";
 import { isOptedOut } from "@/lib/fan-consent";
+import { newsConfirmed, requestNewsConfirmation } from "@/lib/news-confirm";
 import { BIO_SUBSCRIBE_CONSENT_VERSION } from "@/lib/legal";
 import { requestOrigin, safeReturnUrl, withParam } from "@/lib/oauth";
 import { allow, emailKey, ipKey } from "@/lib/throttle";
@@ -61,38 +62,33 @@ export async function POST(req: NextRequest) {
   const meta = requestMeta(req.headers);
   const timezone = fanTimezone(form?.get("tz"), req.headers);
   const now = new Date();
+  // Mailable only once the fan has confirmed by email, or already had for this account. A row the
+  // account could already mail is never moved down by someone typing its address in.
+  const existing = await prisma.fanContact.findUnique({ where: { organizationId_email: { organizationId: page.organizationId, email } }, select: { status: true } });
+  const confirmed = existing?.status === "mailable" || (await newsConfirmed(page.organizationId, email));
   const consent = {
     consentSource: BIO_CONSENT_SOURCE,
     consentKind: "marketing",
     consentAt: now,
     consentVersion: BIO_SUBSCRIBE_CONSENT_VERSION,
     consentNote: subscribeConsentNote(page.organization.name),
-    status: "mailable",
+    status: confirmed ? "mailable" : "pending",
     bioPageId: page.id,
   };
 
   /**
    * Upsert, not create. The unique key is (organizationId, email), and three things land here:
    *
-   *  - a new address: created mailable, because the fan did this themselves on wording droplr
-   *    showed and recorded. An import starts `pending`; this is not an import.
+   *  - a new address: created `pending`, and an email asks the fan to confirm. It becomes mailable
+   *    when they press the button (lib/news-confirm), or at once if this address already confirmed
+   *    news for this account.
    *  - the same fan again: consentAt and consentVersion move forward. Harmless and more accurate
    *    than keeping the first one.
    *  - an address the account previously IMPORTED and never confirmed (`pending`, and so
-   *    unreachable). The fan has now asked in person, which is better evidence than the importer's
-   *    attestation, so the row becomes a page capture and reachable.
-   *
-   *    THAT LAST ONE IS A JUDGEMENT CALL, so here is the reasoning. Anyone can type anyone's
-   *    address, so in principle a stranger could move someone else's pending import to mailable.
-   *    The alternative — leave a non-page row untouched — silently drops the real fan who just
-   *    asked, which is the exact under-mailing this whole change exists to fix. The escalation is
-   *    bounded in the only direction that matters: pending may become mailable, unsubscribed never
-   *    can (isOptedOut above, which reads BOTH tables -- a second narrow check against this row
-   *    was written here and removed, because a negative control could not make it fail), and
-   *    every email droplr sends carries a working
-   *    unsubscribe. The row also records that a page capture is what moved it, so the account
-   *    holder can see it rather than wondering. The pre-save form has accepted the same exposure
-   *    since launch for the same reason.
+   *    unreachable). It becomes a page capture, still pending, and the fan is asked to confirm.
+   *    This used to make it mailable on the spot, which let a stranger who typed someone's address
+   *    put them on a list. The confirmation email closes that: only the owner of the inbox can
+   *    press the button. Unsubscribed never comes back here at all (isOptedOut above).
    *
    * importId is cleared on that third case. Leaving it set would keep the row inside every count
    * and screen labelled "imported", which would then be describing something that is no longer true.
@@ -115,5 +111,6 @@ export async function POST(req: NextRequest) {
     },
   });
 
+  if (!confirmed) after(() => requestNewsConfirmation(page.organization, email).then(() => {}).catch((e) => console.error("[news-confirm]", e)));
   return ok();
 }
