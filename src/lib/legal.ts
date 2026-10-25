@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-10-05",
-  updated: "5 October 2026",
+  version: "2026-10-26",
+  updated: "26 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -98,6 +98,16 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-26",
+    date: "26 October 2026",
+    summary: [
+      "The Data Processing Terms now say plainly that they cover every account, artist or label, which is how they have always been applied.",
+      "Closing your account yourself: the closing page offers your whole fan list as a download first, then your account and fan data are deleted at once, including your uploaded images (copies already held elsewhere, such as in a visitor's browser, an email provider's image cache or a site that previewed the page, are outside our reach). The old wording offered a 30-day export window after closure, which only applies when we close an account. If you want your list, take it before you close.",
+      "Fans' Spotify and Deezer access is now deleted as soon as their save has been made, and droplr now records when a fan unsubscribes or opts back in. The fan data list names everything droplr keeps, including timezone, bio-page subscriptions and contest votes.",
+      "Tracking pixel ids must now be in each provider's real format, and the cookie and privacy policies name the referral cookie and SoundCloud's contest player.",
+    ],
+  },
   {
     version: "2026-10-05",
     date: "5 October 2026",

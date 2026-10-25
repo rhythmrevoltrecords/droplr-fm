@@ -5,6 +5,7 @@ import { findDueReleases } from "../../src/lib/presave-processor";
 import { notifyDuePromoSteps } from "../../src/lib/promo-reminders";
 import { notifyLiveReleases } from "../../src/lib/push-live";
 import { findDueEspConnections } from "../../src/lib/esp/db";
+import { pruneThrottles } from "../../src/lib/throttle";
 
 // Every 15 minutes: find releases with work due somewhere in the world (store scans before/after release,
 // Spotify saves at each fan's local release moment, release-day emails at the label's hour in each fan's timezone)
@@ -18,6 +19,8 @@ export default async () => {
   await sweepLapsedComps()
     .then((n) => n && console.info("[release-check] comps lapsed", n))
     .catch((e) => console.error("[release-check] comp sweep", e));
+  // Rate-limit records are kept for a day at most (privacy policy), whatever the traffic.
+  await pruneThrottles().catch((e) => console.error("[release-check] throttle prune", e));
   const [due, news, esp] = await Promise.all([findDueReleases(), findDueNewsEmails(), findDueEspConnections()]);
   if (!due.length && !news.length && !esp.length) return new Response(JSON.stringify({ due: 0, news: 0, esp: 0 }), { status: 200 });
 

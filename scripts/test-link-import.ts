@@ -114,10 +114,13 @@ check("the import is capped", extractLinks(
 const server = code(read("src/lib/link-import-server.ts"));
 check("it reuses the audited guard instead of its own", server.includes("publicHttpsUrl"),
   "a second guard is one that has to be remembered separately");
-check("redirects are not followed", /redirect: "manual"/.test(server),
+// The request goes through lib/untrusted-get: node:https, which never follows a redirect and never
+// decompresses (fetch() did both risks: redirects needed "manual", and Brotli was CVE-2026-111497).
+const ug = code(read("src/lib/untrusted-get.ts"));
+check("redirects are not followed", server.includes("untrustedGet(") && /from "node:https"/.test(ug) && !/\bfetch\(/.test(ug) && !/follow/i.test(ug),
   "a public host can otherwise bounce the request to an internal address after the check passed");
-check("there is a timeout", /AbortSignal\.timeout/.test(server));
-check("there is a byte cap", /MAX_BYTES/.test(server) && /size > MAX_BYTES/.test(server));
+check("there is a timeout", /timeoutMs: TIMEOUT_MS/.test(server) && /setTimeout\(/.test(ug));
+check("there is a byte cap", /maxBytes: MAX_BYTES/.test(server) && /size > o\.maxBytes/.test(ug));
 check("only html is read", /text\/html/.test(server));
 check("the page's own text never reaches the caller",
   !/return \{ ok: true, (html|body|text)/.test(server) && server.includes("links"),

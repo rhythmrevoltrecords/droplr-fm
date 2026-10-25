@@ -21,8 +21,9 @@ export async function GET(req: NextRequest) {
     const userId = await deezerMe(token);
     const existing = userId ? await prisma.preSave.findFirst({ where: { releaseId: state.rid, platform: "deezer", deezerUserId: userId } }) : null;
     const consent = await oauthEmailConsent(state.em, state.org);
-    const data = { refreshTokenEncrypted: encrypt(token), ...(consent ?? { email: null, emailConsent: false }), sourceVariantId: state.vid ?? null, source: state.src ?? null, anonId: state.anon ?? null };
-    if (existing) await prisma.preSave.update({ where: { id: existing.id }, data });
+    // A save that already happened needs no token; keep one only while the save is still to come.
+    const data = { refreshTokenEncrypted: existing?.status === "completed" ? null : encrypt(token), ...(consent ?? { email: null, emailConsent: false }), sourceVariantId: state.vid ?? null, source: state.src ?? null, anonId: state.anon ?? null };
+    if (existing) await prisma.preSave.update({ where: { id: existing.id }, data: { ...data, ...(existing.status === "completed" ? {} : { status: "pending", attempts: 0, lastError: null }) } });
     else {
       await prisma.preSave.create({ data: { ...data, releaseId: state.rid, platform: "deezer", deezerUserId: userId, status: "pending" } });
       after(() => notifyPresaveMilestone(state.rid).catch((e) => console.error("[push milestone]", e)));

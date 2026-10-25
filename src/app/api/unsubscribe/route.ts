@@ -2,10 +2,11 @@ import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { signToken, verifyLegacyToken, verifyToken } from "@/lib/crypto";
 import { prefsPage } from "@/lib/email-prefs";
+import { recordConsentEvent, type ConsentEventVia } from "@/lib/consent-events";
 
 export const dynamic = "force-dynamic";
 
-async function unsubscribe(t: string | null) {
+async function unsubscribe(t: string | null, via: ConsentEventVia) {
   // Legacy: unsubscribe links emailed before tokens carried an audience must keep working.
   const tok = (await verifyToken<Tok>(t, "unsub")) ?? (await verifyLegacyToken<Tok>(t));
   if (!tok || tok.act !== "unsub") return null;
@@ -25,6 +26,7 @@ async function unsubscribe(t: string | null) {
       where: { email: c.email, platform: "email", release: { organizationId: c.organizationId } },
       data: { status: "unsubscribed" },
     });
+    await recordConsentEvent(c.organizationId, c.email, "unsubscribe", via);
     return { org: c.organization.name, presaveId: null };
   }
 
@@ -40,6 +42,13 @@ async function unsubscribe(t: string | null) {
     where: { email: ps.email, platform: "email", release: { organizationId: ps.release.organizationId } },
     data: { status: "unsubscribed" },
   });
+  // The same address may also be a bio-page subscriber or an imported contact of this label: the
+  // fan said stop to the label, so that copy stops too.
+  await prisma.fanContact.updateMany({
+    where: { organizationId: ps.release.organizationId, email: { equals: ps.email, mode: "insensitive" }, status: { not: "unsubscribed" } },
+    data: { status: "unsubscribed" },
+  });
+  await recordConsentEvent(ps.release.organizationId, ps.email, "unsubscribe", via);
   return { org: ps.release.organization.name, presaveId: ps.id };
 }
 
@@ -89,7 +98,7 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   const form = await req.formData().catch(() => null);
-  const done = await unsubscribe(req.nextUrl.searchParams.get("t"));
+  const done = await unsubscribe(req.nextUrl.searchParams.get("t"), form?.get("confirm") === "1" ? "link" : "one-click");
   if (form?.get("confirm") !== "1") return NextResponse.json({ ok: !!done }, { status: done ? 200 : 400 });
 
   if (!done) return expired();

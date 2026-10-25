@@ -1,4 +1,5 @@
 import { publicHttpsUrl } from "./color";
+import { untrustedGet } from "./untrusted-get";
 import { extractLinks, type ImportedLink } from "./link-import";
 
 /**
@@ -34,41 +35,12 @@ export async function importLinksFrom(raw: string): Promise<ImportResult> {
   const url = await publicHttpsUrl(raw.trim());
   if (!url) return { ok: false, error: IMPORT_UNREACHABLE };
 
-  let res: Response;
-  try {
-    res = await fetch(url, {
-      redirect: "manual",
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-      headers: { accept: "text/html,application/xhtml+xml" },
-    });
-  } catch {
-    return { ok: false, error: IMPORT_UNREACHABLE };
-  }
-  if (!res.ok || !res.body) return { ok: false, error: IMPORT_UNREACHABLE };
-  if (!(res.headers.get("content-type") ?? "").toLowerCase().includes("text/html")) {
-    return { ok: false, error: IMPORT_NOT_A_PAGE };
-  }
+  // No redirects and no decompression: see lib/untrusted-get for why this isn't fetch().
+  const res = await untrustedGet(url, { maxBytes: MAX_BYTES, timeoutMs: TIMEOUT_MS, accept: "text/html,application/xhtml+xml", truncate: true });
+  if (!res || res.status < 200 || res.status >= 300) return { ok: false, error: IMPORT_UNREACHABLE };
+  if (!res.contentType.toLowerCase().includes("text/html")) return { ok: false, error: IMPORT_NOT_A_PAGE };
 
-  // Read with a hard cap rather than res.text(): an endless body would otherwise be read forever.
-  const reader = res.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      if (!value) continue;
-      size += value.byteLength;
-      if (size > MAX_BYTES) break;
-      chunks.push(value);
-    }
-  } catch {
-    return { ok: false, error: IMPORT_UNREACHABLE };
-  } finally {
-    await reader.cancel().catch(() => {});
-  }
-
-  const html = Buffer.concat(chunks.map((c) => Buffer.from(c))).toString("utf8");
+  const html = res.body.toString("utf8");
   const links = extractLinks(html, url.toString());
   if (links.length === 0) return { ok: false, error: IMPORT_EMPTY };
   return { ok: true, links };

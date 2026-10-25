@@ -125,6 +125,7 @@ model Organization {
   fanContacts      FanContact[]
   contests         Contest[]
   contestEntries   ContestEntry[]
+  consentEvents    ConsentEvent[]
 }
 
 model User {
@@ -1266,4 +1267,19 @@ model EspConnection {
 
   @@unique([organizationId, provider])
   @@index([organizationId])
+}
+
+// An append-only record of a fan opting out of, or back in to, an account's emails. PreSave and
+// FanContact hold the current state; this holds when it changed, which the data processing terms
+// say droplr keeps. Never updated, only inserted; deleted with the account.
+model ConsentEvent {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String // lower-cased
+  kind           String // unsubscribe | restore
+  via            String // link | one-click | esp
+  createdAt      DateTime     @default(now())
+
+  @@index([organizationId, email])
 }

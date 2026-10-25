@@ -3,6 +3,7 @@ import { verifyToken } from "@/lib/crypto";
 import { prisma } from "@/lib/db";
 import { prefsPage } from "@/lib/email-prefs";
 import { FAN_EMAIL_CONSENT_VERSION } from "@/lib/legal";
+import { recordConsentEvent } from "@/lib/consent-events";
 
 export const dynamic = "force-dynamic";
 
@@ -38,15 +39,26 @@ export async function POST(req: NextRequest) {
   const ps = await load(req.nextUrl.searchParams.get("t"));
   if (!ps?.email) return expired();
 
-  const where = { email: ps.email, release: { organizationId: ps.release.organizationId } };
-  await prisma.preSave.updateMany({ where, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION } });
+  // Pre-saves only. Download-gate rows (release kind "download") were consented under different
+  // wording, and stamping the pre-save wording onto them would make those records name words the
+  // fan never saw. This link restores release-day emails, which is what pre-save rows are for.
+  const where = { email: ps.email, release: { organizationId: ps.release.organizationId, kind: "release" } };
+  const restored = await prisma.preSave.updateMany({ where, data: { emailConsent: true, consentAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION } });
+  const name = ps.release.organization.name.replace(/[<>&]/g, "");
+  if (restored.count === 0) {
+    // A fan who only ever used a download gate has no pre-save to restore. Saying "you're back on
+    // the list" and logging a restore would both be untrue.
+    return prefsPage(
+      `<h1>Nothing to turn back on</h1><p>You haven't pre-saved a release from ${name}, so there are no release-day emails to restore. You're still unsubscribed. Pre-save a release on their page if you want those emails.</p>`,
+    );
+  }
   await prisma.preSave.updateMany({
     // Releases already emailed stay "emailed"; the rest go back in the queue.
     where: { ...where, platform: "email", status: "unsubscribed" },
     data: { status: "pending" },
   });
   await prisma.preSave.updateMany({ where: { ...where, platform: "email", status: "pending", emailSentAt: { not: null } }, data: { status: "emailed" } });
-  const name = ps.release.organization.name.replace(/[<>&]/g, "");
+  await recordConsentEvent(ps.release.organizationId, ps.email, "restore", "link");
   console.info("[unsubscribe] undone", { org: ps.release.organizationId });
   return prefsPage(
     `<h1>You're back on the list</h1><p>You'll get release-day emails from ${name} again. Every email still has an unsubscribe link.</p>

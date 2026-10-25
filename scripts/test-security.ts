@@ -1157,7 +1157,11 @@ async function main() {
       const pulled = await http(null, "POST", `/api/contest/withdraw/${tok}`);
       const afterPull = await prisma.contestEntry.findUnique({ where: { id: eid } });
       check("pressing the button withdraws it, and leaves the label's mark alone", pulled.status === 200 && !!afterPull?.withdrawnAt && afterPull?.status === "shortlisted", `${pulled.status}/${afterPull?.status}`);
-      const undone = await http(null, "GET", `/api/contest/withdraw/${tok}/undo`);
+      // Undo asks on GET and acts on POST, like withdraw: a link scanner must not put an entry back.
+      const undoAsk = await http(null, "GET", `/api/contest/withdraw/${tok}/undo`);
+      const stillOut = await prisma.contestEntry.findUnique({ where: { id: eid } });
+      check("opening the undo link only asks; the entry stays withdrawn", undoAsk.status === 200 && undoAsk.text.includes("Yes, put it back") && !!stillOut?.withdrawnAt, `${undoAsk.status}`);
+      const undone = await http(null, "POST", `/api/contest/withdraw/${tok}/undo`);
       const back = await prisma.contestEntry.findUnique({ where: { id: eid } });
       check("and it can be put back while entries are open, still shortlisted", undone.status === 200 && !back?.withdrawnAt && back?.status === "shortlisted", `${undone.status}/${back?.status}`);
 

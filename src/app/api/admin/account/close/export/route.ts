@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { toCsv } from "@/lib/analytics";
 import { apiUser } from "@/lib/auth";
-import { fanExportRows } from "@/lib/fans";
+import { CLOSING_EXPORT_LIMIT, fanExportRows } from "@/lib/fans";
 
 export const dynamic = "force-dynamic";
 
@@ -19,8 +19,10 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorised" }, { status: 401 });
   if (user.role !== "owner") return NextResponse.json({ error: "Only the account owner can do this" }, { status: 403 });
 
-  // Unfiltered on purpose: this is the whole list, pre-save fans and contacts together.
-  const rows = await fanExportRows(user.organizationId, {});
+  // Unfiltered on purpose: this is the whole list, pre-save fans and contacts together. Not capped at
+  // the everyday export's 50,000: the terms say the whole list downloads at closure, and this is the
+  // last chance to take it.
+  const rows = await fanExportRows(user.organizationId, {}, CLOSING_EXPORT_LIMIT);
   const csv = toCsv(rows);
   return new NextResponse(csv, {
     headers: {

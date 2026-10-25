@@ -31,6 +31,7 @@ export default function CookiePolicyPage() {
             <tbody>
               <tr><td><code>dfm_session</code></td><td>Keeps customers logged in to the dashboard. Only set when you log in.</td><td>Strictly necessary</td><td>30 days</td></tr>
               <tr><td><code>dfm_anon</code></td><td>A random ID set when you first open a label&apos;s release, bio or link page (not on droplr.fm&apos;s own marketing or account pages). It connects a page view to a later click or pre-save, so the label can see which visits turned into pre-saves. It doesn&apos;t contain your name, email or IP address, and isn&apos;t shared with other sites.</td><td>Analytics (first-party)</td><td>1 year</td></tr>
+              <tr><td><code>dfm_ref</code></td><td>Set only if you arrive through someone&apos;s referral link (droplr.fm/join/…). It remembers who referred you, so they get their free month if you sign up and stay paid.</td><td>Functional (first-party)</td><td>30 days</td></tr>
               <tr><td><code>dfm_src</code></td><td>Remembers which campaign link (for example an Instagram-specific link) brought you to a release, so the label can see which campaign worked.</td><td>Analytics (first-party)</td><td>30 days</td></tr>
             </tbody>
           </table>
@@ -39,7 +40,7 @@ export default function CookiePolicyPage() {
       </Section>
 
       <Section {...s("pixels")}>
-        <p>Labels on paid plans can add their own tracking pixels to their public release pages:</p>
+        <p>Labels and artists on paid plans can add their own tracking pixels to their public release, pre-save, download and bio pages:</p>
         <ul>
           <li><strong>Meta Pixel</strong> (Facebook and Instagram ads). See <a href="https://www.facebook.com/privacy/policy" rel="noreferrer">Meta&apos;s Privacy Policy</a>.</li>
           <li><strong>TikTok Pixel</strong>. See <a href="https://www.tiktok.com/legal/privacy-policy" rel="noreferrer">TikTok&apos;s Privacy Policy</a>.</li>
@@ -53,12 +54,12 @@ export default function CookiePolicyPage() {
       </Section>
 
       <Section {...s("embeds")}>
-        <p>Some pages show a video that is hosted on YouTube: the &quot;Watch the guide&quot; cards in your dashboard, the news posts on this site, videos an artist or label adds to their bio page, and remix contest entries on a public release page where the entrant&apos;s track allows a player.</p>
+        <p>Some pages show a player from YouTube or SoundCloud: the &quot;Watch the guide&quot; cards in your dashboard, the news posts on this site and videos an artist or label adds to their bio page (YouTube), and remix contest entries on a public release page where the entrant&apos;s track allows a player (YouTube or SoundCloud).</p>
         <ul>
           <li>A guide card, and the player on a news post, show a still picture and a play button. <strong>The player — and anything it stores — only loads when you press play.</strong> Until then nothing from Google <em>runs</em> on the page, though the still picture itself is fetched from YouTube&apos;s image servers, which is a request for a picture and sets no cookies.</li>
           <li>A video on a bio page works like a guide card, with one difference: its still picture is a copy stored on droplr.fm, so <strong>nothing at all is fetched from Google until you press play</strong>.</li>
           <li>We load those players from <code>youtube-nocookie.com</code>. Google describes this as not setting cookies used to build an advertising profile from a video you watch. It is not the same as setting nothing: Google still receives the request, and it may store something in your browser for playback itself.</li>
-          <li>A contest entry&apos;s player loads as you scroll to it rather than on a click, so on those pages the connection happens without one.</li>
+          <li>A contest entry&apos;s player loads as you scroll to it rather than on a click, so on those pages the connection to YouTube or SoundCloud happens without one. SoundCloud&apos;s player comes from <code>w.soundcloud.com</code> and may set its own cookies; see <a href="https://soundcloud.com/pages/privacy" rel="noreferrer">SoundCloud&apos;s Privacy Policy</a>.</li>
         </ul>
         <p>Blocking third-party content in your browser, or using a content blocker, stops these loading. Everything else on the page keeps working.</p>
       </Section>

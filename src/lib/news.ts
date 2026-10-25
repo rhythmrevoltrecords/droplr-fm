@@ -317,22 +317,17 @@ export async function processNewsEmail(newsEmailId: string, deadlineMs = Date.no
       // Someone may have unsubscribed between the snapshot and this batch. Their consent
       // at send time is what matters, so re-check and drop them rather than emailing.
       const [optedOut, importedOut] = await Promise.all([
-        prisma.preSave.findMany({
-          where: { email: { in: pending.map((d) => d.email) }, status: "unsubscribed", release: { organizationId: org.id } },
-          select: { email: true },
-          distinct: ["email"],
-        }),
-        // Same check for imported contacts: they can unsubscribe from any earlier send, and that
-        // has to bind before the next batch goes out, not after it.
+        // The same rule as the snapshot (optedOutAmong): any row of this label's with consent off or
+        // status unsubscribed, and any unsubscribed contact. Checking status alone missed fans who
+        // opted out through a gate, Spotify or Deezer row, or a bio subscription.
+        optedOutAmong(pending.map((d) => d.email), org.id),
+        // Imported contacts that haven't confirmed are never mailable, whatever else is true.
         prisma.fanContact.findMany({
           where: { email: { in: pending.map((d) => d.email) }, organizationId: org.id, status: { not: "mailable" } },
           select: { email: true },
         }),
       ]);
-      const gone = new Set([
-        ...optedOut.map((r) => r.email!.toLowerCase()),
-        ...importedOut.map((r) => r.email.toLowerCase()),
-      ]);
+      const gone = new Set([...optedOut, ...importedOut.map((r) => r.email.toLowerCase())]);
       const dropped = pending.filter((d) => gone.has(d.email));
       if (dropped.length) {
         await prisma.newsEmailDelivery.updateMany({ where: { id: { in: dropped.map((d) => d.id) } }, data: { error: "unsubscribed before send" } });

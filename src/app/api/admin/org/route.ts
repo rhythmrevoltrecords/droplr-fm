@@ -6,15 +6,17 @@ import { prisma } from "@/lib/db";
 import { DOMAIN_REDIRECT_DAYS, domainProblem, newDomainToken, nextPreviousDomains, queueDetach } from "@/lib/domains";
 import { UNVERIFIED_ERROR } from "@/lib/email-verification";
 import { planOf } from "@/lib/plans";
+import { PIXEL_ID_HINT, PIXEL_ID_RULES, type PixelKind } from "@/lib/pixel-ids";
 import { isValidTimeZone } from "@/lib/time";
 import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 
-const id = z.string().max(40).regex(/^[A-Za-z0-9_-]*$/, "Letters, numbers, - and _ only");
+// Each pixel id must have its own real shape; see lib/pixel-ids for why "letters and numbers" wasn't enough.
+const pixel = (kind: PixelKind) => z.string().trim().max(40).refine((v) => v === "" || PIXEL_ID_RULES[kind].test(v), PIXEL_ID_HINT[kind]);
 const schema = z.object({
   name: z.string().min(2).max(100).optional(),
-  metaPixelId: id.optional(),
-  tiktokPixelId: id.optional(),
-  ga4Id: id.optional(),
+  metaPixelId: pixel("meta").optional(),
+  tiktokPixelId: pixel("tiktok").optional(),
+  ga4Id: pixel("ga4").optional(),
   customDomain: z.string().max(253).regex(/^$|^(?!-)[a-z0-9-]+(\.[a-z0-9-]+)+$/i, "Enter a hostname like listen.yourlabel.com").optional(),
   emailFromName: z.string().max(80).optional(),
   emailReplyTo: z.string().email().or(z.literal("")).optional(),

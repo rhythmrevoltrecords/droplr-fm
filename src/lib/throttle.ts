@@ -46,3 +46,13 @@ export const ipKey = (scope: string, ip: string | null) => `${scope}:ip:${sha256
 /** One address from one IP. Lets a per-account limit bite on a guesser without letting a stranger lock the owner out. */
 export const emailIpKey = (scope: string, email: string, ip: string | null) =>
   `${scope}:email-ip:${sha256(`${email.trim().toLowerCase()}|${ip ?? "unknown"}|${process.env.JWT_SECRET ?? ""}`).slice(0, 32)}`;
+
+/**
+ * Delete rate-limit records older than a day. The privacy policy says they go after a day; the
+ * 1-in-100 sweep inside hit() only runs when there is traffic, so on a quiet site rows outlived
+ * that. The 15-minute release-check job calls this, so the promise holds on any traffic.
+ */
+export async function pruneThrottles(): Promise<number> {
+  const r = await prisma.authThrottle.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 86_400_000) } } });
+  return r.count;
+}

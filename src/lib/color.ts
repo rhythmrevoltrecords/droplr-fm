@@ -1,5 +1,6 @@
 import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
+import { untrustedGet } from "./untrusted-get";
 
 const FALLBACK = "#6D28D9";
 const MAX_IMAGE_BYTES = 10 * 1024 * 1024;
@@ -89,23 +90,11 @@ export async function fetchPublicImage(imageUrl: string): Promise<Buffer | null>
   try {
     const url = await publicHttpsUrl(imageUrl);
     if (!url) return null;
-    // No redirects: a public host could otherwise bounce us to an internal address after the check.
-    const res = await fetch(url, { redirect: "manual", signal: AbortSignal.timeout(5000) });
-    if (!res.ok || !res.body || !(res.headers.get("content-type") ?? "").startsWith("image/")) return null;
-    const chunks: Uint8Array[] = [];
-    let size = 0;
-    const reader = res.body.getReader();
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      size += value.byteLength;
-      if (size > MAX_IMAGE_BYTES) {
-        await reader.cancel().catch(() => {});
-        return null;
-      }
-      chunks.push(value);
-    }
-    return Buffer.concat(chunks);
+    // No redirects (a public host could otherwise bounce us to an internal address after the check),
+    // and no decompression: see lib/untrusted-get for why this isn't fetch().
+    const res = await untrustedGet(url, { maxBytes: MAX_IMAGE_BYTES, timeoutMs: 5000, accept: "image/*" });
+    if (!res || res.status < 200 || res.status >= 300 || !res.contentType.startsWith("image/")) return null;
+    return res.body;
   } catch {
     return null;
   }

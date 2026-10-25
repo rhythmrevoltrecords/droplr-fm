@@ -54,7 +54,7 @@ export default async function SettingsPage() {
         <CardContent>
           <OrgFieldsForm
             disabled={plan.pixels ? undefined : "Pixels are on paid plans"}
-            fields={[{ key: "metaPixelId", label: "Meta Pixel ID", placeholder: "123456789012345" }, { key: "tiktokPixelId", label: "TikTok Pixel ID", placeholder: "C1A2B3C4D5E6F7" }, { key: "ga4Id", label: "GA4 Measurement ID", placeholder: "G-XXXXXXXXXX" }]}
+            fields={[{ key: "metaPixelId", label: "Meta Pixel ID", placeholder: "123456789012345" }, { key: "tiktokPixelId", label: "TikTok Pixel ID", placeholder: "C1A2B3C4D5E6F7G8H9I0" }, { key: "ga4Id", label: "GA4 Measurement ID", placeholder: "G-XXXXXXXXXX" }]}
             initial={{ metaPixelId: org.metaPixelId ?? "", tiktokPixelId: org.tiktokPixelId ?? "", ga4Id: org.ga4Id ?? "" }}
           />
         </CardContent>
