@@ -17,14 +17,15 @@
  * The cues come from the same per-frame analysis the waveform style uses (lib/clip analyseClip), so
  * the preview and the render agree.
  */
-import { hexA } from "./clip";
+import { hexA, mixHex } from "./clip";
 import { drawLogo, drawStickerGuide, fitText, MONO, roundRect, STORY_SAFE_TOP, type FrameArgs } from "./clip-frame";
 
-export const CLIP_STYLES = ["waveform", "motion", "type"] as const;
+export const CLIP_STYLES = ["waveform", "motion", "vinyl", "type"] as const;
 export type ClipStyle = (typeof CLIP_STYLES)[number];
 export const CLIP_STYLE_LABELS: Record<ClipStyle, { name: string; hint: string }> = {
   waveform: { name: "Waveform", hint: "Artwork pulsing on the kick, a spectrum following the audio." },
   motion: { name: "Motion", hint: "The artwork drifts in, the title lands on the first kick, the link on the drop." },
+  vinyl: { name: "Vinyl / CD", hint: "Your artwork on a spinning record or CD, out of its sleeve, needle down on the first kick." },
   type: { name: "Type", hint: "Your words, huge, cut on the beat. Colours swap on every cut and your logo slams in on the drop." },
 };
 
@@ -84,7 +85,202 @@ export const MOTION_ENDINGS = ["hold", "fade", "flyout", "zoomout"] as const;
 export type MotionEnding = (typeof MOTION_ENDINGS)[number];
 export const MOTION_ENTRANCE_LABELS: Record<MotionEntrance, string> = { still: "Still", fade: "Fade in", fly: "Fly in", zoom: "Zoom in" };
 export const MOTION_ENDING_LABELS: Record<MotionEnding, string> = { hold: "Still", fade: "Fade out", flyout: "Fly out", zoomout: "Zoom out" };
-export type MotionOptions = { entrance: MotionEntrance; ending: MotionEnding; fadeIn: number; fadeOut: number };
+export type MotionOptions = { entrance: MotionEntrance | "sleeve"; ending: MotionEnding; fadeIn: number; fadeOut: number };
+
+/**
+ * Vinyl / CD: the Motion composition with the card swapped for a disc. Same timing, words, link,
+ * entrances and endings, so the two styles can't drift apart, plus one entrance of its own: the
+ * record sliding out of its sleeve (the sleeve is the artwork), which then leaves.
+ *
+ * The record spins at a real 33⅓ (a CD a little faster) and spins up like a turntable starting,
+ * rather than snapping to speed. The sheen stays still while the disc turns under it, which is
+ * what makes a flat circle read as a shiny one. The tonearm drops on the first kick and creeps
+ * inwards over the clip. A 2D canvas fakes all of it; there is no 3D here.
+ */
+export const DISC_KINDS = ["vinyl", "cd"] as const;
+export type DiscKind = (typeof DISC_KINDS)[number];
+export const DISC_KIND_LABELS: Record<DiscKind, string> = { vinyl: "Vinyl", cd: "CD" };
+export type DiscOptions = { kind: DiscKind; ring: boolean };
+export const DISC_ENTRANCES = ["sleeve", "still", "fade", "fly", "zoom"] as const;
+export type DiscEntrance = (typeof DISC_ENTRANCES)[number];
+export const DISC_ENTRANCE_LABELS: Record<DiscEntrance, string> = { sleeve: "Out of the sleeve", still: "Still", fade: "Fade in", fly: "Roll in", zoom: "Zoom in" };
+/** Seconds. The record slides out, then the sleeve leaves as the record centres. */
+const SLEEVE_OUT = 0.9;
+const SLEEVE_GONE = 1.6;
+export const VINYL_RPM = 100 / 3;
+
+/** Turns of the disc at time t: spins up over 0.6s from `from`, then constant. */
+export function discTurns(t: number, from: number, rps: number) {
+  const ts = Math.max(0, t - from);
+  const ramp = 0.6;
+  return (ts < ramp ? (ts * ts) / (2 * ramp) : ts - ramp / 2) * rps;
+}
+
+function sheen(x: CanvasRenderingContext2D, r: number, strength: number) {
+  const cg = (x as CanvasRenderingContext2D & { createConicGradient?: (a: number, x: number, y: number) => CanvasGradient }).createConicGradient;
+  let g: CanvasGradient;
+  if (typeof cg === "function") {
+    g = cg.call(x, -0.9, 0, 0);
+    g.addColorStop(0, "rgba(255,255,255,0)");
+    g.addColorStop(0.06, `rgba(255,255,255,${(0.16 * strength).toFixed(3)})`);
+    g.addColorStop(0.12, "rgba(255,255,255,0)");
+    g.addColorStop(0.5, "rgba(255,255,255,0)");
+    g.addColorStop(0.56, `rgba(255,255,255,${(0.12 * strength).toFixed(3)})`);
+    g.addColorStop(0.62, "rgba(255,255,255,0)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+  } else {
+    g = x.createLinearGradient(-r, -r, r, r);
+    g.addColorStop(0.3, "rgba(255,255,255,0)");
+    g.addColorStop(0.45, `rgba(255,255,255,${(0.1 * strength).toFixed(3)})`);
+    g.addColorStop(0.6, "rgba(255,255,255,0)");
+  }
+  x.beginPath();
+  x.arc(0, 0, r, 0, Math.PI * 2);
+  x.fillStyle = g;
+  x.fill();
+}
+
+/** The disc at the origin, radius r, turned by `angle`. */
+function drawDisc(x: CanvasRenderingContext2D, r: number, angle: number, kind: DiscKind, art: CanvasImageSource | null, bg: string, s: number) {
+  const circle = (rad: number) => { x.beginPath(); x.arc(0, 0, rad, 0, Math.PI * 2); };
+  x.save();
+  x.shadowColor = "rgba(0,0,0,0.5)";
+  x.shadowBlur = 60 * s;
+  x.shadowOffsetY = 24 * s;
+  circle(r);
+  x.fillStyle = kind === "vinyl" ? "#0E0E10" : "#C9CCD3";
+  x.fill();
+  x.restore();
+  if (kind === "vinyl") {
+    // Grooves, with the gaps between tracks a little darker.
+    x.lineWidth = Math.max(1, 1.2 * s);
+    for (let g = 0; g <= 44; g++) {
+      circle(r * (0.37 + (0.6 * g) / 44));
+      x.strokeStyle = `rgba(255,255,255,${(0.035 + 0.03 * ((g * 7) % 3) / 2).toFixed(3)})`;
+      x.stroke();
+    }
+    x.lineWidth = 3 * s;
+    x.strokeStyle = "rgba(0,0,0,0.6)";
+    for (const f of [0.55, 0.72, 0.86]) { circle(r * f); x.stroke(); }
+    sheen(x, r, 1);
+    x.save();
+    x.rotate(angle);
+    circle(r * 0.34);
+    x.clip();
+    if (art) x.drawImage(art, -r * 0.34, -r * 0.34, r * 0.68, r * 0.68);
+    x.restore();
+    circle(r * 0.34);
+    x.strokeStyle = "rgba(0,0,0,0.35)";
+    x.lineWidth = 2 * s;
+    x.stroke();
+    circle(r * 0.022);
+    x.fillStyle = bg;
+    x.fill();
+    circle(r);
+    x.strokeStyle = "rgba(255,255,255,0.08)";
+    x.lineWidth = 2 * s;
+    x.stroke();
+    return;
+  }
+  // CD: the artwork printed across the whole disc, a clear hub, and a rainbow that stays put.
+  x.save();
+  x.rotate(angle);
+  circle(r);
+  x.clip();
+  if (art) x.drawImage(art, -r, -r, r * 2, r * 2);
+  x.restore();
+  const cg = (x as CanvasRenderingContext2D & { createConicGradient?: (a: number, x: number, y: number) => CanvasGradient }).createConicGradient;
+  if (typeof cg === "function") {
+    const g = cg.call(x, 0.4, 0, 0);
+    for (let k = 0; k <= 12; k++) g.addColorStop(k / 12, `hsla(${(k * 60) % 360},90%,65%,${k % 2 ? 0.16 : 0.04})`);
+    x.save();
+    x.globalCompositeOperation = "screen";
+    circle(r);
+    x.fillStyle = g;
+    x.fill();
+    x.restore();
+  }
+  sheen(x, r, 1.4);
+  circle(r * 0.22);
+  x.fillStyle = "rgba(205,210,220,0.6)";
+  x.fill();
+  circle(r * 0.16);
+  x.strokeStyle = "rgba(255,255,255,0.5)";
+  x.lineWidth = 2 * s;
+  x.stroke();
+  circle(r * 0.075);
+  x.fillStyle = bg;
+  x.fill();
+  circle(r);
+  x.strokeStyle = "rgba(255,255,255,0.35)";
+  x.lineWidth = 3 * s;
+  x.stroke();
+}
+
+/** A ring of bars round the disc, mirrored so it closes. Fixed while the disc turns inside it. */
+function drawRing(x: CanvasRenderingContext2D, r: number, bands: number[] | null, p: { spectrumFrom: string; spectrumTo: string }, s: number) {
+  const n = bands?.length || 44;
+  const total = n * 2;
+  const inner = r * 1.05;
+  x.save();
+  x.lineCap = "round";
+  x.lineWidth = Math.max(2, ((2 * Math.PI * inner) / total) * 0.5);
+  for (let k = 0; k < total; k++) {
+    const v = bands ? bands[k < n ? k : total - 1 - k] ?? 0 : 0.08;
+    const ang = (k / total) * Math.PI * 2 - Math.PI / 2;
+    const len = (4 + v * 90) * s;
+    x.strokeStyle = mixHex(p.spectrumFrom, p.spectrumTo, Math.min(1, v));
+    x.beginPath();
+    x.moveTo(Math.cos(ang) * inner, Math.sin(ang) * inner);
+    x.lineTo(Math.cos(ang) * (inner + len), Math.sin(ang) * (inner + len));
+    x.stroke();
+  }
+  x.restore();
+}
+
+/**
+ * The tonearm's angle for a stylus at distance `want` from the disc centre. Bisection: between
+ * parked and pointing at the centre, the distance only falls.
+ */
+export function armAngle(pivotX: number, pivotY: number, armLen: number, cx: number, cy: number, want: number) {
+  let lo = Math.PI / 2 - 0.12, hi = (3 * Math.PI) / 4;
+  const dist = (th: number) => Math.hypot(pivotX + Math.cos(th) * armLen - cx, pivotY + Math.sin(th) * armLen - cy);
+  for (let k = 0; k < 30; k++) {
+    const mid = (lo + hi) / 2;
+    if (dist(mid) > want) lo = mid; else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+function drawArm(x: CanvasRenderingContext2D, px: number, py: number, len: number, th: number, s: number) {
+  const ex = px + Math.cos(th) * len, ey = py + Math.sin(th) * len;
+  x.save();
+  x.lineCap = "round";
+  // Counterweight behind the pivot, the arm, the headshell, the base.
+  x.fillStyle = "#3A3B40";
+  x.beginPath();
+  x.arc(px - Math.cos(th) * len * 0.2, py - Math.sin(th) * len * 0.2, 22 * s, 0, Math.PI * 2);
+  x.fill();
+  x.strokeStyle = "#D5D7DC";
+  x.lineWidth = 11 * s;
+  x.beginPath();
+  x.moveTo(px - Math.cos(th) * len * 0.2, py - Math.sin(th) * len * 0.2);
+  x.lineTo(ex, ey);
+  x.stroke();
+  x.translate(ex, ey);
+  x.rotate(th);
+  x.fillStyle = "#2A2B30";
+  x.fillRect(-10 * s, -16 * s, 46 * s, 32 * s);
+  x.restore();
+  x.fillStyle = "#5A5C63";
+  x.beginPath();
+  x.arc(px, py, 34 * s, 0, Math.PI * 2);
+  x.fill();
+  x.fillStyle = "#C9CBD0";
+  x.beginPath();
+  x.arc(px, py, 14 * s, 0, Math.PI * 2);
+  x.fill();
+}
 export const DEFAULT_MOTION_OPTIONS: MotionOptions = { entrance: "fade", ending: "hold", fadeIn: 0, fadeOut: 0 };
 
 export type MotionArgs = FrameArgs & {
@@ -95,6 +291,8 @@ export type MotionArgs = FrameArgs & {
   cues: MotionCues;
   /** Entrance, ending, and the audio fades the picture follows. Missing = fade in, still, no fades. */
   options?: Partial<MotionOptions>;
+  /** Present for the Vinyl / CD style: the card becomes this disc. */
+  disc?: DiscOptions;
 };
 
 type Layout = { cardTop: number; side: number; title: number; tagline: number; linkTop: number; linkH: number; mark: number; titleSize: number; tagSize: number; linkSize: number };
@@ -126,6 +324,10 @@ function fadeText(x: CanvasRenderingContext2D, text: string, cx: number, y: numb
 export function drawMotionFrame(a: MotionArgs) {
   const { ctx: x, width: W, height: H, kick, art, fontFamily: SANS, logo, palette: p, copy, stickerGuide, progress, i, frames, fps, cues } = a;
   const opt = { ...DEFAULT_MOTION_OPTIONS, ...a.options };
+  const disc = a.disc;
+  // The sleeve is the disc's own entrance; on the plain card it falls back to a fade.
+  if (opt.entrance === "sleeve" && !disc) opt.entrance = "fade";
+  const sleeve = opt.entrance === "sleeve";
   const vertical = H > W;
   const story = vertical && copy.link === null;
   const s = W / 1080;
@@ -151,8 +353,8 @@ export function drawMotionFrame(a: MotionArgs) {
   x.fillStyle = p.bg;
   x.fillRect(0, 0, W, H);
 
-  const enterDur = opt.entrance === "zoom" ? 1.1 : 0.9;
-  const enter = opt.entrance === "still" ? 1 : easeOutCubic(t / enterDur);
+  const enterDur = opt.entrance === "zoom" ? 1.1 : sleeve ? SLEEVE_GONE : 0.9;
+  const enter = opt.entrance === "still" || sleeve ? 1 : easeOutCubic(t / enterDur);
   const push = t >= dropT ? easeOutBack((t - dropT) / 0.6) : 0;
   const cx = W / 2;
   const cy = L.cardTop + L.side / 2;
@@ -209,7 +411,66 @@ export function drawMotionFrame(a: MotionArgs) {
   const outAlpha = flying ? 1 : 1 - cardOut;
   const scale = enterScale * outScale * (1 + 0.03 * k) * (1 + 0.05 * push);
   const side = L.side * scale;
-  if (alpha * outAlpha > 0.01 && cardOut < 1) {
+  if (disc && alpha * outAlpha > 0.01 && cardOut < 1) {
+    const r = side / 2;
+    // Out of the sleeve: the record slides right from behind it, then centres as the sleeve leaves.
+    const slideOut = sleeve ? (t < SLEEVE_OUT ? easeOutCubic(t / SLEEVE_OUT) : 1 - easeOutCubic((t - SLEEVE_OUT) / (SLEEVE_GONE - SLEEVE_OUT))) : 0;
+    const discOx = slideOut * L.side * 0.46;
+    const rps = disc.kind === "vinyl" ? VINYL_RPM / 60 : 0.9;
+    // Fly in rolls: extra turns on the way in, as a wheel would.
+    const roll = opt.entrance === "fly" ? ox / (2 * Math.PI * Math.max(1, r)) : 0;
+    const angle = resting ? 0 : (discTurns(t, sleeve ? SLEEVE_OUT : 0, rps) + roll) * Math.PI * 2;
+    const dx = cx + 14 * s * Math.sin(t * 0.3);
+    const dy = cy + oy + outY;
+    x.save();
+    x.globalAlpha = alpha * outAlpha;
+    x.translate(dx + ox + discOx, dy);
+    x.transform(1 - 0.02 * Math.abs(drift) - Math.abs(skew) * 0.2, 0.015 * drift + outSkew, 0, 1, 0, 0);
+    if (disc.ring) drawRing(x, r, a.bands, p, s);
+    drawDisc(x, r, angle, disc.kind, art, p.bg, s);
+    x.restore();
+
+    if (sleeve && t < SLEEVE_GONE && !resting) {
+      const leave = t < SLEEVE_OUT ? 0 : easeInQuad((t - SLEEVE_OUT) / (SLEEVE_GONE - SLEEVE_OUT));
+      const sv = L.side * 1.02;
+      x.save();
+      x.translate(dx - leave * (W * 0.75 + sv / 2), dy);
+      x.rotate(-0.12 * leave);
+      x.shadowColor = "rgba(0,0,0,0.45)";
+      x.shadowBlur = 50 * s;
+      x.shadowOffsetY = 20 * s;
+      x.fillStyle = "#1B1826";
+      x.fillRect(-sv / 2, -sv / 2, sv, sv);
+      x.shadowColor = "transparent";
+      if (art) x.drawImage(art, -sv / 2, -sv / 2, sv, sv);
+      // The opening edge, so it reads as a sleeve and not a card.
+      const edge = x.createLinearGradient(sv / 2 - 30 * s, 0, sv / 2, 0);
+      edge.addColorStop(0, "rgba(0,0,0,0)");
+      edge.addColorStop(1, "rgba(0,0,0,0.35)");
+      x.fillStyle = edge;
+      x.fillRect(sv / 2 - 30 * s, -sv / 2, 30 * s, sv);
+      x.restore();
+    }
+
+    // The tonearm: parked off the record until the first kick, then down at the outer groove and
+    // creeping inwards. Only once the record is in place, and lifted first on the way out.
+    if (disc.kind === "vinyl") {
+      const settled = opt.entrance === "still" || opt.entrance === "fade" ? 1 : clamp01((t - enterDur) / 0.3);
+      const armA = (resting ? 1 : settled) * alpha * outAlpha * (1 - clamp01(cardOut * 4));
+      if (armA > 0.01) {
+        const R = L.side / 2;
+        const px = cx + R * 1.02, py = cy - R * 1.02, len = R * 1.25;
+        const parked = Math.PI / 2 - 0.12;
+        const progressIn = clamp01((t - kickT) / Math.max(1, T - kickT));
+        const playing = armAngle(px, py, len, cx, cy, R * (0.92 - 0.2 * progressIn));
+        const drop = resting ? 1 : easeOutCubic((t - kickT) / 0.45) * (1 - clamp01(exit * 3));
+        x.save();
+        x.globalAlpha = armA;
+        drawArm(x, px, py, len, parked + (playing - parked) * drop, s);
+        x.restore();
+      }
+    }
+  } else if (alpha * outAlpha > 0.01 && cardOut < 1) {
     x.save();
     x.globalAlpha = alpha * outAlpha;
     x.translate(cx + 14 * s * Math.sin(t * 0.3) + ox, cy + oy + outY);

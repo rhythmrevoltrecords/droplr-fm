@@ -21,7 +21,11 @@ import {
 } from "@/lib/clip";
 import { pickMp4Config, renderClip, type RenderResult } from "@/lib/clip-encode";
 import { drawClipFrame, type FrameCopy } from "@/lib/clip-frame";
-import { CLIP_STYLES, CLIP_STYLE_LABELS, drawMotionFrame, MOTION_ENDING_LABELS, MOTION_ENDINGS, MOTION_ENTRANCE_LABELS, MOTION_ENTRANCES, motionCues, type ClipStyle, type MotionCues, type MotionEnding, type MotionEntrance } from "@/lib/clip-motion";
+import {
+  CLIP_STYLES, CLIP_STYLE_LABELS, DISC_ENTRANCE_LABELS, DISC_ENTRANCES, DISC_KIND_LABELS, DISC_KINDS, drawMotionFrame, MOTION_ENDING_LABELS,
+  MOTION_ENDINGS, MOTION_ENTRANCE_LABELS, MOTION_ENTRANCES, motionCues, type ClipStyle, type DiscEntrance, type DiscKind, type MotionCues,
+  type MotionEnding, type MotionEntrance,
+} from "@/lib/clip-motion";
 import { CLIP_LOOKS, clipColourWarnings, clipPalette, DEFAULT_CLIP_LOOK, type ClipColourOverrides, type ClipLookId } from "@/lib/clip-theme";
 import {
   beatGrid, DEFAULT_TYPE_FONT, DEFAULT_TYPE_PALETTE, demoAnalysis, drawTypeFrame, loadTypeFont, TYPE_BACKGROUND_LABELS, TYPE_BACKGROUNDS,
@@ -96,6 +100,9 @@ export function ClipForge(props: ClipForgeProps) {
   const [style, setStyle] = useState<ClipStyle>("waveform");
   const [entrance, setEntrance] = useState<MotionEntrance>("fade");
   const [ending, setEnding] = useState<MotionEnding>("hold");
+  const [discEntrance, setDiscEntrance] = useState<DiscEntrance>("sleeve");
+  const [discKind, setDiscKind] = useState<DiscKind>("vinyl");
+  const [discRing, setDiscRing] = useState(false);
   const cuesRef = useRef<{ from: ClipAnalysis | null; cues: MotionCues }>({ from: null, cues: { firstKick: 0, drop: 0 } });
   // --- Type style ---
   // Before release the end card says when it's out; after, OUT NOW. Worked out from the release
@@ -198,18 +205,22 @@ export function ClipForge(props: ClipForgeProps) {
           timeline: timelineRef.current.steps,
           options: { font: typeFont, background: typeBg, glitch: typeGlitch, colours: typeColours, endLine, fadeIn, fadeOut },
         });
-      } else if (style === "motion") {
+      } else if (style === "motion" || style === "vinyl") {
         // Cues follow the analysis they came from: worked out once per analysis, not per frame.
         if (a && cuesRef.current.from !== a) cuesRef.current = { from: a, cues: motionCues(a.low, FPS) };
         const cues = a ? cuesRef.current.cues : { firstKick: 0, drop: Math.round(frames * 0.45) };
-        drawMotionFrame({ ...common, i, frames, fps: FPS, cues, options: { entrance, ending, fadeIn, fadeOut } });
+        if (style === "vinyl") {
+          drawMotionFrame({ ...common, i, frames, fps: FPS, cues, options: { entrance: discEntrance, ending, fadeIn, fadeOut }, disc: { kind: discKind, ring: discRing } });
+        } else {
+          drawMotionFrame({ ...common, i, frames, fps: FPS, cues, options: { entrance, ending, fadeIn, fadeOut } });
+        }
       } else {
         drawClipFrame(common);
       }
     },
     // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
     // is the dependency that triggers the repaint, the same way artReady does for the cover.
-    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded],
+    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded, discEntrance, discKind, discRing],
   );
 
   // The tempo the Type cuts follow, for the line under the style. Read after a paint has built it.
@@ -517,9 +528,9 @@ export function ClipForge(props: ClipForgeProps) {
         <CardHeader>
           <CardTitle>Release clip</CardTitle>
           <CardDescription>
-            Pick {CLIP_LENGTHS.join(", ")} or so seconds of the track and droplr makes a video from it: either the waveform style, with the artwork
-            pulsing on the kick and a spectrum following the audio, or Motion, where the artwork drifts in, the title lands on the first kick and
-            your link on the drop. <strong className="text-foreground">The audio never leaves your
+            Pick {CLIP_LENGTHS.join(", ")} or so seconds of the track and droplr makes a video from it: the waveform style, with the artwork
+            pulsing on the kick and a spectrum following the audio; Motion, where the artwork drifts in, the title lands on the first kick and
+            your link on the drop; Vinyl / CD, your artwork on a spinning record; or Type, your words cut on the beat. <strong className="text-foreground">The audio never leaves your
             computer.</strong> It&apos;s read, rendered and saved here, so nothing is uploaded and nothing is stored.
             {!props.removeBranding && " A small droplr.fm line sits under your link; Artist Pro and the label plans render it clean."}
             {" "}For a Story, switch the link to a sticker and droplr leaves the room for it.
@@ -602,6 +613,20 @@ export function ClipForge(props: ClipForgeProps) {
                       ? `Cutting to your track: about ${Math.round(gridInfo.bpm)} BPM.`
                       : "Couldn't find a clear beat in this part of the track, so it cuts at 128 BPM from the first kick. Try a section with drums."}
                 </p>
+              )}
+              {style === "vinyl" && (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Choices label="Disc" value={discKind} onChange={(v: DiscKind) => setDiscKind(v)} options={DISC_KINDS.map((k) => ({ value: k, label: DISC_KIND_LABELS[k] }))} />
+                  <Choices label="Spectrum ring" value={discRing ? "on" : "off"} onChange={(v: string) => setDiscRing(v === "on")} options={[{ value: "on", label: "On" }, { value: "off", label: "Off" }]} />
+                  <Choices label="It comes in" value={discEntrance} onChange={(v: DiscEntrance) => setDiscEntrance(v)} options={DISC_ENTRANCES.map((k) => ({ value: k, label: DISC_ENTRANCE_LABELS[k] }))} />
+                  <Choices label="Ending" value={ending} onChange={(v: MotionEnding) => setEnding(v)} options={MOTION_ENDINGS.map((k) => ({ value: k, label: MOTION_ENDING_LABELS[k] }))} />
+                  <p className="text-xs text-muted-foreground sm:col-span-2">
+                    {discKind === "vinyl"
+                      ? "Your artwork is the sleeve and the label. The needle drops on the first kick."
+                      : "Your artwork is printed across the disc."}{" "}
+                    The words and link land the same way as Motion: title on the first kick, link on the drop.
+                  </p>
+                </div>
               )}
               {style === "motion" && (
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -766,7 +791,7 @@ export function ClipForge(props: ClipForgeProps) {
               />
               <div className="grid gap-3 sm:grid-cols-2">
                 <ColourPick id="clip-bg" label="Background" value={palette.bg} changed={!!overrides.background} onChange={(c) => setOverrides((o) => ({ ...o, background: c }))} />
-                <ColourPick id="clip-spectrum" label={style === "motion" ? "Accent" : "Spectrum"} value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
+                <ColourPick id="clip-spectrum" label={style === "motion" || (style === "vinyl" && !discRing) ? "Accent" : "Spectrum"} value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
                 <ColourPick id="clip-text" label="Text" value={palette.text} changed={!!overrides.text} onChange={(c) => setOverrides((o) => ({ ...o, text: c }))} />
                 {palette.glow ? (
                   <ColourPick id="clip-glow" label="Glow" value={palette.glow} changed={!!overrides.glow} onChange={(c) => setOverrides((o) => ({ ...o, glow: c }))} />
@@ -776,7 +801,7 @@ export function ClipForge(props: ClipForgeProps) {
               </div>
               {colourWarnings.map((w) => <p key={w} className="text-sm text-amber-400">{w}</p>)}
               <p className="text-xs text-muted-foreground">
-                {style === "motion"
+                {style === "motion" || (style === "vinyl" && !discRing)
                   ? "The accent colour goes on your link card and the progress bar, unless it would be hard to read — then the link uses your text colour."
                   : "The spectrum colour also goes on your link and the progress bar, unless it would be hard to read — then the link uses your text colour."}
               </p>
