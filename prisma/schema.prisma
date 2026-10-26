@@ -239,6 +239,10 @@ model Release {
   pageMode            String?
   /** One line of the artist's own lyric, for the lyric share graphic. Never fetched from anywhere. */
   lyricLine      String?
+  /** The release's lyrics as [{ text, ms }] in the order sung; ms is null until tapped. Only ever typed by the artist. See lib/lyrics. */
+  lyrics         Json?
+  /** Length of the file the lyrics were timed against. The file itself is never uploaded. */
+  lyricsTrackMs  Int?
   spotifyUrl     String?
   spotifyAlbumId String?
   spotifyTrackId String?
@@ -1413,7 +1417,7 @@ model EspConnection {
 /// figure can leave droplr's own renders out without the row saying whose they were.
 model ClipRender {
   id        String   @id @default(cuid())
-  style     String // waveform | motion | vinyl | type
+  style     String // waveform | motion | vinyl | lyrics | type
   internal  Boolean  @default(false)
   createdAt DateTime @default(now())
 

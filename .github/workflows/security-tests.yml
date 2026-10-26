@@ -136,6 +136,9 @@ jobs:
       - name: Release clips
         run: npx tsx scripts/test-clip.ts
 
+      - name: Lyrics and the Lyrics clip style
+        run: npx tsx scripts/test-lyrics.ts
+
       - name: Fan import
         run: npx tsx scripts/test-fan-import.ts
 

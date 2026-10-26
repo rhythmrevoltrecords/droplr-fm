@@ -20,12 +20,13 @@
 import { hexA, mixHex } from "./clip";
 import { drawLogo, drawStickerGuide, fitText, MONO, roundRect, STORY_SAFE_TOP, type FrameArgs } from "./clip-frame";
 
-export const CLIP_STYLES = ["waveform", "motion", "vinyl", "type"] as const;
+export const CLIP_STYLES = ["waveform", "motion", "vinyl", "lyrics", "type"] as const;
 export type ClipStyle = (typeof CLIP_STYLES)[number];
 export const CLIP_STYLE_LABELS: Record<ClipStyle, { name: string; hint: string }> = {
   waveform: { name: "Waveform", hint: "Artwork pulsing on the kick, a spectrum following the audio." },
   motion: { name: "Motion", hint: "The artwork drifts in, the title lands on the first kick, the link on the drop." },
   vinyl: { name: "Vinyl / CD", hint: "Your artwork on a spinning record or CD, out of its sleeve, needle down on the first kick." },
+  lyrics: { name: "Lyrics", hint: "Your timed lyrics, line by line, over the artwork. Time them once in the Lyrics card and every clip uses them." },
   type: { name: "Type", hint: "Your words, huge, cut on the beat. Colours swap on every cut and your logo slams in on the drop." },
 };
 

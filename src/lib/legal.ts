@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-10-26",
-  updated: "26 October 2026",
+  version: "2026-10-27",
+  updated: "27 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -100,6 +100,16 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-27",
+    date: "27 October 2026",
+    summary: [
+      "Lyrics for clips: you can paste a release's lyrics in the clip panel and tap along to the track to time them, once, and every clip of that release can use them — the new Lyrics style shows them line by line, and Type can pick up the lines in your clip. You can also download them as an .lrc file.",
+      "You confirm you have the right to reproduce and publish the lyrics you save. The words are a separate right from the recording, and on a cover, a remix or a track you didn't write they may not be yours.",
+      "We never fetch lyrics from a lyrics service or anyone else, and nothing pre-fills them. What's stored is the words, when each line starts, and the length of the track you timed them to. The track itself still never leaves your computer.",
+      "Because lyrics are stored on your release, we can clear them if we're told they infringe someone's rights. We still can't take down a clip you've already posted.",
+    ],
+  },
   {
     version: "2026-10-26",
     date: "26 October 2026",

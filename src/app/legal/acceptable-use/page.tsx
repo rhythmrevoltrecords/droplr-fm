@@ -84,9 +84,10 @@ export default function AcceptableUsePage() {
           <li>Only make a clip from a recording you have the right to use and publish. A clip of someone else&apos;s track, or of an unofficial remix or bootleg, is your decision and your risk.</li>
           <li>Don&apos;t use artwork, logos or photos in a clip that you don&apos;t have the rights to.</li>
           <li>Don&apos;t present a clip as official, licensed or endorsed when it isn&apos;t.</li>
+          <li>Only save lyrics you have the right to reproduce and publish, and only the lyrics of that release. The lyrics box is not a free text field for claims, abuse or someone else&apos;s branding.</li>
           <li>Don&apos;t remove or obscure the droplr.fm line on a plan that includes it and then present the clip as made elsewhere. The mark is the reason clips are included rather than charged for.</li>
         </ul>
-        <p>Because the file never touches our systems, we can&apos;t take a clip down for you. A takedown has to go to whichever platform it was posted on. We can act on the droplr.fm account behind it.</p>
+        <p>Because the file never touches our systems, we can&apos;t take a clip down for you. A takedown has to go to whichever platform it was posted on. We can act on the droplr.fm account behind it, and lyrics saved on a release are stored with us, so those we can clear.</p>
       </Section>
 
       <Section {...s("contests")}>

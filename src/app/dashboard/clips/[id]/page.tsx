@@ -5,6 +5,7 @@ import { ClipForgeLazy } from "@/components/admin/clip-forge-lazy";
 import { Badge } from "@/components/ui/badge";
 import { requireUser } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { lyricsOf } from "@/lib/lyrics";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
@@ -69,6 +70,10 @@ export default async function ArtistClipPage(props: { params: Promise<{ id: stri
         removeBranding={plan.removeBranding}
         typeStyle={plan.pageLooks}
         releaseDay={formatInTz(release.releaseDate, org.timezone, { weekday: "short", day: "numeric", month: "short" })}
+        lyrics={lyricsOf(release.lyrics)}
+        lyricsTrackMs={release.lyricsTrackMs}
+        // Read-only here: the label's release stays the label's to edit (the route checks the same).
+        lyricsEditable={false}
       />
     </div>
   );
