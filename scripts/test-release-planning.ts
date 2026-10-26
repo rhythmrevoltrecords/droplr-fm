@@ -19,7 +19,7 @@ import { duePromoWork, notifyDuePromoSteps, setTaskMailerForTests } from "../src
 import { promoSteps, stepDate } from "../src/lib/promo";
 import { setPushSenderForTests } from "../src/lib/push";
 import { findClashes, parseTask, TASK_LIMITS } from "../src/lib/release-tasks";
-import { isValidTimeZone } from "../src/lib/time";
+import { isValidTimeZone, looksLikeOffset } from "../src/lib/time";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name] ?? "";
@@ -349,6 +349,8 @@ async function main() {
     check("the other account's task is still reminded", (await prisma.releaseTask.findUnique({ where: { id: fine.id } }))?.remindedAt !== null);
     check("the odd account's task falls back to Brisbane, as stepDate does", (await prisma.releaseTask.findUnique({ where: { id: oddTask.id } }))?.remindedAt !== null);
     check("an offset is not accepted as a timezone", !isValidTimeZone("+10:00") && !isValidTimeZone("-05:00") && isValidTimeZone("EST5EDT") && isValidTimeZone("Australia/Brisbane"));
+    check("the offset check catches a sign or digit and nothing else", ["+10:00", "-05:00", "\u221205:00", "10"].every(looksLikeOffset) && !["A1", "Z9", ",5", "/1", "a0"].some(looksLikeOffset));
+    check("every zone the runtime knows is accepted", Intl.supportedValuesOf("timeZone").every(isValidTimeZone));
     check("the settings route refuses an offset timezone", (await call("/api/admin/org", { method: "PATCH", body: { timezone: "+10:00" }, as: sOwner })).status === 400);
 
     // Changing the account's timezone moves every release's day, so reminders are due again.
