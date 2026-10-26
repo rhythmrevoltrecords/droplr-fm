@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import { movedDomain } from "@/lib/releases";
 import { bioPublicUrl } from "@/lib/bio";
 import { prisma } from "@/lib/db";
 import { linkCustomDomain } from "@/lib/plans";
@@ -28,6 +29,11 @@ export async function GET() {
   const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").toLowerCase().split(":")[0];
   const audience = robotsAudience(host);
   if (audience === "blocked") return new Response("Not found", { status: 404 });
+  // A domain the account moved away from: send the request to the same sitemap on the new one.
+  if (audience === "tenant") {
+    const m = await movedDomain(host);
+    if (m.moved) return m.to ? Response.redirect(`https://${m.to}/sitemap-bio.xml`, 308) : new Response("Gone", { status: 410 });
+  }
 
   let rows;
   try {

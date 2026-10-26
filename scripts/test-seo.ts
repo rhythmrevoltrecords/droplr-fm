@@ -232,6 +232,33 @@ async function main() {
     check(`${route} stays static (nothing that forces dynamic rendering)`, found.length === 0, found.join(", "));
   }
 
+  // --- a domain the account moved away from ---
+  // Its pages 308 to the new domain, but robots.txt and the sitemaps never reach that resolver (the
+  // middleware skips .txt/.xml), so they kept advertising and serving empty sitemaps: crawlers asked
+  // for them on every visit and logged a 404 each time (seen on presave.rhythmrevoltrecords.com).
+  if (/neon\.tech|neon\.build/i.test(`${process.env.DATABASE_URL ?? ""}${process.env.NETLIFY_DATABASE_URL ?? ""}`)) throw new Error("Refusing to run against Neon.");
+  const { prisma } = await import("../src/lib/db");
+  const tag = `seotest-${Date.now()}`;
+  const oldHost = `old-${tag}.example`, newHost = `new-${tag}.example`;
+  const moved = await prisma.organization.create({ data: { name: "Moved", slug: tag, plan: "label", customDomain: newHost, customDomainLiveAt: new Date(), previousDomains: [oldHost] } });
+  try {
+    const oldRobots = await get("/robots.txt", oldHost);
+    check("an old domain's robots.txt lets crawlers in to follow the redirects", oldRobots.status === 200 && /^Allow: \/$/m.test(oldRobots.body), oldRobots.body.slice(0, 120));
+    check("…and advertises no sitemap", !/Sitemap:/i.test(oldRobots.body), oldRobots.body);
+    const newRobots = await get("/robots.txt", newHost);
+    check("the current domain still advertises its sitemaps (control)", newRobots.body.includes(`://${newHost}/sitemap-releases.xml`), newRobots.body.slice(-200));
+    for (const f of ["sitemap-releases.xml", "sitemap-bio.xml"]) {
+      const r = await fetch(`${BASE}/${f}`, { redirect: "manual", headers: { "x-forwarded-host": oldHost } });
+      check(`an old domain's ${f} redirects to the new domain's`, r.status === 308 && r.headers.get("location") === `https://${newHost}/${f}`, `${r.status} ${r.headers.get("location")}`);
+    }
+    await prisma.organization.update({ where: { id: moved.id }, data: { customDomain: null, customDomainLiveAt: null } });
+    const nowhere = await fetch(`${BASE}/sitemap-releases.xml`, { redirect: "manual", headers: { "x-forwarded-host": oldHost } });
+    check("with no live domain to point at, the old sitemap is gone (410)", nowhere.status === 410, String(nowhere.status));
+  } finally {
+    await prisma.organization.delete({ where: { id: moved.id } }).catch(() => {});
+    await prisma.$disconnect();
+  }
+
   console.log(`\n${pass} passed, ${fails.length} failed`);
   if (fails.length) { console.log(fails.map((f) => ` - ${f}`).join("\n")); process.exit(1); }
 }
