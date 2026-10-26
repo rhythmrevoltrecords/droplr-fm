@@ -304,7 +304,8 @@ export function toCsv(rows: Record<string, unknown>[]) {
   const headers = Object.keys(rows[0]);
   const esc = (v: unknown) => {
     const s = v instanceof Date ? v.toISOString() : v == null ? "" : String(v);
-    const safe = /^[=+\-@\t\r]/.test(s) ? `'${s}` : s; // spreadsheet formula injection guard (tab/CR too)
+    // Spreadsheet formula injection guard (tab/CR too). A plain number, negative ones included, can't be a formula and stays a number.
+    const safe = /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s) ? `'${s}` : s;
     return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
   };
   return [headers.join(","), ...rows.map((r) => headers.map((h) => esc(r[h])).join(","))].join("\n");

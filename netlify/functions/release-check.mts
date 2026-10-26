@@ -3,6 +3,7 @@ import { sweepLapsedComps } from "../../src/lib/billing";
 import { findDueNewsEmails } from "../../src/lib/news";
 import { findDueReleases } from "../../src/lib/presave-processor";
 import { notifyDuePromoSteps } from "../../src/lib/promo-reminders";
+import { notifyAgreementNotices } from "../../src/lib/agreement-reminders";
 import { notifyLiveReleases } from "../../src/lib/push-live";
 import { findDueEspConnections } from "../../src/lib/esp/db";
 import { pruneThrottles } from "../../src/lib/throttle";
@@ -39,6 +40,8 @@ export default async () => {
   // has been handed off. Claimed per item, so a 15-minute job never repeats one; the deadline stops
   // it claiming more once time is short, and what's left goes out next run.
   await notifyDuePromoSteps(new Date(), false, started + 15_000).catch((e) => console.error("[release-check] promo reminders", e));
+  // Agreements whose notice day has come. A handful a day at most, so it gets what's left of the budget.
+  await notifyAgreementNotices(new Date(), false, started + 18_000).catch((e) => console.error("[release-check] agreement notices", e));
 
   // Housekeeping last, so release-day work is never the thing a slow sweep pushes past the
   // scheduled function's 30-second limit. The sweeps that loop take a deadline and pick up where

@@ -2120,6 +2120,50 @@ async function main() {
       await prisma.releaseTask.deleteMany({ where: { releaseId: A.release.id } });
     }
 
+    console.log("\n102. Agreements");
+    // Both are beta features, off by default (lib/beta); switched on for A and B so their walls can be tested.
+    await prisma.organization.updateMany({ where: { id: { in: [A.org.id, B.org.id] } }, data: { betaFeatures: ["agreements", "royalties"] } });
+    {
+      const sign = async (u: { id: string; organizationId: string; role: string }) => ({ cookie: `dfm_session=${await signToken({ sub: u.id, org: u.organizationId, role: u.role, jti: crypto.randomUUID() }, "1h", "session")}` });
+      const jA = await sign(A.owner), jB = await sign(B.owner), jArtistA = await sign(A.artist);
+      const made = await http(jA, "POST", "/api/admin/agreements", { title: `Deal ${RUN}`, status: "signed", notes: `confidential ${RUN}`, releaseIds: [A.release.id] });
+      const agId = (JSON.parse(made.text || "{}") as { id?: string }).id ?? "";
+      check("label A records an agreement", made.status === 200 && !!agId, `${made.status} ${made.text.slice(0, 100)}`);
+      check("label B can't edit it", (await http(jB, "PATCH", `/api/admin/agreements/${agId}`, { title: "hijack" })).status === 404);
+      check("label B can't delete it", (await http(jB, "DELETE", `/api/admin/agreements/${agId}`)).status === 404 && !!(await prisma.agreement.findUnique({ where: { id: agId } })));
+      check("label B can't open it", (await http(jB, "GET", `/admin/agreements/${agId}`)).status === 404);
+      check("label B can't attach A's release to its own", (await http(jB, "POST", "/api/admin/agreements", { title: "x", releaseIds: [A.release.id] })).status === 400 && (await prisma.agreementRelease.count({ where: { releaseId: A.release.id } })) === 1);
+      const bList = await http(jB, "GET", "/admin/agreements");
+      check("label B's list shows none of A's", !bList.text.includes(`Deal ${RUN}`) && !bList.text.includes(`confidential ${RUN}`));
+      check("A's artist login can't read A's agreements", !(await http(jArtistA, "GET", "/admin/agreements")).text.includes(`confidential ${RUN}`) && (await http(jArtistA, "PATCH", `/api/admin/agreements/${agId}`, { title: "x" })).status === 401);
+      await prisma.agreement.deleteMany({ where: { organizationId: A.org.id } });
+    }
+
+    console.log("\n103. Royalties and splits");
+    {
+      const sign = async (u: { id: string; organizationId: string; role: string }) => ({ cookie: `dfm_session=${await signToken({ sub: u.id, org: u.organizationId, role: u.role, jti: crypto.randomUUID() }, "1h", "session")}` });
+      const jA = await sign(A.owner), jB = await sign(B.owner), jArtistA = await sign(A.artist);
+      await prisma.release.update({ where: { id: A.release.id }, data: { upc: `9${RUN.replace(/\D/g, "1")}0001` } });
+      const sheet = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/splits`, { parties: [{ name: "Owed", email: `owed-${RUN}@sectest.dev`, share: "100" }] });
+      check("label A saves a split sheet", sheet.status === 200, `${sheet.status} ${sheet.text.slice(0, 80)}`);
+      check("label B can't overwrite it", (await http(jB, "PUT", `/api/admin/releases/${A.release.id}/splits`, { parties: [{ name: "Thief", email: `t-${RUN}@sectest.dev`, share: "100" }] })).status === 404 && !(await prisma.splitParty.findFirst({ where: { email: `t-${RUN}@sectest.dev` } })));
+      check("label B can't send it", (await http(jB, "POST", `/api/admin/releases/${A.release.id}/splits/send`)).status === 404);
+      check("label B can't delete it", (await http(jB, "DELETE", `/api/admin/releases/${A.release.id}/splits`)).status === 404 && !!(await prisma.splitSheet.findUnique({ where: { releaseId: A.release.id } })));
+      const upc = (await prisma.release.findUnique({ where: { id: A.release.id }, select: { upc: true } }))!.upc!;
+      const bImp = await http(jB, "POST", "/api/admin/royalties", { title: "B", currency: "AUD", rowsTotal: 1, pairs: [{ upc, isrc: "", micros: "1000000", rows: 1 }] });
+      const bId = (JSON.parse(bImp.text || "{}") as { id?: string }).id ?? "";
+      check("label B's statement never matches label A's release", bImp.status === 200 && (await prisma.statementLine.count({ where: { importId: bId } })) === 0);
+      const aImp = await http(jA, "POST", "/api/admin/royalties", { title: `A ${RUN}`, currency: "AUD", rowsTotal: 1, pairs: [{ upc, isrc: "", micros: "1000000", rows: 1 }] });
+      const aId = (JSON.parse(aImp.text || "{}") as { id?: string }).id ?? "";
+      check("label B can't open A's statement", (await http(jB, "GET", `/admin/royalties/${aId}`)).status === 404);
+      check("label B can't export A's statement", (await http(jB, "GET", `/api/admin/royalties/${aId}/export`)).status === 404);
+      check("label B can't recalculate or delete it", (await http(jB, "POST", `/api/admin/royalties/${aId}/calculate`)).status === 404 && (await http(jB, "DELETE", `/api/admin/royalties/${aId}`)).status === 404);
+      check("A's artist login reaches none of it", (await http(jArtistA, "GET", `/api/admin/royalties/${aId}/export`)).status === 401 && (await http(jArtistA, "PUT", `/api/admin/releases/${A.release.id}/splits`, { parties: [] })).status === 401);
+      await prisma.statementImport.deleteMany({ where: { organizationId: { in: [A.org.id, B.org.id] } } });
+      await prisma.splitSheet.deleteMany({ where: { organizationId: A.org.id } });
+      await prisma.release.update({ where: { id: A.release.id }, data: { upc: null } });
+    }
+
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

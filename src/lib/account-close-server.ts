@@ -22,7 +22,7 @@ import { queueDetach } from "@/lib/domains";
 export async function closeSummary(organizationId: string): Promise<CloseSummary> {
   // Fans are distinct emails across PreSave, not a table of their own — same shape fanSummary uses,
   // so the number here is the number on the fans page rather than a second, differently-wrong count.
-  const [org, releases, fanRows, artists, links] = await Promise.all([
+  const [org, releases, fanRows, artists, links, agreements, statements] = await Promise.all([
     prisma.organization.findUnique({ where: { id: organizationId }, select: { customDomain: true, stripeSubscriptionId: true } }),
     prisma.release.count({ where: { organizationId } }),
     prisma.$queryRaw<{ total: bigint }[]>`
@@ -31,10 +31,12 @@ export async function closeSummary(organizationId: string): Promise<CloseSummary
       WHERE r."organizationId" = ${organizationId} AND p.email IS NOT NULL`,
     prisma.artist.count({ where: { organizationId } }),
     prisma.releaseLink.count({ where: { release: { organizationId } } }),
+    prisma.agreement.count({ where: { organizationId } }),
+    prisma.statementImport.count({ where: { organizationId } }),
   ]);
   const fans = Number(fanRows[0]?.total ?? 0);
   return {
-    releases, fans, artists, links,
+    releases, fans, artists, links, agreements, statements,
     customDomain: org?.customDomain ?? null,
     subscription: Boolean(org?.stripeSubscriptionId),
   };
@@ -118,7 +120,7 @@ export function storedImageKey(url: string | null | undefined): string | null {
 const NOT_CONTENT = new Set([
   "_prisma_migrations", "AuthThrottle", "ClickEvent", "ClipRender", "ConsentEvent", "ContestEntry", "ContestVote", "DomainDetach",
   "EmailVerificationToken", "EspConnection", "FanContact", "GateUnlock", "Invite", "NewsConfirmRequest", "NewsEmailDelivery",
-  "PageView", "PasswordResetToken", "PlatformMessageSeen", "PreSave", "PromoStepAssign", "PromoStepReminder", "PromoTaskDone", "PushSubscription",
+  "PageView", "PasswordResetToken", "PlatformMessageSeen", "AgreementRelease", "PreSave", "SplitParty", "SplitSendLog", "SplitSheet", "StatementAllocation", "StatementImport", "StatementLine", "PromoStepAssign", "PromoStepReminder", "PromoTaskDone", "PushSubscription",
   "Referral", "RevokedSession", "SignupInvite", "User", "waitlist_features",
 ]);
 

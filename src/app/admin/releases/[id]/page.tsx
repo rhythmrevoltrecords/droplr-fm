@@ -1,3 +1,4 @@
+import { hasBeta } from "@/lib/beta";
 import Link from "next/link";
 import { ScrollActiveIntoView } from "@/components/admin/nav-links";
 import { notFound } from "next/navigation";
@@ -15,6 +16,11 @@ import { checkMetadata } from "@/lib/metadata-check";
 import { exclusivityFindings, exclusivitySummary, exclusivityWindowOf } from "@/lib/exclusivity";
 import { ExclusivityFindings } from "@/components/admin/exclusivity-findings";
 import { PromoPlan } from "@/components/admin/promo-plan";
+import { SplitsEditor } from "@/components/admin/splits-editor";
+import { royaltiesAllowed, sheetFor } from "@/lib/royalties-server";
+import { bpsToPercent, partyState, type Role } from "@/lib/royalties";
+import { AgreementsCard } from "@/components/admin/agreements-card";
+import { contractsAllowed } from "@/lib/agreements-server";
 import { artistLoginOf, clashesFor, planExtras, teamPlanning } from "@/lib/release-tasks-server";
 import { clashSentence } from "@/lib/release-tasks";
 import { AUTOMATIC, AUTOMATIC_DOWNLOAD, promoStepsFor, stepDate } from "@/lib/promo";
@@ -56,6 +62,7 @@ const TABS = [
   { key: "share", label: "Share" },
   { key: "clip", label: "Clip" },
   { key: "contest", label: "Remix contest" },
+  { key: "splits", label: "Splits" },
   { key: "look", label: "Look" },
   { key: "settings", label: "Settings" },
 ];
@@ -74,7 +81,8 @@ export default async function ReleaseDetail(
   const isDownload = release.kind === "download";
   const reportToken = reportTokenFor(release);
   const reportLink = reportToken ? `${SITE_URL}/report/${reportToken}` : null;
-  const tabs = isDownload ? TABS.filter((t) => !DOWNLOAD_HIDDEN_TABS.includes(t.key)) : TABS;
+  // Splits are a label's record of who it pays: not on download gates, and not on an artist's own account.
+  const tabs = (isDownload ? TABS.filter((t) => !DOWNLOAD_HIDDEN_TABS.includes(t.key)) : TABS).filter((t) => t.key !== "splits" || (!isDownload && release.organization.kind !== "artist" && hasBeta(release.organization, "royalties")));
   const tab = tabs.some((t) => t.key === searchParams.tab) ? searchParams.tab! : tabs[0].key;
   // Only the settings tab needs the roster, and its socials are only ever this organisation's own.
   const settingsArtists = tab === "settings"
@@ -256,6 +264,20 @@ export default async function ReleaseDetail(
         );
       })()}
 
+      {tab === "splits" && (async () => {
+        const sheet = await sheetFor(release.id, user.organizationId);
+        return (
+          <SplitsEditor
+            key={`${sheet?.id ?? "new"}-${sheet?.version ?? 0}-${sheet?.parties.map((pt) => `${pt.confirmedVersion}${pt.disputedVersion}${pt.sentVersion}`).join("") ?? ""}`}
+            releaseId={release.id}
+            exists={!!sheet}
+            version={sheet?.version ?? null}
+            canCreate={royaltiesAllowed(release.organization).can}
+            initial={(sheet?.parties ?? []).map((pt) => ({ id: pt.id, name: pt.name, email: pt.email ?? "", role: pt.role as Role, share: bpsToPercent(pt.shareBps), state: partyState(pt, sheet!.version), note: pt.disputedVersion === sheet!.version ? pt.disputeNote : null }))}
+          />
+        );
+      })()}
+
       {tab === "share" && (async () => {
         const count = await prisma.preSave.count({ where: { releaseId: release.id } });
         return (
@@ -434,6 +456,13 @@ export default async function ReleaseDetail(
           select: { id: true, title: true, upc: true, isrc: true },
         });
         return <MetadataFindings findings={checkMetadata(release, siblings)} />;
+      })())}
+
+      {tab === "settings" && !isDownload && release.organization.kind !== "artist" && hasBeta(release.organization, "agreements") && (await (async () => {
+        const rows = (await prisma.agreementRelease.findMany({ where: { releaseId: release.id, agreement: { organizationId: user.organizationId } }, select: { agreement: { select: { id: true, title: true, kind: true, status: true, endsOn: true, noticeDays: true } } }, take: 50 })).map((r) => r.agreement);
+        const can = contractsAllowed(release.organization).can;
+        if (!rows.length && !can) return null;
+        return <AgreementsCard rows={rows} today={zonedDay(new Date(), release.organization.timezone)} addHref={`/admin/agreements/new?release=${release.id}`} canAdd={can} empty="No agreement on record covers this release." />;
       })())}
 
       {tab === "settings" && release.exclusiveStore && (

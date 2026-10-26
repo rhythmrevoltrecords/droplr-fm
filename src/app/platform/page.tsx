@@ -1,6 +1,7 @@
 import { AccountKindControl, DomainAccessControl, CompPlanControl } from "@/components/admin/comp-plan-control";
 import { PlatformChrome } from "@/components/platform/platform-chrome";
 import { ManagePanel } from "@/components/platform/manage-panel";
+import { BetaFeaturesControl } from "@/components/platform/beta-features-control";
 import { MessageComposer } from "@/components/platform/message-composer";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
@@ -27,7 +28,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
     orderBy: { createdAt: "desc" },
     take: 200,
     select: {
-      id: true, name: true, slug: true, kind: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, compUntil: true, founderPrice: true, founderOfferUntil: true, founderCode: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true, domainsAllowedAt: true, domainsAllowedBy: true,
+      id: true, name: true, slug: true, kind: true, plan: true, compPlan: true, compNote: true, compSetAt: true, compSetBy: true, compUntil: true, founderPrice: true, founderOfferUntil: true, founderCode: true, stripeSubscriptionId: true, createdAt: true, customDomain: true, customDomainLiveAt: true, customDomainVerifiedAt: true, domainsAllowedAt: true, domainsAllowedBy: true, betaFeatures: true,
       users: { where: { role: "owner" }, select: { email: true }, take: 1 },
       _count: { select: { releases: true, users: true } },
     },
@@ -138,7 +139,7 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
                 </div>
                 <div className="col-span-2 min-w-0 truncate text-xs text-muted-foreground md:col-span-1 md:text-foreground">{o.users[0]?.email ?? "No owner login"}</div>
                 <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex-col md:items-start">
-                  <span className="flex flex-wrap gap-1"><Badge variant={o.plan === "free" ? "secondary" : "success"}>{planOf(o.plan).name}</Badge>{o.domainsAllowedAt && <Badge variant="secondary">Domains on</Badge>}</span>
+                  <span className="flex flex-wrap gap-1"><Badge variant={o.plan === "free" ? "secondary" : "success"}>{planOf(o.plan).name}</Badge>{o.domainsAllowedAt && <Badge variant="secondary">Domains on</Badge>}{o.betaFeatures.length > 0 && <Badge variant="warning">Beta: {o.betaFeatures.length}</Badge>}</span>
                   <span className="text-xs text-muted-foreground">{o.kind === "artist" ? "Artist" : "Label"} · {o.stripeSubscriptionId ? "Stripe" : o.compPlan ? `Comp${o.compSetBy ? ` · ${o.compSetBy}` : ""}` : "no billing"}</span>
                   {o.compNote && <span className="w-full truncate text-xs text-muted-foreground">{o.compNote}</span>}
                 </div>
@@ -148,6 +149,18 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
                 <ManagePanel name={o.name}>
                     <div><div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Account type</div><AccountKindControl orgId={o.id} kind={accountKind(o.kind)} blocker={kindChangeBlocker(o, accountKind(o.kind) === "artist" ? "label" : "artist")} /></div>
                     <div><div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Custom domains</div><DomainAccessControl orgId={o.id} allowed={!!o.domainsAllowedAt} by={o.domainsAllowedBy} /></div>
+                    <div>
+                      <div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Beta features</div>
+                      <BetaFeaturesControl
+                        orgId={o.id}
+                        on={o.betaFeatures}
+                        planNote={{
+                          ...(accountKind(o.kind) === "artist" ? { agreements: "Artist account: label accounts only.", royalties: "Artist account: label accounts only." } : {}),
+                          ...(accountKind(o.kind) === "label" && !planOf(o.plan).contracts ? { agreements: `On ${planOf(o.plan).name}: they'll see it but can't add one. Comp Pro or Label to test.` } : {}),
+                          ...(accountKind(o.kind) === "label" && !planOf(o.plan).royalties ? { royalties: `On ${planOf(o.plan).name}: they'll see it but can't start one. Comp Pro or Label to test.` } : {}),
+                        }}
+                      />
+                    </div>
                     <div><div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Complimentary plan</div><CompPlanControl orgId={o.id} kind={accountKind(o.kind)} compPlan={o.compPlan} compNote={o.compNote} compUntil={o.compUntil?.toISOString() ?? null} founderPrice={o.founderPrice} founderOfferUntil={o.founderOfferUntil?.toISOString() ?? null} founderCode={o.founderCode} /></div>
                 </ManagePanel>
               </li>

@@ -107,6 +107,15 @@ jobs:
       - name: Release planning for teams
         run: npx tsx scripts/test-release-planning.ts
 
+      - name: Agreements
+        run: npx tsx scripts/test-agreements.ts
+
+      - name: Royalties and splits
+        run: npx tsx scripts/test-royalties.ts
+
+      - name: Beta features stay off until switched on
+        run: npx tsx scripts/test-beta.ts
+
       - name: Complimentary plans
         run: npx tsx scripts/test-comp.ts
 
