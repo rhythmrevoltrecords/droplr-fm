@@ -131,6 +131,11 @@ export function ClipForge(props: ClipForgeProps) {
   const [endLine, setEndLine] = useState(endDefault);
   const [typeFont, setTypeFont] = useState<TypeFontId>(DEFAULT_TYPE_FONT);
   const [typeCut, setTypeCut] = useState<TypeCut>(2);
+  // "lyrics": the words are the timed lines in this part, each on screen from when it's sung.
+  const [typeFollow, setTypeFollow] = useState<"beat" | "lyrics">("beat");
+  // Only when there are lines to follow: no lines in this part, or the wrong master, and Type cuts on
+  // the beat with the words in the box, the same as if the choice had never been made.
+  const typeLyrics = typeFollow === "lyrics" && windowLines.length > 0 ? windowLines : null;
   const [typeBg, setTypeBg] = useState<TypeBackground>("scratch");
   const [typeLoops, setTypeLoops] = useState(true);
   const [typeGlitch, setTypeGlitch] = useState(true);
@@ -205,14 +210,14 @@ export function ClipForge(props: ClipForgeProps) {
       if (style === "type") {
         if (a && cuesRef.current.from !== a) cuesRef.current = { from: a, cues: motionCues(a.low, FPS) };
         const drop = a ? cuesRef.current.cues.drop : Math.round(frames * 0.45);
-        const key = JSON.stringify([words, typeCut, typeLoops, !!logoRef.current, frames, fadeOut]);
+        const key = JSON.stringify([words, typeCut, typeLoops, !!logoRef.current, frames, fadeOut, typeLyrics]);
         if (timelineRef.current.key !== key || timelineRef.current.from !== a) {
           const grid = a ? beatGrid(a.low, FPS) : beatGrid([], FPS);
           timelineRef.current = {
             key,
             from: a,
             grid: a && a !== demo ? grid : null,
-            steps: typeTimeline({ frames, fps: FPS, grid, drop, words, every: typeCut, hasLogo: !!logoRef.current, loops: typeLoops, fadeOut }),
+            steps: typeTimeline({ frames, fps: FPS, grid, drop, words, every: typeCut, hasLogo: !!logoRef.current, loops: typeLoops, fadeOut, lyrics: typeLyrics }),
           };
         }
         drawTypeFrame({
@@ -240,7 +245,7 @@ export function ClipForge(props: ClipForgeProps) {
     },
     // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
     // is the dependency that triggers the repaint, the same way artReady does for the cover.
-    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded, discEntrance, discKind, discRing, windowLines, lyricsNext, props.title],
+    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded, discEntrance, discKind, discRing, windowLines, lyricsNext, props.title, typeLyrics],
   );
 
   // The tempo the Type cuts follow, for the line under the style. Read after a paint has built it.
@@ -738,25 +743,45 @@ export function ClipForge(props: ClipForgeProps) {
               )}
               {style === "type" && (
                 <div className="space-y-1.5 sm:col-span-2">
-                  <Label htmlFor="clip-words">Words, one per line</Label>
-                  <textarea
-                    id="clip-words"
-                    value={typeText}
-                    rows={4}
-                    maxLength={240}
-                    placeholder={`${props.title}\n${props.artistName}`}
-                    onChange={(e) => setTypeText(e.target.value)}
-                    className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
-                  />
-                  {windowLines.length > 0 && !lyricsOff && (
-                    <Button size="sm" variant="secondary" onClick={() => setTypeText(windowLines.slice(0, 8).map((l) => l.text).join("\n"))}>
-                      Use the lyrics in this part
-                    </Button>
+                  {windowLines.length > 0 && (
+                    <Choices
+                      label="Words change"
+                      value={typeFollow}
+                      onChange={(v: "beat" | "lyrics") => setTypeFollow(v)}
+                      options={[
+                        { value: "beat" as const, label: "On the beat", hint: "The words you type, one per cut" },
+                        { value: "lyrics" as const, label: "With the lyrics", hint: "Each line of your lyrics in this part, on screen from when it's sung" },
+                      ]}
+                    />
                   )}
-                  <p className="text-xs text-muted-foreground">
-                    Up to 8 lines, flashed one per cut. A hook from the vocal works best. Empty, it uses the title and your name.
-                    {props.live ? "" : ` The end card says ${endDefault} — change it if you like.`}
-                  </p>
+                  {typeLyrics ? (
+                    <p className="text-xs text-muted-foreground">
+                      {typeLyrics.length} {typeLyrics.length === 1 ? "line" : "lines"} in this part, each on screen from when it&apos;s sung. Between lines it still cuts on the beat, with your {props.logoSrc ? "logo" : "artwork"} on the drop if the drop lands between lines. Two lines sung less than a third of a second apart share the screen. A line sung after the end card starts isn&apos;t shown.
+                      {props.live ? "" : ` The end card says ${endDefault} — change it if you like.`}
+                    </p>
+                  ) : (
+                    <>
+                      <Label htmlFor="clip-words">Words, one per line</Label>
+                      <textarea
+                        id="clip-words"
+                        value={typeText}
+                        rows={4}
+                        maxLength={240}
+                        placeholder={`${props.title}\n${props.artistName}`}
+                        onChange={(e) => setTypeText(e.target.value)}
+                        className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
+                      />
+                      {windowLines.length > 0 && (
+                        <Button size="sm" variant="secondary" onClick={() => setTypeText(windowLines.slice(0, 8).map((l) => l.text).join("\n"))}>
+                          Put the lyrics in this part in the box
+                        </Button>
+                      )}
+                      <p className="text-xs text-muted-foreground">
+                        Up to 8 lines, flashed one per cut. A hook from the vocal works best. Empty, it uses the title and your name.
+                        {props.live ? "" : ` The end card says ${endDefault} — change it if you like.`}
+                      </p>
+                    </>
+                  )}
                 </div>
               )}
               <div className="space-y-1.5">

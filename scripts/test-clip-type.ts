@@ -19,7 +19,7 @@ import { readFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   beatGrid, demoAnalysis, drawTypeFrame, FALLBACK_BPM, MIN_STEP_SECONDS, TYPE_CUTS, TYPE_FONTS, typeColourWarnings, typeFontFile,
-  typePalette, typeTimeline, typeWords, type TypeStep,
+  typePalette, typeTimeline, typeWords, TYPE_LYRIC_MAX_CHARS, type TypeStep,
 } from "../src/lib/clip-type";
 import { CLIP_STYLES } from "../src/lib/clip-motion";
 import { planOf } from "../src/lib/plans";
@@ -74,7 +74,7 @@ check("words: trimmed, capitals, blank lines dropped", JSON.stringify(words) ===
 check("no words: falls back to the title and the artist", JSON.stringify(typeWords("  \n ", ["Again", "Ototo"])) === JSON.stringify(["AGAIN", "OTOTO"]));
 check("at most eight lines", typeWords(Array.from({ length: 12 }, (_, i) => `w${i}`).join("\n"), []).length === 8);
 
-const base = { frames: 30 * FPS, fps: FPS, drop: 15 * FPS, words, every: 2 as const, hasLogo: true, loops: true, fadeOut: 1 };
+const base = { frames: 30 * FPS, fps: FPS, drop: 15 * FPS, words, every: 2 as const, hasLogo: true, loops: true, fadeOut: 1, lyrics: null };
 function swapsPerSecondMax(steps: TypeStep[]) {
   // A swap is any cut where the background colour changes.
   const bgOf = (s: TypeStep) => (s.kind === "word" || s.kind === "stack" ? (s.invert ? "b" : "a") : s.kind);
@@ -122,6 +122,71 @@ for (const bpm of [95, 128, 140, 174, 180]) {
   const longFade = typeTimeline({ ...base, grid, fadeOut: 2 });
   const lf = longFade[longFade.length - 1];
   check("a 2s fade-out stretches the end card past it", (lf.end - lf.start) / FPS >= 3.4 * 0.85, String((lf.end - lf.start) / FPS));
+}
+
+console.log("on the lyrics");
+{
+  const grid = beatGrid(kicks(131.8, 4, 30), FPS);
+  // Real taps from a real track: off the grid, uneven, a 7 s hold, a gap with the drop in it.
+  const sung = [
+    { text: "Woke up in a bed of lies", at: 0.9, until: 4.34 },
+    { text: "Didn't know you were pretending", at: 4.34, until: 7.78 },
+    { text: "I've got nowhere else to go", at: 7.78, until: 11.65 },
+    { text: "Was it love?", at: 19.37, until: 22.86 },
+    { text: "Was it trust?", at: 22.86, until: 25.6 },
+    { text: "What were your intentions?", at: 25.6, until: 30 },
+  ];
+  const steps = typeTimeline({ ...base, grid, drop: 15 * FPS, lyrics: sung });
+  const said = steps.filter((s) => s.kind === "word");
+  const atLine = sung.slice(0, 5).every((l) => said.some((s) => s.text === l.text.toUpperCase() && Math.abs(s.start - l.at * FPS) <= 1));
+  check("each line changes when it's sung, not on the grid", atLine, said.map((s) => `${s.text}@${s.start}`).join(" | "));
+  check("…and stays up until the next line", said[0].end === said[1].start && said[1].end === said[2].start);
+  check("the lines come in order", said.map((s) => s.text).join("|") === sung.slice(0, said.length).map((l) => l.text.toUpperCase()).join("|"));
+  const covers = steps[0].start === 0 && steps[steps.length - 1].end === base.frames && steps.every((s, k) => k === 0 || s.start === steps[k - 1].end);
+  check("the steps cover the clip with no gaps or overlaps", covers);
+  const gap = steps.filter((s) => s.start >= 11.65 * FPS - 1 && s.end <= 19.37 * FPS + 1);
+  check("the gap between lines still cuts on the beat", gap.length >= 4 && gap.slice(1).every((s) => Math.abs(((s.start - grid.offset) % grid.period + grid.period) % grid.period) < 1 || Math.abs(((s.start - grid.offset) % grid.period) - grid.period) < 1), gap.map((s) => s.start).join(","));
+  check("the gap shows no typed words", gap.every((s) => s.kind !== "word" && s.kind !== "stack"));
+  const logo = steps.find((s) => s.kind === "logo");
+  check("a drop between lines gets the logo", !!logo && logo.start >= 11.65 * FPS && logo.end <= 19.37 * FPS + 1 && Math.abs(logo.start - 15 * FPS) <= grid.period * 2, logo ? String(logo.start) : "none");
+  const end = steps[steps.length - 1];
+  check("the end card is the full end-card length", end.kind === "end" && end.start === base.frames - Math.round(Math.max(2.5, base.fadeOut + 1.5) * FPS), String(end.start));
+  check("a line running into the end card is cut at it", said[said.length - 1].end === end.start);
+  check("no step under a third of a second, at most three swaps a second", Math.min(...steps.slice(1, -1).map((s) => s.end - s.start)) >= 10 && swapsPerSecondMax(steps) <= 3);
+
+  const inLine = typeTimeline({ ...base, grid, drop: 9 * FPS, lyrics: sung });
+  check("…and the logo still lands, in the gap nearest the drop", inLine.some((s) => s.kind === "logo" && s.start >= 11.65 * FPS - 1));
+  const close = typeTimeline({ ...base, grid, lyrics: [{ text: "a", at: 1, until: 4 }, { text: "b", at: 4.2, until: 8 }] });
+  const ca = close.find((s) => s.text === "A"), cb = close.find((s) => s.text === "B");
+  check("a gap too short to show anything stays on the line before", !!ca && !!cb && ca.end === cb.start && Math.min(...close.slice(1, -1).map((s) => s.end - s.start)) >= 10, close.map((s) => `${s.kind}:${s.start}-${s.end}`).join(" "));
+  check("a drop in the middle of a line never covers the line", inLine.filter((s) => s.kind === "word").length === said.length && !inLine.some((s) => (s.kind === "logo" || s.kind === "art") && s.start < 11.65 * FPS && s.end > 0.9 * FPS));
+
+  // Taps close together: two lines 0.1 s apart, then three inside a quarter of a second.
+  const rushed = typeTimeline({ ...base, grid, lyrics: [
+    { text: "one", at: 2, until: 2.1 }, { text: "two", at: 2.1, until: 5 },
+    { text: "three", at: 5, until: 5.2 }, { text: "four", at: 5.2, until: 5.25 }, { text: "five", at: 5.25, until: 9 },
+  ] });
+  const rw = rushed.filter((s) => s.kind === "word");
+  check("lines tapped too close share the screen from the first one's time", rw.map((s) => `${s.text}@${s.start}`).join("|") === "ONE TWO@60|THREE FOUR FIVE@150", rw.map((s) => `${s.text}@${s.start}-${s.end}`).join(" "));
+  check("…so no line is lost and nothing flashes", Math.min(...rushed.slice(1, -1).map((s) => s.end - s.start)) >= 10 && swapsPerSecondMax(rushed) <= 3);
+
+  const early = typeTimeline({ ...base, grid, lyrics: [{ text: "first", at: 0.1, until: 3 }] });
+  check("a line a few frames in starts the clip instead of a sliver intro", early[0].kind === "word" && early[0].start === 0);
+
+  const late = typeTimeline({ ...base, grid, lyrics: [{ text: "too late", at: 29, until: 30 }] });
+  const beat = typeTimeline({ ...base, grid });
+  check("no line before the end card: it cuts on the beat as before", JSON.stringify(late) === JSON.stringify(beat));
+  check("an empty list is the beat too", JSON.stringify(typeTimeline({ ...base, grid, lyrics: [] })) === JSON.stringify(beat));
+
+  const noLoops = typeTimeline({ ...base, grid, loops: false, lyrics: sung });
+  check("breaks off: no tunnel or spiral in the gaps", !noLoops.some((s) => s.kind === "loop"));
+  const long = typeTimeline({ ...base, grid, lyrics: [{ text: "x".repeat(90), at: 1, until: 5 }] }).find((s) => s.kind === "word");
+  check("a long line is capped, upper-cased", long?.text === "X".repeat(TYPE_LYRIC_MAX_CHARS), String(long?.text.length));
+
+  const forge = read("src/components/admin/clip-forge.tsx");
+  check("the clip panel passes the lines to the engine", /typeTimeline\(\{[^}]*lyrics: typeLyrics/.test(forge));
+  check("…and rebuilds the cuts when the lines change", /JSON\.stringify\(\[words,[^\]]*typeLyrics\]\)/.test(forge));
+  check("…only when there are lines in the part (the wrong master gives none)", /typeFollow === "lyrics" && windowLines\.length > 0 \? windowLines : null/.test(forge));
 }
 
 console.log("drawing");

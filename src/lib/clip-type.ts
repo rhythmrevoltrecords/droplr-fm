@@ -189,7 +189,18 @@ export type TimelineArgs = {
   loops: boolean;
   /** The audio fade-out, in seconds: the end card outlasts it so the link is read before black. */
   fadeOut: number;
+  /**
+   * The release's timed lyrics inside the clip (lib/lyrics linesInWindow), or null to cut on the
+   * beat. Given, each line is on screen from when it's sung; only the gaps between lines cut on the
+   * beat. Required on purpose: a missing value would silently cut on the beat.
+   */
+  lyrics: TypeLyric[] | null;
 };
+
+/** A sung line, in seconds from the start of the clip. Same shape as lib/lyrics WindowLine. */
+export type TypeLyric = { text: string; at: number; until: number };
+/** Lyric lines run longer than typed words: room for a whole line, still capped. */
+export const TYPE_LYRIC_MAX_CHARS = 60;
 
 /** Up to eight lines the artist typed, trimmed, upper-cased, empties dropped. */
 export function typeWords(raw: string, fallback: string[]): string[] {
@@ -200,6 +211,10 @@ export function typeWords(raw: string, fallback: string[]): string[] {
 export function typeTimeline(a: TimelineArgs): TypeStep[] {
   const { frames, fps, grid } = a;
   if (frames <= 0) return [];
+  if (a.lyrics && a.lyrics.length) {
+    const sung = lyricTimeline(a, a.lyrics);
+    if (sung) return sung;
+  }
   const words = a.words.length ? a.words : ["OUT NOW"];
   // Slow the cut down until it is no faster than the cap.
   let every: number = a.every;
@@ -256,6 +271,97 @@ export function typeTimeline(a: TimelineArgs): TypeStep[] {
     steps.push({ start, end, kind: stack ? "stack" : "word", text, invert, fx });
     sinceLoop++;
   }
+  steps.push({ start: endStart, end: frames, kind: "end", text: "", invert: false, fx: 0 });
+  return steps;
+}
+
+/**
+ * Type on the lyrics: a cut where each line is sung, not on the grid.
+ *
+ * The same three rules hold as on the beat. No step is shorter than a third of a second (a line
+ * tapped right after another shares the screen with it). The end card is the same length. The gaps between lines are still Type: they cut on the beat with the logo on
+ * the drop, the artwork and the breaks, so a bar with no singing doesn't sit on a dead frame.
+ * Returns null when no line lands before the end card, and the caller cuts on the beat instead.
+ */
+function lyricTimeline(a: TimelineArgs, lyrics: TypeLyric[]): TypeStep[] | null {
+  const { frames, fps, grid } = a;
+  const min = Math.ceil(fps * MIN_STEP_SECONDS);
+  const endLen = Math.round(Math.max(2.5, a.fadeOut + 1.5) * fps);
+  const endStart = Math.max(0, frames - endLen);
+
+  // Sung spans in frames, in order, none overlapping, none under the cap. A line too short to show
+  // on its own (two taps close together) shares the screen with the next one, from its own start:
+  // both lines are still there, and the lines after keep their times.
+  const spans: { start: number; end: number; text: string }[] = [];
+  let carry: { start: number; text: string } | null = null;
+  for (const l of lyrics) {
+    let text = l.text.trim().toUpperCase();
+    if (!text) continue;
+    const prev = spans[spans.length - 1];
+    let start = Math.max(0, Math.round(l.at * fps));
+    const end = Math.min(endStart, Math.round(l.until * fps));
+    if (carry) { start = carry.start; text = `${carry.text} ${text}`; carry = null; }
+    if (prev) start = Math.max(start, prev.end);
+    if (start < min) start = 0;
+    if (start >= endStart) break;
+    if (end - start < min) { carry = { start, text }; continue; }
+    spans.push({ start, end, text: text.slice(0, TYPE_LYRIC_MAX_CHARS) });
+  }
+  if (!spans.length) return null;
+  // A gap too short to show anything in joins the line before it (or the next line, at the front).
+  for (let k = 1; k < spans.length; k++) if (spans[k].start - spans[k - 1].end < min) spans[k - 1].end = spans[k].start;
+  if (endStart - spans[spans.length - 1].end < min) spans[spans.length - 1].end = endStart;
+
+  // The gaps, cut on the beat at the same rate as the beat mode, with no sliver at either side.
+  let every: number = a.every;
+  while (grid.period * every < fps * MIN_STEP_SECONDS) every *= 2;
+  const step = grid.period * every;
+  type Part = { start: number; end: number; text: string | null };
+  const parts: Part[] = [];
+  const fill = (from: number, to: number) => {
+    if (to - from < 1) return;
+    const cuts = [from];
+    for (let f = grid.offset; f < to; f += step) {
+      const c = Math.round(f);
+      if (c - cuts[cuts.length - 1] >= min && to - c >= min) cuts.push(c);
+    }
+    cuts.forEach((c, k) => parts.push({ start: c, end: k + 1 < cuts.length ? cuts[k + 1] : to, text: null }));
+  };
+  let at = 0;
+  for (const sp of spans) {
+    fill(at, sp.start);
+    parts.push({ start: sp.start, end: sp.end, text: sp.text });
+    at = sp.end;
+  }
+  fill(at, endStart);
+
+  // The drop goes to the gap step nearest it, when there is one: a sung line is never covered.
+  let dropIdx = -1, bestD = Infinity;
+  parts.forEach((p, k) => {
+    if (p.text !== null || p.start === 0) return;
+    const d = Math.abs(p.start - a.drop);
+    if (d < bestD) { bestD = d; dropIdx = k; }
+  });
+  const steps: TypeStep[] = [];
+  let breakNext = false;
+  parts.forEach((p, k) => {
+    const invert = k % 2 === 1;
+    const fx = (k * 7 + 3) % 4;
+    if (p.text !== null) {
+      steps.push({ start: p.start, end: p.end, kind: "word", text: p.text, invert, fx });
+    } else if (p.start === 0) {
+      steps.push({ start: 0, end: p.end, kind: "intro", text: "", invert: false, fx: 0 });
+    } else if (k === dropIdx) {
+      steps.push({ start: p.start, end: p.end, kind: a.hasLogo ? "logo" : "art", text: "", invert: false, fx });
+    } else if (!a.loops || !breakNext) {
+      // Artwork and breaks take turns in the gaps; with breaks off, it's the artwork each time.
+      steps.push({ start: p.start, end: p.end, kind: "art", text: "", invert, fx });
+      breakNext = true;
+    } else {
+      steps.push({ start: p.start, end: p.end, kind: "loop", text: "", invert, fx: k });
+      breakNext = false;
+    }
+  });
   steps.push({ start: endStart, end: frames, kind: "end", text: "", invert: false, fx: 0 });
   return steps;
 }
