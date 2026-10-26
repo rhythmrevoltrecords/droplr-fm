@@ -2097,6 +2097,29 @@ async function main() {
       check("a new release starts with icons on", created.status === 200 && fresh?.socialIcons === "on", `${created.status} ${created.text.slice(0, 160)}`);
     }
 
+    console.log("\n101. Release planning: tasks and assignment");
+    {
+      // Label B must never reach label A's plan, and an artist login only what was given to the artist.
+      const sign = async (u: { id: string; organizationId: string; role: string }) => ({ cookie: `dfm_session=${await signToken({ sub: u.id, org: u.organizationId, role: u.role, jti: crypto.randomUUID() }, "1h", "session")}` });
+      const jOwnerA = await sign(A.owner), jOwnerB = await sign(B.owner), jArtistA = await sign(A.artist), jArtistB = await sign(B.artist);
+      const mine = await http(jOwnerA, "POST", `/api/admin/releases/${A.release.id}/tasks`, { title: `Plan ${RUN}`, day: -3, assignee: "label" });
+      const taskId = (JSON.parse(mine.text || "{}").task ?? {}).id as string;
+      check("label A adds a task to its own release", mine.status === 200 && !!taskId, `${mine.status} ${mine.text.slice(0, 100)}`);
+      const before = await prisma.releaseTask.count({ where: { releaseId: A.release.id } });
+      check("label B can't add a task to A's release", (await http(jOwnerB, "POST", `/api/admin/releases/${A.release.id}/tasks`, { title: "x", day: 0 })).status === 404 && (await prisma.releaseTask.count({ where: { releaseId: A.release.id } })) === before);
+      check("label B can't edit A's task", (await http(jOwnerB, "PATCH", `/api/admin/releases/${A.release.id}/tasks/${taskId}`, { title: "hijack" })).status === 404);
+      check("label B can't edit A's task through its own release", (await http(jOwnerB, "PATCH", `/api/admin/releases/${B.release.id}/tasks/${taskId}`, { title: "hijack" })).status === 404);
+      check("label B can't delete A's task", (await http(jOwnerB, "DELETE", `/api/admin/releases/${B.release.id}/tasks/${taskId}`)).status === 404 && (await prisma.releaseTask.findUnique({ where: { id: taskId } }))?.title === `Plan ${RUN}`);
+      check("label B can't assign A's steps", (await http(jOwnerB, "POST", `/api/admin/releases/${A.release.id}/promo`, { key: "teaser", assignee: "artist" })).status === 404 && (await prisma.promoStepAssign.count({ where: { releaseId: A.release.id } })) === 0);
+      await prisma.releaseTask.update({ where: { id: taskId }, data: { assignee: "artist" } });
+      check("B's artist can't tick A's task", (await http(jArtistB, "POST", "/api/dashboard/plan", { releaseId: A.release.id, key: `task:${taskId}`, done: true })).status === 404);
+      check("B's artist can't tick A's task through B's release", (await http(jArtistB, "POST", "/api/dashboard/plan", { releaseId: B.release.id, key: `task:${taskId}`, done: true })).status === 404 && !(await prisma.releaseTask.findUnique({ where: { id: taskId } }))?.doneAt);
+      check("A's own artist can tick it (control)", (await http(jArtistA, "POST", "/api/dashboard/plan", { releaseId: A.release.id, key: `task:${taskId}`, done: true })).status === 200);
+      const calB = await http(jOwnerB, "GET", `/admin/calendar?m=${A.release.releaseDate.toISOString().slice(0, 7)}`);
+      check("B's calendar shows none of A's releases", calB.status === 200 && !calB.text.includes(`Secret a`), String(calB.status));
+      await prisma.releaseTask.deleteMany({ where: { releaseId: A.release.id } });
+    }
+
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

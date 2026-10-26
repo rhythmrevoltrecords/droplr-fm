@@ -11,7 +11,7 @@
  * client (curl, a server), which can't ride a visitor's cookie, so it is let through. "null" is what
  * a sandboxed frame or a cross-site redirect sends, and is refused.
  */
-export const SIGNED_IN_API = /^\/api\/(?:admin|platform|artist|auth|push|messages|roster-link|feedback|stripe\/(?:checkout|portal))(?:\/|$)/;
+export const SIGNED_IN_API = /^\/api\/(?:admin|platform|artist|auth|push|messages|roster-link|feedback|dashboard|account|stripe\/(?:checkout|portal))(?:\/|$)/;
 
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 

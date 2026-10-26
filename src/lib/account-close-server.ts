@@ -118,7 +118,7 @@ export function storedImageKey(url: string | null | undefined): string | null {
 const NOT_CONTENT = new Set([
   "_prisma_migrations", "AuthThrottle", "ClickEvent", "ClipRender", "ConsentEvent", "ContestEntry", "ContestVote", "DomainDetach",
   "EmailVerificationToken", "EspConnection", "FanContact", "GateUnlock", "Invite", "NewsConfirmRequest", "NewsEmailDelivery",
-  "PageView", "PasswordResetToken", "PlatformMessageSeen", "PreSave", "PromoStepReminder", "PromoTaskDone", "PushSubscription",
+  "PageView", "PasswordResetToken", "PlatformMessageSeen", "PreSave", "PromoStepAssign", "PromoStepReminder", "PromoTaskDone", "PushSubscription",
   "Referral", "RevokedSession", "SignupInvite", "User", "waitlist_features",
 ]);
 

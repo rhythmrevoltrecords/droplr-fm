@@ -6,7 +6,7 @@ import { labelRelease } from "@/lib/admin-guard";
 import { resolveReleaseArtist } from "@/lib/artists";
 import { prisma } from "@/lib/db";
 import { normaliseIsrc, normaliseUpc } from "@/lib/odesli";
-import { isReleased, zonedLocalToDate } from "@/lib/time";
+import { isReleased, zonedDay, zonedLocalToDate } from "@/lib/time";
 import { isRulebook } from "@/lib/exclusivity";
 import { isPlatformKey } from "@/lib/platforms";
 import { parsePlaylistId } from "@/lib/spotify-context";
@@ -135,9 +135,18 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
   const assigned = await resolveReleaseArtist(g.user.organizationId, { artistProfileId: d.artistProfileId, artistId: d.artistId });
   if (!assigned.ok) return NextResponse.json({ error: assigned.error }, { status: 400 });
   if (assigned.data) Object.assign(data, assigned.data);
+  // A release that moved to another day moves its whole plan, so every reminder is due again on the
+  // new date. Same transaction as the move, so the two can't come apart.
+  const movedDay = data.releaseDate instanceof Date && zonedDay(data.releaseDate, g.user.organization.timezone) !== zonedDay(g.release.releaseDate, g.user.organization.timezone);
   // Before the update: a new slug moves the page, and the old address has to be announced too.
   const before = indexNowOn() ? await releaseAddress(g.release.id) : null;
-  await prisma.release.update({ where: { id: g.release.id }, data });
+  await prisma.$transaction([
+    prisma.release.update({ where: { id: g.release.id }, data }),
+    ...(movedDay ? [
+      prisma.releaseTask.updateMany({ where: { releaseId: g.release.id, remindedAt: { not: null } }, data: { remindedAt: null } }),
+      prisma.promoStepReminder.deleteMany({ where: { releaseId: g.release.id } }),
+    ] : []),
+  ]);
   after(async () => pingIndexNow([before, await releaseAddress(g.release.id)]));
   return NextResponse.json({ ok: true });
 }

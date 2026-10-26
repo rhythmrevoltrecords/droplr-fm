@@ -51,6 +51,7 @@ const SAYS: { flag: keyof typeof PLAN_LIMITS.free; needle: RegExp; label: string
   { flag: "removeBranding", needle: /(remove|no) droplr\.fm branding/, label: "branding removal" },
   { flag: "byoSpotify", needle: /spotify/, label: "BYO Spotify" },
   { flag: "espSync", needle: /mailchimp|audience sync/, label: "Mailchimp audience sync" },
+  { flag: "teamPlanning", needle: /tasks for the label or the artist/, label: "release planning for teams" },
 ];
 
 // ---- every plan that has it, says it --------------------------------------

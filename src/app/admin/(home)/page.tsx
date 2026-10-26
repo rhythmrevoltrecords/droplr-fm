@@ -5,6 +5,7 @@ import { GuideSlot } from "@/components/admin/guide-slot";
 import { AnalyticsPanels, RangeTabs } from "@/components/admin/stats-panels";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CalendarDays } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { getStats, releaseTotals, statsRange } from "@/lib/analytics";
@@ -101,7 +102,7 @@ export default async function AdminHome(
         <Card className="border-violet-500/30 bg-violet-500/5 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-sm font-medium">
-              {dueWork.length === 1 ? "One promo step is due" : `${dueWork.length} promo steps are due`}
+              {dueWork.length === 1 ? "One thing on a release plan is due" : `${dueWork.length} things on release plans are due`}
             </div>
             <Link href={`/admin/releases/${dueWork[0].releaseId}?tab=promo`} className="text-sm text-violet-400 underline">
               Open the plan
@@ -112,6 +113,7 @@ export default async function AdminHome(
               <li key={`${t.releaseId}-${t.key}`} className="flex flex-wrap items-baseline gap-x-2">
                 <Link href={`/admin/releases/${t.releaseId}?tab=promo`} className="text-foreground hover:underline">{t.title}</Link>
                 <span className="text-xs">{t.releaseTitle}</span>
+                {t.assignee !== "both" && <Badge variant="secondary">{t.assignee === "artist" ? "Artist" : "Label"}</Badge>}
                 {t.overdue && <Badge variant="secondary">overdue</Badge>}
               </li>
             ))}
@@ -130,7 +132,10 @@ export default async function AdminHome(
             {atLimit && <Link href="/admin/settings/billing" className="text-xs text-violet-400 underline">{plan.name} limit reached · Upgrade</Link>}
           </p>
         </div>
-        <CreateLinkModal releaseLimitReached={atLimit} />
+        <div className="flex items-center gap-2">
+          <Button asChild variant="outline"><Link href="/admin/calendar"><CalendarDays /> Calendar</Link></Button>
+          <CreateLinkModal releaseLimitReached={atLimit} />
+        </div>
       </div>
 
       {!releases.length && <GuideSlot guide="walkthrough" />}

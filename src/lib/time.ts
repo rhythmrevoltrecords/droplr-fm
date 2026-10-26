@@ -4,8 +4,15 @@ export const DEFAULT_TZ = "Australia/Brisbane";
 /** @deprecated kept for older imports — use DEFAULT_TZ */
 export const BRISBANE_TZ = DEFAULT_TZ;
 
+/**
+ * A zone name, never an offset. Intl accepts "+10:00", but Postgres reads the same string with the
+ * opposite sign, and the reminder job works out due dates in SQL, so the two would disagree by
+ * twenty hours. Names are left alone, legacy ones like "EST5EDT" included: fans' browsers send them.
+ */
+const OFFSET = /^[+-−]?\d/;
+
 export function isValidTimeZone(tz: string | null | undefined): tz is string {
-  if (!tz) return false;
+  if (!tz || OFFSET.test(tz)) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: tz });
     return true;
