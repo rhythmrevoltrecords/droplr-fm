@@ -10,6 +10,7 @@
  */
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { closeConfirmationMatches } from "../src/lib/account-close";
+import { RESERVED_SLUGS } from "../src/lib/utils";
 
 let passed = 0;
 let failed = 0;
@@ -180,6 +181,16 @@ for (const file of serverFiles) {
 }
 check("the scan found server files to read", serverFiles.length > 50, `found ${serverFiles.length}`);
 check("no server file imports a plain value from a \"use client\" file", crossings.length === 0, crossings.join("; "));
+
+// droplr.fm/<slug> is a label's page, so a label owning the name of a real top-level page would sit
+// on top of it. /split (split-sheet links) was reserved by hand when it was added; this makes every
+// future one fail here instead of relying on remembering.
+const topRoutes = readdirSync("src/app", { withFileTypes: true })
+  .filter((e) => e.isDirectory() ? !/^[[(@_]/.test(e.name) : /\.(txt|xml|js|ico)$/.test(e.name))
+  .map((e) => e.name);
+const unreserved = topRoutes.filter((n) => !RESERVED_SLUGS.has(n));
+check("every top-level page and file is a reserved slug", topRoutes.length > 20 && unreserved.length === 0, unreserved.join(", "));
+check("split is reserved", RESERVED_SLUGS.has("split"));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
