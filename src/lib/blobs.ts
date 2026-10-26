@@ -40,12 +40,50 @@ export async function storeImage(buf: Buffer, type: CoverType, ext: string): Pro
   }
 }
 
-export async function readCover(key: string) {
+/**
+ * The stored image, `null` when the key isn't there, or `"timeout"` when storage didn't answer.
+ *
+ * On 26 Oct 2026 a key that didn't exist took 30 s and ended in a 504 on production, while a real key
+ * answered in about a second. The likely cause, from @netlify/blobs 11.1.4's own code: outside edge
+ * access a GET goes through a signed storage URL, a missing object there answers 403, and the client
+ * retries a 403 five times, five seconds apart. A HEAD (getMetadata) skips the signed URL, so it is
+ * asked first, and a missing key is known in one round trip. "strong" so an image read straight
+ * after its upload is never reported missing. The timeout is the backstop, and is reported as its
+ * own answer: "storage was slow" must never be served, or cached, as "not found".
+ */
+export async function readCover(key: string, timeoutMs = 5000): Promise<{ data: ArrayBuffer; contentType: string } | null | "timeout"> {
   const { getStore } = await import("@netlify/blobs");
-  const store = getStore(STORE);
-  const res = await store.getWithMetadata(key, { type: "arrayBuffer" });
+  // Strong needs the uncached edge address in the environment; without it the library throws
+  // BlobsConsistencyError instead of reading. Fall back to the default store then, so a missing
+  // setting can't break every image.
+  let store = getStore({ name: STORE, consistency: "strong" });
+  const TIMEOUT = Symbol("timeout");
+  const head = (st: typeof store) => orNullAfter(st.getMetadata(key).then((m) => m ?? null), timeoutMs, TIMEOUT);
+  let meta: Awaited<ReturnType<typeof head>>;
+  try {
+    meta = await head(store);
+  } catch (e) {
+    if (!(e instanceof Error && e.name === "BlobsConsistencyError")) throw e;
+    store = getStore(STORE);
+    meta = await head(store);
+  }
+  if (meta === TIMEOUT) return "timeout";
+  if (!meta) return null;
+  const res = await orNullAfter(store.getWithMetadata(key, { type: "arrayBuffer" }), timeoutMs, TIMEOUT);
+  if (res === TIMEOUT) return "timeout";
   if (!res) return null;
-  return { data: res.data, contentType: String(res.metadata?.contentType ?? "image/jpeg") };
+  return { data: res.data, contentType: String(res.metadata?.contentType ?? meta.metadata?.contentType ?? "image/jpeg") };
+}
+
+/** The promise's value, or `onTimeout` (null by default) if it hasn't settled within `ms`. */
+export async function orNullAfter<T, F = null>(p: Promise<T>, ms: number, onTimeout: F = null as F): Promise<T | F> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<F>((resolve) => { timer = setTimeout(() => resolve(onTimeout), ms); });
+  try {
+    return await Promise.race([p, timeout]);
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 /** Remove stored images by key. Best-effort: a missing key or no Blobs context is not an error. */

@@ -138,7 +138,7 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Imported contacts</CardTitle>
-              <CardDescription>{fmtNum(impSummary.mailable)} can be emailed · {fmtNum(impSummary.pending)} need to confirm · {fmtNum(impSummary.unsubscribed)} unsubscribed</CardDescription>
+              <CardDescription>{fmtNum(impSummary.mailable)} can be emailed · {fmtNum(impSummary.pending)} waiting to sign up themselves · {fmtNum(impSummary.unsubscribed)} unsubscribed</CardDescription>
             </CardHeader>
             <CardContent>
               <form method="get" className="mb-4 flex gap-3">
@@ -160,7 +160,7 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
                         <TD>
                           {r.status === "mailable" ? <Badge variant="success">Can email</Badge>
                             : r.status === "unsubscribed" ? <Badge variant="danger">Unsubscribed</Badge>
-                            : <Badge>Needs to confirm</Badge>}
+                            : <Badge>Waiting to sign up</Badge>}
                         </TD>
                         <TD className="text-muted-foreground">{formatInTz(r.createdAt, org.timezone)}</TD>
                       </TR>
@@ -207,7 +207,7 @@ export default async function FansPage(props: { searchParams: Promise<{ q?: stri
                       <TD>
                         {r.status === "mailable" ? <Badge variant="success">Can email</Badge>
                           : r.status === "unsubscribed" ? <Badge variant="danger">Unsubscribed</Badge>
-                          : <Badge>Needs to confirm</Badge>}
+                          : <Badge>Waiting for their confirm click</Badge>}
                       </TD>
                       <TD className="text-muted-foreground">{formatInTz(r.consentAt ?? r.createdAt, org.timezone)}</TD>
                     </TR>

@@ -53,7 +53,7 @@ export type AudienceRow = { email: string; preSaveId: string | null; fanContactI
  * FanContact rows this send may reach: imports the account confirmed, and addresses fans typed
  * into a droplr page themselves.
  *
- * Only ones marked mailable — a transactional import stays pending until the person confirms.
+ * Only ones marked mailable — a transactional import stays pending until the person signs up themselves on a droplr page.
  *
  * THE CARVE-OUT, AND WHY IT IS NOT A LOOSENING.
  *

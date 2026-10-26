@@ -15,8 +15,9 @@
  * without it.
  *
  * What it will NOT do is make a transactional address mailable. Someone who typed their email to
- * get a file, and ticked nothing, did not subscribe to anything. Those land as "pending" and have
- * to confirm before they can be sent to. That's not droplr being precious: one label's bad list
+ * get a file, and ticked nothing, did not subscribe to anything. Those land as "pending" and stay
+ * unmailable until the person signs up themselves (a bio page's subscribe box, or a pre-save's news
+ * box, each confirmed by email: lib/news-confirm). droplr never emails them to ask. That's not droplr being precious: one label's bad list
  * burns the sending domain every other artist on droplr shares.
  */
 

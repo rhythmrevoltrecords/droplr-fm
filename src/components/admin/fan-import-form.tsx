@@ -67,7 +67,7 @@ export function FanImportForm() {
         <p className="text-sm">
           {done.status === "mailable"
             ? "They can be included in a news email. They are not in any release-day send — send them a news email with your pre-save link and the ones who sign up become fans properly."
-            : "They're saved as pending. Because they only ever gave you their address for a download, they need to confirm before you can email them."}
+            : "They're saved as pending. Because they only ever gave you their address for a download, they can't be emailed until they sign up themselves: on your bio page's subscribe box, or by ticking news on a pre-save. droplr won't email them to ask, because an email asking for consent is itself a marketing email they never agreed to."}
         </p>
         <Button variant="outline" onClick={() => setDone(null)}>Import another file</Button>
       </Card>
@@ -104,7 +104,7 @@ export function FanImportForm() {
         <p className="text-xs text-muted-foreground">
           {kind === "marketing"
             ? "That's a subscription to you, and it carries over. They'll be able to receive your news emails."
-            : "That's a one-off, not a subscription. They'll be saved but can't be emailed until they confirm."}
+            : "That's a one-off, not a subscription. They'll be saved but can't be emailed until they sign up on one of your droplr pages themselves."}
         </p>
       </div>
 
