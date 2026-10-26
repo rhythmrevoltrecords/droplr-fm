@@ -35,6 +35,12 @@ model Organization {
   ga4Id         String?
   kind          String   @default("label") // label (runs a roster) | artist (independent artist, own releases)
   plan          String   @default("free") // free | artist | pro | label | enterprise
+  /**
+   * Features still in testing, switched on per account from /platform (lib/beta). Off means the
+   * feature doesn't exist for the account: no nav, pages 404, no reminders. Data made while it was
+   * on stays, and its CSV exports keep working.
+   */
+  betaFeatures  String[] @default([])
   stripeCustomerId String? @unique
   stripeSubscriptionId String? @unique
   stripePriceId String?
@@ -128,6 +134,10 @@ model Organization {
   consentEvents    ConsentEvent[]
   newsConfirmRequests NewsConfirmRequest[]
   releaseTasks     ReleaseTask[]
+  agreements       Agreement[]
+  splitSheets      SplitSheet[]
+  statementImports StatementImport[]
+  splitSendLogs    SplitSendLog[]
 }
 
 model User {
@@ -321,6 +331,9 @@ model Release {
   promoReminders PromoStepReminder[]
   promoAssigns  PromoStepAssign[]
   tasks         ReleaseTask[]
+  agreements    AgreementRelease[]
+  splitSheet    SplitSheet?
+  statementLines StatementLine[]
   clickEvents   ClickEvent[]
   pageViews     PageView[]
   preSaves      PreSave[]
@@ -398,6 +411,7 @@ model Artist {
   releases         Release[]
   invites          Invite[]
   bioPages         BioPage[]
+  agreements       Agreement[]
 
   @@index([organizationId])
 }
@@ -806,6 +820,58 @@ model ReleaseTask {
 
   @@index([releaseId])
   @@index([organizationId])
+}
+
+/**
+ * An agreement, kept next to the roster row and the releases it covers. The label's own record:
+ * owners and admins see it, artist logins never do.
+ *
+ * droplr keeps a LINK to the signed document (Drive, Dropbox, DocuSign) and never the file. The
+ * image store is public by key, which is wrong for a contract, and holding other people's signed
+ * agreements is a liability droplr doesn't need — the same posture as a download gate's file.
+ * The cost, said plainly in the UI: if the link breaks, droplr can't get the document back.
+ */
+model Agreement {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  artistId       String?
+  artist         Artist?      @relation(fields: [artistId], references: [id], onDelete: SetNull)
+  title          String
+  kind           String       @default("recording") // recording | licence | remix | distribution | publishing | management | other
+  status         String       @default("draft") // draft | sent | signed | ended
+  /** The other party when it isn't someone on the roster: a remixer, a distributor, a sync house. */
+  counterparty   String?
+  /** Calendar dates, stored as UTC midnight of the day the label typed. Never shifted by a timezone. */
+  signedOn       DateTime?
+  startsOn       DateTime?
+  endsOn         DateTime?
+  /** Days before endsOn that notice has to be given (renewal, option, termination). Null = 30. */
+  noticeDays     Int?
+  documentUrl    String?
+  /** One line on the money, in the label's words: "50/50 net receipts after recoupment". Not calculated. */
+  termsNote      String?
+  notes          String?
+  /** Claimed by the reminder job for this endsOn and noticeDays, so a notice reminder goes once. Cleared when either changes. */
+  noticeRemindedAt DateTime?
+  releases       AgreementRelease[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+  @@index([artistId])
+  @@index([endsOn])
+}
+
+model AgreementRelease {
+  id          String    @id @default(cuid())
+  agreementId String
+  agreement   Agreement @relation(fields: [agreementId], references: [id], onDelete: Cascade)
+  releaseId   String
+  release     Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+
+  @@unique([agreementId, releaseId])
+  @@index([releaseId])
 }
 
 /** Feedback conversation between one user and the droplr.fm team (platform console). */
@@ -1382,4 +1448,131 @@ model ConsentEvent {
   createdAt      DateTime     @default(now())
 
   @@index([organizationId, email])
+}
+
+/**
+ * Who gets what share of a release's master income. Shares are basis points and total exactly
+ * 10000. `version` goes up on every change to the parties or shares, and a party has confirmed
+ * only the version it confirmed: any edit puts the sheet back to unconfirmed for everyone.
+ */
+model SplitSheet {
+  id             String       @id @default(cuid())
+  releaseId      String       @unique
+  release        Release      @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  version        Int          @default(1)
+  parties        SplitParty[]
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([organizationId])
+}
+
+/**
+ * One name on a split sheet. A collaborator confirms through an emailed link; the token is kept
+ * only as its sha256. The label's own share is confirmed by the label team when it sends the
+ * sheet, so it needs no address.
+ */
+model SplitParty {
+  id               String     @id @default(cuid())
+  sheetId          String
+  sheet            SplitSheet @relation(fields: [sheetId], references: [id], onDelete: Cascade)
+  position         Int        @default(0)
+  name             String
+  email            String?
+  role             String     @default("artist") // artist | featured | producer | remixer | writer | label | other
+  shareBps         Int
+  tokenHash        String?    @unique
+  tokenExpiresAt   DateTime?
+  sentAt           DateTime?
+  sentVersion      Int?
+  confirmedVersion Int?
+  confirmedAt      DateTime?
+  disputedVersion  Int?
+  disputedAt       DateTime?
+  disputeNote      String?
+  allocations      StatementAllocation[]
+
+  @@index([sheetId])
+}
+
+/**
+ * One distributor statement, imported. The file is parsed in the label's browser and only the
+ * totals per UPC/ISRC are sent, so droplr never holds a statement's lines. Amounts are integer
+ * millionths of the statement's currency.
+ */
+model StatementImport {
+  id              String       @id @default(cuid())
+  organizationId  String
+  organization    Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title           String
+  currency        String
+  periodStart     DateTime?
+  periodEnd       DateTime?
+  rowsTotal       Int
+  rowsMatched     Int
+  matchedMicros   BigInt
+  unmatchedMicros BigInt
+  /** The biggest identifiers that matched no release: [{ upc, isrc, micros, rows }], at most 100. */
+  unmatched       Json
+  calculatedAt    DateTime?
+  lines           StatementLine[]
+  allocations     StatementAllocation[]
+  createdAt       DateTime     @default(now())
+
+  @@index([organizationId])
+}
+
+/**
+ * A release's total on a statement. Deleting the release keeps the line (releaseId goes null and
+ * the title stays), so a statement's totals never change because a release was tidied away.
+ */
+model StatementLine {
+  id           String          @id @default(cuid())
+  importId     String
+  statement    StatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  releaseId    String?
+  release      Release?        @relation(fields: [releaseId], references: [id], onDelete: SetNull)
+  releaseTitle String
+  amountMicros BigInt
+  rows         Int
+
+  @@unique([importId, releaseId])
+}
+
+/**
+ * What one party is owed from one release in one statement, worked out when the statement was
+ * calculated and kept: editing a split sheet later never rewrites a statement already made. The
+ * name, role and share are copied so the statement still reads after a party is removed.
+ */
+model StatementAllocation {
+  id           String          @id @default(cuid())
+  importId     String
+  statement    StatementImport @relation(fields: [importId], references: [id], onDelete: Cascade)
+  /** The statement line this came from. A release deleted later leaves the line, and so this. */
+  lineId       String
+  releaseId    String?
+  releaseTitle String
+  partyId      String?
+  party        SplitParty?     @relation(fields: [partyId], references: [id], onDelete: SetNull)
+  partyKey     String
+  partyName    String
+  partyRole    String
+  shareBps     Int
+  sheetVersion Int
+  amountMicros BigInt
+
+  @@unique([importId, lineId, partyKey])
+  @@index([importId, partyKey])
+}
+
+/** One row per split-sheet email sent: the 30-day sending limit. No address, no party: just the count. */
+model SplitSendLog {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  createdAt      DateTime @default(now())
+
+  @@index([organizationId, createdAt])
 }

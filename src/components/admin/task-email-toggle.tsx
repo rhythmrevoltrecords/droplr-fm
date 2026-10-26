@@ -14,7 +14,7 @@ export function TaskEmailToggle({ initial }: { initial: boolean }) {
   }
   return (
     <div className="flex items-center justify-between gap-4">
-      <label htmlFor="task-emails" className="text-sm">Email me the day a task assigned to me is due</label>
+      <label htmlFor="task-emails" className="text-sm">Email me the day something assigned to me is due</label>
       <button
         id="task-emails"
         type="button"

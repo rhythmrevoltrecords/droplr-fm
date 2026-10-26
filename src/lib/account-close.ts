@@ -17,6 +17,8 @@ export type CloseSummary = {
   fans: number;
   artists: number;
   links: number;
+  agreements: number;
+  statements: number;
   customDomain: string | null;
   subscription: boolean;
 };

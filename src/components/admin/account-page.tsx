@@ -17,7 +17,7 @@ type AccountUser = { id: string; pushPrefs?: unknown; taskEmails?: boolean; emai
 export async function AccountPage({ user, back }: { user: AccountUser; back?: { href: string; label: string } }) {
   const tz = user.organization.timezone;
   const devices = await prisma.pushSubscription.findMany({ where: { userId: user.id }, orderBy: { createdAt: "desc" } });
-  const kinds = PUSH_KINDS.filter((k) => user.role !== "artist" || k.key !== "referrals");
+  const kinds = PUSH_KINDS.filter((k) => user.role !== "artist" || (k.key !== "referrals" && k.key !== "agreements"));
   return (
     <div className="space-y-6">
       <div>
@@ -56,7 +56,7 @@ export async function AccountPage({ user, back }: { user: AccountUser; back?: { 
       </Card>
 
       <Card id="task-emails-card" className="scroll-mt-24">
-        <CardHeader><CardTitle>Task emails</CardTitle><CardDescription>When a step or task on a release plan is assigned to you, droplr emails you on the day it&apos;s due. Steps nobody assigned only notify the app, as before.</CardDescription></CardHeader>
+        <CardHeader><CardTitle>Reminder emails</CardTitle><CardDescription>When a step or task on a release plan is assigned to you, droplr emails you on the day it&apos;s due.{user.role !== "artist" ? " The label team also gets an email the day notice is due on a signed agreement." : ""} Steps nobody assigned only notify the app, as before.</CardDescription></CardHeader>
         <CardContent><TaskEmailToggle initial={user.taskEmails !== false} /></CardContent>
       </Card>
 

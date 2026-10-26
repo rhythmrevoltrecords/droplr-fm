@@ -37,7 +37,8 @@ let testMailer: ((m: Mail) => Promise<void>) | null = null;
 export function setTaskMailerForTests(m: ((m: Mail) => Promise<void>) | null) {
   testMailer = m;
 }
-const mailer = () => testMailer ?? (accountEmailConfigured() ? sendAccountEmail : null);
+/** The reminder email sender, or null when email isn't set up. Shared with the agreement notices. */
+export const mailer = () => testMailer ?? (accountEmailConfigured() ? sendAccountEmail : null);
 
 /** The release's artist login, when it has one inside the same account. Linked accounts elsewhere are read-only and get nothing. */
 function artistLogin(r: { organizationId: string; artist: { id: string; organizationId: string } | null; artistProfile: { user: { id: string; organizationId: string } | null } | null }) {

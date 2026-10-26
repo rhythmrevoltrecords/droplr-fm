@@ -54,6 +54,13 @@ const SAYS: { flag: keyof typeof PLAN_LIMITS.free; needle: RegExp; label: string
   { flag: "teamPlanning", needle: /tasks for the label or the artist/, label: "release planning for teams" },
 ];
 
+// ---- a beta is never advertised ---------------------------------------------
+// Switched on per account from /platform (lib/beta), so no plan can promise it yet. When one opens
+// to everyone, move its line from here into SAYS above and add its bullet.
+for (const [label, needle] of [["agreements", /agreement/], ["royalties and splits", /split sheet|royalt/]] as const) {
+  for (const k of PLAN_ORDER) check(`${k} doesn't advertise ${label} while it's in beta`, !needle.test(planFeatures(k).join(" • ").toLowerCase()));
+}
+
 // ---- every plan that has it, says it --------------------------------------
 
 for (const { flag, needle, label } of SAYS) {

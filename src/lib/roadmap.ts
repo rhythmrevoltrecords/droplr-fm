@@ -31,9 +31,10 @@ export const ROADMAP: { status: RoadmapStatus; items: { title: string; body: str
   // mistake as the demo inbox that sat in this column for weeks.
   { status: "Next", items: [], note: "Nothing's queued here on purpose. Everything that could be built without knowing real artists' problems is built. What comes next is decided by the people using droplr now — not by a list written before anyone turned up." },
   { status: "Later", items: [
-    { title: "Royalties and splits", body: "Confirmed split sheets, then distributor statements imported and turned into a clear statement per collaborator. Tracked, never held." },
     { title: "Pitch to labels", body: "Artists send a track to a label's private demo inbox; labels listen, rate and reply. Waits until there are enough labels for it not to be an empty room." },
     { title: "Unsigned pool", body: "Artists opt in unreleased tracks; labels discover them by genre, BPM and traction." },
+    // Built and being tested on a few accounts (lib/beta). Not "Live now" until anyone can switch them on.
+    { title: "Royalties and splits", body: "Confirmed split sheets, then distributor statements imported and turned into a clear statement per collaborator. Tracked, never held." },
     { title: "Contracts", body: "Agreements kept next to the roster and the releases they cover." },
   ] },
 ];

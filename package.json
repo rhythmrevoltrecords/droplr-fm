@@ -56,7 +56,10 @@
     "test:untrusted": "tsx --env-file-if-exists=.env scripts/test-untrusted-get.ts",
     "test:dataprotection": "tsx --env-file-if-exists=.env scripts/test-data-protection.ts",
     "test:csp": "tsx --env-file-if-exists=.env scripts/test-csp.ts",
-    "test:planning": "tsx --env-file-if-exists=.env scripts/test-release-planning.ts"
+    "test:planning": "tsx --env-file-if-exists=.env scripts/test-release-planning.ts",
+    "test:agreements": "tsx --env-file-if-exists=.env scripts/test-agreements.ts",
+    "test:royalties": "tsx --env-file-if-exists=.env scripts/test-royalties.ts",
+    "test:beta": "tsx --env-file-if-exists=.env scripts/test-beta.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

@@ -1,3 +1,4 @@
+import { hasBeta } from "@/lib/beta";
 import { redirect } from "next/navigation";
 import { AppShell } from "@/components/admin/app-shell";
 import { tourSteps } from "@/lib/tour";
@@ -66,6 +67,9 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         // advertised in the RSC payload either.
         ...(isPlatformAdminUser(user) ? [{ href: "/platform", label: "Platform", wide: true }] : []),
         { href: "/admin/calendar", label: "Calendar", wide: true },
+        // Beta features: only on accounts the platform owner has switched them on for (lib/beta).
+        ...(!artist && hasBeta(user.organization, "agreements") ? [{ href: "/admin/agreements", label: "Agreements", wide: true }] : []),
+        ...(!artist && hasBeta(user.organization, "royalties") ? [{ href: "/admin/royalties", label: "Royalties", wide: true }] : []),
         { href: "/admin/settings/integrations", label: "Integrations", wide: true },
         { href: "/admin/settings/billing", label: "Billing", wide: true },
       ]}

@@ -1,3 +1,4 @@
+import { hasBeta } from "@/lib/beta";
 import Link from "next/link";
 import { DomainSetup } from "@/components/admin/domain-setup";
 import { EmailHourForm, OrgFieldsForm } from "@/components/admin/org-forms";
@@ -21,7 +22,7 @@ export default async function SettingsPage() {
 
       {/* Section tabs: horizontal from md up, stacked on phones */}
       <nav aria-label="Settings sections" className="flex flex-col gap-1 rounded-xl border p-1 text-sm md:flex-row md:overflow-x-auto">
-        {[["#identity", org.kind === "artist" ? "Artist identity" : "Label identity"], ["#appearance", "Appearance"], ["#pixels", "Pixels"], ["#email", "Release-day email"], ["#domain", "Custom domain"], ["/admin/calendar", "Release calendar"], ["/admin/settings/integrations", "Integrations"], ["/admin/settings/billing", "Plan & billing"], ["/admin/referrals", "Refer a friend"], ["/admin/feedback", "Feedback"], ["/admin/settings/account", "App & notifications"], ["/admin/settings/account", "Account & password"]].map(([id, label]) => (
+        {[["#identity", org.kind === "artist" ? "Artist identity" : "Label identity"], ["#appearance", "Appearance"], ["#pixels", "Pixels"], ["#email", "Release-day email"], ["#domain", "Custom domain"], ["/admin/calendar", "Release calendar"], ...(org.kind !== "artist" && hasBeta(org, "agreements") ? [["/admin/agreements", "Agreements"]] : []), ...(org.kind !== "artist" && hasBeta(org, "royalties") ? [["/admin/royalties", "Royalties"]] : []), ["/admin/settings/integrations", "Integrations"], ["/admin/settings/billing", "Plan & billing"], ["/admin/referrals", "Refer a friend"], ["/admin/feedback", "Feedback"], ["/admin/settings/account", "App & notifications"], ["/admin/settings/account", "Account & password"]].map(([id, label]) => (
           id.startsWith("#")
             ? <SectionLink key={label} page="/admin/settings" section={id.slice(1)} className="rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground md:py-1.5">{label}</SectionLink>
             : <Link key={label} href={id} className="rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-accent hover:text-foreground md:py-1.5">{label}</Link>

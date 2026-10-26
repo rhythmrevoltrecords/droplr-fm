@@ -1,3 +1,4 @@
+import { hasBeta } from "@/lib/beta";
 import { FileText } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -11,7 +12,9 @@ import { requireUser } from "@/lib/auth";
 import { CopyButton } from "@/components/admin/copy-button";
 import { rosterBioPages } from "@/lib/bio-roster";
 import { prisma } from "@/lib/db";
-import { formatInTz, isReleased } from "@/lib/time";
+import { formatInTz, isReleased, zonedDay } from "@/lib/time";
+import { AgreementsCard } from "@/components/admin/agreements-card";
+import { contractsAllowed } from "@/lib/agreements-server";
 import { timeAgo } from "@/lib/utils";
 
 export const metadata = { title: "Artist" };
@@ -23,13 +26,14 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
   if (!artist) notFound();
   const tz = user.organization.timezone;
 
-  const [login, invite, releases, linked] = await Promise.all([
+  const [login, invite, releases, linked, agreements] = await Promise.all([
     artist.userId ? prisma.user.findFirst({ where: { id: artist.userId, organizationId: user.organizationId }, select: { email: true } }) : null,
     prisma.invite.findFirst({ where: { artistProfileId: artist.id, organizationId: user.organizationId, acceptedAt: null, expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
     prisma.release.findMany({ where: { artistProfileId: artist.id, organizationId: user.organizationId }, orderBy: { releaseDate: "desc" }, select: { id: true, title: true, coverUrl: true, releaseDate: true } }),
     // The linked account lives in another organisation, so this lookup is by id alone — the only
     // thing read is the email already on this roster row's invitation. Nothing else of theirs.
     artist.linkedUserId ? prisma.user.findUnique({ where: { id: artist.linkedUserId }, select: { email: true } }) : null,
+    prisma.agreement.findMany({ where: { artistId: artist.id, organizationId: user.organizationId }, orderBy: { createdAt: "desc" }, select: { id: true, title: true, kind: true, status: true, endsOn: true, noticeDays: true }, take: 50 }),
   ]);
 
   // Their own bio pages, if they have a linked account and have published any. Public pages only,
@@ -110,6 +114,10 @@ export default async function ArtistProfilePage(props: { params: Promise<{ id: s
           )}
         </Card>
       </div>
+
+      {user.organization.kind !== "artist" && hasBeta(user.organization, "agreements") && (agreements.length > 0 || contractsAllowed(user.organization).can) && (
+        <AgreementsCard rows={agreements} today={zonedDay(new Date(), tz)} addHref={`/admin/agreements/new?artist=${artist.id}`} canAdd={contractsAllowed(user.organization).can} empty="None recorded for this artist." />
+      )}
 
       <ArtistProfileEditor
         mode="label"

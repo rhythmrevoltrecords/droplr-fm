@@ -57,6 +57,17 @@ export default async function CloseAccountPage() {
             </li>
           )}
           <li>Your fans&apos; records are deleted too, which is their right as much as yours.</li>
+          {s.statements > 0 && (
+            <li>
+              <strong className="text-foreground">{fmt(s.statements)} royalty statement{s.statements === 1 ? "" : "s"}</strong> and every split sheet go too. Download each collaborator&apos;s statement from <Link href="/admin/royalties" className="underline hover:text-foreground">Royalties</Link> first.
+            </li>
+          )}
+          {s.agreements > 0 && (
+            <li>
+              <strong className="text-foreground">{fmt(s.agreements)} agreement record{s.agreements === 1 ? "" : "s"}</strong> go too: the dates,
+              terms lines, notes and links. The documents themselves are wherever you keep them. <a href="/api/admin/agreements/export" className="underline hover:text-foreground">Download them as a CSV</a> first.
+            </li>
+          )}
           {s.subscription && <li><strong className="text-foreground">Your subscription is cancelled now</strong>, not at the end of the month. There is no refund for the rest of the period.</li>}
         </ul>
       </div>
