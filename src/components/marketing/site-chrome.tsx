@@ -89,7 +89,7 @@ export function SiteFooter() {
           <Link href="/legal" className={link}>All legal</Link>
         </div>
       </div>
-      <p className="container mt-10 text-xs text-muted-foreground/70">
+      <p className="container mt-10 text-xs text-muted-foreground">
         {copyrightLine()} Platform names and logos are trade marks of their owners. <Link href="/legal/copyright" className="underline">Copyright &amp; trade marks</Link>
       </p>
     </footer>

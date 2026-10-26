@@ -154,7 +154,7 @@ export function ReleaseView({ release, live, variantId, query, spotifyEnabled, d
                 style={{ ["--tw-ring-color" as string]: accent }}
               />
               <fieldset className="space-y-2">
-                <legend className="text-xs text-white/60">Where do you listen? <span className="text-white/40">(optional)</span></legend>
+                <legend className="text-xs text-white/60">Where do you listen? <span className="text-white/55">(optional)</span></legend>
                 <div className="flex flex-wrap gap-1.5">
                   {LISTEN_CHOICES.map((p) => (
                     <label key={p} className="cursor-pointer">

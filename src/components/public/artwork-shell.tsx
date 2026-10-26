@@ -136,7 +136,7 @@ export function ArtworkPageShell({
 
       <div className={cn("relative mx-auto flex w-full max-w-md flex-col px-5 pb-10 pt-[max(2.5rem,env(safe-area-inset-top))]", preview ? "h-full" : "min-h-dvh")}>
         {children}
-        {footer !== undefined && <div className="mt-auto pt-10 text-center text-xs text-white/40">{footer}</div>}
+        {footer !== undefined && <div className="mt-auto pt-10 text-center text-xs text-white/55">{footer}</div>}
       </div>
 
       {pixels && !preview && <Pixels meta={pixels.meta} tiktok={pixels.tiktok} ga4={pixels.ga4} contentName={pixels.contentName} />}
@@ -247,7 +247,7 @@ export function ShellFooter({ showBranding, orgName }: { showBranding: boolean; 
   return (
     <div className="space-y-2">
       {showBranding ? (
-        <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/70">
+        <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/80">
           <Image src="/logo/icon.png" alt="" width={16} height={16} className="shell-logo h-4 w-4 opacity-60 brightness-0 invert" />
           Powered by droplr.fm
         </a>
@@ -255,10 +255,10 @@ export function ShellFooter({ showBranding, orgName }: { showBranding: boolean; 
         <span>{orgName}</span>
       )}
       {/* Fan-facing notices. Absolute URLs: these pages also render on labels' custom domains. White-label pages keep them too. */}
-      <nav aria-label="Legal" className="flex justify-center gap-3 text-[11px] text-white/30">
-        <a href={`${SITE_URL}/legal/privacy`} className="hover:text-white/60">Privacy</a>
-        <a href={`${SITE_URL}/legal/cookies`} className="hover:text-white/60">Cookies</a>
-        <a href={`${SITE_URL}/legal/copyright#report`} className="hover:text-white/60">Report</a>
+      <nav aria-label="Legal" className="flex justify-center gap-3 text-[11px] text-white/55">
+        <a href={`${SITE_URL}/legal/privacy`} className="hover:text-white/80">Privacy</a>
+        <a href={`${SITE_URL}/legal/cookies`} className="hover:text-white/80">Cookies</a>
+        <a href={`${SITE_URL}/legal/copyright#report`} className="hover:text-white/80">Report</a>
       </nav>
     </div>
   );

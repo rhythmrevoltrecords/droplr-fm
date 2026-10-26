@@ -49,14 +49,14 @@ export function AudiencePricing({ artist, label, detailed = false, initial = "ar
           >
             <div className="flex items-center justify-between gap-2">
               <span className="text-sm font-medium text-white/70">{t.name}</span>
-              {t.featured && <span className="rounded-full border border-violet-300/40 bg-violet-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-violet-100">Recommended</span>}
+              {t.featured && <span className="rounded-full border border-violet-300/40 bg-violet-400/15 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wider text-violet-100">Recommended</span>}
             </div>
             <div className="mt-3 flex items-baseline gap-1">
               <span className="text-4xl font-semibold tracking-tight">{t.price}</span>
               <span className="text-sm text-white/50">{t.suffix}</span>
             </div>
-            {t.usd && <p className="mt-1 text-xs text-white/45">≈ {t.usd}{t.suffix}</p>}
-            {t.yearly && <p className="mt-1 text-xs text-white/45">or {t.yearly}/yr{t.usdYearly ? ` (≈ ${t.usdYearly})` : ""}, two months free</p>}
+            {t.usd && <p className="mt-1 text-xs text-white/60">≈ {t.usd}{t.suffix}</p>}
+            {t.yearly && <p className="mt-1 text-xs text-white/60">or {t.yearly}/yr{t.usdYearly ? ` (≈ ${t.usdYearly})` : ""}, two months free</p>}
             <p className="mt-2 text-sm text-white/60">{t.blurb}</p>
             {detailed && (
               <ul className="mt-5 flex-1 space-y-2.5 text-sm">
@@ -70,7 +70,7 @@ export function AudiencePricing({ artist, label, detailed = false, initial = "ar
         ))}
       </div>
       {tiers.some((t) => t.usd) && (
-        <p className="mx-auto max-w-2xl text-center text-xs text-white/40">
+        <p className="mx-auto max-w-2xl text-center text-xs text-white/55">
           Every plan is billed in Australian dollars. The US figures are a guide only — your bank converts at its own rate on the day.
         </p>
       )}
