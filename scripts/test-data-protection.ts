@@ -73,7 +73,7 @@ async function main() {
   check("a stored image key is read from its address", storedImageKey("https://droplr.fm/api/cover/1700000000-abcd1234.jpg") === "1700000000-abcd1234.jpg");
   check("anything else is not a key", storedImageKey("https://i.scdn.co/image/abc") === null && storedImageKey(null) === null && storedImageKey("https://droplr.fm/api/cover/../x") === null);
   const close = code("src/lib/account-close-server.ts");
-  check("closing deletes only unreferenced images and detaches the domain", close.includes("deleteStoredImages(await unreferenced(images))") && close.includes("queueDetach(org.customDomain)"));
+  check("closing detaches the domain first, then deletes only unreferenced images", close.includes("unreferenced(images)") && close.includes("deleteStoredImages(gone)") && close.indexOf("queueDetach(org.customDomain)") < close.indexOf("unreferenced(images)"));
   check("the cover route tags its cache so a delete can purge it", code("src/app/api/cover/[key]/route.ts").includes("coverCacheTag(params.key)") && code("src/lib/blobs.ts").includes("purgeCache({ tags"));
   const { CLOSING_EXPORT_LIMIT } = await import("../src/lib/fans");
   check("the closing export is not capped at 50,000", CLOSING_EXPORT_LIMIT > 50_000 && code("src/app/api/admin/account/close/export/route.ts").includes("CLOSING_EXPORT_LIMIT)"));
@@ -83,6 +83,22 @@ async function main() {
   const local = await probeDomain("localhost");
   check("the domain check refuses a private address before connecting", local.ok === false && local.status === undefined, JSON.stringify(local));
   check("the domain check goes through untrustedGet, not fetch()", /untrustedGet\(url/.test(code("src/lib/domains.ts")) && !/\bfetch\(/.test(code("src/lib/domains.ts")));
+
+  console.log("\nMissing images");
+  {
+    const { orNullAfter } = await import("../src/lib/blobs");
+    const t0 = Date.now();
+    const hung = await orNullAfter(new Promise(() => {}), 200);
+    check("a storage read that never answers gives up, instead of holding the function 30 s", hung === null && Date.now() - t0 < 1000, `${Date.now() - t0}ms`);
+    check("…and an answer that comes is passed through", (await orNullAfter(Promise.resolve("x"), 200)) === "x");
+    check("the image route's read is bounded", /orNullAfter\(store\.getWithMetadata/.test(code("src/lib/blobs.ts")));
+    const TO = Symbol("t");
+    check("a timeout is told apart from an empty answer", (await orNullAfter(new Promise(() => {}), 50, TO)) === TO && (await orNullAfter(Promise.resolve(null), 50, TO)) === null);
+    const route = code("src/app/api/cover/[key]/route.ts");
+    check("slow storage is a 503 nobody caches, not a cached 404", /blob === "timeout"[\s\S]{0,80}status: 503[\s\S]{0,80}"no-store"/.test(route));
+    check("a missing key is asked with a HEAD first (no signed-URL retries)", /getMetadata\(key\)/.test(code("src/lib/blobs.ts")) && code("src/lib/blobs.ts").indexOf("getMetadata(key)") < code("src/lib/blobs.ts").indexOf("getWithMetadata(key"));
+    check("a missing image's 404 is cached briefly at the edge", /status: 404, headers: \{ \.\.\.SAFE_HEADERS, "Cache-Control": "public, max-age=60"/.test(code("src/app/api/cover/[key]/route.ts")));
+  }
 
   console.log("\nNews batch re-check");
   check("each batch re-checks with optedOutAmong", /optedOutAmong\(pending\.map/.test(code("src/lib/news.ts")));
@@ -198,7 +214,20 @@ async function main() {
       await prisma.release.create({ data: { organizationId: other.id, slug: `${tag}-or`, title: "o", artistName: "A", coverUrl: `https://droplr.fm/api/cover/${shared}`, releaseDate: new Date(), kind: "release" } });
       await prisma.artist.create({ data: { organizationId: other.id, name: "P", pressPhotoUrls: [`https://evil.example/x/api/cover/${tag}-press.jpg`] } });
       await prisma.release.create({ data: { organizationId: other.id, slug: `${tag}-oq`, title: "q", artistName: "A", coverUrl: `https://droplr.fm/api/cover/${tag}-q.jpg?v=2`, releaseDate: new Date(), kind: "release" } });
-      const left = await unreferenced([mine, shared, `${tag}-press.jpg`, `${tag}-q.jpg`]);
+      // Image addresses pasted into fields that aren't image fields still count as using the image.
+      const dl = `${tag}-dl.jpg`, btn = `${tag}-btn.jpg`, soc = `${tag}-soc.jpg`, body = `${tag}-body.jpg`;
+      await prisma.release.create({ data: { organizationId: other.id, slug: `${tag}-od`, title: "d", artistName: "A", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), kind: "download", downloadUrl: `https://droplr.fm/api/cover/${dl}` } });
+      await prisma.newsEmail.create({ data: { organizationId: other.id, subject: "s", body: `see https://droplr.fm/api/cover/${body} here`, buttonUrl: `https://droplr.fm/api/cover/${btn}` } });
+      await prisma.artist.create({ data: { organizationId: other.id, name: "S", socialLinks: { instagram: `https://droplr.fm/api/cover/${soc}` } } });
+      const left = await unreferenced([mine, shared, `${tag}-press.jpg`, `${tag}-q.jpg`, dl, btn, soc, body]);
+      check("an image pasted into another account's download link, news email, social links or email text is kept", ![dl, btn, soc, body].some((k) => left.includes(k)), JSON.stringify(left));
+      const enc = `${tag}-enc.jpg`;
+      await prisma.bioPage.create({ data: { organizationId: other.id, slug: `${tag}-ob`, title: "b", imageUrl: `https://droplr.fm/api/cover/${enc.replace(".", "%2E")}` } });
+      check("a percent-escaped reference still counts", !(await unreferenced([enc])).includes(enc));
+      const prose = [".", "--", "_", "%20x", "..."].map((end, i) => ({ k: `${tag}-prose${i}.jpg`, end }));
+      await prisma.newsEmail.create({ data: { organizationId: other.id, subject: "p", body: prose.map((p) => `Artwork: https://droplr.fm/api/cover/${p.k}${p.end} more`).join("\n") } });
+      const proseLeft = await unreferenced(prose.map((p) => p.k));
+      check("an address ending a sentence (…/KEY.jpg.) still counts", proseLeft.length === 0, JSON.stringify(proseLeft));
       check("a reference with a query string still counts", !left.includes(`${tag}-q.jpg`), JSON.stringify(left));
       check("an image only this account used is deleted", left.includes(mine), JSON.stringify(left));
       check("an image another account's release points at is kept", !left.includes(shared), JSON.stringify(left));
@@ -340,6 +369,99 @@ async function main() {
         check("and no second one the same day: the form can't flood an inbox", r3 === "skipped" && sent.length === 1, `${r3} ${sent.length}`);
         check("the subject doesn't carry the account's name", !/DP Test/.test(sent[0]?.subject ?? "DP Test"));
 
+        // The account's daily ceiling: a request past it is queued, not dropped, and the release
+        // check sends it once there is room.
+        const { sendQueuedConfirmations } = await import("../src/lib/news-confirm");
+        const queuedFan = `${tag}-queued@example.com`;
+        await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: queuedFan, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        await prisma.authThrottle.createMany({ data: Array.from({ length: 200 }, () => ({ key: `news-confirm:org:${org.id}` })) });
+        const before = sent.length;
+        const rq = await requestNewsConfirmation(org, queuedFan);
+        check("past the account's daily ceiling, a confirmation is queued, not sent", rq === "queued" && sent.length === before, `${rq} ${sent.length - before}`);
+        const qrow = await prisma.newsConfirmRequest.findUnique({ where: { organizationId_email: { organizationId: org.id, email: queuedFan } } });
+        check("…and kept, waiting", !!qrow && qrow.sentAt === null);
+        await sendQueuedConfirmations();
+        check("while the account is still full, the queue waits", sent.length === before);
+        await prisma.authThrottle.deleteMany({ where: { key: `news-confirm:org:${org.id}` } });
+        await sendQueuedConfirmations();
+        check("once there is room, the release check sends it", sent.length === before + 1 && sent[sent.length - 1].to === queuedFan && !!(await prisma.newsConfirmRequest.findUnique({ where: { id: qrow!.id } }))?.sentAt);
+        const goneFan = `${tag}-gone@example.com`;
+        await prisma.newsConfirmRequest.create({ data: { organizationId: org.id, email: goneFan } });
+        await sendQueuedConfirmations();
+        check("a queued request with no tick waiting is dropped, not sent", sent.length === before + 1 && !(await prisma.newsConfirmRequest.findUnique({ where: { organizationId_email: { organizationId: org.id, email: goneFan } } })));
+
+        // Two submits at once (a double tap) and a queue run must send one email, not several.
+        const twice = `${tag}-twice@example.com`;
+        await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: twice, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        const n0 = sent.length;
+        await Promise.all([requestNewsConfirmation(org, twice), requestNewsConfirmation(org, twice), requestNewsConfirmation(org, twice), sendQueuedConfirmations(Date.now() + 30_000, 0)]);
+        check("three submits and a queue run at once send one email", sent.filter((m) => m.to === twice).length === 1, `${sent.length - n0}`);
+
+        // Ten at once with two slots left under the ceiling: at most two go (parallel hits can all
+        // count each other and all wait, which is the safe way to be wrong), the rest wait.
+        await prisma.authThrottle.deleteMany({ where: { key: `news-confirm:org:${org.id}` } });
+        await prisma.authThrottle.createMany({ data: Array.from({ length: 198 }, () => ({ key: `news-confirm:org:${org.id}` })) });
+        const burst = Array.from({ length: 10 }, (_, i) => `${tag}-burst${i}@example.com`);
+        for (const b of burst) await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: b, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        const n1 = sent.length;
+        const outcomes = await Promise.all(burst.map((b) => requestNewsConfirmation(org, b)));
+        check("parallel requests can't overshoot the account's ceiling", sent.length - n1 <= 2 && outcomes.filter((o) => o === "queued").length >= 8, `${sent.length - n1} sent, ${outcomes.join(",")}`);
+        check("the ceiling is full, not over", (await prisma.authThrottle.count({ where: { key: `news-confirm:org:${org.id}` } })) <= 200);
+        await prisma.authThrottle.deleteMany({ where: { key: `news-confirm:org:${org.id}` } });
+
+        // A failing provider: the request stays queued and uses up nothing.
+        const flaky = `${tag}-flaky@example.com`;
+        await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: flaky, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        setConfirmSenderForTests(async () => { throw new Error("Resend 500: down"); });
+        const failed = await requestNewsConfirmation(org, flaky);
+        const flakyRow = await prisma.newsConfirmRequest.findUnique({ where: { organizationId_email: { organizationId: org.id, email: flaky } } });
+        const slotsUsed = await prisma.authThrottle.count({ where: { key: `news-confirm:org:${org.id}` } });
+        check("a failed send stays queued and gives its slots back", failed === "queued" && flakyRow?.sentAt === null && slotsUsed === 0, `${failed} ${flakyRow?.sentAt} ${slotsUsed}`);
+        // Rate limited: the queue run stops at the first 429 instead of burning through the rest.
+        let attempts = 0;
+        setConfirmSenderForTests(async () => { attempts++; throw Object.assign(new Error("Resend rate limited"), { retryAfter: 2 }); });
+        await sendQueuedConfirmations(Date.now() + 30_000, 0);
+        check("a rate-limit answer ends the queue run", attempts === 1, `${attempts}`);
+        setConfirmSenderForTests(async (m) => { sent.push(m); });
+
+        // A flooded account can't hold another account's fans back.
+        const flood = await prisma.organization.create({ data: { name: "DP Flood", slug: `${tag}-flood` } });
+        try {
+          const fr = await prisma.release.create({ data: { organizationId: flood.id, slug: `${tag}-fr`, title: "f", artistName: "A", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(Date.now() + 86400_000), kind: "release" } });
+          const junk = Array.from({ length: 520 }, (_, i) => `${tag}-junk${i}@example.com`);
+          await prisma.preSave.createMany({ data: junk.map((j) => ({ releaseId: fr.id, platform: "email", email: j, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" })) });
+          await prisma.newsConfirmRequest.createMany({ data: junk.map((j) => ({ organizationId: flood.id, email: j })) });
+          // Below its ceiling, so only the per-account share of each run holds it back.
+          const fair = `${tag}-fair@example.com`;
+          await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: fair, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+          await prisma.newsConfirmRequest.create({ data: { organizationId: org.id, email: fair, requestedAt: new Date(Date.now() - 3600_000) } });
+          const n2 = sent.length;
+          await sendQueuedConfirmations(Date.now() + 60_000, 0);
+          const junkSent = sent.slice(n2).filter((m) => m.to.includes("-junk")).length;
+          check("a flooded account's queue doesn't stop another account's fan getting theirs", sent.slice(n2).some((m) => m.to === fair) && junkSent <= 50, `${sent.length - n2} sent, ${junkSent} junk`);
+        } finally {
+          await prisma.authThrottle.deleteMany({ where: { key: `news-confirm:org:${flood.id}` } });
+          await prisma.organization.delete({ where: { id: flood.id } }).catch(() => {});
+        }
+
+        // Confirmed while queued: confirmed, not emailed.
+        const raced = `${tag}-raced@example.com`;
+        await prisma.preSave.create({ data: { releaseId: rel.id, platform: "email", email: raced, emailConsent: true, newsConsent: true, newsConfirmedAt: new Date(), consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        const racedNew = await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: raced, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        await prisma.newsConfirmRequest.create({ data: { organizationId: org.id, email: raced } });
+        const n3 = sent.length;
+        await sendQueuedConfirmations(Date.now() + 30_000, 0);
+        check("an address confirmed while it was queued is confirmed, not emailed", !sent.slice(n3).some((m) => m.to === raced) && !!(await prisma.preSave.findUnique({ where: { id: racedNew.id } }))?.newsConfirmedAt);
+
+        // An imported download-only contact who ticks news and confirms is no longer "waiting".
+        const impFan = `${tag}-impfan@example.com`;
+        await prisma.fanContact.create({ data: { organizationId: org.id, email: impFan, consentSource: "hypeddit", consentKind: "transactional", status: "pending", importId: "z" } });
+        await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: impFan, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
+        const itok = await signToken({ e: impFan, org: org.id }, "30d", "confirm");
+        await fetch(`${BASE}/api/news/confirm?t=${encodeURIComponent(itok)}`, { method: "POST" });
+        check("an imported download-only contact who signs up and confirms becomes mailable", (await prisma.fanContact.findFirst({ where: { organizationId: org.id, email: impFan } }))?.status === "mailable");
+
+
         const { confirmLegacyNewsTicks, PRE_CONFIRMATION_PRESAVE_WORDING } = await import("../src/lib/news-confirm");
         const oldTick = await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: `${tag}-v3@example.com`, emailConsent: true, newsConsent: true, consentVersion: PRE_CONFIRMATION_PRESAVE_WORDING, status: "pending" } });
         const newTick = await prisma.preSave.create({ data: { releaseId: rel2.id, platform: "email", email: `${tag}-v4@example.com`, emailConsent: true, newsConsent: true, consentVersion: FAN_EMAIL_CONSENT_VERSION, status: "pending" } });
@@ -386,6 +508,7 @@ async function main() {
     await prisma.organization.delete({ where: { id: org.id } }).catch(() => {});
   }
   check("the history is deleted with the account", (await prisma.consentEvent.count({ where: { organizationId: org.id } })) === 0);
+  check("queued and sent confirmation requests are deleted with the account", (await prisma.newsConfirmRequest.count({ where: { organizationId: org.id } })) === 0);
   await prisma.$disconnect();
 
   console.log(`\n${pass} passed, ${fails.length} failed`);

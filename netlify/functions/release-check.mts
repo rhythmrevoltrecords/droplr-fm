@@ -9,7 +9,7 @@ import { pruneThrottles } from "../../src/lib/throttle";
 import { sealLegacyReportTokens } from "../../src/lib/report";
 import { reencryptStale } from "../../src/lib/key-rotation";
 import { hashLegacyWithdrawTokens } from "../../src/lib/contest-server";
-import { confirmLegacyNewsTicks } from "../../src/lib/news-confirm";
+import { confirmLegacyNewsTicks, sendQueuedConfirmations } from "../../src/lib/news-confirm";
 
 // Every 15 minutes: find releases with work due somewhere in the world (store scans before/after release,
 // Spotify saves at each fan's local release moment, release-day emails at the label's hour in each fan's timezone)
@@ -62,6 +62,10 @@ export default async () => {
     .then((n) => n && console.info("[release-check] news ticks under the old wording confirmed", n))
     .catch((e) => console.error("[release-check] legacy news ticks", e));
 
+  // Confirmation emails an account's daily ceiling held back: sent now if there is room.
+  await sendQueuedConfirmations(deadline)
+    .then((n) => n && console.info("[release-check] queued confirmations sent", n))
+    .catch((e) => console.error("[release-check] confirmation queue", e));
   return new Response(JSON.stringify({ due: due.length, news: news.length, background }), { status: 200 });
 };
 

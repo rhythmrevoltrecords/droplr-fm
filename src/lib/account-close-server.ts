@@ -85,6 +85,10 @@ export async function closeAccount(organizationId: string): Promise<{ subscripti
     prisma.organization.delete({ where: { id: organizationId } }),
   ]);
 
+  // A connected domain would otherwise stay attached to droplr's site with nothing behind it. First,
+  // because it is quick and must happen even if the image clean-up below runs out of time.
+  if (org?.customDomain) await queueDetach(org.customDomain).catch((e) => console.error("[close] detach", e instanceof Error ? e.message : e));
+
   // The privacy policy says an account's data goes when it closes. Database rows cascade; the
   // pictures droplr stored (covers, artist and press photos, bio images and video stills) live in
   // Netlify Blobs, which nothing cascades to, and kept being served at /api/cover/… after the
@@ -93,9 +97,9 @@ export async function closeAccount(organizationId: string): Promise<{ subscripti
   // Only images no other account still points at: an image address is a plain URL field, so
   // anyone can paste another account's public cover address into their own release. Without this
   // check, closing that account would delete the other account's picture.
-  await deleteStoredImages(await unreferenced(images));
-  // A connected domain would otherwise stay attached to droplr's site with nothing behind it.
-  if (org?.customDomain) await queueDetach(org.customDomain).catch((e) => console.error("[close] detach", e instanceof Error ? e.message : e));
+  const gone = await unreferenced(images);
+  if (images.length && !gone.length) console.warn("[close] no images deleted", { images: images.length });
+  await deleteStoredImages(gone);
 
   return { subscription };
 }
@@ -107,30 +111,64 @@ export function storedImageKey(url: string | null | undefined): string | null {
 }
 
 /**
- * The keys no remaining row points at. Run after the delete. If the check itself fails, nothing is
- * deleted: a stray blob costs cents, someone else's missing cover is a broken release.
+ * Tables that cannot hold an account's content: logs, tokens, fan records, events. Everything else
+ * is searched, so a content table added later is covered without anyone remembering to list it.
+ * Adding a table here makes the close faster; leaving one out only makes it slower.
  */
-export async function unreferenced(keys: string[]): Promise<string[]> {
+const NOT_CONTENT = new Set([
+  "_prisma_migrations", "AuthThrottle", "ClickEvent", "ConsentEvent", "ContestEntry", "ContestVote", "DomainDetach",
+  "EmailVerificationToken", "EspConnection", "FanContact", "GateUnlock", "Invite", "NewsConfirmRequest", "NewsEmailDelivery",
+  "PageView", "PasswordResetToken", "PlatformMessageSeen", "PreSave", "PromoStepReminder", "PromoTaskDone", "PushSubscription",
+  "Referral", "RevokedSession", "SignupInvite", "User", "waitlist_features",
+]);
+
+/**
+ * The keys no remaining row points at. Run after the delete. If the check fails or runs out of
+ * time, nothing is deleted: a stray blob costs cents, someone else's missing cover is a broken release.
+ *
+ * Every text, JSON and text-array column of every content table is searched, not just the image
+ * fields: an image address pasted into a download link, a news email button, a social link or a
+ * bio button is still another account using that image. One pass per table pulls out every
+ * `/api/cover/<key>` it holds (percent-escapes decoded, as the image route decodes them), so the
+ * cost is one scan per table however many images the account had. Id and foreign-key columns
+ * are skipped: they hold ids, never addresses.
+ */
+export async function unreferenced(keys: string[], timeoutMs = 8000): Promise<string[]> {
   if (!keys.length) return [];
   try {
-    const rows = await prisma.$queryRaw<{ k: string }[]>`
-      WITH refs(u) AS (
-        SELECT "logoUrl" FROM "Organization"
-        UNION ALL SELECT "coverUrl" FROM "Release"
-        UNION ALL SELECT "backgroundUrl" FROM "Release"
-        UNION ALL SELECT "backgroundSourceUrl" FROM "Release"
-        UNION ALL SELECT "iconUrl" FROM "ReleaseLink"
-        UNION ALL SELECT "photoUrl" FROM "Artist"
-        UNION ALL SELECT unnest("pressPhotoUrls") FROM "Artist"
-        UNION ALL SELECT "imageUrl" FROM "BioPage"
-        UNION ALL SELECT "backgroundUrl" FROM "BioPage"
-        UNION ALL SELECT "backgroundSourceUrl" FROM "BioPage"
-        UNION ALL SELECT "iconUrl" FROM "BioLink"
-      )
-      SELECT DISTINCT k FROM unnest(${keys}::text[]) AS k
-      JOIN refs ON refs.u IS NOT NULL AND position('/api/cover/' || k IN refs.u) > 0`;
-    const kept = new Set(rows.map((r) => r.k));
-    return keys.filter((k) => !kept.has(k));
+    const cols = await prisma.$queryRaw<{ t: string; c: string }[]>`
+      SELECT table_name::text AS t, column_name::text AS c FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND (data_type IN ('text', 'character varying', 'json', 'jsonb') OR udt_name IN ('_text', '_varchar'))`;
+    const byTable = new Map<string, string[]>();
+    for (const { t, c } of cols) {
+      if (NOT_CONTENT.has(t) || c === "id" || /Id$/.test(c)) continue;
+      byTable.set(t, [...(byTable.get(t) ?? []), c]);
+    }
+    const q = (id: string) => `"${id.replace(/"/g, '""')}"`;
+    const found = await prisma.$transaction(
+      async (tx) => {
+        await tx.$executeRawUnsafe(`SET LOCAL statement_timeout = ${Math.max(1000, Math.floor(timeoutMs))}`);
+        const seen = new Set<string>();
+        for (const [table, columns] of byTable) {
+          // ::text on every column: plain for text, the JSON source for json/jsonb, {a,b} for arrays.
+          const joined = `concat_ws(' ', ${columns.map((c) => `${q(c)}::text`).join(", ")})`;
+          const rows = await tx.$queryRawUnsafe<{ k: string }[]>(
+            `SELECT DISTINCT m[1] AS k FROM ${q(table)}, LATERAL regexp_matches(${joined}, '/api/cover/([A-Za-z0-9._%-]+)', 'g') AS m`,
+          );
+          for (const r of rows) seen.add(r.k);
+        }
+        return seen;
+      },
+      { timeout: timeoutMs + 2000 },
+    );
+    // A key counts as used if any match starts with it: an address ending a sentence ("…/KEY.jpg.")
+    // is captured with the full stop. Erring this way keeps an image; the other way deletes one.
+    const used: string[] = [];
+    for (const k of found) {
+      try { used.push(decodeURIComponent(k)); } catch { used.push(k); }
+    }
+    return keys.filter((k) => !used.some((u) => u.startsWith(k)));
   } catch (e) {
     console.error("[close] image reference check", e instanceof Error ? e.message : e);
     return [];

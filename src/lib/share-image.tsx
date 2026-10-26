@@ -85,8 +85,10 @@ async function renderCoverDataUri(coverUrl: string) {
     const own = coverUrl.startsWith(`${SITE_URL}/api/cover/`) ? coverUrl.slice(`${SITE_URL}/api/cover/`.length) : null;
     let buf: Buffer | null = null;
     if (own && /^[\w.-]+$/.test(own)) {
-      const blob = await readCover(own).catch(() => null);
-      if (blob) buf = Buffer.from(blob.data);
+      const blob = await readCover(own).catch(() => undefined);
+      if (blob && blob !== "timeout") buf = Buffer.from(blob.data);
+      // Our own image that storage says is missing won't appear by fetching our own route either.
+      if (blob === null) return null;
     }
     buf ??= await fetchPublicImage(coverUrl);
     if (!buf) return null;

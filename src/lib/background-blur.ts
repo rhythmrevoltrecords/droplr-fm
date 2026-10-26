@@ -23,7 +23,7 @@ async function readOwnImage(url: string): Promise<Buffer | null> {
   const cover = `${SITE_URL}/api/cover/`;
   if (url.startsWith(cover)) {
     const got = await readCover(url.slice(cover.length));
-    return got ? Buffer.from(got.data as ArrayBuffer) : null;
+    return got && got !== "timeout" ? Buffer.from(got.data as ArrayBuffer) : null;
   }
   const uploads = `${SITE_URL}/uploads/`;
   if (url.startsWith(uploads) && process.env.NODE_ENV !== "production") {

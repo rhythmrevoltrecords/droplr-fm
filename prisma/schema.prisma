@@ -126,6 +126,7 @@ model Organization {
   contests         Contest[]
   contestEntries   ContestEntry[]
   consentEvents    ConsentEvent[]
+  newsConfirmRequests NewsConfirmRequest[]
 }
 
 model User {
@@ -1043,7 +1044,7 @@ model FanContact {
   consentKind    String       @default("transactional")
   /** What wording droplr showed, when droplr showed it. NULL for an import: the wording was not ours. */
   consentVersion String?
-  /** mailable | pending | unsubscribed. transactional imports start pending and must confirm. */
+  /** mailable | pending | unsubscribed. Transactional imports and new bio subscribes start pending; a confirm click (lib/news-confirm) makes them mailable. */
   status         String       @default("pending")
   /**
    * The import batch this row came in with. NULL for a row captured on a droplr page.
@@ -1287,6 +1288,21 @@ model EspConnection {
 
   @@unique([organizationId, provider])
   @@index([organizationId])
+}
+
+/// A confirmation email droplr owes or has sent (lib/news-confirm). One row per address per account.
+/// `sentAt` NULL means queued: the account's daily ceiling was reached, and the release check sends
+/// it when there is room. Pruned after 30 days; deleted with the account.
+model NewsConfirmRequest {
+  id             String       @id @default(cuid())
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  email          String // lower-cased
+  requestedAt    DateTime     @default(now())
+  sentAt         DateTime?
+
+  @@unique([organizationId, email])
+  @@index([sentAt, requestedAt])
 }
 
 // An append-only record of a fan opting out of, or back in to, an account's emails. PreSave and
