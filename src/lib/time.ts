@@ -9,10 +9,13 @@ export const BRISBANE_TZ = DEFAULT_TZ;
  * opposite sign, and the reminder job works out due dates in SQL, so the two would disagree by
  * twenty hours. Names are left alone, legacy ones like "EST5EDT" included: fans' browsers send them.
  */
-const OFFSET = /^[+-−]?\d/;
+// The hyphen is escaped: unescaped, "+-−" is a range from "+" to U+2212 that takes in every letter.
+const OFFSET = /^[+\-\u2212]?\d/;
+/** True for an offset like "+10:00", "-05:00", "−05:00" or "10". Exported for the tests. */
+export const looksLikeOffset = (tz: string) => OFFSET.test(tz);
 
 export function isValidTimeZone(tz: string | null | undefined): tz is string {
-  if (!tz || OFFSET.test(tz)) return false;
+  if (!tz || looksLikeOffset(tz)) return false;
   try {
     new Intl.DateTimeFormat("en-US", { timeZone: tz });
     return true;
