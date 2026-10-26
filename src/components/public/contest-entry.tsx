@@ -140,7 +140,7 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
       {/* "3 days left" is friendly; it is not something you can plan a weekend of work around, and it
           says nothing about whose Friday. The exact deadline, with its zone named, is the fact an
           entrant actually needs — especially one in another country. */}
-      <p className="mt-0.5 text-xs text-white/40">Closes {deadlineText(window_.closesAt, contest.timezone)}</p>
+      <p className="mt-0.5 text-xs text-white/55">Closes {deadlineText(window_.closesAt, contest.timezone)}</p>
       {contest.prize && <p className="mt-3 text-sm"><span className="text-white/50">Prize: </span>{contest.prize}</p>}
       {contest.brief && <p className="mt-3 whitespace-pre-line text-sm text-white/70">{contest.brief}</p>}
       {contest.rulesUrl && (
@@ -193,7 +193,7 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
         </div>
 
         <div>
-          <label htmlFor="ce-note" className="block text-sm font-semibold">Anything to say about it <span className="font-normal text-white/40">(optional)</span></label>
+          <label htmlFor="ce-note" className="block text-sm font-semibold">Anything to say about it <span className="font-normal text-white/55">(optional)</span></label>
           <textarea
             id="ce-note" rows={2} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)}
             placeholder="What you did with it, gear, whatever."
@@ -217,7 +217,7 @@ export function ContestEntry({ contest, orgName, accent }: { contest: ContestVie
         >
           {busy ? "Entering…" : "Enter my remix"}
         </button>
-        <p className="text-center text-xs text-white/40">
+        <p className="text-center text-xs text-white/55">
           {contest.maxPerEntrant === 1
             ? "One entry each. To change your link later, use the withdraw link in your confirmation email."
             : `Up to ${contest.maxPerEntrant} entries each. Your confirmation email is how you change or pull one.`}{" "}
@@ -338,7 +338,7 @@ function Gallery({ contest, accent }: { contest: ContestView; accent: string }) 
           );
         })}
       </ul>
-      <p className="text-xs text-white/40">
+      <p className="text-xs text-white/55">
         One vote each — tapping another entry moves it. Votes help the label; they don&apos;t decide it.
       </p>
     </div>

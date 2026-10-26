@@ -25,7 +25,7 @@ export function Countdown({ target }: { target: string }) {
       {cells.map(([label, v]) => (
         <div key={label} className="glass rounded-xl py-3 text-center">
           <div className="text-2xl font-semibold tabular-nums">{now == null ? "--" : String(v).padStart(2, "0")}</div>
-          <div className="text-[10px] uppercase tracking-[0.18em] text-white/60">{label}</div>
+          <div className="text-[11px] uppercase tracking-[0.18em] text-white/60">{label}</div>
         </div>
       ))}
     </div>

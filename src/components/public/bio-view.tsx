@@ -220,7 +220,7 @@ export function BioView({ page, orgName, showBranding, pixels, preview = false, 
                           {/* Honeypot: off-screen rather than display:none, which some bots now skip. */}
                           <input type="text" name="website" tabIndex={-1} autoComplete="off" aria-hidden="true" className="absolute left-[-9999px] h-0 w-0 opacity-0" />
                           <div>
-                            <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/50">{subscribeHeading()}</h2>
+                            <h2 className="text-[11px] font-medium uppercase tracking-[0.18em] text-white/60">{subscribeHeading()}</h2>
                           </div>
                           <label htmlFor="bio-email" className="sr-only">Email address</label>
                           <input
