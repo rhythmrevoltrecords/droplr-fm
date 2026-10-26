@@ -32,7 +32,10 @@ import {
   TYPE_CUT_LABELS, TYPE_CUTS, TYPE_FONTS, TYPE_PALETTES, typeColourWarnings, typeFontStack, typePalette, typeTimeline, typeWords,
   type BeatGrid, type TypeBackground, type TypeColourOverrides, type TypeCut, type TypeFontId, type TypePaletteId, type TypeStep,
 } from "@/lib/clip-type";
+import { drawLyricsFrame, LYRICS_END_CARD_S } from "@/lib/clip-lyrics";
+import { linesInWindow, trackMismatch, type LyricLine } from "@/lib/lyrics";
 import { cn } from "@/lib/utils";
+import { LyricsCard } from "./lyrics-card";
 
 const FALLBACK_ACCENT = "#8B5CF6";
 const WAVE_BUCKETS = 1600;
@@ -55,6 +58,12 @@ export type ClipForgeProps = {
   typeStyle: boolean;
   /** "Fri 30 Oct" in the label's timezone, for the Type end card before release. */
   releaseDay: string | null;
+  /** The release's saved lyrics (lib/lyrics lyricsOf), [] for none. */
+  lyrics: LyricLine[];
+  /** Length of the file they were timed to, or null when nothing is timed. */
+  lyricsTrackMs: number | null;
+  /** True only on the label's own release page: the one place that can change them. */
+  lyricsEditable: boolean;
 };
 
 type Phase = { kind: "idle" } | { kind: "working"; note: string; progress: number } | { kind: "done"; result: RenderResult };
@@ -81,6 +90,15 @@ export function ClipForge(props: ClipForgeProps) {
   const [phase, setPhase] = useState<Phase>({ kind: "idle" });
   const [error, setError] = useState<string | null>(null);
   const [mp4, setMp4] = useState<boolean | null>(null);
+  // --- Lyrics: saved on the release, so the next clip doesn't need them timed again ---
+  const [lyrics, setLyrics] = useState<LyricLine[]>(props.lyrics);
+  const [lyricsTrackMs, setLyricsTrackMs] = useState<number | null>(props.lyricsTrackMs);
+  const [lyricsNext, setLyricsNext] = useState(true);
+  const [playToken, setPlayToken] = useState(0);
+  const lyricsOff = trackMismatch(lyricsTrackMs, duration ? Math.round(duration * 1000) : null) === true;
+  // On a different master the lines would land in the wrong places, so none are drawn at all: the
+  // clip falls back to the title and the panel says why. Wrong lyrics are worse than none.
+  const windowLines = useMemo(() => (lyricsOff ? [] : linesInWindow(lyrics, selStart, clipLen)), [lyrics, selStart, clipLen, lyricsOff]);
 
 
   const frameRef = useRef<HTMLCanvasElement>(null);
@@ -205,6 +223,8 @@ export function ClipForge(props: ClipForgeProps) {
           timeline: timelineRef.current.steps,
           options: { font: typeFont, background: typeBg, glitch: typeGlitch, colours: typeColours, endLine, fadeIn, fadeOut },
         });
+      } else if (style === "lyrics") {
+        drawLyricsFrame({ ...common, i, frames, fps: FPS, lines: windowLines, fallback: props.title, options: { showNext: lyricsNext, fadeIn, fadeOut } });
       } else if (style === "motion" || style === "vinyl") {
         // Cues follow the analysis they came from: worked out once per analysis, not per frame.
         if (a && cuesRef.current.from !== a) cuesRef.current = { from: a, cues: motionCues(a.low, FPS) };
@@ -220,7 +240,7 @@ export function ClipForge(props: ClipForgeProps) {
     },
     // logoRef is a ref on purpose: it must not re-run the paint callback identity on load. logoReady
     // is the dependency that triggers the repaint, the same way artReady does for the cover.
-    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded, discEntrance, discKind, discRing],
+    [palette, copy, frames, fontFamily, logoReady, style, entrance, ending, fadeIn, fadeOut, demo, words, typeCut, typeLoops, typeFont, typeBg, typeGlitch, typeColours, endLine, fontsLoaded, discEntrance, discKind, discRing, windowLines, lyricsNext, props.title],
   );
 
   // The tempo the Type cuts follow, for the line under the style. Read after a paint has built it.
@@ -396,6 +416,7 @@ export function ClipForge(props: ClipForgeProps) {
     const buf = bufferRef.current;
     if (!buf) return;
     stop();
+    setPlayToken((n) => n + 1);
     ensureAnalysis();
     const ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
     audioCtxRef.current = ctx;
@@ -480,6 +501,7 @@ export function ClipForge(props: ClipForgeProps) {
     if (!buf) { setError("The track isn't loaded yet. Pick the file again and wait for the waveform."); return; }
     if (!canvas) { setError("The preview canvas went missing, which is a bug — please reload the page and tell us."); return; }
     stop();
+    setPlayToken((n) => n + 1);
     setError(null);
     const controller = new AbortController();
     abortRef.current = controller;
@@ -538,7 +560,7 @@ export function ClipForge(props: ClipForgeProps) {
           <CardDescription>
             Pick {CLIP_LENGTHS.join(", ")} or so seconds of the track and droplr makes a video from it: the waveform style, with the artwork
             pulsing on the kick and a spectrum following the audio; Motion, where the artwork drifts in, the title lands on the first kick and
-            your link on the drop; Vinyl / CD, your artwork on a spinning record; or Type, your words cut on the beat. <strong className="text-foreground">The audio never leaves your
+            your link on the drop; Vinyl / CD, your artwork on a spinning record; Lyrics, your timed lyrics line by line; or Type, your words cut on the beat. <strong className="text-foreground">The audio never leaves your
             computer.</strong> It&apos;s read, rendered and saved here, so nothing is uploaded and nothing is stored. droplr only counts that a clip was finished, not who made it.
             {!props.removeBranding && " A small droplr.fm line sits under your link; Artist Pro and the label plans render it clean."}
             {" "}For a Story, switch the link to a sticker and droplr leaves the room for it.
@@ -636,6 +658,22 @@ export function ClipForge(props: ClipForgeProps) {
                   </p>
                 </div>
               )}
+              {style === "lyrics" && (
+                <div className="space-y-2">
+                  <Choices label="Next line" value={lyricsNext ? "on" : "off"} onChange={(v: string) => setLyricsNext(v === "on")} options={[{ value: "on", label: "Show it" }, { value: "off", label: "Hide it" }]} />
+                  <p className="text-xs text-muted-foreground">
+                    {lyricsOff
+                      ? "This track is a different length from the one the lyrics were timed to, so the lines would land in the wrong places. See the Lyrics card."
+                      : windowLines.length
+                        ? `${windowLines.length} timed ${windowLines.length === 1 ? "line" : "lines"} in this part. The last ${LYRICS_END_CARD_S} seconds are the end card: your headline and link.`
+                        : lyrics.some((l) => l.ms !== null)
+                          ? "No timed lines fall in this part of the track, so the clip shows the title. Drag to a part with vocals."
+                          : props.lyricsEditable
+                            ? "No timed lyrics yet, so the clip shows the title. Paste and time them in the Lyrics card below."
+                            : "No timed lyrics on this release yet, so the clip shows the title."}
+                  </p>
+                </div>
+              )}
               {style === "motion" && (
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Choices label="Artwork comes in" value={entrance} onChange={(v: MotionEntrance) => setEntrance(v)} options={MOTION_ENTRANCES.map((k) => ({ value: k, label: MOTION_ENTRANCE_LABELS[k] }))} />
@@ -710,6 +748,11 @@ export function ClipForge(props: ClipForgeProps) {
                     onChange={(e) => setTypeText(e.target.value)}
                     className="w-full rounded-md border border-border bg-transparent px-3 py-2 text-sm"
                   />
+                  {windowLines.length > 0 && !lyricsOff && (
+                    <Button size="sm" variant="secondary" onClick={() => setTypeText(windowLines.slice(0, 8).map((l) => l.text).join("\n"))}>
+                      Use the lyrics in this part
+                    </Button>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Up to 8 lines, flashed one per cut. A hook from the vocal works best. Empty, it uses the title and your name.
                     {props.live ? "" : ` The end card says ${endDefault} — change it if you like.`}
@@ -727,6 +770,23 @@ export function ClipForge(props: ClipForgeProps) {
               </p>
             </CardContent>
           </Card>
+
+          <LyricsCard
+            releaseId={props.releaseId}
+            slug={props.slug}
+            title={props.title}
+            artistName={props.artistName}
+            lines={lyrics}
+            trackMs={lyricsTrackMs}
+            editable={props.lyricsEditable}
+            getBuffer={() => bufferRef.current}
+            loadedMs={duration ? Math.round(duration * 1000) : null}
+            stopOthers={stop}
+            onSaved={(l, ms) => { setLyrics(l); setLyricsTrackMs(ms); }}
+            clipStart={selStart}
+            clipLen={clipLen}
+            playToken={playToken}
+          />
 
           {style === "type" && (
             <Card>
@@ -799,7 +859,7 @@ export function ClipForge(props: ClipForgeProps) {
               />
               <div className="grid gap-3 sm:grid-cols-2">
                 <ColourPick id="clip-bg" label="Background" value={palette.bg} changed={!!overrides.background} onChange={(c) => setOverrides((o) => ({ ...o, background: c }))} />
-                <ColourPick id="clip-spectrum" label={style === "motion" || (style === "vinyl" && !discRing) ? "Accent" : "Spectrum"} value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
+                <ColourPick id="clip-spectrum" label={style === "motion" || style === "lyrics" || (style === "vinyl" && !discRing) ? "Accent" : "Spectrum"} value={palette.spectrumFrom} changed={!!overrides.spectrum} onChange={(c) => setOverrides((o) => ({ ...o, spectrum: c }))} />
                 <ColourPick id="clip-text" label="Text" value={palette.text} changed={!!overrides.text} onChange={(c) => setOverrides((o) => ({ ...o, text: c }))} />
                 {palette.glow ? (
                   <ColourPick id="clip-glow" label="Glow" value={palette.glow} changed={!!overrides.glow} onChange={(c) => setOverrides((o) => ({ ...o, glow: c }))} />
@@ -809,7 +869,7 @@ export function ClipForge(props: ClipForgeProps) {
               </div>
               {colourWarnings.map((w) => <p key={w} className="text-sm text-amber-400">{w}</p>)}
               <p className="text-xs text-muted-foreground">
-                {style === "motion" || (style === "vinyl" && !discRing)
+                {style === "motion" || style === "lyrics" || (style === "vinyl" && !discRing)
                   ? "The accent colour goes on your link card and the progress bar, unless it would be hard to read — then the link uses your text colour."
                   : "The spectrum colour also goes on your link and the progress bar, unless it would be hard to read — then the link uses your text colour."}
               </p>

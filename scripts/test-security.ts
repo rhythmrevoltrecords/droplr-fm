@@ -2164,6 +2164,43 @@ async function main() {
       await prisma.release.update({ where: { id: A.release.id }, data: { upc: null } });
     }
 
+    console.log("\n104. Lyrics on a release");
+    {
+      const sign = async (u: { id: string; organizationId: string; role: string }) => ({ cookie: `dfm_session=${await signToken({ sub: u.id, org: u.organizationId, role: u.role, jti: crypto.randomUUID() }, "1h", "session")}` });
+      const jA = await sign(A.owner), jB = await sign(B.owner), jArtistA = await sign(A.artist), jArtist2A = await sign(A.artist2);
+      const words = [{ text: `Line one ${RUN}`, ms: 12_000 }, { text: "Line two", ms: 15_500 }, { text: "Not tapped yet", ms: null }];
+      // JSONB reorders object keys, so compare the lines as [text, ms] pairs rather than as strings.
+      const pairs = (v: unknown) => JSON.stringify(Array.isArray(v) ? v.map((l: { text?: unknown; ms?: unknown }) => [l.text, l.ms]) : v);
+      const stored = async () => {
+        const r = await prisma.release.findUnique({ where: { id: A.release.id }, select: { lyrics: true, lyricsTrackMs: true } });
+        return r && { lyrics: r.lyrics === null ? null : pairs(r.lyrics), lyricsTrackMs: r.lyricsTrackMs };
+      };
+      const put = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: words, trackMs: 200_000 });
+      const after = await stored();
+      check("label A saves timed lyrics on its release", put.status === 200 && after?.lyrics === pairs(words) && after?.lyricsTrackMs === 200_000, `${put.status} ${put.text.slice(0, 100)}`);
+      check("label B can't overwrite them", (await http(jB, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [{ text: "hijack", ms: null }], trackMs: null })).status === 404 && (await stored())?.lyrics === pairs(words));
+      check("A's artist login can't change them either", (await http(jArtistA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [], trackMs: null })).status === 401 && (await stored())?.lyrics === pairs(words));
+      const backwards = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [{ text: "b", ms: 9000 }, { text: "a", ms: 3000 }], trackMs: 200_000 });
+      check("lines timed out of order are refused with a sentence, and nothing is written", backwards.status === 400 && /before the line above/.test(backwards.text) && (await stored())?.lyrics === pairs(words), `${backwards.status} ${backwards.text.slice(0, 80)}`);
+      const past = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [{ text: "late", ms: 250_000 }], trackMs: 200_000 });
+      check("a line timed past the end of the track is refused", past.status === 400 && (await stored())?.lyrics === pairs(words), String(past.status));
+      const noLen = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [{ text: "timed", ms: 1000 }], trackMs: null });
+      check("timed lines without the track's length are refused", noLen.status === 400, String(noLen.status));
+      const tooMany = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: Array.from({ length: 400 }, (_, n) => ({ text: `l${n}`, ms: null })), trackMs: null });
+      check("an oversized body is refused before it's read", tooMany.status === 400 && (await stored())?.lyrics === pairs(words), String(tooMany.status));
+      // The roster artist's clip page reads them (read-only), and only for their own release.
+      const mine = await http(jArtistA, "GET", `/dashboard/clips/${A.release.id}`);
+      check("the release's artist sees them on their clip page", mine.status === 200 && mine.text.includes(`Line one ${RUN}`), String(mine.status));
+      check("the label's other artist doesn't", (await http(jArtist2A, "GET", `/dashboard/clips/${A.release.id}`)).status === 404);
+      check("label B's owner doesn't", !(await http(jB, "GET", `/admin/releases/${A.release.id}?tab=clip`)).text.includes(`Line one ${RUN}`));
+      // Untimed words keep no track length: a length with nothing timed to it would claim a timing.
+      const untimed = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [{ text: "just words", ms: null }], trackMs: 200_000 });
+      check("words with no times store no track length", untimed.status === 200 && (await stored())?.lyricsTrackMs === null, String(untimed.status));
+      const cleared = await http(jA, "PUT", `/api/admin/releases/${A.release.id}/lyrics`, { lines: [], trackMs: null });
+      const gone = await stored();
+      check("an empty list clears them", cleared.status === 200 && gone?.lyrics === null && gone?.lyricsTrackMs === null, String(cleared.status));
+    }
+
   } finally {
     if (process.env.PLATFORM_TEST_ADMIN) {
       const e = process.env.PLATFORM_TEST_ADMIN.trim().toLowerCase();

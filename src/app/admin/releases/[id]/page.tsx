@@ -45,6 +45,7 @@ import { getStats, statsRange } from "@/lib/analytics";
 import { requireUser } from "@/lib/auth";
 import { GuideSlot } from "@/components/admin/guide-slot";
 import { prisma } from "@/lib/db";
+import { lyricsOf } from "@/lib/lyrics";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { DOWNLOAD_HIDDEN_TABS } from "@/lib/gate-steps";
@@ -323,6 +324,10 @@ export default async function ReleaseDetail(
           removeBranding={plan.removeBranding}
           typeStyle={plan.pageLooks}
           releaseDay={formatInTz(release.releaseDate, release.organization.timezone, { weekday: "short", day: "numeric", month: "short" })}
+          lyrics={lyricsOf(release.lyrics)}
+          lyricsTrackMs={release.lyricsTrackMs}
+          // The label's own release: the only place the lyrics can be changed.
+          lyricsEditable={true}
         />
       )}
 
