@@ -1657,7 +1657,7 @@ async function main() {
           jar ? page.status === 404 : page.status === 307 || page.status === 302,
           String(page.status));
         check(`...and carries no figures for ${who}`,
-          !/Links created|Unique fans|Pre-saves taken/.test(page.text));
+          !/Links created|Pages made|Download gates|Clips rendered|Unique fans|Pre-saves taken/.test(page.text));
       }
 
       // The totals themselves must be platform-wide, not scoped to whoever asked — a tenant-scoped
@@ -1672,9 +1672,57 @@ async function main() {
       check("unique fans never exceeds pre-saves plus imports",
         totals.all.uniqueFans <= totals.all.presaves + 10_000);
       check("the external figure never exceeds the all-inclusive one",
-        (["links", "uniqueFans", "presaves", "artistProfiles", "clicks"] as const).every((k) => totals.external[k] <= totals.all[k]));
+        (["links", "uniqueFans", "presaves", "artistProfiles", "clicks", "downloadGates", "gateUnlocks", "clipsRendered"] as const).every((k) => totals.external[k] <= totals.all[k]));
       check("the month series is zero-filled, not sparse",
-        totals.months.length === 13 && totals.months.every((m) => typeof m.links === "number" && typeof m.fans === "number"));
+        totals.months.length === 13 && totals.months.every((m) => typeof m.links === "number" && typeof m.fans === "number" && typeof m.gates === "number" && typeof m.clips === "number"));
+
+      // Download gates: counted apart from release pages, and inside "pages made".
+      const gateBefore = totals.all.downloadGates;
+      const gate = await prisma.release.create({ data: { organizationId: A.org.id, slug: `sectest-gate-tally-${RUN}`, title: "Gate tally", artistName: "X", coverUrl: "https://example.com/c.jpg", releaseDate: new Date(), kind: "download", downloadUrl: "https://example.com/f.zip" } });
+      const afterGate = await platformStats();
+      check("a new download gate is counted as a gate, not a release page",
+        afterGate.all.downloadGates === gateBefore + 1 && afterGate.all.smartLinks === totals.all.smartLinks && afterGate.all.links === totals.all.links + 1
+          && afterGate.all.downloadGates === (await prisma.release.count({ where: { kind: "download" } }))
+          && afterGate.all.smartLinks === (await prisma.release.count({ where: { kind: { not: "download" } } })),
+        `${afterGate.all.downloadGates} vs ${gateBefore}`);
+      await prisma.release.delete({ where: { id: gate.id } });
+
+      // Clip renders: only someone who may make a clip of the release can report one, and the row
+      // says nothing about who.
+      const clipsBefore = await prisma.clipRender.count();
+      const anon = await http(null, "POST", "/api/admin/clips/rendered", { releaseId: A.release.id, style: "motion" });
+      const cross = await http(ownerB, "POST", "/api/admin/clips/rendered", { releaseId: A.release.id, style: "motion" });
+      const badStyle = await http(ownerA, "POST", "/api/admin/clips/rendered", { releaseId: A.release.id, style: "sparkles" });
+      check("a clip render can't be reported logged out, for another label's release, or with a made-up style",
+        anon.status === 401 && cross.status === 404 && badStyle.status === 400 && (await prisma.clipRender.count()) === clipsBefore,
+        `${anon.status}/${cross.status}/${badStyle.status}`);
+      const own = await http(ownerA, "POST", "/api/admin/clips/rendered", { releaseId: A.release.id, style: "vinyl" });
+      // By id, not time: rows are dated to the day, so many share a createdAt.
+      const row = await prisma.clipRender.findFirst({ orderBy: { id: "desc" } });
+      check("the owner's render is counted", own.status === 204 && (await prisma.clipRender.count()) === clipsBefore + 1 && row?.style === "vinyl", String(own.status));
+      check("the tally row records nothing about who made it", !!row && Object.keys(row).sort().join(",") === "createdAt,id,internal,style", row ? Object.keys(row).join(",") : "none");
+      check("…and it shows up in the platform totals", (await platformStats()).all.clipsRendered === clipsBefore + 1);
+      check("…dated to the day, never the moment (so it can't be lined up with anything to say whose)", !!row && row.createdAt.getUTCHours() === 0 && row.createdAt.getUTCMinutes() === 0 && row.createdAt.getUTCSeconds() === 0 && row.createdAt.getUTCMilliseconds() === 0);
+      if (row) await prisma.clipRender.delete({ where: { id: row.id } });
+      // An artist login can report only a release that names them, not another artist's on the same label.
+      const notMine = await prisma.release.create({ data: { organizationId: A.org.id, slug: `sectest-notmine-${RUN}`, title: "Not mine", artistName: "Y", coverUrl: "https://example.com/c.jpg", releaseDate: new Date() } });
+      // A session signed directly: by this section the artist's password login is throttled by
+      // earlier checks, and what is under test here is the route's scoping, not the login.
+      const artistNow = { cookie: `dfm_session=${await signToken({ sub: A.artist.id, org: A.org.id, role: "artist", jti: crypto.randomUUID() }, "1h", "session")}` };
+      const artistOther = await http(artistNow, "POST", "/api/admin/clips/rendered", { releaseId: notMine.id, style: "motion" });
+      const artistOwn = await http(artistNow, "POST", "/api/admin/clips/rendered", { releaseId: A.release.id, style: "motion" });
+      check("an artist can report their own release's clip but not another artist's on the same label", artistOther.status === 404 && artistOwn.status === 204, `${artistOther.status}/${artistOwn.status}`);
+      await prisma.clipRender.deleteMany({ where: { id: (await prisma.clipRender.findFirst({ orderBy: { id: "desc" } }))?.id ?? "" } });
+      await prisma.release.delete({ where: { id: notMine.id } });
+      // The cap: ten an hour per account, and past it nothing is written, not even a throttle row.
+      await prisma.authThrottle.deleteMany({ where: { key: `clip-render:${A.org.id}` } });
+      const capBefore = await prisma.clipRender.count();
+      for (let i = 0; i < 12; i++) await http(ownerA, "POST", "/api/admin/clips/rendered", { releaseId: A.release.id, style: "waveform" });
+      const written = (await prisma.clipRender.count()) - capBefore;
+      const throttleRows = await prisma.authThrottle.count({ where: { key: `clip-render:${A.org.id}` } });
+      check("a loop can add at most ten an hour, and the refused calls write nothing", written === 10 && throttleRows === 10, `${written} renders, ${throttleRows} throttle rows`);
+      await prisma.clipRender.deleteMany({ where: { style: "waveform", createdAt: { gte: new Date(Date.now() - 2 * 86400_000) } } });
+      await prisma.authThrottle.deleteMany({ where: { key: `clip-render:${A.org.id}` } });
     }
 
     console.log("\n21. Closing an account");

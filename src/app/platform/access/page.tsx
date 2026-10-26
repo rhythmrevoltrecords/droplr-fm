@@ -61,7 +61,7 @@ export default async function PlatformAccess() {
           Custom domains are a separate door: <Badge variant={domainsAreOpen ? "success" : "warning"}>{domainsAreOpen ? "open to every paid plan" : "invite-only"}</Badge>{" "}
           {domainsAreOpen
             ? "DOMAINS_OPEN is set, so any account on a domain plan can connect one."
-            : "Turn one on per account from the Domains column on the accounts list — no redeploy. Set DOMAINS_OPEN=true in Netlify once the Netlify alias path has been proven on real domains; the only thing it's been tested against is a mock, and it fails by quietly never going live."}
+            : "Turn one on per account from Manage on the accounts list — no redeploy. Set DOMAINS_OPEN=true in Netlify once the Netlify alias path has been proven on real domains; the only thing it's been tested against is a mock, and it fails by quietly never going live."}
         </p>
       </Card>
 

@@ -505,6 +505,14 @@ export function ClipForge(props: ClipForgeProps) {
         onNote: (note) => setPhase((cur) => (cur.kind === "working" ? { ...cur, note } : cur)),
       });
       setPhase({ kind: "done", result });
+      // The tally only. The server keeps the style and nothing that says who made it (the
+      // release id is just for its permission check). Fire and forget; a failed report must never
+      // touch the clip the artist just made.
+      void fetch("/api/admin/clips/rendered", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ releaseId: props.releaseId, style }),
+      }).catch(() => {});
     } catch (e) {
       setPhase({ kind: "idle" });
       if ((e as Error).name !== "AbortError") setError(`The render stopped: ${(e as Error).message}`);
@@ -531,7 +539,7 @@ export function ClipForge(props: ClipForgeProps) {
             Pick {CLIP_LENGTHS.join(", ")} or so seconds of the track and droplr makes a video from it: the waveform style, with the artwork
             pulsing on the kick and a spectrum following the audio; Motion, where the artwork drifts in, the title lands on the first kick and
             your link on the drop; Vinyl / CD, your artwork on a spinning record; or Type, your words cut on the beat. <strong className="text-foreground">The audio never leaves your
-            computer.</strong> It&apos;s read, rendered and saved here, so nothing is uploaded and nothing is stored.
+            computer.</strong> It&apos;s read, rendered and saved here, so nothing is uploaded and nothing is stored. droplr only counts that a clip was finished, not who made it.
             {!props.removeBranding && " A small droplr.fm line sits under your link; Artist Pro and the label plans render it clean."}
             {" "}For a Story, switch the link to a sticker and droplr leaves the room for it.
           </CardDescription>

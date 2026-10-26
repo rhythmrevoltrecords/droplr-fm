@@ -104,8 +104,8 @@ withEnv("Rhythm-Revolt", () => check("slugs are lower-cased to match the column"
 // ---- the pasteable summary carries its own caveat ------------------------
 
 const sample: PlatformStats = {
-  all: { smartLinks: 50, bioPages: 10, links: 60, uniqueFans: 900, presaves: 1200, artistProfiles: 8, artistAccounts: 3, labelAccounts: 2, logins: 9, clicks: 4000 },
-  external: { smartLinks: 5, bioPages: 1, links: 6, uniqueFans: 40, presaves: 55, artistProfiles: 2, artistAccounts: 2, labelAccounts: 1, logins: 4, clicks: 120 },
+  all: { smartLinks: 50, downloadGates: 7, gateUnlocks: 30, clipsRendered: 12, bioPages: 10, links: 67, uniqueFans: 900, presaves: 1200, artistProfiles: 8, artistAccounts: 3, labelAccounts: 2, logins: 9, clicks: 4000 },
+  external: { smartLinks: 5, downloadGates: 2, gateUnlocks: 9, clipsRendered: 3, bioPages: 1, links: 8, uniqueFans: 40, presaves: 55, artistProfiles: 2, artistAccounts: 2, labelAccounts: 1, logins: 4, clicks: 120 },
   months: [],
   excluded: ["rhythm-revolt"],
   firstAccountAt: D("2026-09-01T00:00:00Z"),
@@ -114,8 +114,9 @@ const sample: PlatformStats = {
 const summary = statsSummary(sample);
 check("the summary says the figures exclude our own accounts", /exclude our own accounts/i.test(summary));
 check("...and names which ones", summary.includes("rhythm-revolt"));
-check("the summary quotes the customer-only link count", /Links created: 6\b/.test(summary), summary.split("\n").find((l) => l.startsWith("Links created")) ?? "");
-check("the summary never quotes the inflated total", !summary.includes("60 (") && !/Links created: 60/.test(summary));
+check("the summary quotes the customer-only link count", /Links created: 8\b/.test(summary), summary.split("\n").find((l) => l.startsWith("Links created")) ?? "");
+check("the summary never quotes the inflated total", !summary.includes("67 (") && !/Links created: 67/.test(summary));
+check("the summary counts download gates and clips, customers only", /2 download gates/.test(summary) && /Promo clips rendered[^:]*: 3\b/.test(summary) && /Downloads unlocked through a gate: 9\b/.test(summary), summary);
 check("unique fans and pre-saves are labelled apart", /Unique fans reached: 40/.test(summary) && /Pre-saves taken: 55/.test(summary));
 check("the summary is dated", summary.includes("5 October 2026"));
 

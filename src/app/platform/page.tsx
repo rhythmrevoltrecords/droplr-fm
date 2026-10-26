@@ -1,9 +1,9 @@
 import { AccountKindControl, DomainAccessControl, CompPlanControl } from "@/components/admin/comp-plan-control";
 import { PlatformChrome } from "@/components/platform/platform-chrome";
+import { ManagePanel } from "@/components/platform/manage-panel";
 import { MessageComposer } from "@/components/platform/message-composer";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
-import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { prisma } from "@/lib/db";
 import { LEGAL } from "@/lib/legal";
 import { aliasUsage } from "@/lib/domains";
@@ -12,6 +12,9 @@ import { accountKind, kindChangeBlocker, planOf } from "@/lib/plans";
 import { formatInTz } from "@/lib/time";
 
 export const dynamic = "force-dynamic";
+
+/** One set of column widths for the header and every row (desktop only; a phone stacks each row). */
+const COLS = "md:grid-cols-[minmax(0,2.2fr)_minmax(0,1.7fr)_minmax(0,1.3fr)_4.5rem_3.5rem_6.5rem_6.5rem]";
 export const metadata = { title: "Platform", robots: { index: false, follow: false } };
 
 /** droplr.fm owner console: every account (labels and artists), its plan, and complimentary plans. Hidden (404) unless your email is in PLATFORM_ADMIN_EMAILS. */
@@ -52,22 +55,52 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
     seenCount: m._count.seen,
   }));
 
+  const initials = (name: string) => name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join("") || "?";
+  // The whole platform, whatever the search shows: a filtered list must never read as a total.
+  const [allAccounts, artistAccounts, paying, comped] = await Promise.all([
+    prisma.organization.count(),
+    prisma.organization.count({ where: { kind: "artist" } }),
+    prisma.organization.count({ where: { stripeSubscriptionId: { not: null } } }),
+    prisma.organization.count({ where: { compPlan: { not: null } } }),
+  ]);
+  const strip = [
+    { label: "Accounts", value: allAccounts, note: q ? `${counts.total} match “${q}”` : allAccounts > counts.total ? `newest ${counts.total} listed` : undefined },
+    { label: "Label · artist", value: `${allAccounts - artistAccounts} · ${artistAccounts}` },
+    { label: "Paying (Stripe)", value: paying },
+    { label: "Complimentary", value: comped },
+  ];
+
   return (
     <PlatformChrome email={admin.email} active="accounts">
-        <div className="flex flex-wrap items-end justify-between gap-3">
+        <div className="flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-semibold">Accounts</h1>
-            <p className="text-sm text-muted-foreground">{counts.total} shown · {orgs.filter((o) => o.kind === "artist").length} artist · {counts.paid} paying through Stripe · {counts.comp} complimentary{staleTerms > 0 ? ` · ${staleTerms} login${staleTerms === 1 ? "" : "s"} yet to accept the ${LEGAL.version} terms` : ""}</p>
+            <h1 className="text-2xl font-semibold tracking-tight">Accounts</h1>
+            <p className="mt-1 text-sm text-muted-foreground">Every label and artist account, its plan and what it has made.</p>
           </div>
-          <form className="flex gap-2">
-            <input name="q" defaultValue={q} placeholder="Search name, slug or owner email" className="h-9 w-64 rounded-lg border bg-transparent px-3 text-sm" />
-            <button className="h-9 rounded-lg border px-3 text-sm hover:bg-accent">Search</button>
+          <form className="flex w-full gap-2 sm:w-auto" role="search">
+            <input name="q" defaultValue={q} placeholder="Search name, slug or owner email" aria-label="Search accounts" className="h-10 min-w-0 flex-1 rounded-full border border-white/[0.1] bg-white/[0.03] px-4 text-sm outline-none transition focus:border-violet-400/50 sm:w-72" />
+            <button className="h-10 shrink-0 rounded-full bg-white px-4 text-sm font-medium text-black transition hover:bg-white/90">Search</button>
           </form>
         </div>
-        <MessageComposer orgs={orgs.map((o) => ({ id: o.id, name: o.name, kind: o.kind }))} sent={sent} />
+
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {strip.map((t) => (
+            <div key={t.label} className="rounded-2xl border border-white/[0.07] bg-gradient-to-b from-white/[0.045] to-white/[0.015] p-4">
+              <div className="text-[11px] font-medium uppercase tracking-[0.14em] text-muted-foreground">{t.label}</div>
+              <div className="mt-1.5 text-2xl font-semibold tabular-nums">{t.value}</div>
+              {t.note && <div className="mt-0.5 text-xs text-muted-foreground">{t.note}</div>}
+            </div>
+          ))}
+        </div>
+
+        {staleTerms > 0 && (
+          <p className="rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-sm text-muted-foreground">
+            <strong className="text-foreground">{staleTerms} login{staleTerms === 1 ? "" : "s"}</strong> yet to accept the {LEGAL.version} terms. They see a notice in their dashboard until they do.
+          </p>
+        )}
 
         {aliases.warn && (
-          <Card className="border-amber-500/40 bg-amber-500/5 p-4 text-sm">
+          <Card className="rounded-2xl border-amber-500/40 bg-amber-500/5 p-4 text-sm">
             <strong className="text-foreground">Custom hostnames: {aliases.used} of {aliases.budget} used, {aliases.free} left.</strong>{" "}
             {aliases.attached} live{aliases.redirecting > 0 ? `, ${aliases.redirecting} held for renamed domains` : ""}. Netlify puts a site&apos;s
             domain aliases on a single Let&apos;s Encrypt certificate, which holds 100 names, so past roughly 90 the next customer&apos;s domain
@@ -75,30 +108,60 @@ export default async function PlatformPage(props: { searchParams: Promise<{ q?: 
             and it&apos;s 100 hostnames free then US$0.10 each per month.
           </Card>
         )}
-        <Card className="p-4 text-sm text-muted-foreground">
-          A complimentary plan is free and acts as a floor: the account keeps it without paying, Stripe can only move them higher, and cancelling a Stripe subscription drops them back to the comp plan instead of Free. Comps and paid plans are per account type, so to switch an account between label and artist, cancel its Stripe subscription and remove any comp first. Removing a comp drops the account to whatever it pays for through Stripe, or Free.
-        </Card>
-        <Card className="overflow-x-auto p-0">
-          <Table>
-            <THead><TR><TH>Account</TH><TH>Type</TH><TH>Owner</TH><TH>Plan</TH><TH>Billing</TH><TH className="text-right">Releases</TH><TH className="text-right">Users</TH><TH>Created</TH><TH>Domains</TH><TH>Complimentary plan</TH></TR></THead>
-            <TBody>
-              {orgs.map((o) => (
-                <TR key={o.id}>
-                  <TD><div className="font-medium">{o.name}</div><div className="font-mono text-xs text-muted-foreground">/{o.slug}{o.customDomain ? ` · ${o.customDomain} (${o.customDomainLiveAt ? "live" : o.customDomainVerifiedAt ? "connecting" : "unverified"})` : ""}</div></TD>
-                  <TD><div className="flex flex-col items-start gap-1.5"><Badge variant={o.kind === "artist" ? "warning" : "secondary"}>{o.kind === "artist" ? "Artist" : "Label"}</Badge><AccountKindControl orgId={o.id} kind={accountKind(o.kind)} blocker={kindChangeBlocker(o, accountKind(o.kind) === "artist" ? "label" : "artist")} /></div></TD>
-                  <TD className="text-xs">{o.users[0]?.email ?? "—"}</TD>
-                  <TD><Badge variant={o.plan === "free" ? "secondary" : "success"}>{planOf(o.plan).name}</Badge></TD>
-                  <TD className="text-xs">{o.stripeSubscriptionId ? "Stripe" : o.compPlan ? `Comp${o.compSetBy ? ` · ${o.compSetBy}` : ""}` : "—"}{o.compNote ? <div className="text-muted-foreground">{o.compNote}</div> : null}</TD>
-                  <TD className="text-right tabular-nums">{o._count.releases}</TD>
-                  <TD className="text-right tabular-nums">{o._count.users}</TD>
-                  <TD className="whitespace-nowrap text-xs text-muted-foreground">{formatInTz(o.createdAt, "Australia/Brisbane", { dateStyle: "medium" })}</TD>
-                  <TD><DomainAccessControl orgId={o.id} allowed={!!o.domainsAllowedAt} by={o.domainsAllowedBy} /></TD>
-                  <TD><CompPlanControl orgId={o.id} kind={accountKind(o.kind)} compPlan={o.compPlan} compNote={o.compNote} compUntil={o.compUntil?.toISOString() ?? null} founderPrice={o.founderPrice} founderOfferUntil={o.founderOfferUntil?.toISOString() ?? null} founderCode={o.founderCode} /></TD>
-                </TR>
-              ))}
-            </TBody>
-          </Table>
-        </Card>
+
+        <details className="group rounded-2xl border border-white/[0.07] bg-white/[0.02]">
+          <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-medium [&::-webkit-details-marker]:hidden">
+            <span>Send a notice to accounts <span className="ml-1 font-normal text-muted-foreground">· {sent.length ? `${sent.length} recent` : "none sent yet"}</span></span>
+            <span className="text-muted-foreground transition group-open:rotate-180">▾</span>
+          </summary>
+          <div className="border-t border-white/[0.07] p-4">
+            <MessageComposer orgs={orgs.map((o) => ({ id: o.id, name: o.name, kind: o.kind }))} sent={sent} />
+          </div>
+        </details>
+
+        {/* A grid, not a table: on a phone each account becomes a card, and the Manage drawer opens
+            under it full width instead of off the side of a scrolling table. */}
+        <div className="rounded-2xl border border-white/[0.07]">
+          <div aria-hidden className={`hidden ${COLS} gap-4 border-b border-white/[0.07] px-4 py-3 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground md:grid`}>
+            <div>Account</div><div>Owner</div><div>Plan</div><div className="text-right">Releases</div><div className="text-right">Users</div><div>Joined</div><div className="text-right">Manage</div>
+          </div>
+          <ul className="divide-y divide-white/[0.06]">
+            {orgs.map((o) => (
+              <li key={o.id} className={`grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-2 px-4 py-3.5 md:items-center ${COLS}`}>
+                <div className="col-span-2 flex items-start gap-3 md:col-span-1">
+                  <span aria-hidden className={`mt-0.5 grid h-9 w-9 shrink-0 place-items-center rounded-xl text-[11px] font-semibold ${o.kind === "artist" ? "bg-amber-400/15 text-amber-200" : "bg-violet-500/15 text-violet-200"}`}>{initials(o.name)}</span>
+                  <div className="min-w-0">
+                    <div className="truncate font-medium">{o.name}</div>
+                    <div className="truncate font-mono text-xs text-muted-foreground">/{o.slug}</div>
+                    {o.customDomain && <div className="truncate text-xs text-muted-foreground">{o.customDomain} · {o.customDomainLiveAt ? "live" : o.customDomainVerifiedAt ? "connecting" : "unverified"}</div>}
+                  </div>
+                </div>
+                <div className="col-span-2 min-w-0 truncate text-xs text-muted-foreground md:col-span-1 md:text-foreground">{o.users[0]?.email ?? "No owner login"}</div>
+                <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 md:flex-col md:items-start">
+                  <span className="flex flex-wrap gap-1"><Badge variant={o.plan === "free" ? "secondary" : "success"}>{planOf(o.plan).name}</Badge>{o.domainsAllowedAt && <Badge variant="secondary">Domains on</Badge>}</span>
+                  <span className="text-xs text-muted-foreground">{o.kind === "artist" ? "Artist" : "Label"} · {o.stripeSubscriptionId ? "Stripe" : o.compPlan ? `Comp${o.compSetBy ? ` · ${o.compSetBy}` : ""}` : "no billing"}</span>
+                  {o.compNote && <span className="w-full truncate text-xs text-muted-foreground">{o.compNote}</span>}
+                </div>
+                <div className="text-right text-xs text-muted-foreground md:text-sm md:tabular-nums md:text-foreground"><span className="md:hidden">{o._count.releases} release{o._count.releases === 1 ? "" : "s"} · {o._count.users} user{o._count.users === 1 ? "" : "s"} · {formatInTz(o.createdAt, "Australia/Brisbane", { dateStyle: "medium" })}</span><span className="hidden md:inline"><span className="sr-only">Releases: </span>{o._count.releases}</span></div>
+                <div className="hidden text-right tabular-nums md:block"><span className="sr-only">Users: </span>{o._count.users}</div>
+                <div className="hidden whitespace-nowrap text-xs text-muted-foreground md:block"><span className="sr-only">Joined </span>{formatInTz(o.createdAt, "Australia/Brisbane", { dateStyle: "medium" })}</div>
+                <ManagePanel name={o.name}>
+                    <div><div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Account type</div><AccountKindControl orgId={o.id} kind={accountKind(o.kind)} blocker={kindChangeBlocker(o, accountKind(o.kind) === "artist" ? "label" : "artist")} /></div>
+                    <div><div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Custom domains</div><DomainAccessControl orgId={o.id} allowed={!!o.domainsAllowedAt} by={o.domainsAllowedBy} /></div>
+                    <div><div className="mb-1.5 text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">Complimentary plan</div><CompPlanControl orgId={o.id} kind={accountKind(o.kind)} compPlan={o.compPlan} compNote={o.compNote} compUntil={o.compUntil?.toISOString() ?? null} founderPrice={o.founderPrice} founderOfferUntil={o.founderOfferUntil?.toISOString() ?? null} founderCode={o.founderCode} /></div>
+                </ManagePanel>
+              </li>
+            ))}
+            {orgs.length === 0 && <li className="px-4 py-10 text-center text-sm text-muted-foreground">No account matches that.</li>}
+          </ul>
+        </div>
+
+        <details className="rounded-2xl border border-white/[0.07] bg-white/[0.02] text-sm">
+          <summary className="cursor-pointer list-none px-4 py-3 font-medium [&::-webkit-details-marker]:hidden">How complimentary plans work</summary>
+          <p className="border-t border-white/[0.07] px-4 py-3 text-muted-foreground">
+            A complimentary plan is free and acts as a floor: the account keeps it without paying, Stripe can only move them higher, and cancelling a Stripe subscription drops them back to the comp plan instead of Free. Comps and paid plans are per account type, so to switch an account between label and artist, cancel its Stripe subscription and remove any comp first. Removing a comp drops the account to whatever it pays for through Stripe, or Free.
+          </p>
+        </details>
     </PlatformChrome>
   );
 }
