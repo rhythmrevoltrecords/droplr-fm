@@ -474,7 +474,7 @@ export const POSTS: Post[] = [
     tag: "Analysis",
     minutes: 5,
     runtime: "5:21",
-    youTubeId: "PASTEIDHERE",
+    youTubeId: "7a7ukXG1CQk",
     publishAt: "2026-10-28T09:00:00+10:00",
     body: [
       { p: "On Tuesday the 20th of October, Believe and TuneCore signed a licensing agreement with Spotify. It covers a tool that lets fans make AI remixes and covers of their artists' songs." },
