@@ -37,6 +37,18 @@ export type AgreementInput = {
   releaseIds: string[];
 };
 
+/** What the form edits: every field as the string its input holds. */
+export type AgreementFormValue = {
+  title: string; kind: AgreementKind; status: AgreementStatus; artistId: string; counterparty: string;
+  signedOn: string; startsOn: string; endsOn: string; noticeDays: string; documentUrl: string; termsNote: string; notes: string; releaseIds: string[];
+};
+/**
+ * A blank form. Lives here, not in the form's own "use client" file: a server page that imports a
+ * plain value from a client file gets a placeholder instead of the object, and the form crashed on
+ * `title.trim()` the first time anyone opened /admin/agreements/new.
+ */
+export const EMPTY_AGREEMENT: AgreementFormValue = { title: "", kind: "recording", status: "draft", artistId: "", counterparty: "", signedOn: "", startsOn: "", endsOn: "", noticeDays: "", documentUrl: "", termsNote: "", notes: "", releaseIds: [] };
+
 /** "2027-03-01" → that calendar day at UTC midnight. A date the label typed is never moved by a timezone. */
 export function parseDay(v: unknown): Date | null | "bad" {
   if (v === null || v === "" || v === undefined) return null;

@@ -2,13 +2,8 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
-import { AGREEMENT_KINDS, AGREEMENT_LIMITS, AGREEMENT_STATUSES, DEFAULT_NOTICE_DAYS, KIND_LABEL, STATUS_LABEL, type AgreementKind, type AgreementStatus } from "@/lib/agreements";
+import { AGREEMENT_KINDS, AGREEMENT_LIMITS, AGREEMENT_STATUSES, DEFAULT_NOTICE_DAYS, KIND_LABEL, STATUS_LABEL, type AgreementFormValue, type AgreementKind, type AgreementStatus } from "@/lib/agreements";
 
-export type AgreementFormValue = {
-  title: string; kind: AgreementKind; status: AgreementStatus; artistId: string; counterparty: string;
-  signedOn: string; startsOn: string; endsOn: string; noticeDays: string; documentUrl: string; termsNote: string; notes: string; releaseIds: string[];
-};
-export const EMPTY_AGREEMENT: AgreementFormValue = { title: "", kind: "recording", status: "draft", artistId: "", counterparty: "", signedOn: "", startsOn: "", endsOn: "", noticeDays: "", documentUrl: "", termsNote: "", notes: "", releaseIds: [] };
 
 type Opt = { id: string; label: string; artistId?: string | null };
 
