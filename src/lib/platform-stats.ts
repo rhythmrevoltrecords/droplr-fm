@@ -5,7 +5,9 @@ import { prisma } from "./db";
  * or anyone being pitched.
  *
  * **Every number here is derived from `createdAt` on rows that already exist.** There is no counter
- * table and nothing new is written. That matters more than it sounds: a counters table would only
+ * table and nothing new is written for these figures. The one figure with no other row behind it is
+ * clips rendered (the clip happens in the browser), so each finished render writes a ClipRender
+ * event row, and that is counted the same way. That matters more than it sounds: a counters table would only
  * start counting from the day it shipped, throwing away every month before it, and it would be one
  * more thing that can drift from the truth. A `COUNT(*)` with a date filter cannot drift.
  *
@@ -29,11 +31,18 @@ export function internalSlugs(): string[] {
 }
 
 export type Totals = {
-  /** Releases — each one is a public smart link / pre-save page. */
+  /** Releases (kind "release") — each one is a public smart link / pre-save page. */
   smartLinks: number;
+  /** Download gates made (Release kind "download"). */
+  downloadGates: number;
+  /** Fans who finished a download gate (every required step done). */
+  gateUnlocks: number;
+  /** Clips that finished rendering in the clip engine, as reported by the browser. Anonymous rows:
+   *  customers-only is "not internal", decided from PLATFORM_INTERNAL_ORG_SLUGS when each was written. */
+  clipsRendered: number;
   /** Bio pages. Counted apart from releases because they are a different thing people made. */
   bioPages: number;
-  /** smartLinks + bioPages. The "links created" headline. */
+  /** smartLinks + downloadGates + bioPages. The "links created" headline: every public page made. */
   links: number;
   /** Distinct email addresses across pre-saves and imported contacts. One person, one fan. */
   uniqueFans: number;
@@ -51,7 +60,7 @@ export type Totals = {
   clicks: number;
 };
 
-export type MonthRow = { month: string; links: number; fans: number; accounts: number };
+export type MonthRow = { month: string; links: number; fans: number; accounts: number; gates: number; clips: number };
 
 export type PlatformStats = {
   all: Totals;
@@ -102,9 +111,13 @@ async function totalsFor(orgIds: string[] | null): Promise<Totals> {
   const orgSelf = orgIds ? { id: { in: orgIds } } : {};
   const viaRelease = orgIds ? { release: { organizationId: { in: orgIds } } } : {};
 
-  const [smartLinks, bioPages, presaves, artistProfiles, artistAccounts, labelAccounts, logins, clicks, presaveEmails, contactEmails] =
+  const [smartLinks, downloadGates, gateUnlocks, clipsRendered, bioPages, presaves, artistProfiles, artistAccounts, labelAccounts, logins, clicks, presaveEmails, contactEmails] =
     await Promise.all([
-      prisma.release.count({ where: org }),
+      prisma.release.count({ where: { ...org, kind: "release" } }),
+      prisma.release.count({ where: { ...org, kind: "download" } }),
+      prisma.gateUnlock.count({ where: { ...viaRelease, completedAt: { not: null } } }),
+      // Anonymous rows (no account on them): customers-only means "not marked internal".
+      prisma.clipRender.count({ where: orgIds ? { internal: false } : {} }),
       prisma.bioPage.count({ where: org }),
       prisma.preSave.count({ where: viaRelease }),
       prisma.artist.count({ where: org }),
@@ -124,8 +137,11 @@ async function totalsFor(orgIds: string[] | null): Promise<Totals> {
 
   return {
     smartLinks,
+    downloadGates,
+    gateUnlocks,
+    clipsRendered,
     bioPages,
-    links: smartLinks + bioPages,
+    links: smartLinks + downloadGates + bioPages,
     uniqueFans: seen.size,
     presaves,
     artistProfiles,
@@ -153,14 +169,18 @@ export async function platformStats(now = new Date()): Promise<PlatformStats> {
 
   const keys = monthKeys(now);
   const scope = { organizationId: { in: externalIds } };
-  const [relDates, bioDates, preDates, contactDates] = await Promise.all([
-    prisma.release.findMany({ where: scope, select: { createdAt: true } }),
+  const [relDates, gateDates, clipDates, bioDates, preDates, contactDates] = await Promise.all([
+    prisma.release.findMany({ where: { ...scope, kind: "release" }, select: { createdAt: true } }),
+    prisma.release.findMany({ where: { ...scope, kind: "download" }, select: { createdAt: true } }),
+    prisma.clipRender.findMany({ where: { internal: false }, select: { createdAt: true } }),
     prisma.bioPage.findMany({ where: scope, select: { createdAt: true } }),
     prisma.preSave.findMany({ where: { release: scope }, select: { createdAt: true } }),
     prisma.fanContact.findMany({ where: scope, select: { createdAt: true } }),
   ]);
 
   const rel = bucketByMonth(relDates.map((r) => r.createdAt), keys);
+  const gates = bucketByMonth(gateDates.map((r) => r.createdAt), keys);
+  const clips = bucketByMonth(clipDates.map((r) => r.createdAt), keys);
   const bio = bucketByMonth(bioDates.map((r) => r.createdAt), keys);
   const fans = bucketByMonth([...preDates, ...contactDates].map((r) => r.createdAt), keys);
   const accounts = bucketByMonth(
@@ -171,7 +191,7 @@ export async function platformStats(now = new Date()): Promise<PlatformStats> {
   return {
     all,
     external,
-    months: keys.map((month) => ({ month, links: rel[month] + bio[month], fans: fans[month], accounts: accounts[month] })),
+    months: keys.map((month) => ({ month, links: rel[month] + gates[month] + bio[month], fans: fans[month], accounts: accounts[month], gates: gates[month], clips: clips[month] })),
     excluded,
     firstAccountAt: allOrgs.filter((o) => !internalIds.has(o.id)).map((o) => o.createdAt).sort((a, b) => +a - +b)[0] ?? null,
     generatedAt: now,
@@ -187,7 +207,9 @@ export function statsSummary(s: PlatformStats): string {
     `Figures exclude our own accounts${s.excluded.length ? ` (${s.excluded.join(", ")})` : ""}.`,
     ``,
     `Accounts: ${e.labelAccounts} label, ${e.artistAccounts} artist (first joined ${since})`,
-    `Links created: ${e.links} (${e.smartLinks} release pages, ${e.bioPages} bio pages)`,
+    `Links created: ${e.links} (${e.smartLinks} release pages, ${e.downloadGates} download gates, ${e.bioPages} bio pages)`,
+    `Downloads unlocked through a gate: ${e.gateUnlocks}`,
+    `Promo clips rendered (reported by the browser when a render finishes): ${e.clipsRendered}`,
     `Artist profiles on rosters: ${e.artistProfiles}`,
     `Unique fans reached: ${e.uniqueFans}`,
     `Pre-saves taken: ${e.presaves}`,

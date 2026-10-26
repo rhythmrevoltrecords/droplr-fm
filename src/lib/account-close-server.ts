@@ -116,7 +116,7 @@ export function storedImageKey(url: string | null | undefined): string | null {
  * Adding a table here makes the close faster; leaving one out only makes it slower.
  */
 const NOT_CONTENT = new Set([
-  "_prisma_migrations", "AuthThrottle", "ClickEvent", "ConsentEvent", "ContestEntry", "ContestVote", "DomainDetach",
+  "_prisma_migrations", "AuthThrottle", "ClickEvent", "ClipRender", "ConsentEvent", "ContestEntry", "ContestVote", "DomainDetach",
   "EmailVerificationToken", "EspConnection", "FanContact", "GateUnlock", "Invite", "NewsConfirmRequest", "NewsEmailDelivery",
   "PageView", "PasswordResetToken", "PlatformMessageSeen", "PreSave", "PromoStepReminder", "PromoTaskDone", "PushSubscription",
   "Referral", "RevokedSession", "SignupInvite", "User", "waitlist_features",

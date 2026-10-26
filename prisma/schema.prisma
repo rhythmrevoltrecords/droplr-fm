@@ -1290,6 +1290,20 @@ model EspConnection {
   @@index([organizationId])
 }
 
+/// One clip finished rendering in someone's browser (components/admin/clip-forge), for the platform
+/// tally. Deliberately anonymous: no account, no release, no length. The video and audio never leave
+/// the browser, and the privacy policy says droplr doesn't record who made a clip or what was in it.
+/// `internal` is decided when the row is written (PLATFORM_INTERNAL_ORG_SLUGS), so the customer-only
+/// figure can leave droplr's own renders out without the row saying whose they were.
+model ClipRender {
+  id        String   @id @default(cuid())
+  style     String // waveform | motion | vinyl | type
+  internal  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+}
+
 /// A confirmation email droplr owes or has sent (lib/news-confirm). One row per address per account.
 /// `sentAt` NULL means queued: the account's daily ceiling was reached, and the release check sends
 /// it when there is room. Pruned after 30 days; deleted with the account.
