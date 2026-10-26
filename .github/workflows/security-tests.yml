@@ -104,6 +104,9 @@ jobs:
       - name: Release-tools suite
         run: npx tsx scripts/test-release-tools.ts
 
+      - name: Release planning for teams
+        run: npx tsx scripts/test-release-planning.ts
+
       - name: Complimentary plans
         run: npx tsx scripts/test-comp.ts
 

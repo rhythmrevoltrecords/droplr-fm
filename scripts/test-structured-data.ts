@@ -248,7 +248,7 @@ console.log("5. IndexNow");
   check("the key file is served on every host (middleware skips .txt)", /\.\*\\\\\.\(\?:[^)]*\btxt\b/.test(src("src/middleware.ts")));
   const hooks: [string, RegExp][] = [
     ["src/app/api/admin/releases/route.ts", /after\(async \(\) => pingIndexNow\(\[await releaseAddress\(release\.id\)\]\)\)/],
-    ["src/app/api/admin/releases/[id]/route.ts", /const before = indexNowOn\(\) \? await releaseAddress\(g\.release\.id\) : null;\s*await prisma\.release\.update[\s\S]*?pingIndexNow\(\[before, await releaseAddress\(g\.release\.id\)\]\)/],
+    ["src/app/api/admin/releases/[id]/route.ts", /const before = indexNowOn\(\) \? await releaseAddress\(g\.release\.id\) : null;\s*await prisma\.(?:\$transaction\(\[\s*prisma\.)?release\.update[\s\S]*?pingIndexNow\(\[before, await releaseAddress\(g\.release\.id\)\]\)/],
     ["src/app/api/admin/releases/[id]/route.ts", /const before = indexNowOn\(\) \? await releaseAddress\(g\.release\.id\) : null;\s*await prisma\.release\.delete[\s\S]*?pingIndexNow\(\[before\]\)/],
     ["src/app/api/admin/downloads/[id]/route.ts", /const before = indexNowOn\(\) \? await releaseAddress\(id\) : null;[\s\S]*?pingIndexNow\(\[before, await releaseAddress\(id\)\]\)/],
     ["src/app/api/admin/downloads/[id]/route.ts", /const before = indexNowOn\(\) \? await releaseAddress\(existing\.id\) : null;\s*await prisma\.release\.delete[\s\S]*?pingIndexNow\(\[before\]\)/],

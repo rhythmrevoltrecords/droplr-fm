@@ -13,7 +13,9 @@ import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { planOf } from "@/lib/plans";
 import { publicReleaseUrl } from "@/lib/releases";
-import { formatInTz, isReleased } from "@/lib/time";
+import { formatInTz, isReleased, zonedDay } from "@/lib/time";
+import { artistPlan } from "@/lib/release-tasks-server";
+import { ArtistPlanList } from "@/components/admin/artist-plan-list";
 import { fmtNum, pct } from "@/lib/utils";
 import { InstallApp } from "@/components/admin/install-app";
 
@@ -29,7 +31,9 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
     include: { linkVariants: { where: { isActive: true } } },
   });
   const ids = releases.map((r) => r.id);
-  const [totals, stats] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone)]);
+  const [totals, stats, plans] = await Promise.all([releaseTotals(ids), getStats(ids, days, user.organization.timezone), artistPlan(user, ids)]);
+  const tz = user.organization.timezone;
+  const todayDay = zonedDay(new Date(), tz);
   const plan = planOf(user.organization.plan);
 
   return (
@@ -52,7 +56,7 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
             ...["ig", "tiktok", "bio"].filter((s) => variant(s)).map((s) => ({ label: s === "ig" ? "IG link" : s === "tiktok" ? "TikTok link" : "Bio link", url: `${base}/${s}` })),
           ];
           return (
-            <Card key={r.id} className="p-4">
+            <Card key={r.id} id={`release-${r.id}`} className="scroll-mt-24 p-4">
               <div className="flex flex-col gap-4 sm:flex-row">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={r.coverUrl} alt="" className="h-24 w-24 shrink-0 rounded-xl object-cover" />
@@ -74,6 +78,12 @@ export default async function ArtistDashboard(props: { searchParams: Promise<{ d
                     </Button>
                     {plan.csvExport && <Button asChild size="sm" variant="outline"><a href={`/api/admin/releases/${r.id}/export?type=presaves`}>Export emails CSV</a></Button>}
                   </div>
+                  {(plans.get(r.id)?.length ?? 0) > 0 && (
+                    <ArtistPlanList
+                      releaseId={r.id}
+                      rows={plans.get(r.id)!.map((i) => ({ key: i.key, title: i.title, body: i.body, date: formatInTz(i.due, tz, { weekday: "short", day: "numeric", month: "short" }), overdue: zonedDay(i.due, tz) < todayDay, done: i.done }))}
+                    />
+                  )}
                 </div>
               </div>
             </Card>

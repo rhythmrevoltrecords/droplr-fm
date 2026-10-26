@@ -18,8 +18,6 @@ export default async () => {
   const started = Date.now();
   // Push "X is out" to each team once its release moment passes (cheap: an indexed query + claim).
   await notifyLiveReleases().catch((e) => console.error("[release-check] live push", e));
-  // "This is due today" nudges for the promo plan. Claimed per step, so a 15-minute job never repeats one.
-  await notifyDuePromoSteps().catch((e) => console.error("[release-check] promo push", e));
   // Complimentary plans that have lapsed drop back to what the account actually pays for.
   await sweepLapsedComps()
     .then((n) => n && console.info("[release-check] comps lapsed", n))
@@ -36,6 +34,11 @@ export default async () => {
     background = res.status;
     console.log(`[release-check] enqueued ${due.length} releases + ${news.length} news emails → background ${res.status}`);
   }
+
+  // "This is due today" nudges for the promo plan and the label's own tasks, after release-day work
+  // has been handed off. Claimed per item, so a 15-minute job never repeats one; the deadline stops
+  // it claiming more once time is short, and what's left goes out next run.
+  await notifyDuePromoSteps(new Date(), false, started + 15_000).catch((e) => console.error("[release-check] promo reminders", e));
 
   // Housekeeping last, so release-day work is never the thing a slow sweep pushes past the
   // scheduled function's 30-second limit. The sweeps that loop take a deadline and pick up where

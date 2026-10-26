@@ -55,7 +55,8 @@
     "test:spotifyctx": "tsx --env-file-if-exists=.env scripts/test-spotify-context.ts",
     "test:untrusted": "tsx --env-file-if-exists=.env scripts/test-untrusted-get.ts",
     "test:dataprotection": "tsx --env-file-if-exists=.env scripts/test-data-protection.ts",
-    "test:csp": "tsx --env-file-if-exists=.env scripts/test-csp.ts"
+    "test:csp": "tsx --env-file-if-exists=.env scripts/test-csp.ts",
+    "test:planning": "tsx --env-file-if-exists=.env scripts/test-release-planning.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

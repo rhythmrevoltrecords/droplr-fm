@@ -1,5 +1,6 @@
 import { RestartTourButton } from "@/components/admin/restart-tour";
 import Link from "next/link";
+import { TaskEmailToggle } from "@/components/admin/task-email-toggle";
 import { ChangePasswordForm, SignOutEverywhereButton } from "@/components/admin/account-forms";
 import { PushSettings } from "@/components/admin/push-settings";
 import { prisma } from "@/lib/db";
@@ -10,7 +11,7 @@ import { MIN_PASSWORD } from "@/lib/auth";
 import { CONTACT } from "@/lib/legal";
 import { formatInTz } from "@/lib/time";
 
-type AccountUser = { id: string; pushPrefs?: unknown; email: string; role: string; artistName: string | null; createdAt: Date; termsAcceptedAt: Date | null; organization: { name: string; timezone: string; kind?: string | null } };
+type AccountUser = { id: string; pushPrefs?: unknown; taskEmails?: boolean; email: string; role: string; artistName: string | null; createdAt: Date; termsAcceptedAt: Date | null; organization: { name: string; timezone: string; kind?: string | null } };
 
 /** Shared by /admin/settings/account (label team) and /dashboard/account (artists). */
 export async function AccountPage({ user, back }: { user: AccountUser; back?: { href: string; label: string } }) {
@@ -52,6 +53,11 @@ export async function AccountPage({ user, back }: { user: AccountUser; back?: { 
             devices={devices.map((d) => ({ id: d.id, label: d.label ?? "Browser", endpoint: d.endpoint, added: formatInTz(d.createdAt, tz, { dateStyle: "medium" }), lastSent: d.lastSentAt ? timeAgo(d.lastSentAt) : null }))}
           />
         </CardContent>
+      </Card>
+
+      <Card id="task-emails-card" className="scroll-mt-24">
+        <CardHeader><CardTitle>Task emails</CardTitle><CardDescription>When a step or task on a release plan is assigned to you, droplr emails you on the day it&apos;s due. Steps nobody assigned only notify the app, as before.</CardDescription></CardHeader>
+        <CardContent><TaskEmailToggle initial={user.taskEmails !== false} /></CardContent>
       </Card>
 
       <Card>

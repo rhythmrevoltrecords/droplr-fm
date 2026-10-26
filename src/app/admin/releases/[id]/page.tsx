@@ -15,6 +15,8 @@ import { checkMetadata } from "@/lib/metadata-check";
 import { exclusivityFindings, exclusivitySummary, exclusivityWindowOf } from "@/lib/exclusivity";
 import { ExclusivityFindings } from "@/components/admin/exclusivity-findings";
 import { PromoPlan } from "@/components/admin/promo-plan";
+import { artistLoginOf, clashesFor, planExtras, teamPlanning } from "@/lib/release-tasks-server";
+import { clashSentence } from "@/lib/release-tasks";
 import { AUTOMATIC, AUTOMATIC_DOWNLOAD, promoStepsFor, stepDate } from "@/lib/promo";
 import { busiestHour } from "@/lib/analytics";
 import { zonedDay } from "@/lib/time";
@@ -83,6 +85,9 @@ export default async function ReleaseDetail(
   const url = publicReleaseUrl(release.organization, release.slug, SITE_URL);
   const live = isReleased(release.releaseDate);
 
+  // Two records out the same day, or the same artist twice in a fortnight. A warning, never a block.
+  const clashes = isDownload ? [] : (await clashesFor(user.organizationId, release.organization.timezone, release.releaseDate, 30)).get(release.id) ?? [];
+
   const presaveCounts = await prisma.preSave.groupBy({ by: ["status"], where: { releaseId: release.id }, _count: { _all: true } });
 
   return (
@@ -110,6 +115,16 @@ export default async function ReleaseDetail(
       {searchParams.created && (
         <Card className="border-emerald-500/30 bg-emerald-500/10 p-4 text-sm">
           Release created. Add your Beatport, Traxsource and Bandcamp links below. Variants /ig, /tiktok and /bio are ready on the Variants tab.
+        </Card>
+      )}
+
+      {clashes.length > 0 && (
+        <Card role="status" className="border-amber-500/40 bg-amber-500/[0.08] p-4 text-sm">
+          <p className="font-medium">This release is close to another one.</p>
+          <ul className="mt-1 list-disc space-y-0.5 pl-5 text-muted-foreground">
+            {clashes.slice(0, 4).map((c) => <li key={c.otherId}><Link href={`/admin/releases/${c.otherId}`} className="underline">{clashSentence(c)}</Link></li>)}
+          </ul>
+          <p className="mt-2 text-muted-foreground">They&apos;ll compete for the same fans, playlists and inboxes. Move one in Settings if that isn&apos;t the plan, or check the <Link href="/admin/calendar" className="underline">calendar</Link>.</p>
         </Card>
       )}
 
@@ -206,9 +221,11 @@ export default async function ReleaseDetail(
 
       {tab === "promo" && (async () => {
         const tz = release.organization.timezone;
-        const [doneRows, orgReleases] = await Promise.all([
+        const [doneRows, orgReleases, extras, artistLogin] = await Promise.all([
           prisma.promoTaskDone.findMany({ where: { releaseId: release.id }, select: { key: true } }),
           prisma.release.findMany({ where: { organizationId: user.organizationId }, select: { id: true } }),
+          planExtras(release.id),
+          artistLoginOf(release),
         ]);
         const best = await busiestHour(orgReleases.map((r) => r.id), tz);
         const doneKeys = new Set(doneRows.map((d) => d.key));
@@ -220,12 +237,21 @@ export default async function ReleaseDetail(
             key: s.key, day: s.day, title: s.title, body: s.body,
             href: s.href ?? (s.tab ? `/admin/releases/${release.id}?tab=${s.tab}` : null), external: !!s.href?.startsWith("http"),
             date: formatInTz(d, tz, { weekday: "short", day: "numeric", month: "short" }), overdue: day < today, today: day === today, done: doneKeys.has(s.key),
+            assignee: extras.assigned.get(s.key) ?? null,
           };
         });
+        const tp = teamPlanning(release.organization);
         return (
           <div className="space-y-4">
             {!isDownload && <GuideSlot guide={live ? "after-release" : "checklist"} />}
-            <PromoPlan releaseId={release.id} items={items} automatic={isDownload ? AUTOMATIC_DOWNLOAD : AUTOMATIC} bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null} />
+            <PromoPlan
+              releaseId={release.id}
+              items={items}
+              tasks={extras.tasks.map((t) => ({ id: t.id, day: t.day, title: t.title, note: t.note, assignee: t.assignee, done: !!t.doneAt }))}
+              team={{ label: release.organization.kind !== "artist", can: tp.can, artist: artistLogin ? "login" : null, releaseDay: zonedDay(release.releaseDate, tz), todayDay: today }}
+              automatic={isDownload ? AUTOMATIC_DOWNLOAD : AUTOMATIC}
+              bestTime={best ? `${best.label} (busiest day: ${best.topDay})` : null}
+            />
           </div>
         );
       })()}

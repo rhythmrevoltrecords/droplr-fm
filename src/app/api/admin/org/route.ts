@@ -93,7 +93,16 @@ export async function PATCH(req: NextRequest) {
       }
     : {};
 
-  await prisma.organization.update({
+  // A new timezone moves every release's local day, so reminders already sent are due again on the
+  // new dates. In the same transaction as the change.
+  const tzChanged = d.timezone !== undefined && d.timezone !== user.organization.timezone;
+  const resetReminders = tzChanged
+    ? [
+        prisma.releaseTask.updateMany({ where: { organizationId: user.organizationId, remindedAt: { not: null } }, data: { remindedAt: null } }),
+        prisma.promoStepReminder.deleteMany({ where: { release: { organizationId: user.organizationId } } }),
+      ]
+    : [];
+  await prisma.$transaction([prisma.organization.update({
     where: { id: user.organizationId },
     data: {
       ...slugData,
@@ -115,7 +124,7 @@ export async function PATCH(req: NextRequest) {
       ...(d.emailReplyTo !== undefined && { emailReplyTo: d.emailReplyTo || null }),
       ...(d.releaseEmailHour !== undefined && { releaseEmailHour: d.releaseEmailHour }),
     },
-  });
+  }), ...resetReminders]);
   // The old domain's Netlify alias is released a year from now, not today, so links already shared keep working
   // until then. Retried by the domain cron if Netlify is unavailable when the time comes.
   if (keepsRedirecting) await queueDetach(previousDomain!, new Date(Date.now() + DOMAIN_REDIRECT_DAYS * 86_400_000)).catch(() => {});

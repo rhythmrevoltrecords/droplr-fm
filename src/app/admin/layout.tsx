@@ -65,6 +65,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         // Absent from the array entirely for everyone else, so the console's existence isn't
         // advertised in the RSC payload either.
         ...(isPlatformAdminUser(user) ? [{ href: "/platform", label: "Platform", wide: true }] : []),
+        { href: "/admin/calendar", label: "Calendar", wide: true },
         { href: "/admin/settings/integrations", label: "Integrations", wide: true },
         { href: "/admin/settings/billing", label: "Billing", wide: true },
       ]}

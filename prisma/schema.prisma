@@ -127,6 +127,7 @@ model Organization {
   contestEntries   ContestEntry[]
   consentEvents    ConsentEvent[]
   newsConfirmRequests NewsConfirmRequest[]
+  releaseTasks     ReleaseTask[]
 }
 
 model User {
@@ -155,6 +156,9 @@ model User {
   guidesDismissed String[] @default([]) // keys from lib/guides.ts this login has closed; see the migration for why it's an array
   /** Roster rows on other labels that have been granted read access to this account. */
   linkedRosterRows Artist[] @relation("LinkedRoster")
+  /** Email on the day a task assigned to this login comes due. Off is a per-login choice. */
+  taskEmails      Boolean   @default(true)
+  tasksDone       ReleaseTask[] @relation("TaskDoneBy")
 }
 
 model Invite {
@@ -315,6 +319,8 @@ model Release {
   linkVariants  LinkVariant[]
   promoDone     PromoTaskDone[]
   promoReminders PromoStepReminder[]
+  promoAssigns  PromoStepAssign[]
+  tasks         ReleaseTask[]
   clickEvents   ClickEvent[]
   pageViews     PageView[]
   preSaves      PreSave[]
@@ -756,6 +762,50 @@ model PromoTaskDone {
   doneAt    DateTime @default(now())
 
   @@unique([releaseId, key])
+}
+
+/**
+ * Who a built-in promo step belongs to on one release: "label" (owners and admins), "artist" (the
+ * release's artist login) or "both". No row means both, which is how every step worked before
+ * assignment existed, so nothing changes for a release nobody has assigned. A row also means the
+ * assignee gets an email on the day; unassigned steps only push, as they always did.
+ */
+model PromoStepAssign {
+  id        String   @id @default(cuid())
+  releaseId String
+  release   Release  @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  key       String
+  assignee  String
+  updatedAt DateTime @updatedAt
+
+  @@unique([releaseId, key])
+}
+
+/**
+ * A task the label adds to one release's plan, on top of the built-in promo steps: "master to the
+ * distributor", "artwork signed off". Dated like the steps, as days from release day, so moving
+ * the release moves it. organizationId is the release's, copied so the roster calendar can read
+ * an account's tasks in one indexed query.
+ */
+model ReleaseTask {
+  id             String    @id @default(cuid())
+  releaseId      String
+  release        Release   @relation(fields: [releaseId], references: [id], onDelete: Cascade)
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  title          String
+  note           String?
+  day            Int
+  assignee       String    @default("label") // label | artist | both
+  doneAt         DateTime?
+  doneById       String?
+  doneBy         User?     @relation("TaskDoneBy", fields: [doneById], references: [id], onDelete: SetNull)
+  /** Claimed by the reminder job, so a task is reminded once. Cleared when its date or assignee changes. */
+  remindedAt     DateTime?
+  createdAt      DateTime  @default(now())
+
+  @@index([releaseId])
+  @@index([organizationId])
 }
 
 /** Feedback conversation between one user and the droplr.fm team (platform console). */
