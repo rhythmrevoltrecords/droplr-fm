@@ -55,6 +55,20 @@ async function findOrgByDomain(host: string) {
   return old ? { org: old, moved: true } : null;
 }
 
+/**
+ * For a host an account has moved away from: where it lives now. `moved: false` when the host is
+ * nobody's previous domain. `to` is null when the account has no live domain to point at yet.
+ * Used by robots.txt and the sitemaps, which never reach the page resolver (the middleware skips
+ * .txt and .xml).
+ */
+export async function movedDomain(host: string): Promise<{ moved: false } | { moved: true; to: string | null }> {
+  const h = host.toLowerCase().split(":")[0];
+  if (!h || h.endsWith(".droplr.fm")) return { moved: false };
+  const found = await findOrgByDomain(h).catch(() => null);
+  if (!found?.moved) return { moved: false };
+  return { moved: true, to: linkCustomDomain(found.org) };
+}
+
 const path = (...segs: (string | null | undefined)[]) => "/" + segs.filter(Boolean).map((x) => encodeURIComponent(x!)).join("/");
 
 /**

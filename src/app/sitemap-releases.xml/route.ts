@@ -2,7 +2,7 @@ import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
 import { SITE_URL } from "@/lib/env";
 import { linkCustomDomain } from "@/lib/plans";
-import { publicReleaseUrl } from "@/lib/releases";
+import { movedDomain, publicReleaseUrl } from "@/lib/releases";
 import { robotsAudience } from "@/lib/seo";
 import { xmlSitemap, type SitemapEntry } from "@/lib/sitemap-xml";
 
@@ -31,6 +31,11 @@ export async function GET() {
   const host = (h.get("x-forwarded-host") ?? h.get("host") ?? "").toLowerCase().split(":")[0];
   const audience = robotsAudience(host);
   if (audience === "blocked") return new Response("Not found", { status: 404 });
+  // A domain the account moved away from: send the request to the same sitemap on the new one.
+  if (audience === "tenant") {
+    const m = await movedDomain(host);
+    if (m.moved) return m.to ? Response.redirect(`https://${m.to}/sitemap-releases.xml`, 308) : new Response("Gone", { status: 410 });
+  }
 
   let rows;
   try {
