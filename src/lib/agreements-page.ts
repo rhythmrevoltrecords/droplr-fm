@@ -1,6 +1,6 @@
 import { prisma } from "./db";
 import { dayString } from "./agreements";
-import type { AgreementFormValue } from "@/components/admin/agreement-form";
+import type { AgreementFormValue } from "./agreements";
 
 /** The roster and releases a form can choose from: the account's own, nothing else. */
 export async function formOptions(organizationId: string) {

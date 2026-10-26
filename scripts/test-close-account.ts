@@ -145,5 +145,41 @@ for (const entry of clientFiles) {
     "a client component importing prisma transitively breaks the webpack build; split the pure part out, as account-close.ts / account-close-server.ts does");
 }
 
+// ---- no server file may import a plain value from a client file -----------------------------
+// This crashed production. /admin/agreements/new (a server page) imported EMPTY_AGREEMENT, a plain
+// object, from agreement-form.tsx ("use client"). Across that boundary Next hands a server file a
+// placeholder for anything a client file exports, so the form got no fields and threw on
+// `title.trim()`. Types compile, the build passes, and nothing says a word until the page is
+// opened. Components are fine to import (that's the point of the boundary); values aren't: put
+// them in a lib file both sides can read.
+
+const exportedValues = (file: string) =>
+  new Set([...readFileSync(file, "utf8").matchAll(/export\s+(?:const|let|var|function|class)\s+([A-Za-z_]\w*)/g)].map((m) => m[1]).filter((n) => !/^[A-Z][a-z]/.test(n)));
+const clientValues = new Map(clientFiles.map((f) => [f, exportedValues(f)]));
+const serverFiles: string[] = [];
+const walkAll = (dir: string) => {
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const full = `${dir}/${e.name}`;
+    if (e.isDirectory()) walkAll(full);
+    else if (/\.tsx?$/.test(e.name) && !clientValues.has(full)) serverFiles.push(full);
+  }
+};
+walkAll("src");
+const crossings: string[] = [];
+for (const file of serverFiles) {
+  for (const m of readFileSync(file, "utf8").matchAll(/import\s+\{([^}]*)\}\s+from\s+"@\/([\w./[\]-]+)"/g)) {
+    const target = [".tsx", ".ts"].map((x) => `src/${m[2]}${x}`).find((f) => clientValues.has(f));
+    if (!target) continue;
+    for (const raw of m[1].split(",")) {
+      const name = raw.trim();
+      if (!name || name.startsWith("type ")) continue;
+      const local = name.split(/\s+as\s+/)[0].trim();
+      if (clientValues.get(target)!.has(local)) crossings.push(`${file.replace("src/", "")} imports ${local} from ${target.replace("src/", "")}`);
+    }
+  }
+}
+check("the scan found server files to read", serverFiles.length > 50, `found ${serverFiles.length}`);
+check("no server file imports a plain value from a \"use client\" file", crossings.length === 0, crossings.join("; "));
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

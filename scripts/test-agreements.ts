@@ -142,6 +142,12 @@ async function main() {
     check("the releases it covers can be replaced", (await call(`/api/admin/agreements/${agId}`, { method: "PATCH", body: { releaseIds: [rel2.id] }, as: sOwner })).status === 200 && (await prisma.agreementRelease.findMany({ where: { agreementId: agId } })).map((r) => r.releaseId).join() === rel2.id);
     await call(`/api/admin/agreements/${agId}`, { method: "PATCH", body: { releaseIds: [rel1.id, rel2.id] }, as: sOwner });
 
+    // The new-agreement form crashed on first open in production (a value imported across the
+    // client boundary). These render it, with and without a prefill, and the edit form.
+    for (const path of ["/admin/agreements/new", `/admin/agreements/new?artist=${profile.id}`, `/admin/agreements/new?release=${rel1.id}`, `/admin/agreements/${agId}`]) {
+      const r = await page(path, sOwner);
+      check(`${path.replace(RUN, "<run>").replace(profile.id, "<artist>").replace(rel1.id, "<release>").replace(agId, "<id>")} renders its form`, r.status === 200 && r.text.includes('id="ag-title"') && !r.text.includes("couldn't load") && !r.text.includes("couldn&#x27;t load"), String(r.status));
+    }
     const list = await page("/admin/agreements", sOwner);
     check("the list shows it", list.status === 200 && list.text.includes(`Single deal ${RUN}`));
     check("another label's list doesn't", !(await page("/admin/agreements", sOther)).text.includes(`Single deal ${RUN}`));
