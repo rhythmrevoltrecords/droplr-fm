@@ -126,22 +126,26 @@ for (const bpm of [95, 128, 140, 174, 180]) {
 
 console.log("drawing");
 type Op = { kind: string; text?: string; font?: string; y?: number };
+let lastComps: string[] = [];
 function record(copy: { link: string | null; mark: string | null; tagline?: string }, i: number, steps: TypeStep[], W = 1080, H = 1920, frames = 30 * FPS): Op[] {
   const ops: Op[] = [];
   const state: Record<string, unknown> = { font: "10px sans-serif", fillStyle: "#000", globalAlpha: 1 };
+  const comps: string[] = [];
+  lastComps = comps;
   const ctx = new Proxy(state, {
     get(t, k: string) {
       if (k in t) return t[k];
-      if (k === "measureText") return (s: string) => ({ width: s.length * 50 });
+      // 0.6em a character at whatever size is set, so fitting can be checked.
+      if (k === "measureText") return (s: string) => ({ width: s.length * 0.6 * parseFloat(String(t.font).match(/(\d+(?:\.\d+)?)px/)?.[1] ?? "10") });
       if (k === "fillText") return (text: string, _x: number, y: number) => ops.push({ kind: "text", text, font: String(t.font), y });
       if (k === "canvas") return undefined;
       return () => { ops.push({ kind: k }); };
     },
-    set(t, k: string, v) { t[k] = v; return true; },
+    set(t, k: string, v) { if (k === "globalCompositeOperation") comps.push(String(v)); t[k] = v; return true; },
   }) as unknown as CanvasRenderingContext2D;
   const colours = typePalette("blood", "#8B5CF6");
   drawTypeFrame({
-    ctx, width: W, height: H, progress: 0.5, bands: null, kick: 0.9, art: null, fontFamily: "__App__", logo: null,
+    ctx, width: W, height: H, progress: 0.5, bands: null, kick: 0.9, art: {} as CanvasImageSource, fontFamily: "__App__", logo: null,
     palette: {} as never, copy: { headline: "OUT NOW", tagline: copy.tagline ?? "Ototo — Again", link: copy.link, mark: copy.mark }, stickerGuide: false,
     i, frames, fps: FPS, timeline: steps,
     options: { font: "anton", background: "scratch", glitch: true, colours, endLine: "OUT FRI 30 OCT", fadeIn: 0, fadeOut: 1 },
@@ -167,6 +171,19 @@ function record(copy: { link: string | null; mark: string | null; tagline?: stri
   check("the resting frame shows a word, not an empty frame", resting.some((o) => words.includes(o.text ?? "")));
   const square = record({ link: "x.fm/a", mark: "droplr.fm" }, endFrame, steps, 1080, 1080);
   check("square: draws inside the frame", square.filter((o) => o.kind === "text").every((o) => (o.y ?? 0) < 1080), square.filter((o) => o.kind === "text").map((o) => `${o.text}@${Math.round(o.y ?? 0)}`).join(", "));
+  const long = "music.rhythmrevoltrecords.com/ototo-messitupsingle";
+  const px = (o: Op) => parseFloat(o.font?.match(/(\d+(?:\.\d+)?)px/)?.[1] ?? "0");
+  const endLong = record({ link: long, mark: "droplr.fm" }, endFrame, steps).filter((o) => o.text === long);
+  check("end card: a 50-character link fits inside the pill", endLong.length === 1 && long.length * 0.6 * px(endLong[0]) <= 1080 - 100 - 88, endLong.map((o) => `${px(o)}px`).join(","));
+  const midLong = record({ link: long, mark: "droplr.fm" }, wordStep.start + 3, steps).filter((o) => o.text === long);
+  check("word cuts: the long link fits the frame too", midLong.length === 1 && long.length * 0.6 * px(midLong[0]) <= 1080 - 80, midLong.map((o) => `${px(o)}px`).join(","));
+  const shortEnd = record({ link: "droplr.fm/a", mark: null }, endFrame, steps).filter((o) => o.text === "droplr.fm/a");
+  check("a short link keeps its full size", shortEnd.length === 1 && px(shortEnd[0]) === 38, shortEnd.map((o) => `${px(o)}px`).join(","));
+  const noLogoSteps = typeTimeline({ ...base, hasLogo: false, grid: beatGrid(kicks(128, 4, 30), FPS) });
+  const artStep = noLogoSteps.find((s) => s.kind === "art")!;
+  const artOps = record({ link: "x.fm/a", mark: null }, artStep.start + 5, noLogoSteps);
+  check("the artwork is drawn on its cut", artOps.some((o) => o.kind === "drawImage"));
+  check("…in its own colours: nothing blended over it", lastComps.every((c) => c === "source-over"), lastComps.join(","));
   const demo = demoAnalysis(900, FPS);
   check("the demo beat is a clean 128 for the preview", Math.abs(beatGrid(demo.low, FPS).bpm - 128) <= 0.25);
 }

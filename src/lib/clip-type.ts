@@ -374,6 +374,13 @@ function drawRows(x: CanvasRenderingContext2D, rows: string[], size: number, fam
   rows.forEach((row, k) => x.fillText(row, cx + dx, top + lh * (k + 0.5) + size * 0.34));
 }
 
+/** The biggest size, up to `start`, at which the link fits `maxW`. Never below `floor`. */
+function linkSize(x: CanvasRenderingContext2D, text: string, start: number, maxW: number, floor: number) {
+  x.font = `600 100px ${MONO}`;
+  const at100 = Math.max(1, x.measureText(text).width);
+  return Math.max(Math.round(floor), Math.floor(Math.min(start, (maxW / at100) * 100)));
+}
+
 function drawLoop(x: CanvasRenderingContext2D, W: number, H: number, p: TypePalette, t: number, which: number, kick: number) {
   const cx = W / 2, cy = H / 2;
   const reach = Math.hypot(W, H) * 0.6;
@@ -533,11 +540,9 @@ export function drawTypeFrame(a: TypeArgs) {
         x.save();
         roundRect(x, -side / 2, -side / 2, side, side, 18 * s);
         x.clip();
+        // The artwork in its own colours. It used to be tinted into the palette, and an artist's
+        // cover came out a colour it never was; the cover is the one thing in the clip that isn't ours.
         x.drawImage(art, -side / 2, -side / 2, side, side);
-        // Tinted into the palette: the artwork's light and shade, in the clip's colour.
-        x.globalCompositeOperation = "color";
-        x.fillStyle = bg === p.a ? p.b : p.a;
-        x.fillRect(-side / 2, -side / 2, side, side);
         x.restore();
       }
       x.restore();
@@ -579,10 +584,14 @@ export function drawTypeFrame(a: TypeArgs) {
     if (isEnd) {
       const t = clamp01((local - 0.45) / 0.2);
       x.globalAlpha = t;
-      const size = Math.round((vertical ? 38 : 32) * s);
+      // The link shrinks to fit the pill rather than running off both ends of it: a custom domain
+      // plus a slug is easily 50 characters, and a link you can only half read is no link.
+      const maxW = W - 100 * s;
+      const pad = 44 * s;
+      const size = linkSize(x, copy.link, (vertical ? 38 : 32) * s, maxW - pad * 2, 16 * s);
       x.font = `600 ${size}px ${MONO}`;
-      const w = Math.min(W - 100 * s, x.measureText(copy.link).width + 90 * s);
-      const h = size * 2.4;
+      const w = Math.min(maxW, x.measureText(copy.link).width + pad * 2);
+      const h = Math.max(size * 2.4, 64 * s);
       const top = (vertical ? 1180 * s : H * 0.62) + (1 - easeOutBack((local - 0.45) / 0.3)) * 40 * s;
       roundRect(x, W / 2 - w / 2, top, w, h, h / 2);
       x.fillStyle = ink;
@@ -591,7 +600,7 @@ export function drawTypeFrame(a: TypeArgs) {
       x.fillText(copy.link, W / 2, top + h / 2 + size * 0.36);
     } else {
       x.globalAlpha = 0.85;
-      x.font = `600 ${Math.round((vertical ? 30 : 24) * s)}px ${MONO}`;
+      x.font = `600 ${linkSize(x, copy.link, (vertical ? 30 : 24) * s, W - 80 * s, 14 * s)}px ${MONO}`;
       x.fillStyle = footInk;
       x.fillText(copy.link, W / 2, linkY);
     }
