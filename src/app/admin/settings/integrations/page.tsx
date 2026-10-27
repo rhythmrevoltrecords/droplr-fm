@@ -80,7 +80,7 @@ export default async function IntegrationsPage() {
               <span className="mt-1 block text-xs">Always this address, even if you use your own domain for links — a redirect URI has to match what is registered on the app.</span>
             </li>
             <li>Copy the Client ID and Client Secret into the form below.</li>
-            <li>Build the gate: <strong>Downloads → New</strong>, then add a SoundCloud step. For a <em>follow</em>, point it at your profile URL; for a <em>like</em> or <em>repost</em>, point it at the track.</li>
+            <li>Build the gate: <strong>Downloads → New</strong>, then add a SoundCloud step. Tick what fans do: <em>follow</em> takes your profile link; <em>like</em> and <em>repost</em> take one track or set link (a pack uploaded as a set works). They connect once and droplr does all of it.</li>
           </ol>
 
           <SoundCloudConnectForm status={org.soundcloudAppStatus} username={org.soundcloudUsername} canEdit={user.role === "owner"} />

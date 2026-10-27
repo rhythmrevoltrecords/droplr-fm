@@ -204,22 +204,53 @@ export function isActionSuccess(status: number): boolean {
  * Paths and methods are SoundCloud's current public API: PUT /me/followings/{id} for a follow,
  * POST /likes/tracks/{id} and POST /reposts/tracks/{id} for the other two.
  */
+/**
+ * What a like or repost points at. A pack uploaded to SoundCloud is often a set (a playlist), and
+ * sets have their own addresses (/likes/playlists, /reposts/playlists). Sending a set's id to the
+ * track address likes nothing, or the wrong thing. GateStep.targetId stores "playlist:<id>" for a
+ * set, and a bare number for a track or a user, which is what every row saved before 27 Oct holds.
+ */
+export type ScTarget = { id: number; playlist: boolean };
+
+export function encodeScTarget(id: number, kind: string | undefined): string {
+  return kind === "playlist" ? `playlist:${id}` : String(id);
+}
+
+export function decodeScTarget(raw: string | null | undefined): ScTarget | null {
+  if (!raw) return null;
+  const playlist = raw.startsWith("playlist:");
+  const id = Number(playlist ? raw.slice("playlist:".length) : raw);
+  return Number.isInteger(id) && id > 0 ? { id, playlist } : null;
+}
+
+export function actionPath(action: "follow" | "like" | "repost", t: ScTarget): string {
+  if (action === "follow") return `/me/followings/${t.id}`;
+  const what = t.playlist ? "playlists" : "tracks";
+  return action === "like" ? `/likes/${what}/${t.id}` : `/reposts/${what}/${t.id}`;
+}
+
+/**
+ * SoundCloud caps how many accounts one person can follow. A fan at the cap gets 422 "You have
+ * reached the maximum number of users you can follow", which no retry fixes. Seen ~30 times on
+ * 26-27 Oct on a live gate, each one locking the fan out.
+ */
+export function isFollowCapped(status: number, body: string): boolean {
+  return status === 422 && /maximum number of users you can follow/i.test(body);
+}
+
 export async function performAction(
   token: string,
   action: "follow" | "like" | "repost",
-  targetId: number,
-): Promise<boolean> {
-  const path =
-    action === "follow" ? `/me/followings/${targetId}`
-    : action === "like" ? `/likes/tracks/${targetId}`
-    : `/reposts/tracks/${targetId}`;
+  target: ScTarget,
+): Promise<{ ok: boolean; followCapped: boolean }> {
   const method = action === "follow" ? "PUT" : "POST";
-  const res = await fetch(`${API}${path}`, { method, headers: auth(token) });
-  const ok = isActionSuccess(res.status);
+  const res = await fetch(`${API}${actionPath(action, target)}`, { method, headers: auth(token) });
+  if (isActionSuccess(res.status)) return { ok: true, followCapped: false };
+  const body = (await res.text().catch(() => "")).slice(0, 200);
   // The status is what tells "private track" (404/403) from "already done" (409) from "rate
   // limited" (429). Without it a failed gate step is a guess.
-  if (!ok) console.warn(`SoundCloud ${action} ${targetId} refused: HTTP ${res.status} ${(await res.text().catch(() => "")).slice(0, 200)}`);
-  return ok;
+  console.warn(`SoundCloud ${action} ${target.playlist ? "playlist:" : ""}${target.id} refused: HTTP ${res.status} ${body}`);
+  return { ok: false, followCapped: action === "follow" && isFollowCapped(res.status, body) };
 }
 
 /**

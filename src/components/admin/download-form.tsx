@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
-import { GATE_PLATFORMS, effectiveProof, enforcementNote, repeatsByAction, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, SOUNDCLOUD_ACTION_ORDER, effectiveProof, enforcementNote, soundcloudGroupOf, withSoundcloudGroup, type SoundCloudGroup, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
 import { slugify } from "@/lib/utils";
 
 type Step = { platform: GatePlatform; action: GateAction; target: string; required: boolean };
@@ -39,10 +39,13 @@ const EMPTY: DownloadFormValues = {
 export function DownloadForm({
   initial,
   soundcloudConnected,
+  soundcloudFollow,
   enforcement = "enforced",
 }: {
   initial?: DownloadFormValues;
   soundcloudConnected: boolean;
+  /** Where a new SoundCloud card's follow starts: the artist profile's SoundCloud link, or "" (required, so no caller can forget it). */
+  soundcloudFollow: string;
   /**
    * Whether droplr can still perform a performed step. A label must never be shown a "Verified"
    * badge for a step that is currently completing on a click — that badge is the reason they chose
@@ -69,17 +72,17 @@ export function DownloadForm({
   });
 
   const used = new Set(v.steps.map((s) => s.platform));
-  // SoundCloud can be added once per action (follow, like, repost): the fan connects once and
-  // droplr does all of them. Every other platform is one step each.
-  const scUsed = v.steps.filter((s) => s.platform === "soundcloud").map((s) => s.action);
-  const addable = (Object.keys(GATE_PLATFORMS) as GatePlatform[]).filter((p) =>
-    repeatsByAction(p) ? GATE_PLATFORMS[p].actions.some((a) => !scUsed.includes(a)) : !used.has(p),
-  );
+  // SoundCloud is one card: a profile to follow, one link (track or set) to like and repost, and a
+  // tick for each. Every other platform is one step each.
+  const scGroup = soundcloudGroupOf(v.steps);
+  const addable = (Object.keys(GATE_PLATFORMS) as GatePlatform[]).filter((p) => !used.has(p));
+  const setScGroup = (g: SoundCloudGroup | null) =>
+    set("steps", withSoundcloudGroup(v.steps, g, (action, target) => ({ platform: "soundcloud" as GatePlatform, action, target, required: true })));
 
   function addStep(platform: GatePlatform) {
+    if (platform === "soundcloud") return setScGroup({ follow: soundcloudFollow, item: "", actions: ["follow", "like", "repost"] });
     const spec = GATE_PLATFORMS[platform];
-    const action = repeatsByAction(platform) ? spec.actions.find((a) => !scUsed.includes(a)) ?? spec.actions[0] : spec.actions[0];
-    set("steps", [...v.steps, { platform, action, target: "", required: true }]);
+    set("steps", [...v.steps, { platform, action: spec.actions[0], target: "", required: true }]);
   }
   function patchStep(i: number, patch: Partial<Step>) {
     set("steps", v.steps.map((s, n) => (n === i ? { ...s, ...patch } : s)));
@@ -202,12 +205,23 @@ export function DownloadForm({
 
         <ul className="space-y-3">
           {v.steps.map((s, i) => {
+            if (s.platform === "soundcloud") {
+              if (v.steps.findIndex((x) => x.platform === "soundcloud") !== i || !scGroup) return null;
+              return (
+                <SoundCloudCard
+                  key="soundcloud"
+                  group={scGroup}
+                  onChange={setScGroup}
+                  enforcement={enforcement}
+                  missingKey={!soundcloudConnected && enforcement === "enforced"}
+                />
+              );
+            }
             const spec = GATE_PLATFORMS[s.platform];
             const proof = effectiveProof(s.platform, enforcement);
             const degraded = enforcementNote(s.platform, enforcement);
             // A missing key only matters while the action is actually being performed; once the
             // step is a plain visit there is nothing to connect.
-            const scMissing = s.platform === "soundcloud" && !soundcloudConnected && enforcement === "enforced";
             return (
               <li key={`${s.platform}-${i}`} className="rounded-lg border p-3">
                 <div className="flex flex-wrap items-center gap-2">
@@ -223,10 +237,7 @@ export function DownloadForm({
 
                 {spec.actions.length > 1 && (
                   <Select className="mt-2.5" value={s.action} onChange={(e) => patchStep(i, { action: e.target.value as GateAction })}>
-                    {spec.actions.map((a) => {
-                      const takenElsewhere = repeatsByAction(s.platform) && a !== s.action && scUsed.includes(a);
-                      return <option key={a} value={a} disabled={takenElsewhere}>{a}</option>;
-                    })}
+                    {spec.actions.map((a) => <option key={a} value={a}>{a}</option>)}
                   </Select>
                 )}
                 {spec.needsTarget && (
@@ -234,13 +245,8 @@ export function DownloadForm({
                     className="mt-2.5"
                     value={s.target}
                     onChange={(e) => patchStep(i, { target: e.target.value })}
-                    placeholder={s.platform === "soundcloud" ? (s.action === "follow" ? "https://soundcloud.com/you" : "https://soundcloud.com/you/the-track") : "https://…"}
+                    placeholder="https://…"
                   />
-                )}
-                {scMissing && (
-                  <p className="mt-2 text-xs text-amber-400">
-                    Connect SoundCloud in Settings → Integrations first, or this step won&apos;t show on the page.
-                  </p>
                 )}
               </li>
             );
@@ -252,9 +258,6 @@ export function DownloadForm({
           )}
         </ul>
 
-        {scUsed.length > 1 && enforcement === "enforced" && (
-          <p className="text-xs text-muted-foreground">Fans connect SoundCloud once and droplr does all {scUsed.length} SoundCloud steps together.</p>
-        )}
 
         {addable.length > 0 && v.steps.length < 6 && (
           <div className="flex flex-wrap gap-2">
@@ -285,5 +288,69 @@ export function DownloadForm({
         )}
       </div>
     </div>
+  );
+}
+
+const SC_TICKS: Record<string, string> = { follow: "Follow", like: "Like", repost: "Repost" };
+
+/**
+ * One SoundCloud card. Follow takes a profile; like and repost share one link, a track or a set
+ * (packs are often uploaded as sets). Fans connect SoundCloud once and droplr does everything ticked.
+ */
+function SoundCloudCard({
+  group, onChange, enforcement, missingKey,
+}: {
+  group: SoundCloudGroup;
+  onChange: (g: SoundCloudGroup | null) => void;
+  enforcement: Enforcement;
+  missingKey: boolean;
+}) {
+  const proof = effectiveProof("soundcloud", enforcement);
+  const degraded = enforcementNote("soundcloud", enforcement);
+  const toggle = (a: GateAction) => {
+    const actions = group.actions.includes(a) ? group.actions.filter((x) => x !== a) : [...group.actions, a];
+    onChange(actions.length ? { ...group, actions } : null);
+  };
+  const wantsItem = group.actions.includes("like") || group.actions.includes("repost");
+  return (
+    <li className="rounded-lg border p-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-sm font-medium">SoundCloud</span>
+        {proof === "performed"
+          ? <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-400">Verified</span>
+          : <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-400">Can&apos;t be checked</span>}
+        <button type="button" onClick={() => onChange(null)} className="ml-auto text-muted-foreground hover:text-foreground" aria-label="Remove SoundCloud step">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <p className="mt-1 text-xs text-muted-foreground">
+        {degraded ?? "Fans connect SoundCloud once and droplr does everything you tick, for real."}
+      </p>
+      <div className="mt-2.5 flex flex-wrap gap-x-5 gap-y-2">
+        {SOUNDCLOUD_ACTION_ORDER.map((a) => (
+          <label key={a} className="flex items-center gap-2 text-sm">
+            <input type="checkbox" className="h-4 w-4" checked={group.actions.includes(a)} onChange={() => toggle(a)} />
+            {SC_TICKS[a]}
+          </label>
+        ))}
+      </div>
+      {group.actions.includes("follow") && (
+        <div className="mt-2.5 space-y-1">
+          <span className="text-xs text-muted-foreground">Profile to follow</span>
+          <Input value={group.follow} onChange={(e) => onChange({ ...group, follow: e.target.value })} placeholder="https://soundcloud.com/you" aria-label="SoundCloud profile to follow" />
+        </div>
+      )}
+      {wantsItem && (
+        <div className="mt-2.5 space-y-1">
+          <span className="text-xs text-muted-foreground">Track or set to {group.actions.includes("like") && group.actions.includes("repost") ? "like and repost" : group.actions.includes("like") ? "like" : "repost"} (a pack uploaded as a set works)</span>
+          <Input value={group.item} onChange={(e) => onChange({ ...group, item: e.target.value })} placeholder="https://soundcloud.com/you/the-track or …/sets/the-pack" aria-label="SoundCloud track or set" />
+        </div>
+      )}
+      {missingKey && (
+        <p className="mt-2 text-xs text-amber-400">
+          Connect SoundCloud in Settings → Integrations first, or this step won&apos;t show on the page.
+        </p>
+      )}
+    </li>
   );
 }

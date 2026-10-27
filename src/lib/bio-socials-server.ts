@@ -26,3 +26,14 @@ export async function socialSource(page: { organizationId: string; artistProfile
   });
   return a?.socialLinks ?? null;
 }
+
+/**
+ * The SoundCloud profile a new gate's follow starts from: the artist account's own profile link,
+ * the same one its social icons use. A label account has no single artist, so it gets nothing and
+ * types it. Only https soundcloud.com links count.
+ */
+export async function suggestedSoundcloudFollow(organizationId: string, orgKind: string | null | undefined): Promise<string> {
+  const { readSocialLinks } = await import("./artist-fields");
+  const link = readSocialLinks(await socialSource({ organizationId, artistProfileId: null }, orgKind)).soundcloud ?? "";
+  return /^https:\/\/(www\.)?soundcloud\.com\/[^/?#]+\/?$/i.test(link) ? link : "";
+}

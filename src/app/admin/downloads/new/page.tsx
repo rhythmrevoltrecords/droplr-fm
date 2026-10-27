@@ -1,6 +1,7 @@
 import { requireUser } from "@/lib/auth";
 import { DownloadForm } from "@/components/admin/download-form";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
+import { suggestedSoundcloudFollow } from "@/lib/bio-socials-server";
 import { soundcloudGateEnforcement } from "@/lib/env";
 
 export const dynamic = "force-dynamic";
@@ -9,10 +10,11 @@ export const metadata = { title: "New download" };
 export default async function NewDownloadPage() {
   const user = await requireUser("label");
   const sc = await getSoundCloudCreds(user.organizationId);
+  const scFollow = await suggestedSoundcloudFollow(user.organizationId, user.organization.kind);
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <h1 className="text-2xl font-semibold tracking-tight">New download</h1>
-      <DownloadForm soundcloudConnected={!!sc} enforcement={soundcloudGateEnforcement()} />
+      <DownloadForm soundcloudConnected={!!sc} soundcloudFollow={scFollow} enforcement={soundcloudGateEnforcement()} />
     </div>
   );
 }
