@@ -199,14 +199,49 @@ export function duplicateStepProblem(steps: { platform: string; action: string }
 }
 
 /** "Follow X, like and repost the track on SoundCloud" — one sentence for one connect. */
-export function soundcloudLabel(actions: string[], orgName: string): string {
+export function soundcloudLabel(actions: string[], orgName: string, isSet = false): string {
   const ordered = SOUNDCLOUD_ACTION_ORDER.filter((a) => actions.includes(a));
+  const thing = isSet ? "the set" : "the track";
+  if (ordered.length === 1 && ordered[0] !== "follow") return `${ordered[0] === "like" ? "Like" : "Repost"} ${thing} on SoundCloud`;
   if (ordered.length <= 1) return stepLabel("soundcloud", ordered[0] ?? "follow", orgName);
   const follow = ordered.includes("follow");
   const track = ordered.filter((a) => a !== "follow");
-  const trackPart = track.length ? `${track.join(" and ")} the track` : "";
+  const trackPart = track.length ? `${track.join(" and ")} ${thing}` : "";
   if (!follow) return `${trackPart.charAt(0).toUpperCase()}${trackPart.slice(1)} on SoundCloud`;
   return `Follow ${orgName}${trackPart ? `, ${trackPart}` : ""} on SoundCloud`;
+}
+
+/** A soundcloud.com set link: /user/sets/name. Shape only; the save step asks SoundCloud. */
+export const isSoundcloudSetUrl = (url: string | null | undefined) =>
+  !!url && /^https?:\/\/(www\.)?soundcloud\.com\/[^/]+\/sets\/[^/?#]+/i.test(url.trim());
+
+/**
+ * The builder shows SoundCloud as ONE card: a profile link for the follow, one link for the like
+ * and repost (a track or a set, e.g. a pack), and a tick for each action. Underneath it is still
+ * one GateStep row per tick, so the fan page, the one-connect callback and progress don't change.
+ */
+export type SoundCloudGroup = { follow: string; item: string; actions: GateAction[] };
+
+export function soundcloudGroupOf(steps: { platform: string; action: string; target?: string | null }[]): SoundCloudGroup | null {
+  const sc = steps.filter((s) => s.platform === "soundcloud");
+  if (!sc.length) return null;
+  return {
+    follow: sc.find((s) => s.action === "follow")?.target ?? "",
+    item: sc.find((s) => s.action !== "follow" && s.target)?.target ?? "",
+    actions: SOUNDCLOUD_ACTION_ORDER.filter((a) => sc.some((s) => s.action === a)),
+  };
+}
+
+/** Write the card back: SoundCloud rows replaced where the first one was (or at the end), in order. */
+export function withSoundcloudGroup<T extends { platform: string; action: string; target: string; required: boolean }>(
+  steps: T[], group: SoundCloudGroup | null, make: (action: GateAction, target: string) => T,
+): T[] {
+  const at = steps.findIndex((s) => s.platform === "soundcloud");
+  const rest = steps.filter((s) => s.platform !== "soundcloud");
+  if (!group) return rest;
+  const rows = SOUNDCLOUD_ACTION_ORDER.filter((a) => group.actions.includes(a)).map((a) => make(a, a === "follow" ? group.follow : group.item));
+  const insertAt = at < 0 ? rest.length : steps.slice(0, at).filter((s) => s.platform !== "soundcloud").length;
+  return [...rest.slice(0, insertAt), ...rows, ...rest.slice(insertAt)];
 }
 
 /**

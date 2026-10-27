@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { GATE_PLATFORMS, duplicateStepProblem, isGatePlatform, soundcloudTargetProblem, type GatePlatform } from "@/lib/downloads";
-import { clientCredentialsToken, getSoundCloudCreds, parseSoundCloudUrl, resolveId } from "@/lib/soundcloud";
+import { clientCredentialsToken, encodeScTarget, getSoundCloudCreds, parseSoundCloudUrl, resolveId } from "@/lib/soundcloud";
 import { soundcloudGateEnforcement } from "@/lib/env";
 
 export const stepsSchema = z
@@ -52,8 +52,8 @@ export async function resolveGateSteps(
     if (platform === "soundcloud" && target) {
       const parsed = parseSoundCloudUrl(target);
       if (!parsed) return { error: "That doesn't look like a soundcloud.com link." };
-      if (s.action === "follow" && parsed.isTrack) return { error: "For a follow, use your profile link, not a track." };
-      if (s.action !== "follow" && !parsed.isTrack) return { error: `For a ${s.action}, link the track, not your profile.` };
+      if (s.action === "follow" && parsed.isTrack) return { error: "For the follow, use the profile link (soundcloud.com/name), not a track or set." };
+      if (s.action !== "follow" && !parsed.isTrack) return { error: `For the ${s.action}, link the track or set (a pack), not a profile.` };
 
       // The numeric id is only needed to *perform* the action. While SoundCloud's connection is
       // paused the step is a plain visit, so requiring credentials and a successful resolve would
@@ -71,7 +71,9 @@ export async function resolveGateSteps(
         if (!resolved) return { error: "SoundCloud didn't recognise that link. Check it opens in a browser." };
         const privateProblem = soundcloudTargetProblem(s.action, resolved.sharing);
         if (privateProblem) return { error: privateProblem };
-        targetId = String(resolved.id);
+        // A set (often how a pack is uploaded) is liked and reposted at its own address, so the
+        // kind travels with the id. Tracks and users stay a bare number, as every older row is.
+        targetId = encodeScTarget(resolved.id, resolved.kind);
       }
     }
 

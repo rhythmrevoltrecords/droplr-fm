@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { Card } from "@/components/ui/card";
 import { DownloadForm } from "@/components/admin/download-form";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
+import { suggestedSoundcloudFollow } from "@/lib/bio-socials-server";
 import { GATE_PLATFORMS, isGatePlatform, type GateAction, type GatePlatform } from "@/lib/downloads";
 import { publicReleaseUrl } from "@/lib/releases";
 import { SITE_URL, soundcloudGateEnforcement } from "@/lib/env";
@@ -22,6 +23,7 @@ export default async function EditDownloadPage(props: { params: Promise<{ id: st
   if (!r) notFound();
 
   const sc = await getSoundCloudCreds(user.organizationId);
+  const scFollow = await suggestedSoundcloudFollow(user.organizationId, user.organization.kind);
   const url = publicReleaseUrl(user.organization, r.slug, SITE_URL);
 
   // Per-step drop-off: how many people got as far as each step. The number nobody else gives an
@@ -70,6 +72,7 @@ export default async function EditDownloadPage(props: { params: Promise<{ id: st
 
       <DownloadForm
         soundcloudConnected={!!sc}
+        soundcloudFollow={scFollow}
         enforcement={soundcloudGateEnforcement()}
         initial={{
           id: r.id,

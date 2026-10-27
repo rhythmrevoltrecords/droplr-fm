@@ -1,5 +1,5 @@
 import { SITE_URL } from "@/lib/env";
-import { GATE_PLATFORMS, effectiveProof, fanRows, isGatePlatform, soundcloudLabel, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, effectiveProof, fanRows, isGatePlatform, isSoundcloudSetUrl, soundcloudLabel, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
 import type { PageLook } from "@/lib/page-look";
 import { lookShell } from "./page-look-shell";
@@ -38,6 +38,7 @@ const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
   email: { tone: "ok", text: "Thanks — that's your email step done." },
   soundcloud: { tone: "ok", text: "Done on SoundCloud." },
   "soundcloud-cancelled": { tone: "warn", text: "You cancelled on SoundCloud, so that step isn't done yet." },
+  "soundcloud-follow-capped": { tone: "warn", text: "Done on SoundCloud, except the follow: your account already follows as many people as SoundCloud allows. Unfollow someone on SoundCloud if you want to follow too." },
   "soundcloud-failed": { tone: "warn", text: "SoundCloud didn't complete that. Try again, or use another step if there is one." },
   "soundcloud-unavailable": { tone: "warn", text: "The SoundCloud step isn't available right now." },
   error: { tone: "warn", text: "Something went wrong. Please try again." },
@@ -81,6 +82,8 @@ export function GateView({
   const notice = NOTICES[query.done ?? query.notice ?? ""];
   // One row per thing the fan does: SoundCloud's follow, like and repost are one connect.
   const shown = fanRows(steps.filter((s) => s.available), enforcement);
+  // "the set" rather than "the track" when the like or repost is on a set, which is how packs go up.
+  const scIsSet = steps.some((s) => s.platform === "soundcloud" && s.action !== "follow" && isSoundcloudSetUrl(s.target));
   const left = shown.filter((s) => s.required && !s.done).length;
 
   const look = lookShell(release.look, theme, release.org.publicGlow !== false, release.org.glowColor);
@@ -135,7 +138,7 @@ export function GateView({
           <ul className="space-y-2.5">
             {shown.map((s) => (
               <li key={s.id}>
-                <GateStepRow step={s} release={release} accent={accent} demo={demo} query={query} enforcement={enforcement} />
+                <GateStepRow step={s} release={release} accent={accent} demo={demo} query={query} enforcement={enforcement} scIsSet={scIsSet} />
               </li>
             ))}
           </ul>
@@ -165,13 +168,14 @@ function ProofNote({ proof }: { proof: Proof }) {
 }
 
 function GateStepRow({
-  step, release, accent, demo, query, enforcement,
+  step, release, accent, demo, query, enforcement, scIsSet = false,
 }: {
   step: GateStepView & { actions: string[] }; release: GateViewData; accent: string; demo?: boolean; query: Record<string, string | undefined>;
   enforcement: Enforcement;
+  scIsSet?: boolean;
 }) {
-  const label = step.platform === "soundcloud" && step.actions.length > 1
-    ? soundcloudLabel(step.actions, release.artistName)
+  const label = step.platform === "soundcloud"
+    ? soundcloudLabel(step.actions, release.artistName, scIsSet)
     : stepLabel(step.platform, step.action, release.artistName);
   // The proof this step can offer *now*, not the one its platform claims. When SoundCloud's
   // connection is paused the note under the step has to say "on trust" like any other visit,

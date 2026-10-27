@@ -18,9 +18,9 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
-import { DOWNLOAD_HIDDEN_TABS as GATE_HIDDEN, downloadUrlProblem, duplicateStepProblem, soundcloudTargetProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
+import { DOWNLOAD_HIDDEN_TABS as GATE_HIDDEN, downloadUrlProblem, duplicateStepProblem, isSoundcloudSetUrl, soundcloudGroupOf, withSoundcloudGroup, soundcloudTargetProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
 import { planOf } from "../src/lib/plans";
-import { clientCredentialsRequest, codeChallenge, codeExchangeBody, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
+import { actionPath, performAction, decodeScTarget, encodeScTarget, isFollowCapped, clientCredentialsRequest, codeChallenge, codeExchangeBody, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
 
 for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_URL_UNPOOLED"]) {
   const raw = process.env[name];
@@ -87,9 +87,12 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   // The methods and paths SoundCloud documents today. A silent drift here looks like "the gate
   // is broken" and nothing in the app would say why.
   const sc = readFileSync(join(import.meta.dirname, "..", "src/lib/soundcloud.ts"), "utf8");
-  if (!/\/me\/followings\/\$\{targetId\}/.test(sc)) fail("follow must use /me/followings/{id}");
-  if (!/\/likes\/tracks\/\$\{targetId\}/.test(sc)) fail("like must use /likes/tracks/{id}");
-  if (!/\/reposts\/tracks\/\$\{targetId\}/.test(sc)) fail("repost must use /reposts/tracks/{id}");
+  // Behaviour, not source text: the addresses SoundCloud documents, for tracks AND sets (packs).
+  const tr = { id: 5, playlist: false }, st = { id: 5, playlist: true };
+  if (actionPath("follow", tr) !== "/me/followings/5") fail("follow must use /me/followings/{id}");
+  if (actionPath("like", tr) !== "/likes/tracks/5" || actionPath("repost", tr) !== "/reposts/tracks/5") fail("a track is liked and reposted at /likes/tracks and /reposts/tracks");
+  if (actionPath("like", st) !== "/likes/playlists/5" || actionPath("repost", st) !== "/reposts/playlists/5") fail("a set (a pack) is liked and reposted at /likes/playlists and /reposts/playlists, not the track address");
+  if (!/fetch\(`\$\{API\}\$\{actionPath\(action, target\)\}`/.test(sc)) fail("performAction must call the address actionPath gives");
   if (!/action === "follow" \? "PUT" : "POST"/.test(sc)) fail("follow is a PUT; like and repost are POSTs");
   console.log("  \u2713 performed steps pass only when SoundCloud says the action holds");
 }
@@ -173,6 +176,36 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (soundcloudTargetProblem("follow", "private") !== null) fail("a follow targets a profile, which has no sharing setting");
   const stepsSrc = readFileSync(join(import.meta.dirname, "..", "src/app/api/admin/downloads/steps.ts"), "utf8");
   if (!/const privateProblem = soundcloudTargetProblem\(s\.action, resolved\.sharing\);\s*if \(privateProblem\) return \{ error: privateProblem \};/.test(stepsSrc)) fail("saving a gate must check the resolved track's sharing");
+
+  // 27 Oct: packs are uploaded as sets; the card keeps the follow on a profile and the like/repost on one link.
+  if (encodeScTarget(77, "playlist") !== "playlist:77" || encodeScTarget(77, "track") !== "77" || encodeScTarget(77, "user") !== "77") fail("a set's id carries its kind; tracks and users stay a bare number");
+  const d1 = decodeScTarget("playlist:77"), d2 = decodeScTarget("77");
+  if (!d1?.playlist || d1.id !== 77 || d2?.playlist !== false || d2.id !== 77) fail("targetId must decode back, and a bare number (every row saved before) is a track or user");
+  if (decodeScTarget("playlist:abc") || decodeScTarget("") || decodeScTarget(null) || decodeScTarget("-3")) fail("anything else is no target, never a guess");
+  if (!isFollowCapped(422, '{"code":422,"message":"You have reached the maximum number of users you can follow. To follow a new user, unfollow"}')) fail("SoundCloud's follow-limit answer must be recognised");
+  if (isFollowCapped(422, '{"message":"something else"}') || isFollowCapped(429, "maximum number of users you can follow")) fail("only that answer, with that status, is the follow limit");
+  if (!isSoundcloudSetUrl("https://soundcloud.com/a/sets/pack") || isSoundcloudSetUrl("https://soundcloud.com/a/track")) fail("set links are told apart from tracks");
+  if (soundcloudLabel(["follow", "like", "repost"], "N", true) !== "Follow N, like and repost the set on SoundCloud") fail("a set says the set");
+  if (soundcloudLabel(["like"], "N", true) !== "Like the set on SoundCloud") fail("a single like on a set says the set");
+  const mk = (action: string, target: string) => ({ platform: "soundcloud", action, target, required: true });
+  const em = { platform: "email", action: "email", target: "", required: true };
+  const ig = { platform: "instagram", action: "follow", target: "https://instagram.com/a", required: true };
+  const P = "https://soundcloud.com/nathan", S = "https://soundcloud.com/rrr/sets/pack";
+  const g = soundcloudGroupOf([em, mk("follow", P), mk("repost", S), ig]);
+  if (!g || g.follow !== P || g.item !== S || g.actions.join() !== "follow,repost") fail(`the card must read the follow profile and the like/repost link separately, got ${JSON.stringify(g)}`);
+  const w = withSoundcloudGroup([em, mk("follow", "x"), ig], { follow: P, item: S, actions: ["repost", "follow", "like"] }, mk as never) as { platform: string; action: string; target: string }[];
+  if (w.map((r) => r.platform + ":" + r.action).join() !== "email:email,soundcloud:follow,soundcloud:like,soundcloud:repost,instagram:follow") fail(`the card writes its rows where SoundCloud was, in order: ${w.map((r) => r.action).join()}`);
+  if (w[1].target !== P || w[2].target !== S || w[3].target !== S) fail("the follow row gets the profile; like and repost get the track or set");
+  if (withSoundcloudGroup([em, mk("like", S)], null, mk as never).some((r) => r.platform === "soundcloud")) fail("removing the card removes SoundCloud");
+  if (withSoundcloudGroup([em, ig], { follow: P, item: "", actions: ["follow"] }, mk as never)[2]?.platform !== "soundcloud") fail("a new card goes at the end");
+
+  const stepsSrc3 = readFileSync(join(import.meta.dirname, "..", "src/app/api/admin/downloads/steps.ts"), "utf8");
+  if (!/targetId = encodeScTarget\(resolved\.id, resolved\.kind\)/.test(stepsSrc3)) fail("saving must keep a set's kind with its id");
+  const cbSrc3 = readFileSync(join(import.meta.dirname, "..", "src/app/api/gate/soundcloud/callback/route.ts"), "utf8");
+  if (!/const target = decodeScTarget\(s\.targetId\);/.test(cbSrc3)) fail("the callback must decode the target, so a set goes to the set address");
+  if (!/if \(r\.followCapped\) \{ followCapped = true; continue; \}/.test(cbSrc3)) fail("a fan at SoundCloud's follow limit must still get the like and repost, not a locked gate");
+  if (!/if \(!r\.ok\) return fail\("soundcloud-failed"/.test(cbSrc3)) fail("any other refusal must still fail the step");
+  if (!/withParam\(back, "done", followCapped \? "soundcloud-follow-capped" : "soundcloud"\)/.test(cbSrc3)) fail("the fan must be told the follow didn't happen and why");
   console.log("  \u2713 SoundCloud follow, like and repost are one connect");
 }
 
@@ -221,6 +254,27 @@ async function org(tag: string, plan: string) {
 }
 
 async function main() {
+  const failNow = (msg: string) => { console.error(`  \u2717 ${msg}`); process.exit(1); };
+  // performAction against SoundCloud's real follow-limit answer (copied from the 26 Oct log), with
+  // the network stubbed: the follow reports the cap, a like with the same answer doesn't, and a
+  // 2xx is plain success. Runs first in main(), before any request, because it swaps the global fetch.
+  {
+    const realFetch = globalThis.fetch;
+    const capBody = '{"code":422,"message":"You have reached the maximum number of users you can follow. To follow a new user, unfollow"}';
+    const seen: string[] = [];
+    globalThis.fetch = (async (url: string | URL) => { seen.push(String(url)); return new Response(capBody, { status: 422 }); }) as typeof fetch;
+    const origWarn = console.warn; console.warn = () => {};
+    const f = await performAction("t", "follow", { id: 9, playlist: false });
+    const l = await performAction("t", "like", { id: 9, playlist: true });
+    globalThis.fetch = (async () => new Response("{}", { status: 201 })) as typeof fetch;
+    const okR = await performAction("t", "repost", { id: 9, playlist: true });
+    globalThis.fetch = realFetch; console.warn = origWarn;
+    if (!(f.ok === false && f.followCapped === true)) failNow("a follow refused for the follow limit must report it");
+    if (l.followCapped) failNow("only a follow can be capped");
+    if (!seen[1]?.endsWith("/likes/playlists/9")) failNow(`a like on a set must go to the set address, went to ${seen[1]}`);
+    if (!(okR.ok && !okR.followCapped)) failNow("a 2xx is plain success");
+  }
+  console.log("  \u2713 a fan at SoundCloud's follow limit is reported, and sets go to the set address");
   const A = await org("a", "artist_pro");
   const B = await org("b", "artist_pro");
   const F = await org("f", "free");

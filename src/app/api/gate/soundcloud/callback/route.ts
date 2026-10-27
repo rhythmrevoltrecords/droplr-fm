@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { completeStep } from "@/lib/downloads";
-import { exchangeCode, getSoundCloudCreds, performAction, soundcloudRedirectUri } from "@/lib/soundcloud";
+import { decodeScTarget, exchangeCode, getSoundCloudCreds, performAction, soundcloudRedirectUri } from "@/lib/soundcloud";
 import { SOUNDCLOUD_ACTION_ORDER } from "@/lib/gate-steps";
 import { safeReturnUrl, unpackState, withParam } from "@/lib/oauth";
 import { SITE_URL } from "@/lib/env";
@@ -74,13 +74,17 @@ export async function GET(req: NextRequest) {
   });
   const order = (a: string) => { const i = SOUNDCLOUD_ACTION_ORDER.indexOf(a as never); return i < 0 ? 99 : i; };
   scSteps.sort((a, b) => order(a.action) - order(b.action));
+  // A fan whose account already follows SoundCloud's maximum can't be made to follow anyone, and
+  // no retry changes that. droplr still does the like and repost, opens the gate, and tells them
+  // why the follow didn't happen, instead of locking them out over their own account's limit.
+  let followCapped = false;
   for (const s of scSteps) {
-    const targetId = Number(s.targetId);
-    if (!Number.isFinite(targetId) || targetId <= 0) {
-      return fail("soundcloud-failed", `${s.action} step has no resolved id; re-save the gate`);
-    }
+    const target = decodeScTarget(s.targetId);
+    if (!target) return fail("soundcloud-failed", `${s.action} step has no resolved id; re-save the gate`);
     const action = s.action === "like" || s.action === "repost" ? s.action : "follow";
-    if (!(await performAction(token, action, targetId))) return fail("soundcloud-failed", `${action} refused, see the line above`);
+    const r = await performAction(token, action, target);
+    if (r.followCapped) { followCapped = true; continue; }
+    if (!r.ok) return fail("soundcloud-failed", `${action} refused, see the line above`);
   }
 
   const meta = requestMeta(req.headers);
@@ -92,5 +96,6 @@ export async function GET(req: NextRequest) {
     timezone: meta.timezone,
   });
 
-  return NextResponse.redirect(withParam(back, "done", "soundcloud"), 302);
+  if (followCapped) console.warn("SoundCloud gate callback: follow skipped, the fan's account is at SoundCloud's follow limit; the rest was done");
+  return NextResponse.redirect(withParam(back, "done", followCapped ? "soundcloud-follow-capped" : "soundcloud"), 302);
 }
