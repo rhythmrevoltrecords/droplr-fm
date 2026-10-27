@@ -1,5 +1,6 @@
 import { isValidTimeZone } from "./time";
 import { hashIp } from "./crypto";
+import { hostOf, sourceFromAndroidApp, sourceFromHost } from "./referrer-source";
 
 export const ANON_COOKIE = "dfm_anon";
 export const SRC_COOKIE = "dfm_src";
@@ -76,13 +77,9 @@ export function resolveSource(opts: { variantSource?: string | null; utmSource?:
   if (opts.utmSource) return capText(opts.utmSource)!;
   const host = referrerHost(opts.referrer ?? null);
   if (host && !(opts.selfHosts ?? []).some((h) => host === h)) {
-    if (/instagram/.test(host)) return "instagram";
-    if (/tiktok/.test(host)) return "tiktok";
-    if (/facebook|fb\./.test(host)) return "facebook";
-    if (/t\.co|twitter|x\.com/.test(host)) return "x";
-    if (/youtube/.test(host)) return "youtube";
-    if (/google/.test(host)) return "google";
-    return host;
+    // Whole host labels, not substrings: /t\.co/ used to read every reddit.com visit as X.
+    const named = hostOf(opts.referrer ?? null);
+    return named ? sourceFromHost(named) : sourceFromAndroidApp(opts.referrer) ?? host;
   }
   return "direct";
 }

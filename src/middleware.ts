@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { jwtVerify } from "jose";
 import { isPlatformHost, platformSubdomain, SITE_URL } from "./lib/env";
 import { crossOriginWrite } from "./lib/origin-check";
+import { captureSignupSource, SIGNUP_SOURCE_COOKIE, SIGNUP_SOURCE_DAYS } from "./lib/signup-source";
 
 const ANON_COOKIE = "dfm_anon";
 // Whole path segments only, so a release slug like "iconic-dubplate" or "logo-riddim" still reaches the tenant rewrite.
@@ -55,7 +56,16 @@ export async function middleware(req: NextRequest) {
 
   // 2) Platform marketing / app / static requests: no cookie, no header rewrite.
   const tenant = !isPlatformHost(host) || !!platformSubdomain(host);
-  if (!tenant && PLATFORM_NO_VISITOR_ID.test(url.pathname)) return NextResponse.next();
+  if (!tenant && PLATFORM_NO_VISITOR_ID.test(url.pathname)) {
+    const res = NextResponse.next();
+    // Where a future sign-up came from: first tagged link or outside site only (lib/signup-source).
+    // Not for someone already logged in: they can't sign up, so it would never be used.
+    if (req.method === "GET" && !req.cookies.has(SIGNUP_SOURCE_COOKIE) && !req.cookies.has("dfm_session")) {
+      const from = captureSignupSource({ url, referer: req.headers.get("referer"), selfHost: host });
+      if (from) res.cookies.set(SIGNUP_SOURCE_COOKIE, from, { httpOnly: true, sameSite: "lax", secure: url.protocol === "https:", path: "/", maxAge: SIGNUP_SOURCE_DAYS * 86400 });
+    }
+    return res;
+  }
 
   // 3) Anonymous visitor id — links view → click → pre-save
   let anonId = req.cookies.get(ANON_COOKIE)?.value;

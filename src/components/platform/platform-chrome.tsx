@@ -3,8 +3,8 @@ import { Logo } from "@/components/marketing/logo";
 import { prisma } from "@/lib/db";
 import { cn } from "@/lib/utils";
 
-/** Owner console chrome: Accounts / Numbers / Access / Feedback (unread count) / Referrals / Emails. */
-export async function PlatformChrome({ email, active, children }: { email: string; active: "accounts" | "stats" | "access" | "feedback" | "referrals" | "emails"; children: React.ReactNode }) {
+/** Owner console chrome: Accounts / Numbers / Sign-ups / Access / Feedback (unread count) / Referrals / Emails. */
+export async function PlatformChrome({ email, active, children }: { email: string; active: "accounts" | "stats" | "sources" | "access" | "feedback" | "referrals" | "emails"; children: React.ReactNode }) {
   const [unread, toApply] = await Promise.all([
     prisma.feedbackThread.count({ where: { unreadByTeam: true } }),
     prisma.referral.count({ where: { status: "earned", note: { not: null } } }),
@@ -12,6 +12,7 @@ export async function PlatformChrome({ email, active, children }: { email: strin
   const tabs = [
     { key: "accounts", href: "/platform", label: "Accounts", count: 0 },
     { key: "stats", href: "/platform/stats", label: "Numbers", count: 0 },
+    { key: "sources", href: "/platform/sources", label: "Sign-ups", count: 0 },
     { key: "access", href: "/platform/access", label: "Access", count: 0 },
     { key: "feedback", href: "/platform/feedback", label: "Feedback", count: unread },
     { key: "referrals", href: "/platform/referrals", label: "Referrals", count: toApply },

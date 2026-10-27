@@ -11,6 +11,7 @@ import { RESERVED_SLUGS, slugify } from "@/lib/utils";
 import { redirectTo } from "@/lib/redirect";
 import { attachReferral, REFERRAL_COOKIE } from "@/lib/referrals";
 import { claimInvite, findUsableInvite } from "@/lib/signup-invites";
+import { readSignupSource, SIGNUP_SOURCE_COOKIE } from "@/lib/signup-source";
 
 export async function POST(req: NextRequest) {
   const form = await req.formData();
@@ -67,6 +68,10 @@ export async function POST(req: NextRequest) {
     });
   // Refer a friend: the code from droplr.fm/join/{code} (cookie). Rewards only count once this account pays.
   if (await attachReferral(org.id, req.cookies.get(REFERRAL_COOKIE)?.value)) console.info("[referral] signup", { org: org.id });
+  // Where they came from, if a tagged link or an outside site brought them (lib/signup-source).
+  // Best effort: a failure here must never cost someone their account.
+  const from = readSignupSource(req.cookies.get(SIGNUP_SOURCE_COOKIE)?.value);
+  if (from) await prisma.signupSource.create({ data: { organizationId: org.id, ...from } }).catch((e) => console.warn("[signup-source]", e instanceof Error ? e.message : e));
   await sendVerificationEmail(org.users[0]);
   // Signups are public, so this is both the first-customer alert and the first sight of anything
   // odd. Deliberately not awaited into the response path any harder than this: a notification
@@ -78,5 +83,6 @@ export async function POST(req: NextRequest) {
   // paid plan on the way in finds Upgrade waiting for them once they're through.
   const res = redirectTo("/verify-email");
   res.cookies.delete(REFERRAL_COOKIE);
+  res.cookies.delete(SIGNUP_SOURCE_COOKIE);
   return res;
 }

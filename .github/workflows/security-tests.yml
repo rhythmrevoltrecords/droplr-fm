@@ -116,6 +116,9 @@ jobs:
       - name: Beta features stay off until switched on
         run: npx tsx scripts/test-beta.ts
 
+      - name: Where sign-ups came from, and referrer names
+        run: npx tsx scripts/test-signup-source.ts
+
       - name: Complimentary plans
         run: npx tsx scripts/test-comp.ts
 

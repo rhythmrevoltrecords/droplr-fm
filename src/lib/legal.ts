@@ -108,6 +108,7 @@ export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }
       "You confirm you have the right to reproduce and publish the lyrics you save. The words are a separate right from the recording, and on a cover, a remix or a track you didn't write they may not be yours.",
       "We never fetch lyrics from a lyrics service or anyone else, and nothing pre-fills them. What's stored is the words, when each line starts, and the length of the track you timed them to. The track itself still never leaves your computer.",
       "Because lyrics are stored on your release, we can clear them if we're told they infringe someone's rights. We still can't take down a clip you've already posted.",
+      "If a tagged link or another website brought you to droplr.fm in the 30 days before you signed up, the account records that: the link's tags, the other site's name (never the full address), the page you landed on and when. A new cookie, dfm_from, holds it until you sign up. It's never set on an artist's or label's page.",
     ],
   },
   {
