@@ -247,7 +247,7 @@ export function ShellFooter({ showBranding, orgName }: { showBranding: boolean; 
   return (
     <div className="space-y-2">
       {showBranding ? (
-        <a href="https://droplr.fm" className="inline-flex items-center gap-1.5 hover:text-white/80">
+        <a href="https://droplr.fm/?utm_source=powered_by&utm_medium=fan_page" className="inline-flex items-center gap-1.5 hover:text-white/80">
           <Image src="/logo/icon.png" alt="" width={16} height={16} className="shell-logo h-4 w-4 opacity-60 brightness-0 invert" />
           Powered by droplr.fm
         </a>

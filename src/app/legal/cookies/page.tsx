@@ -21,7 +21,7 @@ export default function CookiePolicyPage() {
   return (
     <LegalShell slug="cookies" toc={toc} contact="privacy">
       <Section {...s("what")}>
-        <p>Cookies are small text files a website stores in your browser. We use a small number of our own cookies to keep you logged in and to count visits and clicks on label pages. We don&apos;t use cookies to show you ads, and there are no advertising cookies on the droplr.fm marketing site.</p>
+        <p>Cookies are small text files a website stores in your browser. We use a small number of our own cookies to keep you logged in, to count visits and clicks on label pages, and to remember which link brought you to droplr.fm before you sign up. We don&apos;t use cookies to show you ads, and there are no advertising cookies on the droplr.fm marketing site.</p>
       </Section>
 
       <Section {...s("ours")}>
@@ -33,6 +33,7 @@ export default function CookiePolicyPage() {
               <tr><td><code>dfm_anon</code></td><td>A random ID set when you first open a label&apos;s release, bio or link page (not on droplr.fm&apos;s own marketing or account pages). It connects a page view to a later click or pre-save, so the label can see which visits turned into pre-saves. It doesn&apos;t contain your name, email or IP address, and isn&apos;t shared with other sites.</td><td>Analytics (first-party)</td><td>1 year</td></tr>
               <tr><td><code>dfm_ref</code></td><td>Set only if you arrive through someone&apos;s referral link (droplr.fm/join/…). It remembers who referred you, so they get their free month if you sign up and stay paid.</td><td>Functional (first-party)</td><td>30 days</td></tr>
               <tr><td><code>dfm_src</code></td><td>Remembers which campaign link (for example an Instagram-specific link) brought you to a release, so the label can see which campaign worked.</td><td>Analytics (first-party)</td><td>30 days</td></tr>
+              <tr><td><code>dfm_from</code></td><td>Set on droplr.fm&apos;s own pages (never an artist&apos;s or label&apos;s page) only when you arrive through a tagged link or from another website. It remembers that link&apos;s tags, the other site&apos;s name, the page you landed on and when, so that if you sign up we know which of our posts or ads brought you. The first one is kept, later visits don&apos;t change it, and it&apos;s deleted when you sign up.</td><td>Analytics (first-party)</td><td>30 days</td></tr>
             </tbody>
           </table>
         </div>

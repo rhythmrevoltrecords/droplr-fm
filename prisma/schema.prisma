@@ -127,6 +127,8 @@ model Organization {
   espConnections   EspConnection[]
   referralsMade    Referral[] @relation("ReferralReferrer")
   referredBy       Referral?  @relation("ReferralReferred")
+  /** How this account found droplr.fm, when that was known (lib/signup-source). No row = direct or unknown. */
+  signupSource     SignupSource?
   newsEmails       NewsEmail[]
   fanContacts      FanContact[]
   contests         Contest[]
@@ -1579,4 +1581,23 @@ model SplitSendLog {
   createdAt      DateTime @default(now())
 
   @@index([organizationId, createdAt])
+}
+
+/**
+ * Where an account came from, copied from the dfm_from cookie at sign-up (lib/signup-source). One
+ * row per account at most, and none when nothing was known. Holds tags and a host, nothing about
+ * the person; deleted with the account.
+ */
+model SignupSource {
+  organizationId String       @id
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  source         String? // utm_source, cleaned
+  medium         String? // utm_medium
+  campaign       String? // utm_campaign
+  referrerHost   String? // "reddit.com": the host only, never the full address
+  landingPath    String
+  firstSeenAt    DateTime
+  createdAt      DateTime     @default(now())
+
+  @@index([source])
 }
