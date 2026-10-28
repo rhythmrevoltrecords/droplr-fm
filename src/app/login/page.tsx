@@ -1,3 +1,4 @@
+import { CONTACT } from "@/lib/legal";
 import Link from "next/link";
 import { AuthShell } from "@/components/marketing/auth-shell";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,8 @@ export default async function LoginPage(props: { searchParams: Promise<{ error?:
         {searchParams.verify === "invalid" && <p className="text-sm text-red-400">That confirmation link is invalid, used or expired. Log in and press Resend link.</p>}
         {searchParams.error === "locked" ? (
           <p className="text-sm text-red-400">Too many failed attempts. Wait 15 minutes, or <Link href="/forgot-password" className="underline">reset your password</Link>.</p>
+        ) : searchParams.error === "suspended" ? (
+          <p className="text-sm text-red-400">This account is suspended. Email <a href={`mailto:${CONTACT.support}`} className="underline">{CONTACT.support}</a> if you think that&apos;s a mistake.</p>
         ) : searchParams.error ? (
           <p className="text-sm text-red-400">Wrong email or password.</p>
         ) : null}

@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { movedDomain } from "@/lib/releases";
 import { bioPublicUrl } from "@/lib/bio";
 import { prisma } from "@/lib/db";
+import { HAS_PUBLIC_MUSIC, NOT_SUSPENDED } from "@/lib/account-standing";
 import { linkCustomDomain } from "@/lib/plans";
 import { robotsAudience } from "@/lib/seo";
 import { xmlSitemap, type SitemapEntry } from "@/lib/sitemap-xml";
@@ -38,7 +39,8 @@ export async function GET() {
   let rows;
   try {
     rows = await prisma.bioPage.findMany({
-      where: { isPublic: true },
+      // Not suspended, and no music, no index (lib/account-standing).
+      where: { isPublic: true, organization: { ...NOT_SUSPENDED, ...HAS_PUBLIC_MUSIC } },
       orderBy: { createdAt: "desc" },
       take: LIMIT,
       select: {

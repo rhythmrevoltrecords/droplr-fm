@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { progressFor, remaining, signUnlock, verifyUnlock } from "@/lib/downloads";
 import { ANON_COOKIE, isBot, requestMeta } from "@/lib/tracking";
 
@@ -22,9 +23,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ releaseId: 
   const { releaseId } = await ctx.params;
   const release = await prisma.release.findUnique({
     where: { id: releaseId },
-    select: { id: true, kind: true, isPublic: true, downloadUrl: true, gateSteps: true },
+    select: { id: true, kind: true, isPublic: true, downloadUrl: true, gateSteps: true, organization: { select: { suspendedAt: true } } },
   });
-  if (!release || release.kind !== "download" || !release.isPublic || !release.downloadUrl) {
+  if (!release || release.kind !== "download" || !release.isPublic || !release.downloadUrl || isSuspended(release.organization)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

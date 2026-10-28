@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     where: { id: stepId },
     include: { release: { include: { organization: true } } },
   });
-  if (!step || step.platform !== "soundcloud" || step.release.kind !== "download" || !step.release.isPublic) {
+  if (!step || step.platform !== "soundcloud" || step.release.kind !== "download" || !step.release.isPublic || step.release.organization.suspendedAt) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

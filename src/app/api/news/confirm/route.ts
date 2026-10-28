@@ -17,7 +17,7 @@ const expired = () => prefsPage(`<h1>Link expired</h1><p>This confirmation link 
 async function load(t: string | null) {
   const tok = await verifyToken<{ e: string; org: string }>(t, "confirm");
   if (!tok || typeof tok.e !== "string" || typeof tok.org !== "string") return null;
-  const org = await prisma.organization.findUnique({ where: { id: tok.org }, select: { id: true, name: true } });
+  const org = await prisma.organization.findFirst({ where: { id: tok.org, suspendedAt: null }, select: { id: true, name: true } });
   return org ? { email: tok.e, org } : null;
 }
 

@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { completeStep, effectiveProof } from "@/lib/downloads";
 import { soundcloudGateEnforcement } from "@/lib/env";
 import { ANON_COOKIE, isBot, requestMeta } from "@/lib/tracking";
@@ -29,9 +30,9 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ stepId: str
   const { stepId } = await ctx.params;
   const step = await prisma.gateStep.findUnique({
     where: { id: stepId },
-    include: { release: { select: { id: true, isPublic: true, kind: true } } },
+    include: { release: { select: { id: true, isPublic: true, kind: true, organization: { select: { suspendedAt: true } } } } },
   });
-  if (!step || step.release.kind !== "download" || !step.release.isPublic) {
+  if (!step || step.release.kind !== "download" || !step.release.isPublic || isSuspended(step.release.organization)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
   if (effectiveProof(step.platform, soundcloudGateEnforcement()) !== "unverified") {

@@ -4,6 +4,7 @@ import { isOwnImage } from "./bio-items";
 import { SITE_URL } from "./env";
 import { GALLERY_LIMIT, galleryBlurb, galleryEligible } from "./bio-gallery";
 import { prisma } from "./db";
+import { HAS_PUBLIC_MUSIC, NOT_SUSPENDED } from "./account-standing";
 import { internalSlugs } from "./platform-stats";
 
 export type GalleryCard = { url: string; title: string; blurb: string | null; imageUrl: string; accentColor: string | null };
@@ -16,7 +17,8 @@ export type GalleryCard = { url: string; title: string; blurb: string | null; im
 export const galleryPages = cache(async function galleryPages(): Promise<GalleryCard[]> {
   const internal = internalSlugs();
   const rows = await prisma.bioPage.findMany({
-    where: { gallery: "on", isPublic: true, links: { some: { isActive: true, section: null } } },
+    // Not suspended, and no music, no gallery (lib/account-standing): it is droplr's shop window.
+    where: { gallery: "on", isPublic: true, links: { some: { isActive: true, section: null } }, organization: { ...NOT_SUSPENDED, ...HAS_PUBLIC_MUSIC } },
     orderBy: [{ galleryAt: "desc" }, { createdAt: "desc" }],
     // Over-fetch so dropping internal accounts can't leave the page short.
     take: GALLERY_LIMIT + 20,

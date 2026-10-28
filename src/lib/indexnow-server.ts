@@ -5,6 +5,7 @@ import { INDEXNOW_ENDPOINT, indexNowBatches, validIndexNowKey } from "./indexnow
 import { publicReleaseUrl } from "./release-url";
 import { bioPublicUrl } from "./bio";
 import { seoIndexable } from "./seo";
+import { HAS_PUBLIC_MUSIC } from "./account-standing";
 
 /**
  * Send changed public URLs to IndexNow. Never throws and never blocks a response: callers run it
@@ -37,7 +38,7 @@ export async function pingIndexNow(urls: (string | null | undefined)[]): Promise
   }
 }
 
-const orgFields = { slug: true, customDomain: true, plan: true, planUpdatedAt: true, customDomainLiveAt: true } as const;
+const orgFields = { slug: true, customDomain: true, plan: true, planUpdatedAt: true, customDomainLiveAt: true, suspendedAt: true } as const;
 
 /**
  * The address to announce for a release: only when it is one search engines are already told about
@@ -52,17 +53,23 @@ const orgFields = { slug: true, customDomain: true, plan: true, planUpdatedAt: t
 export async function releaseAddress(id: string): Promise<string | null> {
   try {
     const r = await prisma.release.findUnique({ where: { id }, select: { slug: true, isPublic: true, status: true, organization: { select: orgFields } } });
-    return r && r.isPublic && r.status === "live" ? publicReleaseUrl(r.organization, r.slug, SITE_URL) : null;
+    return r && r.isPublic && r.status === "live" && !r.organization.suspendedAt ? publicReleaseUrl(r.organization, r.slug, SITE_URL) : null;
   } catch {
     return null;
   }
 }
 
-/** Same rule for a bio page, which has no release day: public is listed (see /sitemap-bio.xml). */
+/**
+ * Same rule for a bio page, which has no release day: listed in /sitemap-bio.xml means public, on an
+ * account that isn't suspended and has at least one public release (lib/account-standing).
+ */
 export async function bioAddress(id: string): Promise<string | null> {
   try {
-    const p = await prisma.bioPage.findUnique({ where: { id }, select: { slug: true, isPublic: true, organization: { select: orgFields } } });
-    return p && p.isPublic ? bioPublicUrl(p.organization, p.slug) : null;
+    const p = await prisma.bioPage.findUnique({
+      where: { id },
+      select: { slug: true, isPublic: true, organization: { select: { ...orgFields, _count: { select: { releases: { where: HAS_PUBLIC_MUSIC.releases.some } } } } } },
+    });
+    return p && p.isPublic && !p.organization.suspendedAt && p.organization._count.releases > 0 ? bioPublicUrl(p.organization, p.slug) : null;
   } catch {
     return null;
   }

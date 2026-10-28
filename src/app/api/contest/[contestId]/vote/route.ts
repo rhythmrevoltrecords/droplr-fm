@@ -51,9 +51,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ contestId:
     select: {
       id: true, published: true, opensAt: true, closesAt: true, winnerAnnouncedAt: true,
       release: { select: { isPublic: true } },
+      organization: { select: { suspendedAt: true } },
     },
   });
-  if (!contest || !contest.release.isPublic) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!contest || !contest.release.isPublic || contest.organization.suspendedAt) return NextResponse.json({ error: "Not found" }, { status: 404 });
   if (!galleryVisible(contest)) {
     return NextResponse.json({ error: "Voting opens when entries close." }, { status: 409 });
   }

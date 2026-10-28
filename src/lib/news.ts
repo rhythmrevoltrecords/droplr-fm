@@ -423,6 +423,8 @@ export async function findDueNewsEmails() {
   const now = new Date();
   return prisma.newsEmail.findMany({
     where: {
+      // A suspended account's news waits, still scheduled, and goes when it's lifted (lib/account-standing).
+      organization: { suspendedAt: null },
       OR: [
         { status: "scheduled", scheduledFor: null },
         { status: "scheduled", sendMode: "instant", scheduledFor: { lte: now } },

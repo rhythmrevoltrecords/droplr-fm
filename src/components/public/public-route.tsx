@@ -6,6 +6,7 @@ import { deezerGloballyEnabled, soundcloudGateEnforcement } from "@/lib/env";
 import { labelDuplicateLinks } from "@/lib/link-labels";
 import { planOf } from "@/lib/plans";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
+import { HAS_PUBLIC_MUSIC } from "@/lib/account-standing";
 import { publicReleaseUrl, type Resolution } from "@/lib/releases";
 import { SITE_URL } from "@/lib/env";
 import { releaseJsonLd } from "@/lib/structured-data";
@@ -265,7 +266,10 @@ export async function releaseMetadata(resolution: Resolution) {
   if (resolution.kind === "org") {
     // Set images explicitly so label pages (often on the label's own domain) don't inherit droplr.fm's homepage social card.
     const images = resolution.org.logoUrl ? [resolution.org.logoUrl] : [];
-    return { title: resolution.org.name, openGraph: { title: resolution.org.name, images }, twitter: { card: "summary" as const, title: resolution.org.name, images } };
+    // No music, no index (lib/account-standing): an account with no public release is a page of
+    // nothing but its name, and a free one to park for search engines.
+    const music = await prisma.release.count({ where: { organizationId: resolution.org.id, ...HAS_PUBLIC_MUSIC.releases.some } });
+    return { title: resolution.org.name, ...(music === 0 ? { robots: { index: false, follow: false } } : {}), openGraph: { title: resolution.org.name, images }, twitter: { card: "summary" as const, title: resolution.org.name, images } };
   }
   const r = resolution.release;
   const live = isReleased(r.releaseDate);

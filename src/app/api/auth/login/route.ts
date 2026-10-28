@@ -36,10 +36,12 @@ export async function POST(req: NextRequest) {
   const e = await hit(eKey, 200, 60 * 60 * 1000);
   if (!e.ok) return fail("locked");
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  const user = await prisma.user.findUnique({ where: { email }, include: { organization: { select: { suspendedAt: true } } } });
   // Unknown email still pays for a bcrypt compare so response time doesn't reveal which accounts exist.
   const valid = await verifyPassword(password, user?.passwordHash ?? DUMMY_HASH);
   if (!user || !valid) return fail("1");
+  // Only after the password matched, so this never tells a stranger an address has an account.
+  if (user.organization?.suspendedAt) return fail("suspended");
   await forget([e.id, ei.id, i.id]);
   await clear(eiKey);
   await createSessionCookie(user);

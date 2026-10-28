@@ -13,6 +13,7 @@ import { merchDisplayOf, visibleItems } from "@/lib/bio-items";
 import { bioSocials, showSocials, socialHref } from "@/lib/bio-socials";
 import { socialSource } from "@/lib/bio-socials-server";
 import { NOT_FOUND_TITLE } from "@/lib/seo";
+import { HAS_PUBLIC_MUSIC, isSuspended } from "@/lib/account-standing";
 import { planOf } from "@/lib/plans";
 import { ANON_COOKIE, requestMeta, resolveSource } from "@/lib/tracking";
 import { labelDuplicateLinks } from "@/lib/link-labels";
@@ -24,9 +25,13 @@ import { JsonLd } from "@/components/seo/json-ld";
 export const loadBio = cache(async function loadBio(slug: string, host?: string) {
   const page = await prisma.bioPage.findUnique({
     where: { slug: decodeURIComponent(slug).toLowerCase() },
-    include: { organization: true, links: { where: { isActive: true }, orderBy: { order: "asc" } } },
+    include: {
+      // The count is how bioMetadata applies "no music, no index" (lib/account-standing).
+      organization: { include: { _count: { select: { releases: { where: HAS_PUBLIC_MUSIC.releases.some } } } } },
+      links: { where: { isActive: true }, orderBy: { order: "asc" } },
+    },
   });
-  if (!page || !page.isPublic) return null;
+  if (!page || !page.isPublic || isSuspended(page.organization)) return null;
   if (host) {
     const h = host.toLowerCase().split(":")[0];
     const sub = h.match(/^([a-z0-9-]+)\.droplr\.fm$/)?.[1];
@@ -52,6 +57,8 @@ export function bioMetadata(page: Awaited<ReturnType<typeof loadBio>>): Metadata
      * own name. bioPublicUrl already decides which one is the real one.
      */
     alternates: { canonical: bioPublicUrl(page.organization, page.slug) },
+    // No music, no index: the page still works for anyone with the link (lib/account-standing).
+    ...(page.organization._count.releases === 0 ? { robots: { index: false, follow: false } } : {}),
     openGraph: { title: page.title, description, images: [{ url: page.imageUrl }] },
     twitter: { card: "summary", title: page.title, description, images: [page.imageUrl] },
   };

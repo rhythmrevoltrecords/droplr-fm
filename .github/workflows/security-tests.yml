@@ -119,6 +119,9 @@ jobs:
       - name: Where sign-ups came from, and referrer names
         run: npx tsx scripts/test-signup-source.ts
 
+      - name: Suspending an account, and no music no index
+        run: npx tsx scripts/test-suspend.ts
+
       - name: Complimentary plans
         run: npx tsx scripts/test-comp.ts
 

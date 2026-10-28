@@ -30,6 +30,11 @@ model Organization {
   /// Accounts that already had a domain when the gate landed were marked automatically, so nothing existing broke.
   domainsAllowedAt       DateTime?
   domainsAllowedBy       String?
+  /// Suspended from /platform (lib/account-standing). Every public page, link and gate of the
+  /// account answers 404 and its logins are signed out; nothing is deleted, and lifting it restores all of it.
+  suspendedAt            DateTime?
+  suspendedBy            String?
+  suspendReason          String?
   metaPixelId   String?
   tiktokPixelId String?
   ga4Id         String?

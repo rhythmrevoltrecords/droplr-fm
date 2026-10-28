@@ -235,8 +235,9 @@ console.log("5. IndexNow");
   check("off unless indexable and keyed", /if \(!key \|\| !seoIndexable\(\)\) return;/.test(server));
   check("a send can't hang a request", /AbortSignal\.timeout\(5000\)/.test(server) && /catch \(e\)/.test(server));
   check("addresses come from the canonical builders, not a copy", /publicReleaseUrl\(r\.organization, r\.slug, SITE_URL\)/.test(server) && /bioPublicUrl\(p\.organization, p\.slug\)/.test(server));
-  check("a release is only announced when public AND live (the sitemap's own rule)", /r && r\.isPublic && r\.status === "live" \? publicReleaseUrl/.test(server) && /where: \{ isPublic: true, status: "live" \}/.test(src("src/app/sitemap-releases.xml/route.ts")));
-  check("a bio page only when public", /p && p\.isPublic \? bioPublicUrl/.test(server));
+  check("a release is only announced when public AND live (the sitemap's own rule)", /r && r\.isPublic && r\.status === "live" && !r\.organization\.suspendedAt \? publicReleaseUrl/.test(server) && /where: \{ isPublic: true, status: "live", organization: NOT_SUSPENDED \}/.test(src("src/app/sitemap-releases.xml/route.ts")));
+  // The behaviour (no music, suspended) is exercised for real in test-suspend.ts.
+  check("a bio page only when public, not suspended and with music (the bio sitemap's own rule)", /p && p\.isPublic && !p\.organization\.suspendedAt && p\.organization\._count\.releases > 0 \? bioPublicUrl/.test(server));
   check("a lookup failure is null, never a throw (the release-day job awaits it)", (server.match(/catch \{\s*return null;\s*\}/g) ?? []).length === 2);
   for (const f of ["src/app/api/admin/releases/[id]/route.ts", "src/app/api/admin/bio/[id]/route.ts", "src/app/api/admin/downloads/[id]/route.ts"]) {
     const t = src(f);

@@ -40,6 +40,7 @@ export default function AcceptableUsePage() {
           <li>Link to malware, phishing pages, scams or fake login pages.</li>
           <li>Use smart links, bio pages or redirects to disguise where a link really goes, or to get around another platform&apos;s link or safety rules.</li>
           <li>Link to pirated or unlicensed copies of music.</li>
+          <li>Use a bio page, label page or any other droplr.fm page to advertise a business or service that has nothing to do with music, or to build links for search rankings. droplr.fm is for artists and labels promoting their music.</li>
         </ul>
       </Section>
 

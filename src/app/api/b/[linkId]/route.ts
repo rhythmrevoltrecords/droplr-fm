@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { capText, requestMeta, resolveSource, ANON_COOKIE } from "@/lib/tracking";
 import { requestOrigin } from "@/lib/oauth";
 
@@ -22,9 +23,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ linkId: s
   const params = await props.params;
   const link = await prisma.bioLink.findUnique({
     where: { id: params.linkId },
-    include: { bioPage: { select: { id: true, isPublic: true } } },
+    include: { bioPage: { select: { id: true, isPublic: true, organization: { select: { suspendedAt: true } } } } },
   });
-  if (!link || !link.isActive || !link.bioPage.isPublic || !/^https?:\/\//i.test(link.url)) {
+  if (!link || !link.isActive || !link.bioPage.isPublic || isSuspended(link.bioPage.organization) || !/^https?:\/\//i.test(link.url)) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
