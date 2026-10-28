@@ -81,6 +81,8 @@ export const getCurrentUser = cache(async function getCurrentUser() {
   ]);
   if (revoked) return null; // logged out on this device
   if (!user || !user.organizationId || !user.organization) return null;
+  // Suspended from /platform: every login of the account is signed out until it's lifted.
+  if (user.organization.suspendedAt) return null;
   // Revoked by a password change/reset or "sign out everywhere".
   if (user.sessionsValidFrom && (typeof s.iat !== "number" || s.iat * 1000 < user.sessionsValidFrom.getTime())) return null;
   return user as typeof user & { organization: NonNullable<typeof user.organization> };

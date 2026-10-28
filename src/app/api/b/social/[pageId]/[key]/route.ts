@@ -3,6 +3,7 @@ import { socialSource } from "@/lib/bio-socials-server";
 import { iconPlatform, showSocials, socialTarget } from "@/lib/bio-socials";
 import type { SocialKey } from "@/lib/artist-fields";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { requestOrigin } from "@/lib/oauth";
 import { ANON_COOKIE, capText, requestMeta, resolveSource } from "@/lib/tracking";
 
@@ -20,9 +21,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ pageId: s
   const { pageId, key } = await props.params;
   const page = await prisma.bioPage.findUnique({
     where: { id: pageId },
-    select: { id: true, isPublic: true, socialIcons: true, organizationId: true, artistProfileId: true, organization: { select: { kind: true } } },
+    select: { id: true, isPublic: true, socialIcons: true, organizationId: true, artistProfileId: true, organization: { select: { kind: true, suspendedAt: true } } },
   });
-  if (!page || !page.isPublic || !showSocials(page)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!page || !page.isPublic || isSuspended(page.organization) || !showSocials(page)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const target = socialTarget(await socialSource(page, page.organization.kind), key);
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

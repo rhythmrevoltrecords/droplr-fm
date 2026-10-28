@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { requestNewsConfirmation } from "@/lib/news-confirm";
 import { isOptedOut } from "@/lib/fan-consent";
 import { SITE_URL } from "@/lib/env";
@@ -24,7 +25,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const releaseId = String(form.get("releaseId") ?? "");
   const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { organization: true } });
-  if (!release || release.kind !== "download") return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!release || release.kind !== "download" || isSuspended(release.organization)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const pageUrl = await safeReturnUrl(
     releasePageUrl(req, release.organization, release.slug),

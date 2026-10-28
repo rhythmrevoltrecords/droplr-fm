@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { SITE_URL } from "@/lib/env";
 import { packState, releasePageUrl, safeReturnUrl, spotifyRedirectUri, withParam } from "@/lib/oauth";
 import { getSpotifyCreds, spotifyAuthorizeUrl } from "@/lib/spotify";
@@ -11,7 +12,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const releaseId = req.nextUrl.searchParams.get("releaseId") ?? "";
   const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { organization: true } });
-  if (!release) return NextResponse.json({ error: "Release not found" }, { status: 404 });
+  if (!release || isSuspended(release.organization)) return NextResponse.json({ error: "Release not found" }, { status: 404 });
   // Built from the Host header: fall back to the platform URL if that isn't one of our hosts.
   const pageUrl = await safeReturnUrl(releasePageUrl(req, release.organization, release.slug), `${SITE_URL}/${release.organization.slug}/${release.slug}`);
 

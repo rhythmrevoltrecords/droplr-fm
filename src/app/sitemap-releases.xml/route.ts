@@ -1,5 +1,6 @@
 import { headers } from "next/headers";
 import { prisma } from "@/lib/db";
+import { NOT_SUSPENDED } from "@/lib/account-standing";
 import { SITE_URL } from "@/lib/env";
 import { linkCustomDomain } from "@/lib/plans";
 import { movedDomain, publicReleaseUrl } from "@/lib/releases";
@@ -40,7 +41,7 @@ export async function GET() {
   let rows;
   try {
     rows = await prisma.release.findMany({
-      where: { isPublic: true, status: "live" },
+      where: { isPublic: true, status: "live", organization: NOT_SUSPENDED },
       orderBy: { releaseDate: "desc" },
       take: LIMIT,
       select: {

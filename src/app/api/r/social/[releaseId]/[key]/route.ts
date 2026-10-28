@@ -1,6 +1,7 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import type { SocialKey } from "@/lib/artist-fields";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { requestOrigin } from "@/lib/oauth";
 import { iconPlatform, showSocials, socialTarget } from "@/lib/bio-socials";
 import { socialSource } from "@/lib/bio-socials-server";
@@ -20,9 +21,9 @@ export async function GET(req: NextRequest, props: { params: Promise<{ releaseId
   const { releaseId, key } = await props.params;
   const release = await prisma.release.findUnique({
     where: { id: releaseId },
-    select: { id: true, kind: true, isPublic: true, socialIcons: true, organizationId: true, artistProfileId: true, organization: { select: { kind: true } } },
+    select: { id: true, kind: true, isPublic: true, socialIcons: true, organizationId: true, artistProfileId: true, organization: { select: { kind: true, suspendedAt: true } } },
   });
-  if (!release || !release.isPublic || (release.kind !== "release" && release.kind !== "download") || !showSocials(release)) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!release || !release.isPublic || isSuspended(release.organization) || (release.kind !== "release" && release.kind !== "download") || !showSocials(release)) return NextResponse.json({ error: "Not found" }, { status: 404 });
   const target = socialTarget(await socialSource(release, release.organization.kind), key);
   if (!target) return NextResponse.json({ error: "Not found" }, { status: 404 });
 

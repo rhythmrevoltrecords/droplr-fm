@@ -2,6 +2,7 @@ import { FAN_EMAIL_CONSENT_VERSION } from "@/lib/legal";
 import { after, NextResponse, type NextRequest } from "next/server";
 import { notifyPresaveMilestone } from "@/lib/push";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { requestNewsConfirmation } from "@/lib/news-confirm";
 import { isOptedOut } from "@/lib/fan-consent";
 import { SITE_URL } from "@/lib/env";
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData();
   const releaseId = String(form.get("releaseId") ?? "");
   const release = await prisma.release.findUnique({ where: { id: releaseId }, include: { organization: true } });
-  if (!release) return NextResponse.json({ error: "Release not found" }, { status: 404 });
+  if (!release || isSuspended(release.organization)) return NextResponse.json({ error: "Release not found" }, { status: 404 });
 
   const variantId = String(form.get("variantId") ?? "") || req.cookies.get(SRC_COOKIE)?.value || null;
   const variant = variantId ? await prisma.linkVariant.findFirst({ where: { id: variantId, releaseId } }) : null;

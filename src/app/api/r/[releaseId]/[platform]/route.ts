@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { verifyLegacyToken, verifyToken } from "@/lib/crypto";
 import { deezerGloballyEnabled, SITE_URL } from "@/lib/env";
 import { deezerAuthorizeUrl } from "@/lib/deezer";
@@ -35,7 +36,7 @@ async function handle(req: NextRequest, params: { releaseId: string; platform: s
     where: { id: params.releaseId },
     include: { organization: true, links: { where: { visible: true }, orderBy: { position: "asc" } } },
   });
-  if (!release) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!release || isSuspended(release.organization)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const variantId = q.get("variant") || q.get("variantId") || null;
   const variant = variantId ? await prisma.linkVariant.findFirst({ where: { id: variantId, releaseId: release.id } }) : null;

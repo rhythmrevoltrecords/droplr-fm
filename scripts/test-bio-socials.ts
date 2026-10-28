@@ -58,7 +58,7 @@ check("picking an artist previews that artist's icons", socialsFor([a1, a2], "la
 
 const route = code(read("src/app/api/b/social/[pageId]/[key]/route.ts"));
 check("the redirect never reads a destination from the request", !/searchParams\.get\("(url|to|next|redirect)"\)/.test(route) && /NextResponse\.redirect\(target, 302\)/.test(route));
-check("the redirect 404s unless the page is public and the row is on", /!page \|\| !page\.isPublic \|\| !showSocials\(page\)/.test(route));
+check("the redirect 404s unless the page is public and the row is on", /!page \|\| !page\.isPublic \|\| isSuspended\(page\.organization\) \|\| !showSocials\(page\)/.test(route));
 check("the redirect looks the address up on the page's own profile", /socialTarget\(await socialSource\(page, page\.organization\.kind\), key\)/.test(route));
 check("the redirect stores the prefixed platform and no link id", /platform: iconPlatform\(/.test(route) && !/bioLinkId:/.test(route));
 const server = code(read("src/lib/bio-socials-server.ts"));
@@ -81,7 +81,7 @@ check("an existing page keeps what it had", /socialIcons: page\.socialIcons \?\?
 check("a release icon goes through the release's own counted route", releaseSocialHref("r1", "tiktok") === "/api/r/social/r1/tiktok");
 const rroute = code(read("src/app/api/r/social/[releaseId]/[key]/route.ts"));
 check("the release redirect never reads a destination from the request", !/searchParams\.get\("(url|to|next|redirect)"\)/.test(rroute) && /NextResponse\.redirect\(target, 302\)/.test(rroute));
-check("…404s unless public, a release or download page, and switched on", /!release \|\| !release\.isPublic \|\| \(release\.kind !== "release" && release\.kind !== "download"\) \|\| !showSocials\(release\)/.test(rroute));
+check("…404s unless public, a release or download page, and switched on", /!release \|\| !release\.isPublic \|\| isSuspended\(release\.organization\) \|\| \(release\.kind !== "release" && release\.kind !== "download"\) \|\| !showSocials\(release\)/.test(rroute));
 check("…looks the address up on the release's own profile", /socialTarget\(await socialSource\(release, release\.organization\.kind\), key\)/.test(rroute));
 check("…and stores the prefixed platform with the release, no link id", /releaseId: release\.id/.test(rroute) && /platform: iconPlatform\(/.test(rroute) && !/linkId:/.test(rroute));
 const rview = read("src/components/public/release-view.tsx");

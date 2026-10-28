@@ -1,5 +1,6 @@
 import { after, NextResponse, type NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { isSuspended } from "@/lib/account-standing";
 import { bioPublicUrl } from "@/lib/bio";
 import {
   BIO_CONSENT_SOURCE,
@@ -31,7 +32,7 @@ export async function POST(req: NextRequest) {
   const form = await req.formData().catch(() => null);
   const pageId = String(form?.get("bioPageId") ?? "");
   const page = await prisma.bioPage.findUnique({ where: { id: pageId }, include: { organization: true } });
-  if (!page) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  if (!page || isSuspended(page.organization)) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
   const { origin } = requestOrigin(req);
   const pageUrl = await safeReturnUrl(`${origin}/b/${page.slug}`, bioPublicUrl(page.organization, page.slug));

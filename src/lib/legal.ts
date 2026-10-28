@@ -14,8 +14,8 @@ export const LEGAL = {
   address: "PO Box 109, Zillmere QLD 4034, Australia",
   state: "Queensland",
   /** Bump when a document changes materially; stored on User.termsVersion at signup. */
-  version: "2026-10-27",
-  updated: "27 October 2026",
+  version: "2026-10-28",
+  updated: "28 October 2026",
   /** Kept for existing imports: the general contact address. */
   email: "hello@droplr.fm",
 } as const;
@@ -100,6 +100,14 @@ export const CONTEST_DECLARATION_V1_TEXT =
  * so people see the actual changes rather than "the terms changed". Add an entry whenever LEGAL.version moves.
  */
 export const LEGAL_UPDATES: { version: string; date: string; summary: string[] }[] = [
+  {
+    version: "2026-10-28",
+    date: "28 October 2026",
+    summary: [
+      "The Acceptable Use Policy now says plainly that droplr.fm pages are for music: you can't use a bio page, label page or any other page to advertise a business or service unrelated to music, or to build links for search rankings.",
+      "Until an account has at least one public release, its bio page and label page still work for anyone with the link but ask search engines not to list them, and stay out of the sitemaps and the bio page gallery. Publishing a release changes that automatically.",
+    ],
+  },
   {
     version: "2026-10-27",
     date: "27 October 2026",

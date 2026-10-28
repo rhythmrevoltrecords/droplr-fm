@@ -75,10 +75,10 @@ export async function reportByToken(token: string) {
       releaseDate: true,
       slug: true,
       reportSharedAt: true,
-      organization: { select: { name: true, slug: true, logoUrl: true, timezone: true, accentColor: true, plan: true, customDomain: true, customDomainLiveAt: true, planUpdatedAt: true } },
+      organization: { select: { name: true, slug: true, logoUrl: true, timezone: true, accentColor: true, plan: true, customDomain: true, customDomainLiveAt: true, planUpdatedAt: true, suspendedAt: true } },
     },
   });
-  if (!release) return null;
+  if (!release || release.organization.suspendedAt) return null;
 
   // 365 days so a report of an older release still reads sensibly; the page shows the window.
   const stats = await getStats([release.id], 365, release.organization.timezone);

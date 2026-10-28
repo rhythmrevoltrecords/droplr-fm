@@ -2,6 +2,7 @@ import { cache } from "react";
 import { prisma } from "./db";
 import { SITE_URL } from "./env";
 import { activeCustomDomain, linkCustomDomain } from "./plans";
+import { isSuspended } from "./account-standing";
 
 const include = {
   organization: true,
@@ -22,7 +23,7 @@ export type PublicRelease = NonNullable<Awaited<ReturnType<typeof loadBySlug>>>;
 
 async function loadBySlug(slug: string, organizationId?: string) {
   const r = await prisma.release.findUnique({ where: { slug }, include });
-  if (!r || !r.isPublic) return null;
+  if (!r || !r.isPublic || isSuspended(r.organization)) return null;
   if (organizationId && r.organizationId !== organizationId) return null;
   return r;
 }
@@ -40,18 +41,19 @@ export type Resolution =
   | null;
 
 /** Org by current slug, or by a slug it used before (renamed labels keep old links alive). */
+// A suspended account answers like one that doesn't exist (lib/account-standing).
 async function findOrgBySlug(slug: string) {
   const current = await prisma.organization.findUnique({ where: { slug } });
-  if (current) return { org: current, renamed: false };
-  const old = await prisma.organization.findFirst({ where: { previousSlugs: { has: slug } } });
+  if (current) return isSuspended(current) ? null : { org: current, renamed: false };
+  const old = await prisma.organization.findFirst({ where: { previousSlugs: { has: slug }, suspendedAt: null } });
   return old ? { org: old, renamed: true } : null;
 }
 
 /** Org by current custom domain, or by one it used to be on (a renamed domain keeps redirecting). */
 async function findOrgByDomain(host: string) {
   const current = await prisma.organization.findUnique({ where: { customDomain: host } });
-  if (current) return { org: current, moved: false };
-  const old = await prisma.organization.findFirst({ where: { previousDomains: { has: host } } });
+  if (current) return isSuspended(current) ? null : { org: current, moved: false };
+  const old = await prisma.organization.findFirst({ where: { previousDomains: { has: host }, suspendedAt: null } });
   return old ? { org: old, moved: true } : null;
 }
 

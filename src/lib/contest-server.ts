@@ -76,10 +76,10 @@ export async function enterContest(input: EnterInput, now = new Date()): Promise
       id: true, organizationId: true, published: true, opensAt: true, closesAt: true,
       winnerAnnouncedAt: true, maxPerEntrant: true, headline: true,
       release: { select: { id: true, title: true, artistName: true, slug: true, accentColor: true, isPublic: true } },
-      organization: { select: { name: true, slug: true, accentColor: true, customDomain: true, plan: true, planUpdatedAt: true, customDomainLiveAt: true } },
+      organization: { select: { name: true, slug: true, accentColor: true, customDomain: true, plan: true, planUpdatedAt: true, customDomainLiveAt: true, suspendedAt: true } },
     },
   });
-  if (!contest || !contest.release.isPublic) return { ok: false, status: 404, error: "Not found" };
+  if (!contest || !contest.release.isPublic || contest.organization.suspendedAt) return { ok: false, status: 404, error: "Not found" };
   if (!acceptingEntries(contest, now)) {
     return { ok: false, status: 409, error: "Entries aren't open for this one." };
   }
