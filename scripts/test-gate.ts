@@ -175,7 +175,7 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (soundcloudTargetProblem("like", "public") !== null || soundcloudTargetProblem("like", undefined) !== null) fail("a public track (or one SoundCloud doesn't label) must pass silently");
   if (soundcloudTargetProblem("follow", "private") !== null) fail("a follow targets a profile, which has no sharing setting");
   const stepsSrc = readFileSync(join(import.meta.dirname, "..", "src/app/api/admin/downloads/steps.ts"), "utf8");
-  if (!/const privateProblem = soundcloudTargetProblem\(s\.action, resolved\.sharing\);\s*if \(privateProblem\) return \{ error: privateProblem \};/.test(stepsSrc)) fail("saving a gate must check the resolved track's sharing");
+  if (!/const privateProblem = soundcloudTargetProblem\(s\.action, resolved\.sharing, resolved\.kind, resolved\.commentable\);\s*if \(privateProblem\) return \{ error: privateProblem \};/.test(stepsSrc)) fail("saving a gate must check the resolved track's sharing, kind and comment setting");
 
   // 27 Oct: packs are uploaded as sets; the card keeps the follow on a profile and the like/repost on one link.
   if (encodeScTarget(77, "playlist") !== "playlist:77" || encodeScTarget(77, "track") !== "77" || encodeScTarget(77, "user") !== "77") fail("a set's id carries its kind; tracks and users stay a bare number");

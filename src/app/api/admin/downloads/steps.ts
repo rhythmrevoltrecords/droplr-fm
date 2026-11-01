@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { GATE_PLATFORMS, duplicateStepProblem, isGatePlatform, soundcloudTargetProblem, type GatePlatform } from "@/lib/downloads";
+import { GATE_PLATFORMS, SC_COMMENT_SET_PROBLEM, duplicateStepProblem, isGatePlatform, isSoundcloudSetUrl, soundcloudTargetProblem, type GatePlatform } from "@/lib/downloads";
 import { clientCredentialsToken, encodeScTarget, getSoundCloudCreds, parseSoundCloudUrl, resolveId } from "@/lib/soundcloud";
 import { soundcloudGateEnforcement } from "@/lib/env";
 
@@ -54,6 +54,8 @@ export async function resolveGateSteps(
       if (!parsed) return { error: "That doesn't look like a soundcloud.com link." };
       if (s.action === "follow" && parsed.isTrack) return { error: "For the follow, use the profile link (soundcloud.com/name), not a track or set." };
       if (s.action !== "follow" && !parsed.isTrack) return { error: `For the ${s.action}, link the track or set (a pack), not a profile.` };
+      // By shape, so it's refused even while SoundCloud is paused and nothing can be resolved.
+      if (s.action === "comment" && isSoundcloudSetUrl(parsed.url)) return { error: SC_COMMENT_SET_PROBLEM };
 
       // The numeric id is only needed to *perform* the action. While SoundCloud's connection is
       // paused the step is a plain visit, so requiring credentials and a successful resolve would
@@ -69,7 +71,9 @@ export async function resolveGateSteps(
         }
         const resolved = await resolveId(scToken, parsed.url);
         if (!resolved) return { error: "SoundCloud didn't recognise that link. Check it opens in a browser." };
-        const privateProblem = soundcloudTargetProblem(s.action, resolved.sharing);
+        // And by what SoundCloud says it is: a set behind a short or odd link, or a track with
+        // comments switched off, would fail on every fan's screen after they'd authorised.
+        const privateProblem = soundcloudTargetProblem(s.action, resolved.sharing, resolved.kind, resolved.commentable);
         if (privateProblem) return { error: privateProblem };
         // A set (often how a pack is uploaded) is liked and reposted at its own address, so the
         // kind travels with the id. Tracks and users stay a bare number, as every older row is.

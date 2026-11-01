@@ -14,6 +14,7 @@ export type OAuthState = {
   ret: string; // absolute return URL (release page)
   ru: string; // redirect_uri used for the authorize call
   cv?: string | null; // PKCE code_verifier (SoundCloud). Encrypted with the rest, so it works across a custom domain and droplr.fm
+  nh?: string | null; // SoundCloud comment: sha256 of the nonce in the dfm_scc cookie (lib/sc-comment). Never the words.
   exp: number;
 };
 
@@ -31,7 +32,7 @@ export function unpackState(raw: string | null): OAuthState | null {
   }
 }
 
-export function requestOrigin(req: Request) {
+export function requestOrigin(req: Pick<Request, "headers">) {
   const h = req.headers;
   const host = h.get("x-forwarded-host") ?? h.get("host") ?? new URL(SITE_URL).host;
   const proto = h.get("x-forwarded-proto") ?? (host.startsWith("localhost") || host.startsWith("127.") ? "http" : "https");
@@ -67,7 +68,7 @@ export async function safeReturnUrl(raw: string | null | undefined, fallback = S
 }
 
 /** Where the fan came from: tenant hosts use /slug, platform uses /org/slug */
-export function releasePageUrl(req: Request, org: { slug: string }, releaseSlug: string, variantSlug?: string | null) {
+export function releasePageUrl(req: Pick<Request, "headers">, org: { slug: string }, releaseSlug: string, variantSlug?: string | null) {
   const { origin, tenant } = requestOrigin(req);
   const path = tenant ? `/${releaseSlug}` : `/${org.slug}/${releaseSlug}`;
   return `${origin}${path}${variantSlug ? `/${variantSlug}` : ""}`;

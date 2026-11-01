@@ -19,6 +19,8 @@ import { GateView } from "./gate-view";
 import { ContestEntry, type ContestView, type GalleryEntry } from "./contest-entry";
 import { galleryVisible, PUBLIC_GALLERY_FROM_VERSION } from "@/lib/contest";
 import { getSoundCloudCreds } from "@/lib/soundcloud";
+import { packContext, servedOnSite } from "@/lib/sc-comment";
+import { releasePageUrl, requestOrigin } from "@/lib/oauth";
 import { progressFor, remaining } from "@/lib/downloads";
 import { bioSocials, releaseSocialHref, showSocials } from "@/lib/bio-socials";
 import { lookOf, pageModeOf } from "@/lib/page-look";
@@ -194,6 +196,15 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         : false,
     }));
     const usable = steps.filter((s) => s.available);
+    // Only a gate with a SoundCloud comment step needs this. The comment form exists only on
+    // droplr.fm's own page (lib/sc-comment explains why); there it gets the sealed visitor id and
+    // address. On a custom domain or subdomain the step links to the same gate on droplr.fm.
+    const wantsComment = usable.some((s) => s.platform === "soundcloud" && s.action === "comment") && enforcement === "enforced";
+    const onSite = servedOnSite(requestOrigin({ headers: h }).origin);
+    const scContext = wantsComment && onSite
+      ? packContext({ rid: release.id, anon: anonId, ret: releasePageUrl({ headers: h }, org, release.slug) })
+      : null;
+    const scCommentElsewhere = wantsComment && !onSite ? `${SITE_URL}/${org.slug}/${release.slug}` : null;
     return (
       <>
       {ldFor(false)}
@@ -218,6 +229,8 @@ export async function PublicRoute({ resolution, searchParams, orgHrefBase }: { r
         showBranding={!planOf(org.plan).removeBranding}
         theme={pageModeOf(release.pageMode)}
         contest={await contestViewOf(release.contest, org.timezone)}
+        scContext={scContext}
+        scCommentElsewhere={scCommentElsewhere}
       />
       </>
     );

@@ -62,7 +62,8 @@
     "test:royalties": "tsx --env-file-if-exists=.env scripts/test-royalties.ts",
     "test:beta": "tsx --env-file-if-exists=.env scripts/test-beta.ts",
     "test:signupsource": "tsx --env-file-if-exists=.env scripts/test-signup-source.ts",
-    "test:suspend": "tsx --env-file-if-exists=.env scripts/test-suspend.ts"
+    "test:suspend": "tsx --env-file-if-exists=.env scripts/test-suspend.ts",
+    "test:sccomment": "tsx --env-file-if-exists=.env scripts/test-sc-comment.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

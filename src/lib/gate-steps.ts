@@ -8,7 +8,7 @@
 /** email | soundcloud | instagram | tiktok | youtube | spotify | facebook | link */
 export type GatePlatform =
   | "email" | "soundcloud" | "instagram" | "tiktok" | "youtube" | "spotify" | "facebook" | "link";
-export type GateAction = "email" | "follow" | "like" | "repost" | "visit";
+export type GateAction = "email" | "follow" | "like" | "repost" | "comment" | "visit";
 
 /**
  * How a step's completion is established. This is a property of the platform, never of the row,
@@ -43,9 +43,9 @@ export const GATE_PLATFORMS: Record<GatePlatform, PlatformSpec> = {
   },
   soundcloud: {
     label: "SoundCloud",
-    actions: ["follow", "like", "repost"],
+    actions: ["follow", "like", "repost", "comment"],
     proof: "performed",
-    note: "They connect SoundCloud once and droplr performs the follow, like or repost for them. Genuinely done, not assumed.",
+    note: "They connect SoundCloud once and droplr performs the follow, like, repost or their comment for them. Genuinely done, not assumed.",
     needsTarget: true,
   },
   instagram: {
@@ -165,6 +165,7 @@ export function stepLabel(platform: string, action: string, orgName: string): st
     case "follow": return `Follow ${orgName} on ${name}`;
     case "like": return `Like the track on ${name}`;
     case "repost": return `Repost the track on ${name}`;
+    case "comment": return `Comment on the track on ${name}`;
     default: return `Open ${name}`;
   }
 }
@@ -178,7 +179,33 @@ export function stepLabel(platform: string, action: string, orgName: string): st
  * Progress is recorded per platform (GateUnlock.via), and that still holds: the SoundCloud
  * actions complete together or not at all.
  */
-export const SOUNDCLOUD_ACTION_ORDER: readonly GateAction[] = ["follow", "like", "repost"];
+export const SOUNDCLOUD_ACTION_ORDER: readonly GateAction[] = ["follow", "like", "repost", "comment"];
+
+/**
+ * The comment step. The fan types it on the gate; the artist can't prefill, suggest or edit it.
+ * SoundCloud's API Terms allow comments only when "specifically and deliberately initiated by the
+ * user", and a comment the artist wrote is the artist's words under the fan's name.
+ *
+ * It goes last in SOUNDCLOUD_ACTION_ORDER on purpose: it's the only action a retry repeats. A
+ * follow, like or repost already in place answers 409 (counted as done); a second comment is a
+ * second comment.
+ *
+ * 300 characters is droplr's own cap, not SoundCloud's: long enough for a real reaction, short
+ * enough that nobody pastes an advert into a stranger's comments through a gate.
+ */
+export const SC_COMMENT_MAX = 300;
+
+/**
+ * The fan's words, tidied: no control or direction-override characters, one line, trimmed, capped.
+ * Joiners (U+200C, U+200D) stay: they hold emoji sequences and Persian or Hindi text together.
+ * Null if nothing is left, or if it's too long (refused, never cut mid-sentence).
+ */
+export function cleanScComment(raw: unknown): string | null {
+  if (typeof raw !== "string") return null;
+  const words = raw.replace(/[\u0000-\u001f\u007f-\u009f\u200b\u200e\u200f\u2028-\u202e\u2066-\u2069\ufeff]/g, " ").replace(/\s+/g, " ").trim();
+  if (!words) return null;
+  return words.length > SC_COMMENT_MAX ? null : words;
+}
 
 export const repeatsByAction = (platform: string) => platform === "soundcloud";
 
@@ -202,11 +229,16 @@ export function duplicateStepProblem(steps: { platform: string; action: string }
 export function soundcloudLabel(actions: string[], orgName: string, isSet = false): string {
   const ordered = SOUNDCLOUD_ACTION_ORDER.filter((a) => actions.includes(a));
   const thing = isSet ? "the set" : "the track";
-  if (ordered.length === 1 && ordered[0] !== "follow") return `${ordered[0] === "like" ? "Like" : "Repost"} ${thing} on SoundCloud`;
+  const verb = (a: string) => (a === "comment" ? "comment on" : a);
+  if (ordered.length === 1 && ordered[0] !== "follow") {
+    const v = verb(ordered[0]);
+    return `${v.charAt(0).toUpperCase()}${v.slice(1)} ${thing} on SoundCloud`;
+  }
   if (ordered.length <= 1) return stepLabel("soundcloud", ordered[0] ?? "follow", orgName);
   const follow = ordered.includes("follow");
-  const track = ordered.filter((a) => a !== "follow");
-  const trackPart = track.length ? `${track.join(" and ")} ${thing}` : "";
+  const track = ordered.filter((a) => a !== "follow").map(verb);
+  const list = track.length <= 2 ? track.join(" and ") : `${track.slice(0, -1).join(", ")} and ${track[track.length - 1]}`;
+  const trackPart = track.length ? `${list} ${thing}` : "";
   if (!follow) return `${trackPart.charAt(0).toUpperCase()}${trackPart.slice(1)} on SoundCloud`;
   return `Follow ${orgName}${trackPart ? `, ${trackPart}` : ""} on SoundCloud`;
 }
@@ -270,12 +302,19 @@ export function fanRows<T extends { platform: string; action: string }>(steps: T
  * resolve call at save time can see this (`sharing`), so the builder refuses it there instead.
  * Found on the first real gate test, 22 Oct 2026, with a private secret link.
  */
-export function soundcloudTargetProblem(action: string, sharing: string | undefined): string | null {
+export function soundcloudTargetProblem(action: string, sharing: string | undefined, kind?: string, commentable?: boolean): string | null {
   if (action !== "follow" && sharing === "private") {
-    return `That track is private, so fans can't ${action} it and the step would fail for every one of them. Make it public on SoundCloud, or link a public track.`;
+    return `That track is private, so fans can't ${action === "comment" ? "comment on" : action} it and the step would fail for every one of them. Make it public on SoundCloud, or link a public track.`;
+  }
+  if (action === "comment" && kind && kind !== "track") return SC_COMMENT_SET_PROBLEM;
+  if (action === "comment" && commentable === false) {
+    return "Comments are switched off on that track, so a comment step would fail for every fan. Turn comments on in the track's settings on SoundCloud, or untick Comment.";
   }
   return null;
 }
+
+/** SoundCloud only takes comments on tracks. A set (how packs often go up) has nowhere to put one. */
+export const SC_COMMENT_SET_PROBLEM = "SoundCloud only takes comments on a track, not a set. Link a track, or untick Comment.";
 
 /**
  * Release-page tabs a download gate doesn't get. A stems pack has no streaming links to manage and

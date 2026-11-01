@@ -1,5 +1,5 @@
 import { SITE_URL } from "@/lib/env";
-import { GATE_PLATFORMS, effectiveProof, fanRows, isGatePlatform, isSoundcloudSetUrl, soundcloudLabel, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, SC_COMMENT_MAX, effectiveProof, fanRows, isGatePlatform, isSoundcloudSetUrl, soundcloudLabel, stepLabel, type Enforcement, type Proof } from "@/lib/gate-steps";
 import { ArtworkHero, ArtworkPageShell, ShellFooter, type PublicTheme } from "./artwork-shell";
 import type { PageLook } from "@/lib/page-look";
 import { lookShell } from "./page-look-shell";
@@ -41,6 +41,9 @@ const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
   "soundcloud-follow-capped": { tone: "warn", text: "Done on SoundCloud, except the follow: your account already follows as many people as SoundCloud allows. Unfollow someone on SoundCloud if you want to follow too." },
   "soundcloud-failed": { tone: "warn", text: "SoundCloud didn't complete that. Try again, or use another step if there is one." },
   "soundcloud-unavailable": { tone: "warn", text: "The SoundCloud step isn't available right now." },
+  "soundcloud-comment-missing": { tone: "warn", text: "Type your comment in the SoundCloud step, then press Connect." },
+  "soundcloud-comment-lost": { tone: "warn", text: "Your comment didn't make it back from SoundCloud, so nothing was posted. Try again in this browser, and finish on SoundCloud within 15 minutes." },
+  "soundcloud-comment-closed": { tone: "warn", text: "Comments are switched off on that SoundCloud track right now, so this step can't be done." },
   error: { tone: "warn", text: "Something went wrong. Please try again." },
 };
 
@@ -57,8 +60,15 @@ const NOTICES: Record<string, { tone: "ok" | "warn"; text: string }> = {
  *    normally leak here: the real link sits in a hidden element and View Source skips the gate.
  */
 export function GateView({
-  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest, enforcement = "enforced", preview = false,
+  release, steps, unlocked, query, showBranding, theme = "dark", demo, contest, enforcement = "enforced", preview = false, scContext = null, scCommentElsewhere = null,
 }: {
+  /** Set on a custom domain or subdomain: the comment step can only be done on droplr.fm, at this address. */
+  scCommentElsewhere?: string | null;
+  /**
+   * Sealed by the server (lib/sc-comment packContext): this release, this visitor, this page's
+   * address. Only a gate with a SoundCloud comment step needs it; it's opaque to the browser.
+   */
+  scContext?: string | null;
   /** Renders inside a fixed-size box: the Look tab's live preview. */
   preview?: boolean;
   release: GateViewData;
@@ -138,7 +148,7 @@ export function GateView({
           <ul className="space-y-2.5">
             {shown.map((s) => (
               <li key={s.id}>
-                <GateStepRow step={s} release={release} accent={accent} demo={demo} query={query} enforcement={enforcement} scIsSet={scIsSet} />
+                <GateStepRow step={s} release={release} accent={accent} demo={demo} query={query} enforcement={enforcement} scIsSet={scIsSet} scContext={scContext} scCommentElsewhere={scCommentElsewhere} />
               </li>
             ))}
           </ul>
@@ -168,11 +178,13 @@ function ProofNote({ proof }: { proof: Proof }) {
 }
 
 function GateStepRow({
-  step, release, accent, demo, query, enforcement, scIsSet = false,
+  step, release, accent, demo, query, enforcement, scIsSet = false, scContext = null, scCommentElsewhere = null,
 }: {
+  scCommentElsewhere?: string | null;
   step: GateStepView & { actions: string[] }; release: GateViewData; accent: string; demo?: boolean; query: Record<string, string | undefined>;
   enforcement: Enforcement;
   scIsSet?: boolean;
+  scContext?: string | null;
 }) {
   const label = step.platform === "soundcloud"
     ? soundcloudLabel(step.actions, release.artistName, scIsSet)
@@ -219,6 +231,51 @@ function GateStepRow({
         </label>
         <button type="submit" className="h-12 w-full rounded-xl font-semibold text-black transition active:scale-[0.99]" style={{ backgroundColor: "#fff" }}>
           Continue
+        </button>
+      </form>
+    );
+  }
+
+  // A comment step is a form, not a link: the fan's words go in a POST from droplr.fm's own page,
+  // which is what ties them to this fan (lib/sc-comment). Anywhere else the step is a link to
+  // the same gate on droplr.fm, and the fan finishes there.
+  if (performing && step.platform === "soundcloud" && step.actions.includes("comment") && scCommentElsewhere && !demo) {
+    return (
+      <a href={scCommentElsewhere} className="flex items-center gap-3 rounded-2xl border border-white/15 bg-white/[0.04] p-3.5 text-sm transition hover:bg-white/[0.08]">
+        <PlatformIcon platform={step.platform} />
+        <span className="flex-1">
+          <span className="block font-semibold">{label}</span>
+          <span className="block text-[11px] text-white/50">Your SoundCloud comment is typed on droplr.fm, so no other page can put words under your name. You&apos;ll finish this gate there.</span>
+        </span>
+        <span className="text-xs font-semibold" style={{ color: accent }}>Continue</span>
+      </a>
+    );
+  }
+  if (performing && step.platform === "soundcloud" && step.actions.includes("comment")) {
+    return (
+      <form method="post" action={demo ? undefined : `${SITE_URL}/api/gate/soundcloud/login`} className="glass space-y-3 rounded-2xl p-4">
+        <input type="hidden" name="step" value={step.id} />
+        {scContext && <input type="hidden" name="ctx" value={scContext} />}
+        <div className="flex items-center gap-3">
+          <PlatformIcon platform={step.platform} />
+          <span className="flex-1">
+            <label htmlFor={`sc-comment-${step.id}`} className="block text-sm font-semibold">{label}</label>
+            <ProofNote proof={proof} />
+          </span>
+        </div>
+        <textarea
+          id={`sc-comment-${step.id}`}
+          name="comment"
+          required
+          rows={2}
+          maxLength={SC_COMMENT_MAX}
+          placeholder="Your comment, in your words"
+          className="w-full resize-none rounded-xl border border-white/15 bg-black/40 px-4 py-3 text-base placeholder:text-white/40 focus:outline-none focus:ring-2"
+          style={{ ["--tw-ring-color" as string]: accent }}
+        />
+        <p className="text-[11px] leading-relaxed text-white/50">Posted on SoundCloud from your account, in your words. droplr doesn&apos;t keep a copy.</p>
+        <button type={demo ? "button" : "submit"} className="flex h-12 w-full items-center justify-center rounded-xl font-semibold text-black transition active:scale-[0.99]" style={{ backgroundColor: "#fff" }}>
+          Connect SoundCloud
         </button>
       </form>
     );

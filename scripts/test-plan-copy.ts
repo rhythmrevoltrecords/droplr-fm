@@ -11,7 +11,7 @@
  * and no plan may advertise something it does not have. Inheritance counts — "Everything in X"
  * means X's bullets are on the page for that plan too.
  */
-import { planFeatures, releasesLine, emailsLine, artistsLine } from "../src/lib/plan-copy";
+import { planFeatures, releasesLine, emailsLine, artistsLine, downloadsLine } from "../src/lib/plan-copy";
 import { PLAN_LIMITS, PLAN_ORDER, type PlanKey } from "../src/lib/plans";
 
 let passed = 0;
@@ -97,6 +97,14 @@ for (const k of PLAN_ORDER) {
   if (lim.artists !== Infinity && lim.artists > 1) {
     check(`${k} prints its real artist count`, artistsLine(k).includes(String(lim.artists)));
   }
+  if (lim.downloads !== Infinity) {
+    check(`${k} prints its real download gate limit`, downloadsLine(k).includes(String(lim.downloads)) && /in any 12 months/.test(downloadsLine(k)), downloadsLine(k));
+  } else {
+    check(`${k} says its download gates are unlimited`, /unlimited download gates/i.test(downloadsLine(k)), downloadsLine(k));
+  }
+  // The gate allowance has to be on the table a buyer reads, on the plan or anything it inherits.
+  check(`${k} shows its download gate allowance`, effectiveFeatures(k).includes(downloadsLine(k)) || (INHERITS[k] !== undefined && PLAN_LIMITS[INHERITS[k]!].downloads === lim.downloads && effectiveFeatures(k).some((f) => /download gate/i.test(f))),
+    `${k}: ${downloadsLine(k)} is not among its bullets`);
   check(`${k} has bullets at all`, planFeatures(k).length > 0);
 }
 
@@ -112,6 +120,10 @@ check(
 // "You can SEE every address on Free" is true; "it exports free" is not, and has to stay not said.
 check("Free does not claim CSV export", !/csv/.test(planFeatures("free").join(" ").toLowerCase()));
 check("Free really does have csvExport off", PLAN_LIMITS.free.csvExport === false);
+
+// The numbers Cody chose on 27 Oct 2026: Free keeps a reason to upgrade, Artist stops counting.
+check("Free allows 6 download gates in any 12 months", PLAN_LIMITS.free.downloads === 6);
+check("Artist and up have unlimited download gates", (["artist", "artist_pro", "pro", "label", "enterprise"] as PlanKey[]).every((k) => PLAN_LIMITS[k].downloads === Infinity));
 
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);
