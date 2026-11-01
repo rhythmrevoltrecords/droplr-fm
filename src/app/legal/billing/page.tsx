@@ -3,6 +3,7 @@ import { LegalShell, Section } from "@/components/marketing/legal-shell";
 import { tocHelper } from "@/components/marketing/legal-toc";
 import { CONTACT } from "@/lib/legal";
 import { legalMeta } from "@/lib/legal-meta";
+import { PLAN_LIMITS } from "@/lib/plans";
 
 export const metadata = legalMeta("billing");
 
@@ -102,6 +103,7 @@ export default function BillingPolicyPage() {
         <ul>
           <li>you can&apos;t create more new releases in a 12-month period, or invite more artists, than the plan allows;</li>
           <li>release-day emails go to the plan&apos;s number of pre-savers per release (on Free, the first 250). Fans past that still pre-save, and your admin shows how many won&apos;t be emailed;</li>
+          <li>download gates you&apos;ve already made <strong>stay live</strong> and keep handing out their file. You can edit them, but you can&apos;t make more than the plan allows in a 12-month period (on Free, {PLAN_LIMITS.free.downloads});</li>
           <li>analytics history is limited to the plan&apos;s range. Older data is kept, and comes back if you upgrade;</li>
           <li>pixels, CSV export, QR codes and branding removal switch off;</li>
           <li>a remix contest that is already live <strong>keeps running</strong> — it goes on taking entries, keeps its public list of entries, and stays editable so you can fix the brief or announce the winner. You just can&apos;t start a new one until you&apos;re back on a paid plan. We leave live contests alone because the people who entered were told a deadline, and that isn&apos;t theirs to lose;</li>

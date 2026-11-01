@@ -1087,7 +1087,7 @@ model GateStep {
   position   Int      @default(0)
   /** email | soundcloud | instagram | tiktok | youtube | spotify | facebook | link */
   platform   String
-  /** email | follow | like | repost | visit */
+  /** email | follow | like | repost | comment | visit */
   action     String
   /** Profile or track URL the fan is sent to, or whose owner the action is performed on. */
   target     String?

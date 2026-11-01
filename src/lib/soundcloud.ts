@@ -165,11 +165,13 @@ const auth = (token: string) => ({ Authorization: `OAuth ${token}`, Accept: "app
  * Stored at save time so a later username change can't silently break every gate pointing at
  * that account — SoundCloud URLs are mutable, ids are not.
  */
-export async function resolveId(token: string, url: string): Promise<{ id: number; username?: string; kind?: string; sharing?: string } | null> {
+export async function resolveId(token: string, url: string): Promise<{ id: number; username?: string; kind?: string; sharing?: string; commentable?: boolean } | null> {
   const res = await fetch(`${API}/resolve?url=${encodeURIComponent(url)}`, { headers: auth(token) });
   if (!res.ok) return null;
-  const json = (await res.json()) as { id?: number; username?: string; permalink?: string; kind?: string; sharing?: string };
-  return typeof json.id === "number" ? { id: json.id, username: json.username ?? json.permalink, kind: json.kind, sharing: json.sharing } : null;
+  const json = (await res.json()) as { id?: number; username?: string; permalink?: string; kind?: string; sharing?: string; commentable?: boolean };
+  return typeof json.id === "number"
+    ? { id: json.id, username: json.username ?? json.permalink, kind: json.kind, sharing: json.sharing, commentable: typeof json.commentable === "boolean" ? json.commentable : undefined }
+    : null;
 }
 
 export async function me(token: string): Promise<{ id: number; username: string } | null> {
@@ -258,3 +260,46 @@ export async function performAction(
  * label's custom domain isn't. The fan is sent back to the page they started on afterwards.
  */
 export const soundcloudRedirectUri = () => `${SITE_URL}/api/gate/soundcloud/callback`;
+
+/**
+ * The comment, as SoundCloud's API guide shows it (read 27 Oct 2026): POST /tracks/{id}/comments
+ * with a JSON body {"comment": {"body": "..."}}. Pure so the shape is testable without the network.
+ *
+ * NOT YET TRIED AGAINST REAL SOUNDCLOUD. The SoundCloud gate passed every suite for weeks and was
+ * refused on its first real connect; run one real comment gate before telling anyone about this.
+ */
+export function commentRequest(token: string, trackId: number, words: string) {
+  return {
+    url: `${API}/tracks/${trackId}/comments`,
+    init: {
+      method: "POST",
+      headers: { ...auth(token), "Content-Type": "application/json; charset=utf-8" },
+      body: JSON.stringify({ comment: { body: words } }),
+    } satisfies RequestInit,
+  };
+}
+
+/**
+ * Whether the fan can comment on this track right now, asked with the fan's own token. The save
+ * step checked when the gate was built; this catches comments switched off since. "I can't tell"
+ * (the lookup failed) is false: droplr doesn't post into a track it couldn't read.
+ */
+export async function canComment(token: string, trackId: number): Promise<boolean> {
+  const res = await fetch(`${API}/tracks/${trackId}`, { headers: auth(token) }).catch(() => null);
+  if (!res?.ok) {
+    console.warn(`SoundCloud track ${trackId} lookup before comment refused: HTTP ${res?.status ?? "network"}`);
+    return false;
+  }
+  const json = (await res.json().catch(() => null)) as { commentable?: boolean; kind?: string } | null;
+  return !!json && json.commentable !== false && (json.kind === undefined || json.kind === "track");
+}
+
+/** Post the fan's comment. Only a 2xx counts: a 409 here isn't "already done", it's a refusal. */
+export async function postComment(token: string, trackId: number, words: string): Promise<boolean> {
+  const { url, init } = commentRequest(token, trackId, words);
+  const res = await fetch(url, init).catch(() => null);
+  if (res && res.status >= 200 && res.status < 300) return true;
+  // Status only. The fan's words are never logged.
+  console.warn(`SoundCloud comment on track ${trackId} refused: HTTP ${res?.status ?? "network"}`);
+  return false;
+}

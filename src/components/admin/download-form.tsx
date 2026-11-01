@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
-import { GATE_PLATFORMS, SOUNDCLOUD_ACTION_ORDER, effectiveProof, enforcementNote, soundcloudGroupOf, withSoundcloudGroup, type SoundCloudGroup, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
+import { GATE_PLATFORMS, SC_COMMENT_SET_PROBLEM, SOUNDCLOUD_ACTION_ORDER, effectiveProof, isSoundcloudSetUrl, enforcementNote, soundcloudGroupOf, withSoundcloudGroup, type SoundCloudGroup, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
 import { slugify } from "@/lib/utils";
 
 type Step = { platform: GatePlatform; action: GateAction; target: string; required: boolean };
@@ -291,7 +291,7 @@ export function DownloadForm({
   );
 }
 
-const SC_TICKS: Record<string, string> = { follow: "Follow", like: "Like", repost: "Repost" };
+const SC_TICKS: Record<string, string> = { follow: "Follow", like: "Like", repost: "Repost", comment: "Comment" };
 
 /**
  * One SoundCloud card. Follow takes a profile; like and repost share one link, a track or a set
@@ -311,7 +311,11 @@ function SoundCloudCard({
     const actions = group.actions.includes(a) ? group.actions.filter((x) => x !== a) : [...group.actions, a];
     onChange(actions.length ? { ...group, actions } : null);
   };
-  const wantsItem = group.actions.includes("like") || group.actions.includes("repost");
+  const itemActions = group.actions.filter((a) => a !== "follow");
+  const wantsItem = itemActions.length > 0;
+  const commenting = group.actions.includes("comment");
+  const itemVerbs = itemActions.map((a) => (a === "comment" ? "comment on" : a));
+  const itemVerbText = itemVerbs.length <= 2 ? itemVerbs.join(" and ") : `${itemVerbs.slice(0, -1).join(", ")} and ${itemVerbs[itemVerbs.length - 1]}`;
   return (
     <li className="rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -342,9 +346,17 @@ function SoundCloudCard({
       )}
       {wantsItem && (
         <div className="mt-2.5 space-y-1">
-          <span className="text-xs text-muted-foreground">Track or set to {group.actions.includes("like") && group.actions.includes("repost") ? "like and repost" : group.actions.includes("like") ? "like" : "repost"} (a pack uploaded as a set works)</span>
-          <Input value={group.item} onChange={(e) => onChange({ ...group, item: e.target.value })} placeholder="https://soundcloud.com/you/the-track or …/sets/the-pack" aria-label="SoundCloud track or set" />
+          <span className="text-xs text-muted-foreground">
+            {commenting ? `Track to ${itemVerbText}` : `Track or set to ${itemVerbText} (a pack uploaded as a set works)`}
+          </span>
+          <Input value={group.item} onChange={(e) => onChange({ ...group, item: e.target.value })} placeholder={commenting ? "https://soundcloud.com/you/the-track" : "https://soundcloud.com/you/the-track or …/sets/the-pack"} aria-label={commenting ? "SoundCloud track" : "SoundCloud track or set"} />
+          {commenting && isSoundcloudSetUrl(group.item) && <p className="text-xs text-amber-400">{SC_COMMENT_SET_PROBLEM}</p>}
         </div>
+      )}
+      {commenting && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          Fans type their own comment on the gate. You can&apos;t write or suggest it for them: SoundCloud only allows comments a person chose to make.
+        </p>
       )}
       {missingKey && (
         <p className="mt-2 text-xs text-amber-400">

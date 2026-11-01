@@ -59,7 +59,7 @@ export default async function IntegrationsPage() {
             {org.soundcloudAppStatus === "active" ? <Badge variant="success">Active</Badge> : <Badge variant="secondary">Not connected</Badge>}
           </div>
           <CardDescription>
-            For download gates. When a fan connects SoundCloud, droplr performs the follow, like or repost for
+            For download gates. When a fan connects SoundCloud, droplr performs the follow, like, repost or comment for
             them and gets a confirmation back — the only gate step anyone can honestly call verified.
           </CardDescription>
         </CardHeader>
@@ -80,7 +80,7 @@ export default async function IntegrationsPage() {
               <span className="mt-1 block text-xs">Always this address, even if you use your own domain for links — a redirect URI has to match what is registered on the app.</span>
             </li>
             <li>Copy the Client ID and Client Secret into the form below.</li>
-            <li>Build the gate: <strong>Downloads → New</strong>, then add a SoundCloud step. Tick what fans do: <em>follow</em> takes your profile link; <em>like</em> and <em>repost</em> take one track or set link (a pack uploaded as a set works). They connect once and droplr does all of it.</li>
+            <li>Build the gate: <strong>Downloads → New</strong>, then add a SoundCloud step. Tick what fans do: <em>follow</em> takes your profile link; <em>like</em> and <em>repost</em> take one track or set link (a pack uploaded as a set works); <em>comment</em> needs a track, and fans type the comment themselves. They connect once and droplr does all of it.</li>
           </ol>
 
           <SoundCloudConnectForm status={org.soundcloudAppStatus} username={org.soundcloudUsername} canEdit={user.role === "owner"} />

@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 
 /**
- * Connect a SoundCloud app, for download-gate steps that perform a follow, like or repost.
+ * Connect a SoundCloud app, for download-gate steps that perform a follow, like, repost or comment.
  *
  * The credentials are checked against SoundCloud before they're saved — a key that doesn't work
  * should fail here, in settings, not later on a fan's screen half-way through a gate.
@@ -45,7 +45,7 @@ export function SoundCloudConnectForm({ status, username, canEdit }: { status: s
       {status === "active" ? (
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">
-            Connected{username ? <> as <strong className="text-foreground">{username}</strong></> : null}. Gate steps can follow, like and repost on a fan&apos;s behalf.
+            Connected{username ? <> as <strong className="text-foreground">{username}</strong></> : null}. Gate steps can follow, like, repost and post a fan&apos;s own comment on their behalf.
           </p>
           <Button variant="outline" size="sm" disabled={busy} onClick={() => void submit("DELETE")}>
             {busy && <Loader2 className="animate-spin" />} Disconnect
