@@ -200,7 +200,9 @@ async function main() {
     const orgB = await prisma.organization.findFirst({ where: { users: { some: { email: `src-b-${RUN}@example.com` } } }, include: { signupSource: true } });
     if (orgB) made.push(orgB.id);
     check("no cookie: the account is made and nothing is stored", !!orgB && orgB.signupSource === null, `${b.status}`);
-    const c = await signup(`src-c-${RUN}@example.com`, inv.code, `${SIGNUP_SOURCE_COOKIE}=${encodeURIComponent(enc({ v: 1, s: "x", l: "/", t: t + 999999 }))}`);
+    // Forged = a day ahead of the real clock. It used to be `t + 999999` off the fixed test date, which
+    // stopped being in the future on 7 Nov 2026 and turned this check into a time bomb.
+    const c = await signup(`src-c-${RUN}@example.com`, inv.code, `${SIGNUP_SOURCE_COOKIE}=${encodeURIComponent(enc({ v: 1, s: "x", l: "/", t: Math.floor(Date.now() / 1000) + 86400 }))}`);
     const orgC = await prisma.organization.findFirst({ where: { users: { some: { email: `src-c-${RUN}@example.com` } } }, include: { signupSource: true } });
     if (orgC) made.push(orgC.id);
     check("a forged cookie: the account is still made, nothing is stored", !!orgC && orgC.signupSource === null, `${c.status}`);
