@@ -594,7 +594,7 @@ export const POSTS: Post[] = [
     tag: "News",
     minutes: 4,
     runtime: "5:15",
-    youTubeId: "PASTEMETAID",
+    youTubeId: "_r1xwnw_4rE",
     publishAt: "2026-11-02T09:00:00+10:00",
     body: [
       { p: "On the 22nd of October, a group representing newspapers across the United States and Canada wrote to Mark Zuckerberg. They asked him to withdraw one clause." },
@@ -747,7 +747,7 @@ export const POSTS: Post[] = [
     tag: "Analysis",
     minutes: 4,
     runtime: "4:41",
-    youTubeId: "PASTETONEDN",
+    youTubeId: "x9lAK6VsnGs",
     publishAt: "2026-11-09T09:00:00+10:00",
     body: [
       { p: "On the first of December, every ToneDen link stops working. Smart links. Pre-save links. Links on custom domains. The QR code on a poster you printed last year. ToneDen's own help page says so, in plain words." },
