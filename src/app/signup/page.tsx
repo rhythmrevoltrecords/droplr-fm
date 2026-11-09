@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { signupsOpen } from "@/lib/launch";
 import { CONTACT } from "@/lib/legal";
+import { PLAN_LIMITS } from "@/lib/plans";
 import { findUsableInvite } from "@/lib/signup-invites";
 
 export const dynamic = "force-dynamic";
@@ -46,14 +47,41 @@ export default async function SignupPage(props: { searchParams: Promise<SP> }) {
   const inv = searchParams.code ? await findUsableInvite(searchParams.code) : null;
   const invite = inv?.ok ? inv.invite : null;
   if (!signupsOpen() && !searchParams.invite && !invite) return <InviteOnly searchParams={searchParams} />;
-  const kind = invite?.kind === "artist" || invite?.kind === "label" ? invite.kind : searchParams.type === "artist" || searchParams.plan?.startsWith("artist") ? "artist" : "label";
   const planNames: Record<string, string> = { artist: "Artist", artist_pro: "Artist Pro", pro: "Pro", label: "Label" };
+  const typeGiven = searchParams.type === "artist" || searchParams.type === "label";
+  const planGiven = !!searchParams.plan && !!planNames[searchParams.plan];
+  const kind = invite?.kind === "artist" || invite?.kind === "label" ? invite.kind : searchParams.type === "artist" || searchParams.plan?.startsWith("artist") ? "artist" : searchParams.type === "label" || planGiven ? "label" : "artist";
   const plan = searchParams.plan && planNames[searchParams.plan] && (kind === "artist" ? searchParams.plan.startsWith("artist") : !searchParams.plan.startsWith("artist")) ? searchParams.plan : null;
   const keep = (type: string) => `/signup?type=${type}${searchParams.invite ? "&invite=1" : ""}${searchParams.ref ? "&ref=1" : ""}${invite ? `&code=${searchParams.code}` : ""}`;
+  // Nothing says which account this is (no invite kind, no ?type, no ?plan): ask first, with two
+  // doors, instead of quietly defaulting to a label account most people arriving here don't want.
+  if (!invite?.kind && !typeGiven && !planGiven) {
+    return (
+      <AuthShell title="Start free" subtitle={`Free is one artist and ${PLAN_LIMITS.free.releases} new releases in any 12 months, for artists and labels alike. No card.`}>
+        {invite && (
+          <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
+            You&apos;re invited to droplr.fm. Pick the account that fits, then create it on the next screen.
+          </p>
+        )}
+        {searchParams.ref && <p className="mb-4 rounded-lg border border-violet-500/30 bg-violet-500/10 px-3 py-2 text-sm">A friend invited you to droplr.fm. Pick your account below and they&apos;re thanked once you&apos;re a paying member.</p>}
+        <nav aria-label="Choose your account" className="grid gap-3">
+          <Link href={keep("artist")} className="group rounded-xl border bg-background/40 px-4 py-3.5 transition hover:border-violet-400/60 hover:bg-violet-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400">
+            <span className="block font-semibold">I release my own music</span>
+            <span className="mt-0.5 block text-sm text-muted-foreground">An artist account for your own releases, fan list and promo.</span>
+          </Link>
+          <Link href={keep("label")} className="group rounded-xl border bg-background/40 px-4 py-3.5 transition hover:border-violet-400/60 hover:bg-violet-500/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-violet-400">
+            <span className="block font-semibold">I run a label</span>
+            <span className="mt-0.5 block text-sm text-muted-foreground">Start free with one artist. Add your roster on Pro.</span>
+          </Link>
+        </nav>
+        <p className="mt-5 text-center text-sm text-muted-foreground">Have an account? <Link className="text-foreground underline" href="/login">Log in</Link></p>
+      </AuthShell>
+    );
+  }
   return (
     <AuthShell
       title={plan ? "Create your account" : "Start free"}
-      subtitle={plan ? `Create your ${kind} account, then choose ${planNames[plan]} billing on the next screen.` : kind === "artist" ? "Pre-saves, a fan list and promo tools for your own releases. 3 releases free, no card." : "Smart links, pre-saves and a roster for your label. 3 releases free, no card."}
+      subtitle={plan ? `Create your ${kind} account, then choose ${planNames[plan]} billing on the next screen.` : kind === "artist" ? `Pre-saves, a fan list and promo tools for your own releases. ${PLAN_LIMITS.free.releases} releases free, no card.` : `Free covers one artist and ${PLAN_LIMITS.free.releases} releases a year. Add your roster on Pro. No card.`}
     >
       {invite && (
         <p className="mb-4 rounded-lg border border-emerald-500/30 bg-emerald-500/10 px-3 py-2 text-sm">
@@ -71,7 +99,7 @@ export default async function SignupPage(props: { searchParams: Promise<SP> }) {
       <form method="post" action="/api/auth/signup" className="space-y-4">
         <input type="hidden" name="kind" value={kind} />
         {invite && <input type="hidden" name="inviteCode" value={searchParams.code} />}
-        <div className="space-y-2"><Label htmlFor="orgName">{kind === "artist" ? "Artist name" : "Label name"}</Label><Input id="orgName" name="orgName" required placeholder={kind === "artist" ? "Ototo" : "Rhythm Revolt Records"} /></div>
+        <div className="space-y-2"><Label htmlFor="orgName">{kind === "artist" ? "Artist name" : "Label name"}</Label><Input id="orgName" name="orgName" required placeholder={kind === "artist" ? "Ototo" : "Night Shift Records"} /></div>
         <div className="space-y-2"><Label htmlFor="email">Your email</Label><Input id="email" name="email" type="email" required autoComplete="email" defaultValue={invite?.email ?? undefined} readOnly={!!invite?.email} /></div>
         <div className="space-y-2"><Label htmlFor="password">Password</Label><Input id="password" name="password" type="password" minLength={10} required autoComplete="new-password" /></div>
         {plan && <input type="hidden" name="plan" value={plan} />}

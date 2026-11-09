@@ -66,7 +66,9 @@ export function planFeatures(k: PlanKey): string[] {
     case "free":
       // Not "yourname.droplr.fm": *.droplr.fm has no DNS under it, so that link 404s. The path form
       // is what actually resolves, and it's the one printed on every Free release page.
-      return [releasesLine(k), downloadsLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list (view only)", "droplr.fm/yourname links", "Release clips for Reels and TikTok"];
+      // The artist count goes first: Free is one artist for labels too, and a label reading the
+      // card has to see that before it reads anything else.
+      return [artistsLine(k), releasesLine(k), downloadsLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list (view only)", "droplr.fm/yourname links", "Release clips for Reels and TikTok"];
     case "artist":
       return [releasesLine(k), downloadsLine(k), clicksLine(k), emailsLine(k), ...common, insightsLine(k), "Fan list with news opt-ins + CSV export", "News emails to opted-in fans (tours, merch, anything)", "Remix contests with a public vote", "Your own page look: theme, font, colours, background", "Type clips: your words, cut on the beat", "Meta, TikTok and GA4 pixels", "QR codes for flyers and merch", "Sync fans to your Mailchimp audience"];
     case "artist_pro":

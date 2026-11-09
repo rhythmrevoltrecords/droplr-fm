@@ -1,8 +1,9 @@
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { ctaCopy } from "@/lib/launch";
 import { copyrightLine } from "@/lib/legal";
+import { cn } from "@/lib/utils";
+import { inter } from "./fonts";
 import { Logo } from "./logo";
 import { SectionLink } from "./section-link";
 
@@ -16,31 +17,36 @@ const NAV: { href: string; label: string; section?: string }[] = [
   { href: "/demo/demo-track", label: "Demo" },
 ];
 
-export function SiteHeader() {
+/**
+ * `overlay`: the header floats over the page (fixed) instead of taking its own row (sticky). The
+ * homepage uses it so its pinned showcase can fill the whole viewport, as in the approved design.
+ */
+export function SiteHeader({ overlay = false }: { overlay?: boolean }) {
   const cta = ctaCopy();
+  const navLink = "inline-flex h-10 items-center rounded-full px-3 transition-colors hover:bg-white/[0.06] hover:text-white";
   return (
     // Solid-ish background instead of backdrop-blur: no per-frame blur of everything scrolling underneath.
-    <header className="sticky top-0 z-40 border-b border-white/5 bg-[#0c0a14]/90">
-      <div className="container flex h-14 items-center gap-3 md:gap-6">
-        <Logo priority />
-        <nav aria-label="Main" className="hidden gap-5 text-sm text-muted-foreground md:flex">
+    <header className={cn("z-40 border-b border-white/[0.07] bg-[#0a090f]/[0.86]", overlay ? "fixed inset-x-0 top-0" : "sticky top-0")}>
+      <div className="container flex h-16 items-center gap-3 md:gap-6">
+        <Logo priority className="[&_img]:h-7" />
+        <nav aria-label="Main" className="hidden gap-1 text-[15px] font-medium text-white/70 md:flex">
           {NAV.map((n) => (
             n.section
-              ? <SectionLink key={n.label} section={n.section} className="transition-colors hover:text-foreground">{n.label}</SectionLink>
-              : <Link key={n.label} href={n.href} className="transition-colors hover:text-foreground">{n.label}</Link>
+              ? <SectionLink key={n.label} section={n.section} className={navLink}>{n.label}</SectionLink>
+              : <Link key={n.label} href={n.href} className={navLink}>{n.label}</Link>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-2">
-          <Button asChild variant="ghost" size="sm" className="hidden md:inline-flex"><Link href="/login">Log in</Link></Button>
-          <Button asChild size="sm" variant="white"><Link href={cta.primaryShort.href}>{cta.primaryShort.label}</Link></Button>
+          <Link href="/login" className="hidden h-10 items-center rounded-full px-3 text-[15px] font-medium text-white/70 transition-colors hover:text-white md:inline-flex">Log in</Link>
+          <Link href={cta.primaryShort.href} className="inline-flex h-10 items-center rounded-full bg-white px-[18px] text-[15px] font-semibold text-[#161022] transition hover:bg-[#f1edff]">{cta.primaryShort.label}</Link>
           {/* No-JS mobile menu */}
           <details className="group relative md:hidden">
-            <summary className="grid h-8 w-8 cursor-pointer list-none place-items-center rounded-lg border border-white/10 text-muted-foreground transition-colors hover:text-foreground group-open:bg-white/10 group-open:text-foreground [&::-webkit-details-marker]:hidden">
+            <summary className="grid h-10 w-10 cursor-pointer list-none place-items-center rounded-lg border border-white/10 text-muted-foreground transition-colors hover:text-foreground group-open:bg-white/10 group-open:text-foreground [&::-webkit-details-marker]:hidden">
               <Menu className="h-4 w-4 group-open:hidden" aria-hidden />
               <X className="hidden h-4 w-4 group-open:block" aria-hidden />
               <span className="sr-only">Menu</span>
             </summary>
-            <nav aria-label="Mobile" className="absolute right-0 top-10 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-white/10 bg-[#15121f] p-1.5 text-sm shadow-[0_24px_60px_-12px_rgba(0,0,0,.8)]">
+            <nav aria-label="Mobile" className="absolute right-0 top-12 w-56 max-w-[calc(100vw-2rem)] rounded-xl border border-white/10 bg-[#15121f] p-1.5 text-sm shadow-[0_24px_60px_-12px_rgba(0,0,0,.8)]">
               {NAV.map((n) => (
                 n.section
                   ? <SectionLink key={n.label} section={n.section} className="block rounded-lg px-3 py-2.5 text-muted-foreground hover:bg-white/5 hover:text-foreground">{n.label}</SectionLink>
@@ -62,7 +68,7 @@ export function SiteFooter() {
   const head = "mb-3 text-xs font-medium uppercase tracking-[0.18em] text-white/50";
   const link = "block hover:text-foreground";
   return (
-    <footer className="border-t border-white/5 py-14 text-sm text-muted-foreground">
+    <footer className="border-t border-white/[0.09] py-14 text-sm text-muted-foreground">
       <div className="container grid gap-10 md:grid-cols-[1.4fr_1fr_1fr_1fr]">
         <div className="space-y-3">
           <Logo />
@@ -103,11 +109,16 @@ const PAGE_GLOW = [
   "radial-gradient(40% 35% at 0% 90%, rgba(217,70,239,.07) 0%, transparent 70%)",
 ].join(", ");
 
-export function MarketingShell({ children }: { children: React.ReactNode }) {
+/**
+ * Every marketing page. Inter is set here (not in the root layout) so the dashboard keeps Geist.
+ * `overlay` floats the header over the page; `glow={false}` drops the page-wide light for a page
+ * that paints its own (the homepage).
+ */
+export function MarketingShell({ children, overlay = false, glow = true }: { children: React.ReactNode; overlay?: boolean; glow?: boolean }) {
   return (
-    <div className="relative isolate min-h-dvh overflow-x-clip bg-[#0c0a14]">
-      <div aria-hidden className="pointer-events-none fixed inset-0 -z-10" style={{ background: PAGE_GLOW }} />
-      <SiteHeader />
+    <div className={cn("mk-shell relative isolate min-h-dvh overflow-x-clip bg-[#0a090f] font-sans", inter.variable)} style={{ ["--font-sans" as string]: "var(--font-inter)" }}>
+      {glow && <div aria-hidden className="pointer-events-none fixed inset-0 -z-10" style={{ background: PAGE_GLOW }} />}
+      <SiteHeader overlay={overlay} />
       {children}
       <SiteFooter />
     </div>
