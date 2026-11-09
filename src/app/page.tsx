@@ -87,7 +87,7 @@ function plans(): { artist: ShowcasePlan[]; label: ShowcasePlan[] } {
       card("pro", "label", [
         artistsLine("pro"),
         "Artist logins and roster profiles",
-        "Team planning, agreements and royalty statements",
+        "Release plans with tasks for the label or the artist",
         "Everything in Artist Pro",
       ], { featured: true }),
       card("label", "label", [
@@ -250,8 +250,8 @@ export default function Landing() {
               <Faq q="Can I use my own domain?">
                 <p>Yes, on Artist Pro and the label plans, like music.yourname.com. One DNS record, and droplr verifies it and issues the certificate.{!domainsOpen() && <> Connecting one is invite-only for now while I prove the setup on real domains: email <a href={`mailto:${CONTACT.hello}`}>{CONTACT.hello}</a> and I&apos;ll switch it on for your account, usually the same day.</>} <Link href="/docs/custom-domain">Domain setup</Link></p>
               </Faq>
-              <Faq q="Does droplr hold my royalties?">
-                <p>No. Labels on Pro and Label can keep agreements, split sheets and royalty statements in droplr, but droplr never holds or moves money.</p>
+              <Faq q="Can a label's artists log in?">
+                <p>Yes. Labels invite artists from the roster, and each artist gets their own login to copy their links and see stats for their releases. Pro includes up to {PLAN_LIMITS.pro.artists} artists; Label has no limit.</p>
               </Faq>
               {!cta.open && cta.hint && (
                 <Faq q="Can anyone sign up?">
