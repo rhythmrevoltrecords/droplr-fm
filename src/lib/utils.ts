@@ -24,13 +24,16 @@ function fromPastedLink(input: string): string {
 }
 
 export function slugify(input: string) {
-  return fromPastedLink(input)
+  const slug = fromPastedLink(input)
     .toLowerCase()
     .normalize("NFKD")
     .replace(/[̀-ͯ]/g, "")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
+    .replace(/[^a-z0-9]+/g, "-");
+  // Runs are already one dash, so trimming is one character each end, no regex needed (CodeQL
+  // js/polynomial-redos). Cut to 60 before trimming the end, or a cut on a dash leaves "name-".
+  let s = slug.startsWith("-") ? slug.slice(1) : slug;
+  s = s.slice(0, 60);
+  return s.endsWith("-") ? s.slice(0, -1) : s;
 }
 
 export function pct(n: number, d: number) {
