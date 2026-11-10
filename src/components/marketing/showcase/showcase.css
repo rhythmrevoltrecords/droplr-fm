@@ -79,7 +79,8 @@
 .sc-p-ps { z-index: 3; transform: translateX(-50%); }
 .sc-p-sl { z-index: 2; top: 46px; transform: translateX(-50%) translateX(var(--slx)) translateZ(-180px) rotateY(20deg); }
 .sc-p-em { z-index: 1; top: 60px; transform: translateX(-50%) translateX(var(--emx)) translateZ(-180px) rotateY(-20deg); }
-.sc-p-ps::before { content: ""; position: absolute; inset: 8% -30% 20%; background: radial-gradient(closest-side, rgba(132, 78, 222, .55), transparent); filter: blur(30px); z-index: -1; }
+/* The pieces are preserve-3d, so a flat glow shares 3D space with the phone. When the phone tilts toward the pointer, Chrome splits the glow along the phone plane and draws half of it over the screen as a hard purple wedge. Sitting it 80px back keeps it behind the tilt. */
+.sc-p-ps::before { content: ""; position: absolute; inset: 8% -30% 20%; background: radial-gradient(closest-side, rgba(132, 78, 222, .55), transparent); filter: blur(30px); z-index: -1; transform: translateZ(-80px); }
 .sc-cap { position: absolute; left: 50%; top: -16px; transform: translateX(-50%); z-index: 5; box-shadow: 0 8px 24px -8px rgba(0, 0, 0, .6); }
 .sc-note { position: relative; z-index: 3; text-align: center; color: var(--sc-ink-3); font-size: 13px; margin: 10px 0 0; }
 
