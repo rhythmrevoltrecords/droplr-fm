@@ -68,8 +68,8 @@ export function ctaCopy(): CtaCopy {
         free: { label: "Start free", href: "/signup" },
         artist: { label: "Start Artist", href: "/signup?type=artist&plan=artist" },
         artist_pro: { label: "Start Artist Pro", href: "/signup?type=artist&plan=artist_pro" },
-        pro: { label: "Start Pro", href: "/signup?plan=pro" },
-        label: { label: "Start Label", href: "/signup?plan=label" },
+        pro: { label: "Start Pro", href: "/signup?type=label&plan=pro" },
+        label: { label: "Start Label", href: "/signup?type=label&plan=label" },
       },
     };
   }

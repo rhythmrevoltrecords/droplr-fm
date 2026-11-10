@@ -1,0 +1,90 @@
+/* ---------------------------------------------------------------------------
+   /pricing in the Showcase brand. Builds on showcase.css (the .sc tokens, .sc-display, .sc-btn,
+   .sc-pill); everything here is pr- prefixed under .sc, so nothing reaches other pages.
+   One soft light at the top of the page and nowhere else.
+   --------------------------------------------------------------------------- */
+.pr { padding-bottom: clamp(80px, 12vh, 140px); }
+.pr-top { position: relative; padding: clamp(72px, 11vh, 112px) 0 0; text-align: center; }
+.pr-top::before {
+  content: ""; position: absolute; left: 50%; top: -120px; width: min(1100px, 130vw); height: 560px; transform: translateX(-50%); pointer-events: none;
+  background:
+    radial-gradient(40% 46% at 64% 36%, rgba(86, 56, 150, .75), transparent 70%),
+    radial-gradient(34% 40% at 34% 40%, rgba(58, 38, 104, .7), transparent 72%);
+  filter: blur(60px); opacity: .85;
+}
+.pr-top > * { position: relative; }
+.pr-top h1 { font-size: clamp(42px, 6.4vw, 88px); }
+.pr-top .sc-lede { margin: 24px auto 0; }
+.pr-top .sc-hint { margin-top: 18px; }
+
+.pr-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 12px 16px; margin: 40px 0 28px; }
+.pr-switch { display: inline-flex; padding: 4px; border-radius: 999px; box-shadow: inset 0 0 0 1.25px var(--sc-line-soft); background: rgba(255, 255, 255, .02); }
+.pr-switch button { min-height: 44px; padding: 0 22px; border-radius: 999px; border: 0; background: transparent; color: var(--sc-ink-2); font-weight: 600; font-size: 15px; cursor: pointer; transition: background-color .3s var(--sc-ease), color .3s; }
+.pr-switch button:hover { color: #fff; }
+.pr-switch button[aria-checked="true"] { background: #fff; color: var(--sc-pill-ink); }
+
+/* cards: violet outline, the recommended one a full-strength line */
+.pr-cards { display: grid; gap: 16px; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pr-cards.pr-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.pr-card { display: flex; flex-direction: column; gap: 10px; padding: 26px 24px 24px; border-radius: 20px; background: var(--sc-bg-2); box-shadow: inset 0 0 0 1px var(--sc-line-soft); text-align: left; }
+.pr-card.pr-hi { box-shadow: inset 0 0 0 1.5px var(--sc-line); }
+.pr-card-h { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.pr-card h3 { margin: 0; font-size: 17px; font-weight: 700; }
+.pr-card.pr-hi h3 { color: var(--sc-lilac); }
+.pr-rec { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--sc-lilac); }
+.pr-for { margin: -6px 0 0; font-size: 13px; color: var(--sc-ink-3); }
+.pr-amt { font-size: 44px; font-weight: 800; letter-spacing: -.03em; line-height: 1; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.pr-amt small { font-size: 15px; font-weight: 500; color: var(--sc-ink-3); letter-spacing: 0; margin-left: 4px; }
+.pr-sub { margin: 0; font-size: 13px; color: var(--sc-ink-3); line-height: 1.45; }
+.pr-blurb { margin: 2px 0 0; font-size: 15px; color: #fff; font-weight: 500; line-height: 1.45; }
+.pr-card ul { list-style: none; margin: 6px 0 10px; padding: 0; display: grid; gap: 9px; font-size: 15px; color: var(--sc-ink-2); line-height: 1.45; }
+.pr-card li { display: flex; gap: 10px; }
+.pr-card li svg, .pr-table svg { width: 16px; height: 16px; flex: none; margin-top: 3px; color: var(--sc-lilac); }
+.pr-card .sc-btn { margin-top: auto; min-height: 48px; }
+.pr-jump { margin: 22px 0 0; text-align: center; font-size: 15px; }
+.pr-jump a { display: inline-flex; align-items: center; min-height: 44px; color: #fff; font-weight: 600; }
+
+/* comparison */
+.pr-compare { padding-top: clamp(80px, 12vh, 140px); scroll-margin-top: 64px; }
+.pr-compare-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+.pr-compare-head h2 { font-size: clamp(40px, 5.2vw, 72px); }
+.pr-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 15px; }
+.pr-table th, .pr-table td { padding: 13px 16px; border-bottom: 1px solid var(--sc-hair); text-align: center; vertical-align: top; }
+.pr-table td svg { margin: 2px auto 0; }
+.pr-table td { color: var(--sc-ink-2); }
+.pr-table .pr-no { color: rgba(255, 255, 255, .3); }
+.pr-table .pr-feat { text-align: left; font-weight: 500; color: #fff; width: 34%; }
+.pr-table .pr-feat small { display: block; margin-top: 2px; font-size: 12.5px; font-weight: 400; color: var(--sc-ink-3); line-height: 1.4; }
+.pr-table thead th { position: sticky; top: 64px; z-index: 2; background: var(--sc-bg); padding-top: 16px; padding-bottom: 14px; border-bottom: 1px solid var(--sc-line-soft); }
+.pr-table thead .pr-feat { color: var(--sc-ink-3); font-size: 12px; font-weight: 500; letter-spacing: .06em; text-transform: uppercase; vertical-align: bottom; }
+.pr-th-name { display: block; font-weight: 700; font-size: 15px; color: #fff; }
+.pr-th-price { display: block; font-weight: 500; font-size: 13px; color: var(--sc-ink-3); }
+.pr-group th { padding-top: 28px; text-align: left; font-size: 12px; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--sc-lilac); border-bottom-color: var(--sc-line-soft); }
+
+/* fine print: short facts, two columns */
+.pr-facts { margin-top: clamp(72px, 10vh, 120px); display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 48px; border-top: 1px solid var(--sc-hair); }
+.pr-facts div { padding: 18px 0; border-bottom: 1px solid var(--sc-hair); }
+.pr-facts dt { font-weight: 600; color: #fff; font-size: 15px; }
+.pr-facts dd { margin: 4px 0 0; color: var(--sc-ink-2); font-size: 15px; line-height: 1.5; }
+.pr-facts a { color: #fff; }
+
+@media (max-width: 1100px) {
+  .pr-cards.pr-cols-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 900px) {
+  .pr-cards, .pr-cards.pr-cols-4 { grid-template-columns: 1fr; }
+  .pr-facts { grid-template-columns: 1fr; }
+  /* The table scrolls sideways inside its own box, with the feature column pinned. The page doesn't. */
+  .pr-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; box-shadow: inset 0 0 0 1px var(--sc-hair); border-radius: 14px; }
+  .pr-table { min-width: 560px; font-size: 14px; }
+  .pr-table.pr-tcols-4 { min-width: 680px; }
+  .pr-table thead th { position: static; }
+  .pr-table .pr-feat { position: sticky; left: 0; z-index: 1; background: var(--sc-bg); width: 150px; min-width: 150px; box-shadow: 1px 0 0 var(--sc-hair); }
+  .pr-table th, .pr-table td { padding: 12px 10px; }
+  .pr-group span { position: sticky; left: 10px; }
+}
+@media (max-width: 700px) {
+  .pr-switch { width: 100%; }
+  .pr-switch button { flex: 1; }
+  .pr-compare-head .pr-switch { width: 100%; }
+}
