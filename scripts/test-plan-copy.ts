@@ -121,6 +121,11 @@ check(
 check("Free does not claim CSV export", !/csv/.test(planFeatures("free").join(" ").toLowerCase()));
 check("Free really does have csvExport off", PLAN_LIMITS.free.csvExport === false);
 
+// Free is one artist for labels too. A label reading the Free card has to see that first,
+// before it signs up expecting to add its roster.
+check("Free really is one artist", PLAN_LIMITS.free.artists === 1);
+check("Free card leads with its artist count", planFeatures("free")[0] === "1 artist", planFeatures("free")[0]);
+
 // The numbers Cody chose on 27 Oct 2026: Free keeps a reason to upgrade, Artist stops counting.
 check("Free allows 6 download gates in any 12 months", PLAN_LIMITS.free.downloads === 6);
 check("Artist and up have unlimited download gates", (["artist", "artist_pro", "pro", "label", "enterprise"] as PlanKey[]).every((k) => PLAN_LIMITS[k].downloads === Infinity));
