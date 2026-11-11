@@ -19,6 +19,7 @@ import { join } from "node:path";
 import bcrypt from "bcryptjs";
 import { prisma } from "../src/lib/db";
 import { DOWNLOAD_HIDDEN_TABS as GATE_HIDDEN, downloadUrlProblem, duplicateStepProblem, isSoundcloudSetUrl, soundcloudGroupOf, withSoundcloudGroup, soundcloudTargetProblem, effectiveProof, fanRows, soundcloudLabel, enforcementNote, isDropped, isEnforcement, isPerforming, proofOf, GATE_PLATFORMS, stepLabel, type Enforcement } from "../src/lib/downloads";
+import { missingDownloadFields, missingDownloadLine } from "../src/lib/download-form-check";
 import { planOf } from "../src/lib/plans";
 import { actionPath, performAction, decodeScTarget, encodeScTarget, isFollowCapped, clientCredentialsRequest, codeChallenge, codeExchangeBody, isActionSuccess, pkcePair, soundcloudAuthorizeUrl } from "../src/lib/soundcloud";
 
@@ -48,6 +49,20 @@ for (const name of ["NETLIFY_DATABASE_URL", "DATABASE_URL", "NETLIFY_DATABASE_UR
   if (!page.includes("soundcloudRedirectUri()")) fail("the setup steps must print the redirect URI from lib/soundcloud, not a hardcoded copy");
   if (!page.includes("Downloads \u2192 New") && !page.includes("Downloads → New")) fail("the setup steps must say where to build the gate");
   console.log("  \u2713 the SoundCloud setup steps are present and current");
+}
+
+// 12 Nov: Create download sat grey until artwork was uploaded and nothing said why, beside
+// placeholders that read as filled-in answers ("Ototo"). The button and the sentence follow one rule.
+{
+  const fail = (m: string) => { console.error(`  \u2717 ${m}`); process.exit(1); };
+  const form = readFileSync(join(import.meta.dirname, "..", "src/components/admin/download-form.tsx"), "utf8");
+  if (!/disabled=\{busy \|\| missing\.length > 0\}/.test(form)) fail("the Create button must follow missingDownloadFields");
+  if (!/missingDownloadLine\(missing\)/.test(form)) fail("the form must say what is still missing beside the button");
+  for (const p of ['placeholder="Ototo"', 'placeholder="Edit Pack Vol. 1"', '"edit-pack-vol-1"']) if (form.includes(p)) fail(`placeholder ${p} reads as a filled-in answer`);
+  if (missingDownloadLine(missingDownloadFields({ title: "A", downloadUrl: "https://x", coverUrl: "" })) !== "Still needs artwork.") fail("missing artwork must be named");
+  if (missingDownloadLine(missingDownloadFields({ title: " ", downloadUrl: "", coverUrl: "" })) !== "Still needs a name, artwork and a link to the files.") fail("an empty form must name all three");
+  if (missingDownloadFields({ title: "A", downloadUrl: "https://x", coverUrl: "https://y" }).length !== 0) fail("a full form needs nothing");
+  console.log("  \u2713 the download form says what it still needs");
 }
 
 // A download gate is a Release row, so every list and tool that reads releases sees it. The home

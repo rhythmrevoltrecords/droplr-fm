@@ -19,6 +19,8 @@
  *
  * No database, no browser, no rendering: shareVersion is a pure function by design.
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { daysUntil, MILESTONES, SHARE_FORMATS, shareVersion } from "../src/lib/share-image";
 
 let passed = 0;
@@ -105,6 +107,13 @@ function main() {
   // Milestones must be ascending and start where the UI says they unlock.
   check("milestones start at 25", MILESTONES[0] === 25);
   check("milestones strictly ascending", MILESTONES.every((n, i) => i === 0 || n > MILESTONES[i - 1]));
+
+  // 12 Nov: the card said Share "posts it straight to a story". It opens the phone's share menu.
+  {
+    const card = readFileSync(join(import.meta.dirname, "..", "src/components/admin/share-graphics.tsx"), "utf8");
+    check("the Share copy doesn't claim it posts to a story by itself", !/straight to a story/i.test(card));
+    check("the Share copy says it opens the share menu", /Share opens the share menu/.test(card));
+  }
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {

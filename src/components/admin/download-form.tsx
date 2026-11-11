@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Input, Label, Select } from "@/components/ui/input";
 import { ASPECT_SQUARE, IMAGE_HINT, useImageUpload } from "./image-crop-dialog";
 import { GATE_PLATFORMS, SC_COMMENT_SET_PROBLEM, SOUNDCLOUD_ACTION_ORDER, effectiveProof, isSoundcloudSetUrl, enforcementNote, soundcloudGroupOf, withSoundcloudGroup, type SoundCloudGroup, type Enforcement, type GateAction, type GatePlatform } from "@/lib/gate-steps";
+import { missingDownloadFields, missingDownloadLine } from "@/lib/download-form-check";
 import { slugify } from "@/lib/utils";
 
 type Step = { platform: GatePlatform; action: GateAction; target: string; required: boolean };
@@ -58,6 +59,7 @@ export function DownloadForm({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const editing = !!v.id;
+  const missing = missingDownloadFields(v);
   const set = <K extends keyof DownloadFormValues>(k: K, val: DownloadFormValues[K]) => setV((p) => ({ ...p, [k]: val }));
 
   // Same uploader, crop dialog and server-side re-encode the release form uses: the gate's artwork
@@ -135,18 +137,18 @@ export function DownloadForm({
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label htmlFor="title">Name</Label>
-            <Input id="title" value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Edit Pack Vol. 1" />
+            <Input id="title" value={v.title} onChange={(e) => set("title", e.target.value)} placeholder="Name of the download" />
           </div>
           <div className="space-y-1.5">
             <Label htmlFor="artistName">Artist</Label>
-            <Input id="artistName" value={v.artistName} onChange={(e) => set("artistName", e.target.value)} placeholder="Ototo" />
+            <Input id="artistName" value={v.artistName} onChange={(e) => set("artistName", e.target.value)} placeholder="Artist name" />
           </div>
         </div>
 
         {!editing && (
           <div className="space-y-1.5">
             <Label htmlFor="slug">Link</Label>
-            <Input id="slug" value={v.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugify(v.title) || "edit-pack-vol-1"} />
+            <Input id="slug" value={v.slug} onChange={(e) => set("slug", e.target.value)} placeholder={slugify(v.title) || "your-download"} />
             <p className="text-xs text-muted-foreground">The last part of the URL. Can&apos;t be changed later — shared links would break.</p>
           </div>
         )}
@@ -273,10 +275,11 @@ export function DownloadForm({
       {error && <p className="rounded-lg border border-red-500/40 bg-red-500/10 p-3 text-sm text-red-300">{error}</p>}
 
       <div className="flex items-center gap-3">
-        <Button onClick={() => void save()} disabled={busy || !v.title || !v.downloadUrl || !v.coverUrl}>
+        <Button onClick={() => void save()} disabled={busy || missing.length > 0}>
           {busy && <Loader2 className="animate-spin" />}
           {editing ? "Save" : "Create download"}
         </Button>
+        {missing.length > 0 && !error && <span className="text-sm text-muted-foreground">{missingDownloadLine(missing)}</span>}
         <label className="flex items-center gap-2 text-sm text-muted-foreground">
           <input type="checkbox" checked={v.isPublic} onChange={(e) => set("isPublic", e.target.checked)} className="h-4 w-4" />
           Live

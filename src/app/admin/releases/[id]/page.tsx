@@ -13,7 +13,7 @@ import { ContestSetup } from "@/components/admin/contest-setup";
 import { ContestEntries } from "@/components/admin/contest-entries";
 import { voteConcentration } from "@/lib/contest";
 import { checkMetadata } from "@/lib/metadata-check";
-import { exclusivityFindings, exclusivitySummary, exclusivityWindowOf } from "@/lib/exclusivity";
+import { exclusivityFindings, exclusivitySummary, exclusivityWindowOf, rulesKnownFor } from "@/lib/exclusivity";
 import { ExclusivityFindings } from "@/components/admin/exclusivity-findings";
 import { PromoPlan } from "@/components/admin/promo-plan";
 import { SplitsEditor } from "@/components/admin/splits-editor";
@@ -473,6 +473,7 @@ export default async function ReleaseDetail(
       {tab === "settings" && release.exclusiveStore && (
         <ExclusivityFindings
           summary={exclusivitySummary(exclusivityWindowOf(release), new Date(), release.organization.timezone)}
+          rulesKnown={rulesKnownFor(release.exclusiveStore)}
           findings={exclusivityFindings(
             exclusivityWindowOf(release),
             release.links.map((l) => ({ platform: l.platform, url: l.url, visible: l.visible })),

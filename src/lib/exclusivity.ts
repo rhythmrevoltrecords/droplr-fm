@@ -68,6 +68,15 @@ export const WEEKS_BY_RULEBOOK: Record<Rulebook, number[]> = {
 export type Verdict = "breaks" | "allowed" | "unclear";
 
 /**
+ * The only exclusive store droplr has published rules for. Every rulebook above is a rulebook for a
+ * *Beatport* exclusive; none of them says what breaks a Traxsource one. On 12 Nov a Traxsource
+ * exclusive was found being answered under Beatport's rules, naming Beatport as the authority and
+ * Beatport's notice period. For any other store droplr now says it can't tell, rather than lending
+ * one store's rules to another.
+ */
+export const rulesKnownFor = (store: string | null | undefined): boolean => store === "beatport";
+
+/**
  * Platforms every rulebook treats as a download store, so every rulebook says they break it.
  * `custom` is not here: a custom button might be merch, a video or a ticket link, and droplr is not
  * going to guess. It gets "unclear" instead, which is the honest answer.
@@ -182,6 +191,37 @@ export function exclusivityFindings(
   const active = windowActive(w, now);
   const endText = end ? dateText(end, timezone) : null;
   const scope = endText ? `until ${endText}` : "for life";
+
+  if (!rulesKnownFor(w.store)) {
+    // No published rules for this store. Flag what any download exclusive would plausibly cover —
+    // other download stores, and custom buttons that might sell one — as warnings, never as errors,
+    // and say plainly that droplr is not the authority here.
+    if (!active) return [];
+    for (const link of links) {
+      if (!link.visible || link.platform === w.store) continue;
+      const name = platformMeta(link.platform).name;
+      if (link.platform === "custom") {
+        findings.push({
+          level: "warning",
+          platform: link.platform,
+          text: `droplr can't tell what this custom link points at. If it sells a download, it may break your ${storeName} exclusive, which runs ${scope}.`,
+        });
+      } else if ((DOWNLOAD_STORES as readonly string[]).includes(link.platform)) {
+        findings.push({
+          level: "warning",
+          platform: link.platform,
+          text: `${name} is another download store, so it may break your ${storeName} exclusive, which runs ${scope}. Check with your distributor, or hide this link until the window closes.`,
+        });
+      }
+    }
+    findings.push({
+      level: "note",
+      platform: null,
+      text: `droplr only has published rules for Beatport exclusives, so it can't say for sure what breaks a ${storeName} one. It flags other download stores and custom links, and nothing else. Ask your distributor what ${storeName} counts, including streaming.`,
+    });
+    const rank = { error: 0, warning: 1, note: 2 } as const;
+    return findings.sort((a, b) => rank[a.level] - rank[b.level]);
+  }
 
   if (active) {
     for (const link of links) {

@@ -19,7 +19,7 @@
  */
 import {
   businessDaysBetween, exclusivityFindings, exclusivitySummary, isRulebook, NOTICE_BUSINESS_DAYS,
-  RULEBOOKS, verdictFor, WEEKS_BY_RULEBOOK, windowActive, windowEnd,
+  RULEBOOKS, rulesKnownFor, verdictFor, WEEKS_BY_RULEBOOK, windowActive, windowEnd,
   type ExclusivityLink, type ExclusivityWindow, type Rulebook,
 } from "../src/lib/exclusivity";
 
@@ -167,6 +167,31 @@ function main() {
     RULEBOOKS.every((r) => r.label.length > 3 && r.note.length > 20));
   check("only the four rulebooks are accepted",
     ALL.every(isRulebook) && !isRulebook("fuga") && !isRulebook("") && !isRulebook(undefined));
+
+  console.log("\n10. A store droplr has no rules for (12 Nov: Traxsource was answered under Beatport's)");
+  {
+    const trax = (over: Partial<ExclusivityWindow> = {}) => win({ store: "traxsource", ...over });
+    const all = [link("traxsource"), link("beatport"), link("bandcamp"), link("soundcloud"), link("spotify"), link("custom")];
+    for (const rb of ALL) {
+      const f = exclusivityFindings(trax({ rulebook: rb, from: day(2) }), all, NOW);
+      check(`Traxsource under "${rb}": never cites Beatport, LabelWorx or Symphonic as the authority`,
+        !/Beatport count|Beatport asks|Beatport's wording|LabelWorx|Symphonic|all three/.test(texts(f)), texts(f));
+      check(`Traxsource under "${rb}": no errors, because droplr can't be sure`, errors(f).length === 0);
+    }
+    const f = exclusivityFindings(trax(), all, NOW);
+    check("the exclusive store's own link is never flagged", !f.some((x) => x.platform === "traxsource"));
+    check("other download stores are flagged as warnings",
+      ["beatport", "bandcamp"].every((p) => f.some((x) => x.platform === p && x.level === "warning")));
+    check("a custom link is flagged as a warning", f.some((x) => x.platform === "custom" && x.level === "warning"));
+    check("streaming links are not flagged", !f.some((x) => x.platform === "spotify" || x.platform === "soundcloud"));
+    check("it says it can't be sure, and names the store", f.some((x) => x.level === "note" && /can't say for sure/.test(x.text) && x.text.includes("Traxsource")));
+    check("no notice-period warning for a store whose notice period droplr doesn't know",
+      !texts(exclusivityFindings(trax({ from: day(1) }), [], NOW)).includes("business days"));
+    check("an ended window stays silent", exclusivityFindings(trax({ from: day(-60) }), all, NOW).length === 0);
+    check("Beatport is still the one store with known rules", rulesKnownFor("beatport") && !rulesKnownFor("traxsource") && !rulesKnownFor(null));
+    check("a Beatport exclusive still answers under Beatport's rules",
+      errors(exclusivityFindings(win(), [link("bandcamp")], NOW)).length === 1);
+  }
 
   console.log(`\n${passed} passed, ${failures.length} failed`);
   if (failures.length) {

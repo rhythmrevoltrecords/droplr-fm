@@ -51,7 +51,7 @@ export function ShareGraphics({ releaseId, live, milestones, presaves, version, 
           <div className="space-y-1.5">
             <CardTitle>Share graphics</CardTitle>
             <CardDescription>
-              Instagram story (9:16) and post (4:5) images made from the artwork, with the link written on them. Add the link as a story sticker too. On a phone, Share posts it straight to a story.
+              Instagram story (9:16) and post (4:5) images made from the artwork, with the link written on them. Add the link as a story sticker too. On a phone, Share opens the share menu, so you can send it to Instagram and add it to a story from there.
               {milestones.length === 0 && ` Milestone graphics unlock at 25 pre-saves (${presaves} so far).`}
             </CardDescription>
             {/* Not a disabled card: an empty lyric graphic looks broken, so the offer is the prompt. */}
@@ -109,7 +109,7 @@ export function ShareGraphics({ releaseId, live, milestones, presaves, version, 
                   <figcaption className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
                     <span>{f === "story" ? "Story · 1080×1920" : "Post · 1080×1350"}</span>
                     <span className="flex items-center gap-2">
-                      {/* On a phone this posts straight to a story; on desktop it renders nothing. */}
+                      {/* On a phone this opens the share menu; on desktop it renders nothing. */}
                       <ShareButton url={url} filename={`${it.key}-${f}.png`} title={it.title} />
                       <Button asChild size="sm" variant="secondary"><a href={`${url}&download=1`}><Download /> PNG</a></Button>
                     </span>
