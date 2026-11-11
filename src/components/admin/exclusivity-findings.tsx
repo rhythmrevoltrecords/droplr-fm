@@ -14,7 +14,7 @@ import type { Finding } from "@/lib/exclusivity";
  * green line. The findings themselves always name the distributor whose rule is being applied,
  * because "LabelWorx counts this as a breach" is actionable and "this might be a problem" is not.
  */
-export function ExclusivityFindings({ findings, summary }: { findings: Finding[]; summary: string | null }) {
+export function ExclusivityFindings({ findings, summary, rulesKnown }: { findings: Finding[]; summary: string | null; rulesKnown: boolean }) {
   const errors = findings.filter((f) => f.level === "error");
 
   return (
@@ -23,10 +23,16 @@ export function ExclusivityFindings({ findings, summary }: { findings: Finding[]
         <CardTitle className="text-base">Exclusivity</CardTitle>
         <CardDescription>
           {summary ? <strong className="text-foreground">{summary}</strong> : "No exclusive set."}{" "}
-          Beatport, LabelWorx and Symphonic publish different rules about what breaks an exclusive, so droplr answers
-          under the distributor you picked and names it. Worth knowing: Beatport&apos;s Hype eligibility is labels under
-          US$25,000 of Beatport sales in the trailing twelve months, and losing an exclusive can cost the premium price
-          point as well as the chart.
+          {rulesKnown ? (
+            <>
+              Beatport, LabelWorx and Symphonic publish different rules about what breaks an exclusive, so droplr answers
+              under the distributor you picked and names it. Worth knowing: Beatport&apos;s Hype eligibility is labels under
+              US$25,000 of Beatport sales in the trailing twelve months, and losing an exclusive can cost the premium price
+              point as well as the chart.
+            </>
+          ) : (
+            <>droplr only has published rules for Beatport exclusives, so for this store it can only flag the likely problems.</>
+          )}
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

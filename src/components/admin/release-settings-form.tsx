@@ -5,7 +5,7 @@ import { useState } from "react";
 import { contextState, parsePlaylistId } from "@/lib/spotify-context";
 import { Button } from "@/components/ui/button";
 import { Input, Label, Select } from "@/components/ui/input";
-import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook } from "@/lib/exclusivity";
+import { RULEBOOKS, WEEKS_BY_RULEBOOK, isRulebook, rulesKnownFor } from "@/lib/exclusivity";
 import type { ArtistOption } from "./release-create-form";
 import type { BioSocial } from "@/lib/bio-socials";
 
@@ -127,7 +127,7 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, s
 
         {f.exclusiveStore && (
           <>
-            <div className="space-y-2">
+            {rulesKnownFor(f.exclusiveStore) ? (<div className="space-y-2">
               <Label>Whose rules?</Label>
               <Select value={f.exclusiveRulebook} onChange={(e) => set("exclusiveRulebook", e.target.value)}>
                 {RULEBOOKS.map((r) => <option key={r.key} value={r.key === "unknown" ? "" : r.key}>{r.label}</option>)}
@@ -135,11 +135,16 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, s
               <p className="text-xs text-muted-foreground">
                 {RULEBOOKS.find((r) => r.key === (isRulebook(f.exclusiveRulebook) ? f.exclusiveRulebook : "unknown"))?.note}
               </p>
-            </div>
+            </div>) : (
+            <p className="text-xs text-muted-foreground sm:col-span-2">
+              droplr only has published rules for Beatport exclusives. For this store it flags other download stores
+              and custom links, and says it can&apos;t be sure. Ask your distributor what counts.
+            </p>
+            )}
             <div className="space-y-2">
               <Label>Window</Label>
               <Select value={f.exclusiveWeeks} onChange={(e) => set("exclusiveWeeks", e.target.value)}>
-                {WEEKS_BY_RULEBOOK[isRulebook(f.exclusiveRulebook) ? f.exclusiveRulebook : "unknown"].map((w) => (
+                {WEEKS_BY_RULEBOOK[rulesKnownFor(f.exclusiveStore) && isRulebook(f.exclusiveRulebook) ? f.exclusiveRulebook : "unknown"].map((w) => (
                   <option key={w} value={String(w)}>{w} weeks</option>
                 ))}
                 <option value="">Lifetime</option>
@@ -149,8 +154,8 @@ export function ReleaseSettingsForm({ releaseId, initial, artists, socialsFor, s
               <Label>Window starts ({locationLabel})</Label>
               <Input type="date" value={f.exclusiveFromLocal} onChange={(e) => set("exclusiveFromLocal", e.target.value)} />
               <p className="text-xs text-muted-foreground">
-                The store&apos;s own live date, which for an exclusive is earlier than the release date above. Beatport
-                asks for at least 7 business days&apos; notice before a window opens.
+                The store&apos;s own live date, which for an exclusive is earlier than the release date above.
+                {rulesKnownFor(f.exclusiveStore) && " Beatport asks for at least 7 business days\u2019 notice before a window opens."}
               </p>
             </div>
           </>
