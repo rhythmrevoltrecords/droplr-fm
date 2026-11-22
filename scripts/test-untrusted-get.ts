@@ -3,7 +3,9 @@
  *
  * Starts a local https server with a throwaway self-signed certificate and checks that a compressed
  * response is refused unread, that nothing follows a redirect, and that the size cap holds. Source
- * checks make sure the three user-URL paths stay on it rather than fetch().
+ * checks make sure the three user-URL paths stay on it rather than fetch(). The connect-time resolver
+ * must refuse a name that resolves to a private address, so a DNS answer that changes between
+ * publicHttpsUrl's check and the connection (rebinding) can't reach an internal service.
  */
 import { execFileSync } from "node:child_process";
 import { mkdtempSync, readFileSync } from "node:fs";
@@ -21,10 +23,31 @@ function check(name: string, ok: boolean, detail = "") {
 }
 
 async function main() {
-  const { untrustedGet, isCompressed } = await import("../src/lib/untrusted-get");
+  const { untrustedGet, isCompressed, publicOnlyLookup, PRIVATE_ADDRESS } = await import("../src/lib/untrusted-get");
 
   check("identity is not compressed", !isCompressed("identity") && !isCompressed(undefined) && !isCompressed(""));
   check("br, gzip and deflate are compressed", isCompressed("br") && isCompressed("gzip") && isCompressed(" GZIP ") && isCompressed("deflate"));
+
+  // A stub resolver, so the rebinding answer is ours to choose and no real DNS is involved.
+  type Addr = { address: string; family: number };
+  const stub = (addrs: Addr[]) => ((_h: string, _o: unknown, cb: (e: null, a: Addr[]) => void) => cb(null, addrs)) as never;
+  const viaLookup = (addrs: Addr[], all = false) =>
+    new Promise<{ code?: string; address?: unknown }>((r) =>
+      publicOnlyLookup(stub(addrs))("rebind.example", { all } as never, ((e: NodeJS.ErrnoException | null, a: unknown) => r({ code: e?.code, address: a })) as never));
+  const pub = { address: "93.184.216.34", family: 4 };
+  check("a public answer connects", (await viaLookup([pub])).address === pub.address);
+  check("a public answer with all:true returns the list", Array.isArray((await viaLookup([pub], true)).address));
+  for (const bad of ["127.0.0.1", "169.254.169.254", "10.0.0.5", "::1", "::ffff:127.0.0.1"]) {
+    check(`a rebinding answer of ${bad} is refused`, (await viaLookup([{ address: bad, family: bad.includes(":") ? 6 : 4 }])).code === PRIVATE_ADDRESS);
+  }
+  check("public plus private in one answer is refused", (await viaLookup([pub, { address: "10.0.0.5", family: 4 }])).code === PRIVATE_ADDRESS);
+  check("an empty answer is refused", (await viaLookup([])).code === PRIVATE_ADDRESS);
+
+  // End to end through the real resolver: localhost resolves to loopback. Without the guard this is
+  // ECONNREFUSED (nothing on port 1); with it the connection is never attempted.
+  let localCode = "";
+  const local = await untrustedGet(new URL("https://localhost:1/"), { maxBytes: 10, timeoutMs: 3000, onError: (c) => { localCode = c; } });
+  check("untrustedGet refuses a name that resolves to loopback", local === null && localCode === PRIVATE_ADDRESS, localCode);
 
   const dir = mkdtempSync(join(tmpdir(), "ug-"));
   execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-keyout", join(dir, "k.pem"), "-out", join(dir, "c.pem"), "-days", "1", "-subj", "/CN=localhost"], { stdio: "ignore" });
@@ -61,6 +84,9 @@ async function main() {
   check("artwork downloads use untrustedGet, not fetch", fpi.includes("untrustedGet(") && !/\bfetch\(/.test(fpi));
   const imp = code("src/lib/link-import-server.ts");
   check("link import uses untrustedGet, not fetch", imp.includes("untrustedGet(") && !/\bfetch\(/.test(imp));
+
+  const ug = code("src/lib/untrusted-get.ts");
+  check("the request connects through publicOnlyLookup", /lookup:\s*publicOnlyLookup\(\)/.test(ug));
 
   console.log(`\n${pass} passed, ${fails.length} failed`);
   if (fails.length) process.exit(1);

@@ -1,4 +1,7 @@
+import { lookup as dnsLookup, type LookupAddress } from "node:dns";
 import { request } from "node:https";
+import type { LookupFunction } from "node:net";
+import { isPrivateIp } from "./private-ip";
 
 /**
  * A GET to a server someone else chose (a pasted artwork URL, a link-in-bio page to import).
@@ -12,8 +15,37 @@ import { request } from "node:https";
  *
  * node:https never decompresses on its own and never follows redirects, which is what the callers
  * already required (a public host must not be able to bounce the request to an internal address).
- * The caller is still responsible for the address check (publicHttpsUrl in lib/color.ts).
+ * The caller still runs publicHttpsUrl (lib/color.ts) first, for a clean "not a public address"
+ * answer. But that check resolves the name once and the connection resolves it again, so a hostile
+ * DNS server with a zero TTL could answer public to the first and 169.254.x / 10.x to the second.
+ * publicOnlyLookup closes that: it is the resolver this request connects through, so the address
+ * judged is the address dialled. An IP-literal URL never reaches a resolver; publicHttpsUrl already
+ * refused the private ones, and a literal can't change between check and use.
  */
+/** The error code a refused private address surfaces as, through onError. */
+export const PRIVATE_ADDRESS = "EPRIVATEADDRESS";
+
+/**
+ * A dns.lookup for the socket that refuses to connect anywhere non-public. Any private answer fails
+ * the whole lookup, not just that address: a name that resolves to both kinds is not a public host.
+ * `resolve` is swappable for the test; production uses dns.lookup.
+ */
+export function publicOnlyLookup(resolve: typeof dnsLookup = dnsLookup): LookupFunction {
+  return (hostname, options, callback) => {
+    resolve(hostname, { ...options, all: true }, (err, addresses) => {
+      if (err) return callback(err, "", 0);
+      const list = addresses as unknown as LookupAddress[];
+      if (!list.length || list.some((a) => isPrivateIp(a.address))) {
+        const e: NodeJS.ErrnoException = new Error(`${hostname} resolves to a non-public address`);
+        e.code = PRIVATE_ADDRESS;
+        return callback(e, "", 0);
+      }
+      if (options.all) return (callback as unknown as (e: null, a: LookupAddress[]) => void)(null, list);
+      callback(null, list[0].address, list[0].family);
+    });
+  };
+}
+
 export type UntrustedResult = { status: number; contentType: string; body: Buffer };
 
 export function untrustedGet(
@@ -32,6 +64,7 @@ export function untrustedGet(
       url,
       {
         method: "GET",
+        lookup: publicOnlyLookup(),
         headers: {
           "accept-encoding": "identity",
           ...(o.accept ? { accept: o.accept } : {}),
