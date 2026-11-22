@@ -160,6 +160,9 @@ jobs:
       - name: Custom domains
         run: npx tsx scripts/test-domains.ts
 
+      - name: Untrusted GET (no decompression, no redirects, no private addresses)
+        run: npx tsx scripts/test-untrusted-get.ts
+
       - name: Store exclusivity
         run: npx tsx scripts/test-exclusivity.ts
 
